@@ -1,0 +1,39 @@
+# --- Virtual machines (never committed) ---
+vm/images/
+vm/run/
+*.qcow2
+*.img
+*.raw
+*.vdi
+*.vmdk
+OVMF_VARS*.fd
+
+# --- Build output ---
+out/
+build/
+/iso/work/
+*.iso
+*.iso.sha256
+*.pkg.tar.zst
+*.pkg.tar.zst.sig
+*.db.tar.gz
+*.files.tar.gz
+
+# --- Caches ---
+.cache/
+cache/
+node_modules/
+
+# --- Secrets (private signing keys, tokens). Public keys may be committed. ---
+secrets/
+*.key
+*secret*.asc
+*secret*.gpg
+.env
+
+# --- Editors and OS ---
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store

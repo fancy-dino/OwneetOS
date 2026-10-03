@@ -1,0 +1,831 @@
+<title>OwneetOS Interface Drafts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&family=Red+Hat+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: review sheet — one 16:9 TV frame per screen, stacked, each with its review notes underneath.
+   The frames use the console's own palette (user setting), independent of the page theme. */
+:root {
+  /* Page (review sheet) palette — light */
+  --paper: #F3F4F8;
+  --sheet: #FFFFFF;
+  --ink: #141A29;
+  --ink-soft: #586179;
+  --rule: #D9DDE8;
+  --mark: #D35A2E;
+  /* Type */
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --text: "Lexend", "Segoe UI", system-ui, sans-serif;
+  --mono: "Red Hat Mono", ui-monospace, "DejaVu Sans Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #0A0E18;
+    --sheet: #121827;
+    --ink: #E7EAF3;
+    --ink-soft: #9AA3BA;
+    --rule: #263049;
+    --mark: #FF8A5B;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #0A0E18;
+  --sheet: #121827;
+  --ink: #E7EAF3;
+  --ink-soft: #9AA3BA;
+  --rule: #263049;
+  --mark: #FF8A5B;
+}
+
+/* Console palettes (what the user picks in Settings → Appearance) */
+.screens {
+  --o-bg: #0E1424; --o-surface: #172036; --o-raised: #222D4A; --o-line: #2E3A5C;
+  --o-text: #EEF1F8; --o-muted: #8F9AB5; --o-accent: #FF8A5B; --o-on-accent: #1E0E06;
+  --ts: 1;
+}
+.screens[data-palette="tide"]     { --o-bg: #0B1A1D; --o-surface: #12272B; --o-raised: #1B363B; --o-line: #26474D; --o-text: #E9F4F3; --o-muted: #86A6A6; --o-accent: #4FD1C5; --o-on-accent: #04201D; }
+.screens[data-palette="bloom"]    { --o-bg: #1A1020; --o-surface: #25182D; --o-raised: #33223D; --o-line: #45304F; --o-text: #F7EEF6; --o-muted: #AE93AE; --o-accent: #FF7AA8; --o-on-accent: #2A0614; }
+.screens[data-palette="daylight"] { --o-bg: #EEF0F5; --o-surface: #FFFFFF; --o-raised: #E2E6EF; --o-line: #C9CFDC; --o-text: #121826; --o-muted: #5A6378; --o-accent: #2F5BEA; --o-on-accent: #FFFFFF; }
+.screens[data-palette="contrast"] { --o-bg: #000000; --o-surface: #000000; --o-raised: #161616; --o-line: #FFFFFF; --o-text: #FFFFFF; --o-muted: #E0E0E0; --o-accent: #FFE14D; --o-on-accent: #000000; }
+
+* { box-sizing: border-box; }
+html { background: var(--paper); }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--text);
+  font-weight: 350;
+  line-height: 1.55;
+  padding-inline: clamp(16px, 4vw, 48px);
+  padding-block: 0 64px;
+}
+.wrap { max-width: 1180px; margin-inline: auto; }
+
+/* ---------- Review sheet header ---------- */
+.masthead { display: grid; gap: 20px; padding-block: 40px 28px; border-bottom: 1px solid var(--rule); }
+.brand { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.wordmark { font-family: var(--display); font-weight: 750; font-variation-settings: "wdth" 80; font-size: clamp(2.4rem, 6vw, 3.6rem); letter-spacing: -0.03em; line-height: 1; }
+.wordmark span { color: var(--mark); }
+.eyebrow { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+.lede { max-width: 64ch; color: var(--ink-soft); margin: 0; }
+.lede strong { color: var(--ink); font-weight: 500; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: center; }
+.tool { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tool > .label { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 999px; padding: 3px; background: var(--sheet); gap: 2px; }
+.seg button {
+  font: inherit; font-size: 0.85rem; color: var(--ink-soft); background: transparent; border: 0;
+  padding: 5px 12px; border-radius: 999px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.seg button:focus-visible, .chip-btn:focus-visible { outline: 2px solid var(--mark); outline-offset: 2px; }
+.swatch-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; vertical-align: -1px; margin-right: 6px; border: 1px solid rgba(127,127,127,.4); }
+.pad-status { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 8px; }
+.pad-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--rule); }
+.pad-status[data-on="true"]::before { background: var(--mark); }
+
+/* ---------- Screen sections ---------- */
+.screen-section { padding-block: 40px 8px; display: grid; gap: 16px; }
+.screen-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.screen-head h2 { font-family: var(--display); font-weight: 650; font-variation-settings: "wdth" 85; font-size: 1.7rem; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+.screen-head .eyebrow { white-space: nowrap; }
+.screen-purpose { margin: 0; color: var(--ink-soft); max-width: 70ch; }
+.frame-scroll { overflow-x: auto; border-radius: 14px; }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 32px; margin: 4px 0 0; padding: 0; list-style: none; }
+.notes li { border-top: 1px solid var(--rule); padding-top: 10px; font-size: 0.92rem; color: var(--ink-soft); }
+.notes li b { display: block; color: var(--ink); font-weight: 500; margin-bottom: 2px; }
+
+/* ---------- The console UI (scaled by container width) ---------- */
+.screen {
+  container-type: inline-size;
+  aspect-ratio: 16 / 9;
+  min-width: 640px;
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  background: var(--o-bg);
+  box-shadow: 0 1px 0 var(--rule), 0 24px 48px -28px rgba(10, 14, 24, .55);
+}
+.screen.is-active { box-shadow: 0 0 0 2px var(--mark), 0 24px 48px -28px rgba(10, 14, 24, .55); }
+.ui {
+  position: absolute; inset: 0;
+  font-size: 1.25cqw;            /* 1em = 16px on a 1280px-wide frame */
+  font-family: var(--text);
+  color: var(--o-text);
+  background: var(--o-bg);
+  padding: 2.25em 4em 1.75em;    /* 5% horizontal TV safe area */
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 1.6em;
+  line-height: 1.35;
+}
+.safe-guides .ui::after {
+  content: ""; position: absolute; inset: 5% 5%; border: 1px dashed var(--o-muted); opacity: .6; pointer-events: none;
+  border-radius: 0.4em;
+}
+.t-xs { font-size: calc(0.78em * var(--ts)); }
+.t-s  { font-size: calc(0.9em * var(--ts)); }
+.t-m  { font-size: calc(1.05em * var(--ts)); }
+.t-l  { font-size: calc(1.5em * var(--ts)); }
+.t-xl { font-size: calc(2.6em * var(--ts)); }
+.muted { color: var(--o-muted); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; letter-spacing: -0.02em; font-weight: 700; line-height: 1.02; }
+
+/* Focus = the console's selection ring */
+.ui [data-f] { cursor: pointer; transition: transform .16s ease, box-shadow .16s ease; outline: none; }
+.ui [data-f].f, .ui [data-f]:focus-visible {
+  box-shadow: 0 0 0 0.2em var(--o-bg), 0 0 0 0.42em var(--o-accent), 0 0.8em 2em -0.6em rgba(0,0,0,.6);
+  transform: scale(1.035);
+  z-index: 2;
+}
+:where(.ui) button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; }
+
+/* Top bar */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 2em; }
+.topbar-left { display: flex; align-items: center; gap: 2.4em; }
+.mini-mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 1.45em; letter-spacing: -0.03em; }
+.mini-mark i { font-style: normal; color: var(--o-accent); }
+.tabs { display: flex; gap: 0.4em; }
+.tab { padding: 0.45em 1.1em; border-radius: 999px; color: var(--o-muted); }
+.tab[aria-current="page"] { background: var(--o-text); color: var(--o-bg); font-weight: 500; }
+.status { display: flex; align-items: center; gap: 1.4em; color: var(--o-muted); font-variant-numeric: tabular-nums; }
+.status .item { display: inline-flex; align-items: center; gap: 0.45em; }
+.status svg { width: 1.2em; height: 1.2em; }
+.status .clock { color: var(--o-text); font-weight: 500; }
+.avatar { width: 2.2em; height: 2.2em; border-radius: 50%; background: var(--o-accent); color: var(--o-on-accent); display: grid; place-items: center; font-weight: 600; }
+
+/* Prompt bar */
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--o-muted); }
+.prompts .set { display: flex; gap: 1.8em; }
+.prompt { display: inline-flex; align-items: center; gap: 0.5em; }
+.g {
+  display: inline-grid; place-items: center; min-width: 1.7em; height: 1.7em; padding-inline: 0.35em;
+  border-radius: 999px; border: 0.12em solid var(--o-muted); color: var(--o-text);
+  font-size: 0.82em; font-weight: 600; line-height: 1;
+}
+.g.wide { border-radius: 0.45em; }
+
+/* Covers (generated art, no third-party images) */
+.cover {
+  position: relative; border-radius: 0.9em; overflow: hidden; aspect-ratio: 3 / 4;
+  background:
+    radial-gradient(120% 80% at 80% 10%, hsl(var(--h) 85% 62% / .95), transparent 60%),
+    radial-gradient(90% 70% at 0% 100%, hsl(calc(var(--h) + 40) 70% 35%), transparent 70%),
+    linear-gradient(160deg, hsl(var(--h) 45% 26%), hsl(calc(var(--h) + 25) 50% 12%));
+  display: flex; flex-direction: column; justify-content: flex-end; padding: 0.8em;
+  color: #fff;
+}
+.cover .ttl { font-family: var(--display); font-weight: 750; font-variation-settings: "wdth" 80; line-height: 1; letter-spacing: -0.01em; text-shadow: 0 0.1em 0.6em rgba(0,0,0,.35); }
+.cover .src {
+  position: absolute; top: 0.6em; left: 0.6em; padding: 0.2em 0.55em; border-radius: 999px;
+  background: rgba(0,0,0,.45); backdrop-filter: blur(4px); color: #fff; letter-spacing: 0.03em;
+}
+.cover.not-installed { filter: saturate(.35) brightness(.75); }
+.cover .dl { position: absolute; top: 0.6em; right: 0.6em; width: 1.9em; height: 1.9em; border-radius: 50%; background: rgba(0,0,0,.5); display: grid; place-items: center; }
+.cover .dl svg { width: 1.1em; height: 1.1em; }
+
+/* Home */
+.home-main { display: grid; grid-template-rows: 1fr auto; gap: 1.6em; min-height: 0; }
+.home-top { display: grid; grid-template-columns: 1.65fr 1fr; gap: 1.6em; min-height: 0; }
+.hero {
+  position: relative; border-radius: 1.2em; overflow: hidden; padding: 2em 2.2em;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 0.9em;
+  background:
+    radial-gradient(70% 90% at 85% 15%, hsl(330 85% 65% / .85), transparent 60%),
+    radial-gradient(60% 80% at 60% 110%, hsl(260 70% 45%), transparent 70%),
+    linear-gradient(135deg, hsl(250 45% 22%), hsl(220 55% 10%));
+  color: #fff;
+}
+.hero .kicker { text-transform: uppercase; letter-spacing: 0.12em; opacity: .8; }
+.hero .meta { display: flex; gap: 1.2em; opacity: .85; flex-wrap: wrap; }
+.hero .actions { display: flex; gap: 0.8em; margin-top: 0.4em; }
+.btn { padding: 0.7em 1.6em; border-radius: 999px; font-weight: 500; }
+.btn.primary { background: #fff; color: #10131C; }
+.btn.ghost { background: rgba(255,255,255,.14); color: #fff; }
+.side { display: grid; grid-template-rows: auto 1fr auto; gap: 0.8em; min-height: 0; }
+.side .row-head { margin-bottom: 0; }
+.apps { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; gap: 0.8em; min-height: 0; }
+.app {
+  min-height: 0; border-radius: 0.9em; background: var(--o-surface); border: 1px solid var(--o-line);
+  display: flex; flex-direction: column; justify-content: space-between; padding: 0.7em 0.8em;
+}
+.app .ico { width: 1.9em; height: 1.9em; border-radius: 0.55em; display: grid; place-items: center; font-weight: 700; font-family: var(--display); }
+.notice { display: flex; align-items: center; gap: 0.8em; padding: 0.75em 0.95em; background: var(--o-surface); border-radius: 0.9em; border: 1px solid var(--o-line); }
+.notice .dot { width: 0.6em; height: 0.6em; border-radius: 50%; background: var(--o-accent); flex: none; }
+.row-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.8em; }
+.row-covers { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1em; }
+.row-covers .cover, .row-covers .more { aspect-ratio: 4 / 5; }
+.more { border-radius: 0.9em; border: 0.12em dashed var(--o-line); display: grid; place-items: center; text-align: center; color: var(--o-muted); aspect-ratio: 3 / 4; padding: 0.8em; }
+
+/* Library */
+.lib-main { display: grid; grid-template-rows: auto 1fr; gap: 1.3em; min-height: 0; }
+.lib-head { display: flex; justify-content: space-between; align-items: center; gap: 1.5em; }
+.lib-title { display: flex; align-items: baseline; gap: 0.8em; }
+.chips { display: flex; gap: 0.5em; }
+.chip { padding: 0.45em 1em; border-radius: 999px; background: var(--o-surface); border: 1px solid var(--o-line); color: var(--o-muted); font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] { background: var(--o-accent); color: var(--o-on-accent); border-color: var(--o-accent); font-weight: 500; }
+.disks { display: flex; gap: 1.2em; color: var(--o-muted); font-variant-numeric: tabular-nums; }
+.disk { display: grid; gap: 0.3em; min-width: 9em; }
+.bar { height: 0.35em; border-radius: 999px; background: var(--o-raised); overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--o-accent); }
+.lib-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1.1em 1em; align-content: start; }
+
+/* Settings */
+.set-main { display: grid; grid-template-columns: 19em 1fr; gap: 2.4em; min-height: 0; }
+.set-nav { display: grid; gap: 0.25em; align-content: start; }
+.set-link { display: flex; align-items: center; gap: 0.8em; padding: 0.6em 0.9em; border-radius: 0.7em; color: var(--o-muted); }
+.set-link svg { width: 1.15em; height: 1.15em; flex: none; }
+.set-link[aria-current="true"] { background: var(--o-surface); color: var(--o-text); font-weight: 500; }
+.set-panel { display: grid; gap: 1.5em; align-content: start; }
+.set-group { display: grid; gap: 0.75em; }
+.set-row { display: flex; justify-content: space-between; align-items: center; gap: 1.5em; padding: 0.85em 1.1em; background: var(--o-surface); border-radius: 0.9em; border: 1px solid var(--o-line); }
+.palettes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.9em; }
+.pal { border-radius: 0.9em; padding: 0.7em; background: var(--o-surface); border: 1px solid var(--o-line); display: grid; gap: 0.6em; }
+.pal .strip { display: grid; grid-template-columns: 2fr 1fr 1fr; height: 2.6em; border-radius: 0.5em; overflow: hidden; }
+.pal .name { display: flex; justify-content: space-between; align-items: center; }
+.pal .tick { width: 1.2em; height: 1.2em; border-radius: 50%; border: 0.12em solid var(--o-muted); }
+.pal[aria-pressed="true"] .tick { background: var(--o-accent); border-color: var(--o-accent); box-shadow: inset 0 0 0 0.22em var(--o-surface); }
+.sizes { display: flex; gap: 0.5em; }
+.size { min-width: 2.6em; padding: 0.4em 0.7em; border-radius: 0.6em; background: var(--o-raised); text-align: center; }
+.size[aria-pressed="true"] { background: var(--o-accent); color: var(--o-on-accent); font-weight: 600; }
+.toggle { width: 2.9em; height: 1.6em; border-radius: 999px; background: var(--o-raised); position: relative; flex: none; }
+.toggle::after { content: ""; position: absolute; top: 0.2em; left: 0.2em; width: 1.2em; height: 1.2em; border-radius: 50%; background: var(--o-muted); transition: left .16s ease; }
+.toggle[aria-checked="true"] { background: var(--o-accent); }
+.toggle[aria-checked="true"]::after { left: 1.5em; background: var(--o-on-accent); }
+
+/* First boot / pairing */
+.oobe-top { display: flex; justify-content: space-between; align-items: center; }
+.steps { display: flex; gap: 0.6em; align-items: center; color: var(--o-muted); }
+.steps .s { display: inline-flex; align-items: center; gap: 0.45em; }
+.steps .n { width: 1.6em; height: 1.6em; border-radius: 50%; display: grid; place-items: center; border: 0.12em solid var(--o-line); font-variant-numeric: tabular-nums; }
+.steps .s.on { color: var(--o-text); }
+.steps .s.on .n { background: var(--o-accent); border-color: var(--o-accent); color: var(--o-on-accent); font-weight: 600; }
+.steps .sep { width: 1.6em; height: 0.12em; background: var(--o-line); }
+.pair { display: grid; grid-template-columns: 1fr 1.25fr; gap: 3em; align-items: center; min-height: 0; }
+.radar { position: relative; aspect-ratio: 1; width: min(100%, 22em); justify-self: center; display: grid; place-items: center; }
+.radar .ring { position: absolute; inset: 0; border-radius: 50%; border: 0.14em solid var(--o-accent); opacity: 0; animation: ping 3s ease-out infinite; }
+.radar .ring:nth-child(2) { animation-delay: 1s; }
+.radar .ring:nth-child(3) { animation-delay: 2s; }
+.radar .core { width: 52%; aspect-ratio: 1; border-radius: 50%; background: var(--o-surface); border: 1px solid var(--o-line); display: grid; place-items: center; }
+.radar svg { width: 64%; }
+@keyframes ping { 0% { transform: scale(.45); opacity: .9; } 100% { transform: scale(1); opacity: 0; } }
+.pair-copy { display: grid; gap: 1.2em; align-content: center; }
+.hello { min-height: 2.2em; transition: opacity .35s ease; }
+.hello.fade { opacity: 0; }
+.searching { display: inline-flex; align-items: center; gap: 0.6em; color: var(--o-accent); font-weight: 500; }
+.searching::before { content: ""; width: 0.6em; height: 0.6em; border-radius: 50%; background: var(--o-accent); animation: blink 1.2s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.brands { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7em; }
+.brand-card { padding: 0.85em 1em; border-radius: 0.9em; background: var(--o-surface); border: 1px solid var(--o-line); display: grid; gap: 0.3em; transition: border-color .3s ease, background .3s ease; }
+.brand-card.lit { border-color: var(--o-accent); background: var(--o-raised); }
+.brand-card .who { font-weight: 600; display: flex; align-items: center; gap: 0.5em; }
+.brand-card .who::before { content: ""; width: 0.55em; height: 0.55em; border-radius: 50%; background: var(--o-muted); }
+.brand-card.lit .who::before { background: var(--o-accent); }
+.fallback { display: flex; justify-content: space-between; align-items: center; color: var(--o-muted); }
+.link-btn { padding: 0.45em 1em; border-radius: 999px; border: 1px solid var(--o-line); }
+
+@media (prefers-reduced-motion: reduce) {
+  .radar .ring, .searching::before { animation: none; }
+  .radar .ring:first-child { opacity: .35; transform: scale(.8); }
+  .ui [data-f], .hello, .toggle::after { transition: none; }
+  .ui [data-f].f, .ui [data-f]:focus-visible { transform: none; }
+}
+
+.colophon { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--rule); display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px 32px; font-size: 0.9rem; color: var(--ink-soft); }
+.colophon b { display: block; color: var(--ink); font-weight: 500; }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="brand">
+      <div class="wordmark">Owneet<span>OS</span></div>
+      <div class="eyebrow">Interface drafts · Wave 1 · for owner review</div>
+    </div>
+    <p class="lede"><strong>Click any screen, then drive it with the arrow keys and Enter, or with a connected gamepad</strong> (D-pad, A to select, LB / RB to jump between screens, LT / RT to change the Library filter). Changes made in Settings → Appearance apply to every screen, the same way they would on the console.</p>
+    <div class="toolbar">
+      <div class="tool"><span class="label">Palette</span>
+        <div class="seg" id="tb-palette" role="group" aria-label="Palette">
+          <button type="button" id="tbp-dusk" data-palette="dusk" aria-pressed="true"><i class="swatch-dot" style="background:#FF8A5B"></i>Dusk</button>
+          <button type="button" id="tbp-tide" data-palette="tide" aria-pressed="false"><i class="swatch-dot" style="background:#4FD1C5"></i>Tide</button>
+          <button type="button" id="tbp-bloom" data-palette="bloom" aria-pressed="false"><i class="swatch-dot" style="background:#FF7AA8"></i>Bloom</button>
+          <button type="button" id="tbp-daylight" data-palette="daylight" aria-pressed="false"><i class="swatch-dot" style="background:#2F5BEA"></i>Daylight</button>
+          <button type="button" id="tbp-contrast" data-palette="contrast" aria-pressed="false"><i class="swatch-dot" style="background:#FFE14D"></i>Contrast</button>
+        </div>
+      </div>
+      <div class="tool"><span class="label">UI language</span>
+        <div class="seg" id="tb-lang" role="group" aria-label="UI language">
+          <button type="button" id="tbl-en" data-lang="en" aria-pressed="true">EN</button>
+          <button type="button" id="tbl-it" data-lang="it" aria-pressed="false">IT</button>
+        </div>
+      </div>
+      <div class="tool"><span class="label">Button glyphs</span>
+        <div class="seg" id="tb-glyphs" role="group" aria-label="Button glyphs">
+          <button type="button" id="tbg-xbox" data-glyphs="xbox" aria-pressed="true">Xbox</button>
+          <button type="button" id="tbg-ps" data-glyphs="ps" aria-pressed="false">PlayStation</button>
+        </div>
+      </div>
+      <div class="tool"><span class="label">TV safe area</span>
+        <div class="seg" id="tb-safe" role="group" aria-label="TV safe area">
+          <button type="button" id="tbs-off" data-safe="off" aria-pressed="true">Hidden</button>
+          <button type="button" id="tbs-on" data-safe="on" aria-pressed="false">Shown</button>
+        </div>
+      </div>
+      <span class="pad-status" id="pad-status" data-on="false">No gamepad detected</span>
+    </div>
+  </header>
+
+  <main class="screens" id="screens" data-palette="dusk">
+
+    <!-- ================= FIRST BOOT ================= -->
+    <section class="screen-section" id="sec-pair">
+      <div class="screen-head"><h2>First boot: connect a controller</h2><span class="eyebrow">Shown before anything else</span></div>
+      <p class="screen-purpose">The user has no working input yet, so nothing on this screen needs to be selected. Bluetooth search starts by itself and any gamepad that asks to pair is accepted.</p>
+      <div class="frame-scroll"><div class="screen" data-screen="pair">
+        <div class="ui">
+          <div class="oobe-top">
+            <span class="mini-mark">owneet<i>.</i></span>
+            <div class="steps t-s" aria-label="Setup progress">
+              <span class="s on"><span class="n">1</span><span data-i18n="step.controller">Controller</span></span><span class="sep"></span>
+              <span class="s"><span class="n">2</span><span data-i18n="step.language">Language</span></span><span class="sep"></span>
+              <span class="s"><span class="n">3</span><span data-i18n="step.network">Network</span></span><span class="sep"></span>
+              <span class="s"><span class="n">4</span><span data-i18n="step.ready">Ready</span></span>
+            </div>
+          </div>
+          <div class="pair">
+            <div class="radar" aria-hidden="true">
+              <span class="ring"></span><span class="ring"></span><span class="ring"></span>
+              <div class="core">
+                <svg viewBox="0 0 120 80" fill="none">
+                  <path d="M30 12h60c14 0 22 10 25 26l4 20c2 12-8 18-16 12l-12-10H29L17 70C9 76-1 70 1 58l4-20C8 22 16 12 30 12Z" fill="var(--o-raised)" stroke="var(--o-text)" stroke-width="3"/>
+                  <path d="M30 32v16M22 40h16" stroke="var(--o-text)" stroke-width="4" stroke-linecap="round"/>
+                  <circle cx="86" cy="33" r="4" fill="var(--o-accent)"/><circle cx="95" cy="41" r="4" fill="var(--o-text)"/>
+                  <circle cx="77" cy="41" r="4" fill="var(--o-text)"/><circle cx="86" cy="49" r="4" fill="var(--o-text)"/>
+                </svg>
+              </div>
+            </div>
+            <div class="pair-copy">
+              <div class="hello disp t-xl" id="hello">Connect a controller</div>
+              <div class="searching t-m" data-i18n="pair.searching">Searching for controllers. There is nothing to press here.</div>
+              <div class="brands t-s">
+                <div class="brand-card"><span class="who">PlayStation</span><span class="muted" data-i18n="pair.ps">Hold PS and Create until the light bar blinks fast.</span></div>
+                <div class="brand-card"><span class="who">Xbox</span><span class="muted" data-i18n="pair.xbox">Hold the pair button on the top edge until the logo blinks fast.</span></div>
+                <div class="brand-card"><span class="who">Nintendo Switch Pro</span><span class="muted" data-i18n="pair.switch">Hold the small sync button on top for 3 seconds.</span></div>
+                <div class="brand-card"><span class="who" data-i18n="pair.cable.title">USB cable or dongle</span><span class="muted" data-i18n="pair.cable">Plug it in. It works right away, no pairing needed.</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="fallback t-s">
+            <span data-i18n="pair.note">Pairing turns on automatically when no controller is connected.</span>
+            <button class="link-btn" data-f data-def type="button" data-i18n="pair.keyboard">Use keyboard instead</button>
+          </div>
+        </div>
+      </div></div>
+      <ul class="notes">
+        <li><b>Cycling headline</b>The language is not chosen yet, so the title rotates through languages. Language is step 2, once a controller works.</li>
+        <li><b>All brands at once</b>Every brand's instructions are visible at the same time and highlighted in turn, because the user can't pick one yet.</li>
+        <li><b>Keyboard fallback</b>Present but quiet. Mouse and keyboard are optional, never required.</li>
+      </ul>
+    </section>
+
+    <!-- ================= HOME ================= -->
+    <section class="screen-section" id="sec-home">
+      <div class="screen-head"><h2>Home</h2><span class="eyebrow">Default screen after login</span></div>
+      <p class="screen-purpose">The last game played comes first, with the streaming apps beside it and the unified library underneath. System notices (new disk, updates) sit in the side column and never in a pop-up.</p>
+      <div class="frame-scroll"><div class="screen" data-screen="home">
+        <div class="ui">
+          <div class="topbar">
+            <div class="topbar-left">
+              <span class="mini-mark">owneet<i>.</i></span>
+              <nav class="tabs t-s">
+                <button class="tab" data-f aria-current="page" type="button" data-i18n="tab.home">Home</button>
+                <button class="tab" data-f data-goto="sec-library" type="button" data-i18n="tab.library">Library</button>
+                <button class="tab" data-f data-goto="sec-settings" type="button" data-i18n="tab.settings">Settings</button>
+              </nav>
+            </div>
+            <div class="status t-s">
+              <span class="item" title="Controller battery"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z"/></svg>78%</span>
+              <span class="item" title="Wi-Fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/></svg></span>
+              <span class="clock" data-clock>21:40</span>
+              <span class="avatar t-s">M</span>
+            </div>
+          </div>
+          <div class="home-main">
+            <div class="home-top">
+              <div class="hero">
+                <span class="kicker t-xs" data-i18n="home.continue">Continue playing</span>
+                <span class="disp t-xl">Celeste</span>
+                <span class="meta t-s"><span>Steam</span><span data-i18n="home.lastplayed">Played yesterday</span><span data-i18n="home.playtime">12 h 40 min in total</span></span>
+                <div class="actions t-m">
+                  <button class="btn primary" data-f data-def type="button" data-i18n="home.play">Play</button>
+                  <button class="btn ghost" data-f type="button" data-i18n="home.details">Details</button>
+                </div>
+              </div>
+              <div class="side">
+                <div class="row-head t-s"><span data-i18n="home.apps">Apps</span></div>
+                <div class="apps t-s">
+                  <button class="app" data-f type="button"><span class="ico" style="background:#2A1416;color:#FF5C5C">N</span><span>Netflix</span></button>
+                  <button class="app" data-f type="button"><span class="ico" style="background:#2A1414;color:#FF6B6B">Y</span><span>YouTube</span></button>
+                  <button class="app" data-f type="button"><span class="ico" style="background:#11261A;color:#4ADE80">S</span><span>Spotify</span></button>
+                  <button class="app" data-f type="button"><span class="ico" style="background:var(--o-raised);color:var(--o-accent)">▶</span><span data-i18n="home.videos">Videos</span></button>
+                  <button class="app" data-f type="button"><span class="ico" style="background:var(--o-raised);color:var(--o-accent)">♪</span><span data-i18n="home.music">Music</span></button>
+                  <button class="app" data-f type="button"><span class="ico" style="background:#14202E;color:#7CB7FF">$</span><span data-i18n="home.store">Steam Store</span></button>
+                </div>
+                <div class="notice t-xs"><span class="dot"></span><span data-i18n="home.notice">USB disk connected. 3 games found and added to your library.</span></div>
+              </div>
+            </div>
+            <div>
+              <div class="row-head t-s"><span data-i18n="home.jump">Jump back in</span><span class="muted t-xs" data-i18n="home.unified">Steam and local games, together</span></div>
+              <div class="row-covers t-s" id="home-row"></div>
+            </div>
+          </div>
+          <div class="prompts t-xs">
+            <div class="set">
+              <span class="prompt"><span class="g" data-glyph="confirm"></span><span data-i18n="p.select">Select</span></span>
+              <span class="prompt"><span class="g" data-glyph="back"></span><span data-i18n="p.back">Back</span></span>
+              <span class="prompt"><span class="g wide" data-glyph="options"></span><span data-i18n="p.options">Options</span></span>
+            </div>
+            <span class="prompt"><span class="g wide" data-glyph="guide"></span><span data-i18n="p.guide">Quick menu, from anywhere</span></span>
+          </div>
+        </div>
+      </div></div>
+      <ul class="notes">
+        <li><b>No third-party logos</b>App tiles use letters as placeholders. Real icons are fetched at runtime, following the project rules.</li>
+        <li><b>Source badge</b>Every game shows where it comes from (Steam, Local). Stores only appear as an app, for purchases.</li>
+        <li><b>Guide button</b>Shown in the prompt bar on every screen, because it always brings the user back here.</li>
+      </ul>
+    </section>
+
+    <!-- ================= LIBRARY ================= -->
+    <section class="screen-section" id="sec-library">
+      <div class="screen-head"><h2>Library</h2><span class="eyebrow">Unified, across stores and disks</span></div>
+      <p class="screen-purpose">Every game in one grid, filtered by source or install state. Disks found by auto-mount are listed with their free space, so the user knows where a new game will fit.</p>
+      <div class="frame-scroll"><div class="screen" data-screen="library">
+        <div class="ui">
+          <div class="topbar">
+            <div class="topbar-left">
+              <span class="mini-mark">owneet<i>.</i></span>
+              <nav class="tabs t-s">
+                <button class="tab" data-f data-goto="sec-home" type="button" data-i18n="tab.home">Home</button>
+                <button class="tab" data-f aria-current="page" type="button" data-i18n="tab.library">Library</button>
+                <button class="tab" data-f data-goto="sec-settings" type="button" data-i18n="tab.settings">Settings</button>
+              </nav>
+            </div>
+            <div class="status t-s"><span class="clock" data-clock>21:40</span><span class="avatar t-s">M</span></div>
+          </div>
+          <div class="lib-main">
+            <div class="lib-head">
+              <div class="lib-title"><span class="disp t-l" data-i18n="lib.title">Your games</span><span class="muted t-s" data-i18n="lib.count">14 games</span></div>
+              <div class="chips t-xs">
+                <button class="chip" data-f data-def aria-pressed="true" type="button"><span data-i18n="lib.all">All</span> 14</button>
+                <button class="chip" data-f aria-pressed="false" type="button"><span data-i18n="lib.installed">Installed</span> 13</button>
+                <button class="chip" data-f aria-pressed="false" type="button">Steam 8</button>
+                <button class="chip" data-f aria-pressed="false" type="button">Local 6</button>
+              </div>
+              <div class="disks t-xs">
+                <div class="disk"><span><span data-i18n="lib.internal">Internal SSD</span> · 212 GB <span data-i18n="lib.free">free</span></span><span class="bar"><i style="width:58%"></i></span></div>
+                <div class="disk"><span>USB · 1.1 TB <span data-i18n="lib.free">free</span></span><span class="bar"><i style="width:31%"></i></span></div>
+              </div>
+            </div>
+            <div class="lib-grid t-s" id="lib-grid"></div>
+          </div>
+          <div class="prompts t-xs">
+            <div class="set">
+              <span class="prompt"><span class="g" data-glyph="confirm"></span><span data-i18n="p.play">Play</span></span>
+              <span class="prompt"><span class="g" data-glyph="back"></span><span data-i18n="p.back">Back</span></span>
+              <span class="prompt"><span class="g" data-glyph="y"></span><span data-i18n="p.sort">Sort: recently played</span></span>
+            </div>
+            <span class="prompt"><span class="g wide" data-glyph="lt"></span><span class="g wide" data-glyph="rt"></span><span data-i18n="p.filters">Switch filter</span></span>
+          </div>
+        </div>
+      </div></div>
+      <ul class="notes">
+        <li><b>Owned, not installed</b>Shown desaturated with a download mark. Selecting it opens the Steam page to install.</li>
+        <li><b>Generated covers</b>The mockup draws the covers itself. The real library uses each store's artwork, downloaded on the device.</li>
+        <li><b>Filters on LT / RT</b>Triggers cycle filters inside a page. LB / RB are reserved for switching between Home, Library and Settings, so the two never clash.</li>
+      </ul>
+    </section>
+
+    <!-- ================= SETTINGS ================= -->
+    <section class="screen-section" id="sec-settings">
+      <div class="screen-head"><h2>Settings: Appearance</h2><span class="eyebrow">Try the palettes here</span></div>
+      <p class="screen-purpose">Settings are a list on the left and a panel on the right, two levels deep at most. The palette, text size and accessibility switches below work for real in this mockup.</p>
+      <div class="frame-scroll"><div class="screen" data-screen="settings">
+        <div class="ui">
+          <div class="topbar">
+            <div class="topbar-left">
+              <span class="mini-mark">owneet<i>.</i></span>
+              <nav class="tabs t-s">
+                <button class="tab" data-f data-goto="sec-home" type="button" data-i18n="tab.home">Home</button>
+                <button class="tab" data-f data-goto="sec-library" type="button" data-i18n="tab.library">Library</button>
+                <button class="tab" data-f aria-current="page" type="button" data-i18n="tab.settings">Settings</button>
+              </nav>
+            </div>
+            <div class="status t-s"><span class="clock" data-clock>21:40</span><span class="avatar t-s">M</span></div>
+          </div>
+          <div class="set-main">
+            <nav class="set-nav t-s">
+              <button class="set-link" data-f type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/></svg><span data-i18n="set.network">Network</span></button>
+              <button class="set-link" data-f type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg><span data-i18n="set.controllers">Controllers and Bluetooth</span></button>
+              <button class="set-link" data-f type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9a4 4 0 0 1 0 6" stroke-linecap="round"/></svg><span data-i18n="set.audio">Audio</span></button>
+              <button class="set-link" data-f type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8" stroke-linecap="round"/></svg><span data-i18n="set.display">Display</span></button>
+              <button class="set-link" data-f data-def aria-current="true" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg><span data-i18n="set.appearance">Appearance</span></button>
+              <button class="set-link" data-f type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg><span data-i18n="set.language">Language</span></button>
+              <button class="set-link" data-f type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="6" rx="1.5"/><rect x="3" y="13" width="18" height="6" rx="1.5"/></svg><span data-i18n="set.storage">Storage</span></button>
+              <button class="set-link" data-f type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg><span data-i18n="set.system">System and updates</span></button>
+            </nav>
+            <div class="set-panel">
+              <div class="set-group">
+                <span class="t-s muted" data-i18n="set.palette">Color palette</span>
+                <div class="palettes t-xs">
+                  <button class="pal" data-f data-def data-pal="dusk" aria-pressed="true" type="button"><span class="strip"><i style="background:#0E1424"></i><i style="background:#222D4A"></i><i style="background:#FF8A5B"></i></span><span class="name">Dusk<span class="tick"></span></span></button>
+                  <button class="pal" data-f data-pal="tide" aria-pressed="false" type="button"><span class="strip"><i style="background:#0B1A1D"></i><i style="background:#1B363B"></i><i style="background:#4FD1C5"></i></span><span class="name">Tide<span class="tick"></span></span></button>
+                  <button class="pal" data-f data-pal="bloom" aria-pressed="false" type="button"><span class="strip"><i style="background:#1A1020"></i><i style="background:#33223D"></i><i style="background:#FF7AA8"></i></span><span class="name">Bloom<span class="tick"></span></span></button>
+                  <button class="pal" data-f data-pal="daylight" aria-pressed="false" type="button"><span class="strip"><i style="background:#EEF0F5"></i><i style="background:#E2E6EF"></i><i style="background:#2F5BEA"></i></span><span class="name">Daylight<span class="tick"></span></span></button>
+                  <button class="pal" data-f data-pal="contrast" aria-pressed="false" type="button"><span class="strip"><i style="background:#000"></i><i style="background:#fff"></i><i style="background:#FFE14D"></i></span><span class="name" data-i18n="set.contrast">High contrast<span class="tick"></span></span></button>
+                </div>
+              </div>
+              <div class="set-group t-s">
+                <div class="set-row"><span data-i18n="set.textsize">Text size</span>
+                  <span class="sizes">
+                    <button class="size" data-f data-ts="0.9" aria-pressed="false" type="button">S</button>
+                    <button class="size" data-f data-ts="1" aria-pressed="true" type="button">M</button>
+                    <button class="size" data-f data-ts="1.12" aria-pressed="false" type="button">L</button>
+                  </span>
+                </div>
+                <div class="set-row"><span><span data-i18n="set.motion">Reduce motion</span><br><span class="muted t-xs" data-i18n="set.motion.sub">Turns off zoom and fade animations</span></span><button class="toggle" data-f data-toggle="motion" role="switch" aria-checked="false" type="button" aria-label="Reduce motion"></button></div>
+                <div class="set-row"><span><span data-i18n="set.custom">Custom accent color</span><br><span class="muted t-xs" data-i18n="set.custom.sub">Pick any color. Text contrast is checked for you.</span></span><span class="muted t-xs" data-i18n="set.later">Wave 2</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="prompts t-xs">
+            <div class="set">
+              <span class="prompt"><span class="g" data-glyph="confirm"></span><span data-i18n="p.apply">Apply</span></span>
+              <span class="prompt"><span class="g" data-glyph="back"></span><span data-i18n="p.back">Back</span></span>
+            </div>
+            <span class="prompt"><span class="g wide" data-glyph="guide"></span><span data-i18n="p.guide">Quick menu, from anywhere</span></span>
+          </div>
+        </div>
+      </div></div>
+      <ul class="notes">
+        <li><b>Palettes as tokens</b>Each palette is a set of eight colors: background, surface, raised, line, text, muted, accent, text-on-accent. A theme never contains a hard-coded color.</li>
+        <li><b>High contrast is a palette</b>Accessibility lives in the same list as the other palettes. It is not hidden in a sub-menu.</li>
+        <li><b>Text size</b>Scales text only. The layout grid stays fixed so the TV safe area is respected.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="colophon">
+    <div><b>Type</b>Bricolage Grotesque for titles, Lexend for all interface text (designed for reading comfort, legible from the couch). Both open source, under the SIL Open Font License.</div>
+    <div><b>Scale</b>Designed on a 1280 × 720 grid that scales to 1080p and 4K. 5% horizontal safe area for TVs with overscan.</div>
+    <div><b>Focus</b>A double ring in the accent color plus a small lift. It must stay visible from 3 m away on every palette, including Daylight.</div>
+    <div><b>Status</b>Draft for review. Nothing here is final until approved and recorded in PROJECT_RULES.md.</div>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const screens = $('#screens');
+  const reduceMotionOS = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- i18n: English is read from the markup, other languages from message files ---------- */
+  const messages = {
+    it: {
+      'step.controller': 'Controller', 'step.language': 'Lingua', 'step.network': 'Rete', 'step.ready': 'Pronto',
+      'pair.searching': 'Ricerca dei controller in corso. Qui non c’è nulla da premere.',
+      'pair.ps': 'Tieni premuti PS e Create finché la barra luminosa lampeggia veloce.',
+      'pair.xbox': 'Tieni premuto il tasto di abbinamento sul bordo superiore finché il logo lampeggia veloce.',
+      'pair.switch': 'Tieni premuto il piccolo tasto sync in alto per 3 secondi.',
+      'pair.cable.title': 'Cavo USB o dongle', 'pair.cable': 'Collegalo. Funziona subito, senza abbinamento.',
+      'pair.note': 'L’abbinamento si attiva da solo quando nessun controller è collegato.',
+      'pair.keyboard': 'Usa la tastiera',
+      'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni',
+      'home.continue': 'Continua a giocare', 'home.lastplayed': 'Giocato ieri', 'home.playtime': '12 h 40 min in totale',
+      'home.play': 'Gioca', 'home.details': 'Dettagli', 'home.apps': 'App', 'home.videos': 'Video', 'home.music': 'Musica',
+      'home.store': 'Steam Store', 'home.notice': 'Disco USB collegato. 3 giochi trovati e aggiunti alla libreria.',
+      'home.jump': 'Riprendi', 'home.unified': 'Giochi Steam e locali, insieme', 'home.all': 'Tutti i giochi',
+      'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.options': 'Opzioni', 'p.guide': 'Menu rapido, da ovunque',
+      'p.play': 'Gioca', 'p.sort': 'Ordina: giocati di recente', 'p.filters': 'Cambia filtro', 'p.apply': 'Applica',
+      'lib.title': 'I tuoi giochi', 'lib.count': '14 giochi', 'lib.all': 'Tutti', 'lib.installed': 'Installati',
+      'lib.internal': 'SSD interno', 'lib.free': 'liberi', 'lib.install': 'Da installare',
+      'set.network': 'Rete', 'set.controllers': 'Controller e Bluetooth', 'set.audio': 'Audio', 'set.display': 'Schermo',
+      'set.appearance': 'Aspetto', 'set.language': 'Lingua', 'set.storage': 'Archiviazione', 'set.system': 'Sistema e aggiornamenti',
+      'set.palette': 'Palette colori', 'set.contrast': 'Alto contrasto', 'set.textsize': 'Dimensione testo',
+      'set.motion': 'Riduci animazioni', 'set.motion.sub': 'Disattiva zoom e dissolvenze',
+      'set.custom': 'Colore d’accento personalizzato', 'set.custom.sub': 'Scegli qualsiasi colore. Il contrasto del testo viene verificato per te.',
+      'set.later': 'Wave 2'
+    }
+  };
+  const english = {};
+  let lang = 'en';
+  const t = (key) => (lang !== 'en' && messages[lang] && messages[lang][key]) || english[key] || key;
+
+  function applyI18n() {
+    $$('[data-i18n]').forEach(el => {
+      const key = el.dataset.i18n;
+      if (!(key in english)) english[key] = el.firstChild && el.firstChild.nodeType === 3 ? el.firstChild.nodeValue : el.textContent;
+      // keep child elements (e.g. the tick inside a palette name), replace only the leading text node
+      if (el.firstChild && el.firstChild.nodeType === 3) el.firstChild.nodeValue = t(key);
+      else el.textContent = t(key);
+    });
+  }
+
+  /* ---------- Games (generated covers) ---------- */
+  const games = [
+    { n: 'Celeste', s: 'Steam', h: 330 }, { n: 'Hollow Knight', s: 'Steam', h: 215 },
+    { n: 'SuperTuxKart', s: 'Local', h: 200 }, { n: 'Stardew Valley', s: 'Steam', h: 95 },
+    { n: 'Hades', s: 'Steam', h: 8 }, { n: '0 A.D.', s: 'Local', h: 35 },
+    { n: 'Dead Cells', s: 'Steam', h: 280 }, { n: 'Veloren', s: 'Local', h: 145 },
+    { n: 'Vampire Survivors', s: 'Steam', h: 48 }, { n: 'Shattered Pixel Dungeon', s: 'Local', h: 165 },
+    { n: 'Mindustry', s: 'Local', h: 18 }, { n: 'Beyond All Reason', s: 'Local', h: 120 },
+    { n: 'Balatro', s: 'Steam', h: 355 }, { n: 'Outer Wilds', s: 'Steam', h: 25, missing: true }
+  ];
+  const dlIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>';
+  function coverHTML(g) {
+    return `<button class="cover${g.missing ? ' not-installed' : ''}" data-f type="button" style="--h:${g.h}" aria-label="${g.n}">
+      <span class="src t-xs">${g.s}</span>${g.missing ? `<span class="dl">${dlIcon}</span>` : ''}
+      <span class="ttl">${g.n}</span></button>`;
+  }
+  $('#home-row').innerHTML = games.slice(1, 7).map(coverHTML).join('') +
+    `<button class="more" data-f data-goto="sec-library" type="button"><span data-i18n="home.all">All games</span></button>`;
+  $('#lib-grid').innerHTML = games.map(coverHTML).join('');
+
+  /* ---------- Controller glyphs ---------- */
+  const glyphSets = {
+    xbox: { confirm: 'A', back: 'B', y: 'Y', options: '☰', guide: 'Guide', lb: 'LB', rb: 'RB', lt: 'LT', rt: 'RT' },
+    ps:   { confirm: '✕', back: '○', y: '△', options: 'Options', guide: 'PS', lb: 'L1', rb: 'R1', lt: 'L2', rt: 'R2' }
+  };
+  function applyGlyphs(set) {
+    $$('[data-glyph]').forEach(el => { el.textContent = glyphSets[set][el.dataset.glyph]; });
+  }
+
+  /* ---------- Settings that act on every screen ---------- */
+  function setPalette(p) {
+    screens.dataset.palette = p;
+    $$('#tb-palette button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.palette === p)));
+    $$('[data-pal]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pal === p)));
+  }
+  function setTextSize(v) {
+    screens.style.setProperty('--ts', v);
+    $$('[data-ts]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ts === v)));
+  }
+  function setReduceMotion(on) {
+    $$('[data-toggle="motion"]').forEach(b => b.setAttribute('aria-checked', String(on)));
+    screens.classList.toggle('no-motion', on);
+  }
+  const noMotionStyle = document.createElement('style');
+  noMotionStyle.textContent = '.no-motion .ui [data-f].f,.no-motion .ui [data-f]:focus-visible{transform:none}.no-motion .radar .ring,.no-motion .searching::before{animation:none}';
+  document.head.appendChild(noMotionStyle);
+
+  function segment(groupSel, attr, fn) {
+    $$(groupSel + ' button').forEach(b => b.addEventListener('click', () => {
+      $$(groupSel + ' button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      fn(b.dataset[attr]);
+    }));
+  }
+  segment('#tb-palette', 'palette', setPalette);
+  segment('#tb-lang', 'lang', l => { lang = l; applyI18n(); });
+  segment('#tb-glyphs', 'glyphs', applyGlyphs);
+  segment('#tb-safe', 'safe', v => screens.classList.toggle('safe-guides', v === 'on'));
+
+  /* ---------- Spatial navigation (same model the real frontend will use) ---------- */
+  const screenEls = $$('.screen');
+  let active = screenEls[1]; // Home
+  function items(scr) { return $$('[data-f]', scr).filter(el => el.offsetParent !== null); }
+  function current(scr) { return $('[data-f].f', scr); }
+  function select(el, focus) {
+    const scr = el.closest('.screen');
+    $$('[data-f].f', scr).forEach(x => x.classList.remove('f'));
+    el.classList.add('f');
+    setActive(scr);
+    if (focus) el.focus({ preventScroll: true });
+  }
+  function setActive(scr) {
+    if (active === scr) { scr.classList.add('is-active'); return; }
+    screenEls.forEach(s => s.classList.toggle('is-active', s === scr));
+    active = scr;
+  }
+  screenEls.forEach(scr => { const d = $('[data-def]', scr) || items(scr)[0]; if (d) d.classList.add('f'); });
+
+  function move(dir) {
+    const cur = current(active) || items(active)[0];
+    if (!cur) return;
+    const a = cur.getBoundingClientRect();
+    const ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    let best = null, bestScore = Infinity;
+    for (const el of items(active)) {
+      if (el === cur) continue;
+      const b = el.getBoundingClientRect();
+      const bx = b.left + b.width / 2, by = b.top + b.height / 2;
+      const dx = bx - ax, dy = by - ay;
+      let main, cross;
+      if (dir === 'left')  { if (b.right > a.left + 2) continue; main = -dx; cross = Math.abs(dy); }
+      if (dir === 'right') { if (b.left < a.right - 2) continue; main = dx; cross = Math.abs(dy); }
+      if (dir === 'up')    { if (b.bottom > a.top + 2) continue; main = -dy; cross = Math.abs(dx); }
+      if (dir === 'down')  { if (b.top < a.bottom - 2) continue; main = dy; cross = Math.abs(dx); }
+      const score = main + cross * 2.2;
+      if (score < bestScore) { bestScore = score; best = el; }
+    }
+    if (best) select(best, true);
+  }
+
+  function activate(el) {
+    if (!el) return;
+    if (el.dataset.pal) setPalette(el.dataset.pal);
+    if (el.dataset.ts) setTextSize(el.dataset.ts);
+    if (el.dataset.toggle === 'motion') setReduceMotion(el.getAttribute('aria-checked') !== 'true');
+    if (el.classList.contains('chip')) $$('.chip', el.parentElement).forEach(c => c.setAttribute('aria-pressed', String(c === el)));
+    if (el.dataset.goto) jumpTo($('[data-screen]', $('#' + el.dataset.goto)));
+  }
+  function jumpTo(scr) {
+    if (!scr) return;
+    const target = current(scr) || items(scr)[0];
+    scr.closest('.screen-section').scrollIntoView({ behavior: reduceMotionOS ? 'auto' : 'smooth', block: 'start' });
+    if (target) select(target, true);
+  }
+  function cycleFilter(step) {
+    const chips = $$('.chip', $('[data-screen="library"]'));
+    const i = chips.findIndex(c => c.getAttribute('aria-pressed') === 'true');
+    const next = chips[(i + step + chips.length) % chips.length];
+    chips.forEach(c => c.setAttribute('aria-pressed', String(c === next)));
+  }
+  function cycleScreen(step) {
+    const i = screenEls.indexOf(active);
+    jumpTo(screenEls[(i + step + screenEls.length) % screenEls.length]);
+  }
+
+  document.addEventListener('click', e => {
+    const el = e.target.closest('.screen [data-f]');
+    if (el) { select(el, false); activate(el); return; }
+    const scr = e.target.closest('.screen');
+    if (scr) { const c = current(scr) || items(scr)[0]; if (c) select(c, true); }
+  });
+  document.addEventListener('keydown', e => {
+    if (!document.activeElement || !document.activeElement.closest('.screen')) return;
+    const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    if (map[e.key]) { e.preventDefault(); move(map[e.key]); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(current(active)); }
+  });
+
+  /* ---------- Gamepad API ---------- */
+  const padStatus = $('#pad-status');
+  const prev = {};
+  let repeatAt = 0;
+  function poll(ts) {
+    const pads = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
+    const pad = pads[0];
+    if (pad) {
+      const pressed = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const edge = i => { const p = pressed(i), was = prev[i]; prev[i] = p; return p && !was; };
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
+      const dir = pressed(14) || ax < -0.5 ? 'left' : pressed(15) || ax > 0.5 ? 'right'
+                : pressed(12) || ay < -0.5 ? 'up' : pressed(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (prev.dir === dir ? 140 : 320); }
+      prev.dir = dir;
+      if (!dir) repeatAt = 0;
+      if (edge(0)) activate(current(active));
+      if (edge(4)) cycleScreen(-1);
+      if (edge(5)) cycleScreen(1);
+      if (edge(6) && active.dataset.screen === 'library') cycleFilter(-1);
+      if (edge(7) && active.dataset.screen === 'library') cycleFilter(1);
+    }
+    requestAnimationFrame(poll);
+  }
+  window.addEventListener('gamepadconnected', e => {
+    padStatus.dataset.on = 'true';
+    padStatus.textContent = 'Gamepad connected: ' + e.gamepad.id.replace(/\s*\(.*\)\s*/, '').slice(0, 40);
+  });
+  window.addEventListener('gamepaddisconnected', () => { padStatus.dataset.on = 'false'; padStatus.textContent = 'No gamepad detected'; });
+  requestAnimationFrame(poll);
+
+  /* ---------- First boot: cycling headline and highlighted brand ---------- */
+  const hellos = ['Connect a controller', 'Collega un controller', 'Conecta un mando', 'Connecte une manette', 'Verbinde einen Controller', 'Conecte um controle', 'Podłącz kontroler', 'Verbind een controller'];
+  const hello = $('#hello');
+  const brandCards = $$('.brand-card');
+  let hi = 0;
+  brandCards[0].classList.add('lit');
+  setInterval(() => {
+    hi = (hi + 1) % hellos.length;
+    brandCards.forEach((c, i) => c.classList.toggle('lit', i === hi % brandCards.length));
+    if (reduceMotionOS) { hello.textContent = hellos[hi]; return; }
+    hello.classList.add('fade');
+    setTimeout(() => { hello.textContent = hellos[hi]; hello.classList.remove('fade'); }, 350);
+  }, 2600);
+
+  /* ---------- Clock ---------- */
+  function tick() {
+    const d = new Date();
+    const s = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    $$('[data-clock]').forEach(el => { el.textContent = s; });
+  }
+  tick(); setInterval(tick, 30000);
+
+  applyI18n();
+  applyGlyphs('xbox');
+})();
+</script>
