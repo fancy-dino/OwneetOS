@@ -70,7 +70,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   cold start in ~9 s; clean ACPI shutdown. The builder itself follows current Arch (not pinned):
   pinning applies to the ISO contents (step 1.1).
 
-### [~] 0.8 Test VM harness (waiting for the gamepad check)
+### [~] 0.8 Test VM harness (awaiting owner review)
 - **Goal:** boot any built ISO the same way every time.
 - **Deliverables:** UEFI test VM script with blank virtual disks (single disk, multi-disk,
   "Windows-like" NTFS disk for later), controller passthrough (USB passthrough or evdev), serial
@@ -79,7 +79,9 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 - **Progress:** `vm/test.sh` + shared `vm/lib/common.sh`. Stock Arch ISO 2026.10.01 (verified by
   checksum and release signature) boots in UEFI mode in ~45 s with 4 GB RAM, 4 CPUs, 32G + 64G disks;
   `reset` returns to blank disks; `--gl` gives a virgl GPU (OpenGL only with QEMU 8.2, no Vulkan).
-  Gamepad passthrough implemented (evdev); **not yet verified**: needs a controller on the host.
+  Gamepad passthrough verified with the owner's Xbox One controller over Bluetooth: the guest sees
+  it with the same name and USB IDs (`js0`), and received A/B/X/Y, LB/RB, both triggers, both sticks
+  (full range) and the D-pad.
   NTFS test disk moved to step 6.5, where it is first needed.
 
 ### [ ] 0.9 CI skeleton
