@@ -117,12 +117,18 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   system reaches `OwneetOS 7.2.8-arch1-2 (ttyS0)` / `owneet login:`. Added `vm/test.sh wait-serial`
   and `vm/test.sh log` for automated boot checks.
 
-### [ ] 1.2 Own package repository `[owneet]`
+### [~] 1.2 Own package repository `[owneet]` (signing pending: key not created yet)
 
 - **Deliverables:** `packages/` with PKGBUILD layout, build script (clean chroot in the builder
   VM), repository database, package signing key, repo consumed by the ISO build.
 - **Owner input:** where the signing key is stored and who holds it.
 - **Done when:** a dummy `owneet-base` package is built, signed and installed into the ISO.
+- **Progress:** `tools/build-packages` builds `packages/*` in a clean chroot on the ISO's Arch
+  snapshot and creates `out/repo/x86_64/owneet.db`; `tools/build-iso` adds the local `[owneet]`
+  repository to a copy of the profile. `owneet-base` 0.0.1 is built and installed in the ISO, which
+  still boots to the login prompt. `tools/keys/create-signing-key` written and tested with a
+  throwaway key. **Missing:** the real key (owner), signing of packages and database, keyring
+  package, `SigLevel = Required`.
 
 ### [ ] 1.3 Console session
 

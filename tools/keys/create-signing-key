@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Creates the OwneetOS package signing key (PROJECT_RULES.md section 5). Run ONCE, by the owner,
+# on their own computer:
+#
+#   tools/keys/create-signing-key EMAIL [OUTPUT_DIR]
+#
+# It creates:
+#   - a primary key ("vault", certify only, no expiry) and a signing subkey ("working stamp",
+#     expires in 2 years), both protected by a passphrase you type in a dialog;
+#   - OUTPUT_DIR/backup/   primary secret key, revocation certificate, public key, fingerprint
+#                          -> copy to the USB stick and the password manager, then delete
+#   - OUTPUT_DIR/working/  signing subkey only (no primary secret) -> for the developers
+#   - packages/owneet-keyring/owneet.gpg and owneet-trusted in the repository (public, committed)
+#
+# OUTPUT_DIR defaults to ~/OwneetOS-signing-key and must be outside the repository.
+# Nothing secret is ever written inside the repository.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+KEY_NAME="OwneetOS Package Signing"
+SUBKEY_EXPIRY="2y"
+
+die() { echo "error: $*" >&2; exit 1; }
+info() { echo "==> $*"; }
+
+email="${1:-}"
+out="${2:-$HOME/OwneetOS-signing-key}"
+[[ "$email" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]] \
+    || die "usage: tools/keys/create-signing-key EMAIL [OUTPUT_DIR]"
+command -v gpg >/dev/null || die "gpg is not installed"
+
+mkdir -p "$out"
+out="$(cd "$out" && pwd)"
+case "$out/" in "$ROOT"/*) die "OUTPUT_DIR must be outside the repository ($ROOT)";; esac
+[[ -z "$(ls -A "$out" 2>/dev/null)" ]] || die "$out is not empty; choose an empty folder"
+chmod 700 "$out"
+
+# A fresh, temporary keyring: your personal ~/.gnupg is never touched.
+export GNUPGHOME="$out/.gnupg-temp"
+mkdir -m 700 "$GNUPGHOME"
+cleanup() { gpgconf --kill gpg-agent 2>/dev/null || true; rm -rf "$GNUPGHOME"; }
+trap cleanup EXIT
+
+# Automated tests only: read the passphrase from a file instead of the dialog.
+pass_args=()
+if [[ -n "${OWNEET_KEY_PASSPHRASE_FILE:-}" ]]; then
+    pass_args=(--pinentry-mode loopback --passphrase-file "$OWNEET_KEY_PASSPHRASE_FILE")
+fi
+
+uid="$KEY_NAME <$email>"
+info "creating the primary key for: $uid"
+info "a dialog will ask for a passphrase: choose a long one and store it in your password manager"
+gpg --batch --quiet "${pass_args[@]}" --quick-generate-key "$uid" ed25519 cert never
+fpr="$(gpg --with-colons --list-keys "$uid" | awk -F: '/^fpr/ {print $10; exit}')"
+[[ -n "$fpr" ]] || die "key creation failed"
+
+info "creating the signing subkey (expires in $SUBKEY_EXPIRY)"
+gpg --batch --quiet "${pass_args[@]}" --quick-add-key "$fpr" ed25519 sign "$SUBKEY_EXPIRY"
+subfpr="$(gpg --with-colons --list-keys "$fpr" | awk -F: '/^sub/ {s=1} s && /^fpr/ {print $10; exit}')"
+[[ -n "$subfpr" ]] || die "subkey creation failed"
+
+mkdir -m 700 "$out/backup" "$out/working"
+info "writing the backup (primary key) and the working key (subkey only)"
+gpg --batch --quiet "${pass_args[@]}" --armor --export-secret-keys "$fpr" > "$out/backup/owneet-primary-secret.asc"
+gpg --batch --quiet "${pass_args[@]}" --armor --export-secret-subkeys "${subfpr}!" > "$out/working/owneet-signing-subkey.asc"
+gpg --armor --export "$fpr" > "$out/backup/owneet-public.asc"
+cp "$GNUPGHOME/openpgp-revocs.d/$fpr.rev" "$out/backup/owneet-revocation-certificate.asc"
+printf 'Primary key: %s\nSigning subkey: %s\nUser ID: %s\nCreated: %s\n' \
+    "$fpr" "$subfpr" "$uid" "$(date -u +%Y-%m-%d)" | tee "$out/backup/FINGERPRINTS.txt" > "$out/working/FINGERPRINTS.txt"
+chmod 600 "$out"/backup/* "$out"/working/*
+
+info "adding the public key to the repository (packages/owneet-keyring/)"
+mkdir -p "$ROOT/packages/owneet-keyring"
+gpg --export "$fpr" > "$ROOT/packages/owneet-keyring/owneet.gpg"
+echo "$fpr:4:" > "$ROOT/packages/owneet-keyring/owneet-trusted"
+
+cat <<MSG
+
+Done. Fingerprint of the OwneetOS key: $fpr
+
+Next steps:
+  1. Copy  $out/backup/   to the USB stick AND attach its files to your password manager.
+  2. Give  $out/working/  to the other developer through a private channel (never by e-mail
+     in clear, never in the repository).
+  3. When both copies are safe, delete the folder:  rm -rf "$out"
+MSG

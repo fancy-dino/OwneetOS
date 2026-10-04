@@ -28,8 +28,32 @@ mkdir -p out
 rm -f out/owneetos-*.iso out/owneetos-*.iso.sha256
 sudo rm -rf "$WORK_DIR"
 
+# OwneetOS packages come from the local [owneet] repository built by tools/build-packages.
+repo_dir="$ROOT/out/repo/x86_64"
+if [[ ! -f "$repo_dir/owneet.db" ]]; then
+    echo "==> no [owneet] repository yet: building the packages first"
+    "$ROOT/tools/build-packages"
+fi
+
+# Build from a copy of the profile whose pacman.conf also lists the local [owneet] repository
+# (first, so OwneetOS packages take precedence). iso/ itself stays independent of the VM layout.
+profile="$(mktemp -d)"
+trap 'rm -rf "$profile"' EXIT
+cp -a "$ROOT/iso/." "$profile/"
+awk -v repo="$repo_dir" '
+    /^\[core\]/ && !done {
+        print "[owneet]"
+        # TODO(step 1.2, signing): switch to "SigLevel = Required" once packages are signed.
+        print "SigLevel = Optional TrustAll"
+        print "Server = file://" repo
+        print ""
+        done = 1
+    }
+    { print }
+' "$ROOT/iso/pacman.conf" > "$profile/pacman.conf"
+
 echo "==> building the ISO (work dir: $WORK_DIR)"
-sudo mkarchiso -v -r -w "$WORK_DIR" -o "$ROOT/out" "$ROOT/iso"
+sudo mkarchiso -v -r -w "$WORK_DIR" -o "$ROOT/out" "$profile"
 
 iso="$(find out -maxdepth 1 -name 'owneetos-*.iso' | head -1)"
 [[ -n "$iso" ]] || die "mkarchiso finished but no ISO was found in out/"

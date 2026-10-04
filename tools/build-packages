@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Builds the PKGBUILDs in packages/ in a clean chroot and creates the [owneet] repository
+# in out/repo/x86_64/. Runs inside the builder VM:
+#   tools/build-in-vm tools/build-packages            build every package
+#   tools/build-in-vm tools/build-packages NAME...    build only these packages
+#
+# The chroot uses the same Arch Linux Archive snapshot as the ISO (iso/pacman.conf), so packages
+# are built against exactly the libraries they will run with.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CHROOT_DIR="/var/tmp/owneet-chroot"
+REPO_NAME="owneet"
+REPO_DIR="$ROOT/out/repo/x86_64"
+
+die() { echo "error: $*" >&2; exit 1; }
+info() { echo "==> $*"; }
+
+command -v makechrootpkg >/dev/null 2>&1 \
+    || die "devtools not found. Build inside the builder VM: tools/build-in-vm tools/build-packages"
+
+cd "$ROOT"
+
+if [[ $# -gt 0 ]]; then
+    pkgs=("$@")
+else
+    mapfile -t pkgs < <(find packages -mindepth 2 -maxdepth 2 -name PKGBUILD -printf '%h\n' | xargs -rn1 basename | sort)
+fi
+[[ ${#pkgs[@]} -gt 0 ]] || die "no PKGBUILDs found in packages/"
+
+# pacman configuration for the chroot: the ISO's snapshot repositories, without ISO-only options.
+chroot_conf="$(mktemp)"
+trap 'rm -f "$chroot_conf"' EXIT
+grep -v '^NoExtract' iso/pacman.conf > "$chroot_conf"
+snapshot="$(grep -m1 -oE 'repos/[0-9]{4}/[0-9]{2}/[0-9]{2}' "$chroot_conf" | cut -d/ -f2-)"
+
+# Recreate the chroot when the snapshot date changes; otherwise reuse it (faster).
+if [[ -d "$CHROOT_DIR/root" && "$(cat "$CHROOT_DIR/snapshot" 2>/dev/null)" != "$snapshot" ]]; then
+    info "snapshot changed to $snapshot: recreating the build chroot"
+    sudo rm -rf "$CHROOT_DIR"
+fi
+if [[ ! -d "$CHROOT_DIR/root" ]]; then
+    info "creating the build chroot (Arch snapshot $snapshot)"
+    sudo mkdir -p "$CHROOT_DIR"
+    sudo mkarchroot -C "$chroot_conf" "$CHROOT_DIR/root" base-devel >/dev/null
+    echo "$snapshot" | sudo tee "$CHROOT_DIR/snapshot" >/dev/null
+fi
+
+mkdir -p "$REPO_DIR"
+for pkg in "${pkgs[@]}"; do
+    [[ -f "packages/$pkg/PKGBUILD" ]] || die "packages/$pkg/PKGBUILD not found"
+    info "building $pkg"
+    rm -f "$REPO_DIR/$pkg"-[0-9]*.pkg.tar.zst
+    (
+        cd "packages/$pkg"
+        PKGDEST="$REPO_DIR" makechrootpkg -c -r "$CHROOT_DIR" -- --noconfirm >/dev/null
+    ) || die "build of $pkg failed"
+done
+
+info "updating the [$REPO_NAME] repository database"
+rm -f "$REPO_DIR/$REPO_NAME".{db,files}*
+repo-add --quiet --new "$REPO_DIR/$REPO_NAME.db.tar.gz" "$REPO_DIR"/*.pkg.tar.zst
+
+info "repository ready in out/repo/x86_64:"
+find "$REPO_DIR" -maxdepth 1 -name '*.pkg.tar.zst' -printf '    %f\n' | sort
