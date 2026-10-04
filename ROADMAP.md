@@ -117,7 +117,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   system reaches `OwneetOS 7.2.8-arch1-2 (ttyS0)` / `owneet login:`. Added `vm/test.sh wait-serial`
   and `vm/test.sh log` for automated boot checks.
 
-### [~] 1.2 Own package repository `[owneet]` (waiting for the owner's first signature)
+### [~] 1.2 Own package repository `[owneet]` (awaiting owner review)
 
 - **Deliverables:** `packages/` with PKGBUILD layout, build script (clean chroot in the builder
   VM), repository database, package signing key, repo consumed by the ISO build.
@@ -130,8 +130,10 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   throwaway key. Real key created by the owner (`B3BD…456E`). `owneet-keyring` package added
   (built before `owneet-base`, dependency order). `tools/keys/install-working-key` and
   `tools/sign-repo` written; negative test passed (repository signed with a fake key: ISO build
-  refused at database sync); stale cached packages fixed. **Missing:** the owner's first real
-  signature and the signed ISO build.
+  refused at database sync); stale cached packages fixed. The owner signed the repository with
+  `tools/sign-repo`: all signatures valid (subkey `61D8…3C37`); the ISO built from it verified them
+  (`SigLevel = Required DatabaseRequired`), contains `owneet-base` and `owneet-keyring`, and boots
+  to the login prompt.
 
 ### [ ] 1.3 Console session
 
