@@ -33,7 +33,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 ### [x] 0.3 Roadmap and global controller input map
 - **Deliverable:** this file; section 9.1 of the rules.
 
-### [~] 0.4 Repository skeleton (awaiting owner review)
+### [x] 0.4 Repository skeleton
 - **Goal:** a clean, documented repository that another developer can join.
 - **Deliverables:** `git init`; directory layout (`iso/`, `packages/`, `daemon/`, `frontend/`,
   `extension/`, `installer/`, `tools/`, `vm/`, `docs/`, `design/`); `README.md`, `LICENSE`

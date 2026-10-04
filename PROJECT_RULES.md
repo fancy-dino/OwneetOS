@@ -203,4 +203,4 @@ in order; the owner reviews each step before the next one starts.
 | 2026-10-03 | Global controller input map adopted: LB/RB = sections, LT/RT = filters (section 9.1). |
 | 2026-10-03 | ROADMAP.md created; work proceeds one step per prompt.                                |
 | 2026-10-04 | Dual boot: considered in the design, **not required** (section 6).                    |
-| 2026-10-04 | License identifier: GPL-3.0-or-later; commits follow Conventional Commits (CONTRIBUTING.md). |
+| 2026-10-04 | License GPL-3.0-or-later and Conventional Commits confirmed by the owner; step 0.4 approved. |
