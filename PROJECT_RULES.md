@@ -77,6 +77,18 @@ OwneetOS is a **lightweight, open-source Linux distribution** that turns any x86
   hosted on GitHub. Updates are triggered from the Settings menu with the gamepad.
 - Arch packages are **pinned to Arch Linux Archive snapshots**; the snapshot date is advanced only
   after testing.
+- **Package signing** (two-level OpenPGP key):
+  - **Primary key** ("vault"): never used to sign packages; kept **offline by the owner**, with a
+    backup outside the repository and outside everyday PCs. It certifies and revokes signing subkeys.
+  - **Signing subkey** ("working stamp"): signs packages and the repository; **expires** (e.g. 2 years)
+    and is renewed with the primary key. Held by the owner and the second developer; from roadmap
+    step 7.2 also stored as a protected GitHub secret for release builds.
+  - OwneetOS systems trust the primary key, so a compromised or expired subkey can be replaced
+    without any action from users.
+  - The key's identity uses a **dedicated project e-mail address** (public: it ships in every ISO),
+    never a personal one.
+  - Private keys never enter the repository, CI logs or the assistant's environment: the owner
+    creates them on their own machine with a script provided in the repository.
 - **btrfs + snapper**: automatic snapshots, rollback selectable from the boot menu.
 - The only "hands-on" step for the user: writing the ISO to a USB stick (balenaEtcher or Ventoy),
   explained in an illustrated guide.
@@ -221,3 +233,4 @@ in order; the owner reviews each step before the next one starts.
 | 2026-10-04 | `main` ruleset: PR + approval + green CI for contributors; owner bypasses and pushes directly (option A). |
 | 2026-10-04 | ISO boots UEFI only (no legacy BIOS); no SSH server, cloud-init or VM guest tools in the ISO (step 1.1). |
 | 2026-10-04 | UEFI firmware is a system requirement (PCs from ~2012); Legacy/CSM switch explained in the user guide (section 3). |
+| 2026-10-04 | Package signing: two-level key (primary offline with the owner, expiring signing subkey for owner + second developer), dedicated project e-mail (section 5). |
