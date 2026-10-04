@@ -15,10 +15,12 @@ inside this folder.
 |------|------------------------|------|
 | QEMU | `qemu-system-x86`, `qemu-utils` | `qemu-base` |
 | UEFI firmware | `ovmf` | `edk2-ovmf` |
+| VM windows and 3D acceleration | `qemu-system-gui` | `qemu-ui-gtk`, `qemu-hw-display-virtio-gpu-gl` |
 | KVM | `/dev/kvm` readable and writable by your user | same |
 
 On the owner's machine these were installed with
-`sudo apt install --no-install-recommends qemu-system-x86 ovmf qemu-utils`.
+`sudo apt install --no-install-recommends qemu-system-x86 ovmf qemu-utils`
+(`qemu-system-gui` was missed at first: without it only `--headless` works).
 
 VirtualBox and KVM cannot run VMs at the same time on recent kernels: close VirtualBox VMs first
 (the script checks this).

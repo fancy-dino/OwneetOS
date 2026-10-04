@@ -155,6 +155,10 @@ cmd_start() {
         qemu-system-x86_64 "${args[@]}" 2>"$run/qemu.log" || die "QEMU failed to start, see vm/run/$name/qemu.log"
         info "VM '$name' running in the background (pid $(cat "$run/qemu.pid")); serial log: vm/run/$name/serial.log"
     else
+        if ! qemu-system-x86_64 -display help 2>/dev/null | grep -qx 'gtk'; then
+            die "QEMU cannot open windows on this host. Install its GUI support (Debian/Ubuntu/Mint: qemu-system-gui;
+       Arch: qemu-ui-gtk), or use --headless."
+        fi
         args+=(-vga virtio -display gtk)
         info "starting VM '$name' in a window; close the window to power it off"
         qemu-system-x86_64 "${args[@]}"
