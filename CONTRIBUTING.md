@@ -25,6 +25,18 @@ The user interface is multilingual through message files, never through hard-cod
 - Everything stays inside the repository folder. VM images, caches and build output are ignored by
   git (see `.gitignore`).
 
+## Checks
+
+Run every check before committing. The tools live in the builder VM, not on the host:
+
+```text
+tools/build-in-vm tools/lint
+```
+
+It runs shellcheck on every shell script, verifies the SPDX license headers and runs markdownlint
+on every Markdown file. CI runs the same script on every push and pull request
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
 ## Branches and commits
 
 - `main` must always build. Work happens on short-lived branches named
@@ -50,7 +62,7 @@ The user interface is multilingual through message files, never through hard-cod
 
 New source files start with an SPDX header in the file's comment syntax:
 
-```
+```text
 SPDX-License-Identifier: GPL-3.0-or-later
 ```
 

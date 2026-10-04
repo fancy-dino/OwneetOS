@@ -180,7 +180,7 @@ cmd_start() {
 
     local args=(
         -name "owneet-$name"
-        -machine q35,accel=kvm
+        -machine "q35,accel=kvm"
         -cpu host -smp "$cpus" -m "$mem"
         -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE"
         -drive "if=pflash,format=raw,file=$img/OVMF_VARS.fd"
@@ -224,7 +224,7 @@ cmd_start() {
             die "QEMU cannot open windows on this host. Install its GUI support (Debian/Ubuntu/Mint: qemu-system-gui;
        Arch: qemu-ui-gtk), or use --headless."
         fi
-        if (( gl )); then args+=(-device virtio-vga-gl -display gtk,gl=on); else args+=(-vga virtio -display gtk); fi
+        if (( gl )); then args+=(-device virtio-vga-gl -display "gtk,gl=on"); else args+=(-vga virtio -display gtk); fi
         info "starting VM '$name' in a window; close the window to power it off"
         qemu-system-x86_64 "${args[@]}"
     fi
@@ -241,16 +241,15 @@ cmd_stop() {
     fi
     # Ask the guest to shut down cleanly (ACPI power button) through QMP, then force if needed.
     local sock; sock="$(vm_run_dir "$name")/qmp.sock"
-    local i
     if (( ! force )) && [[ -S "$sock" ]] && qmp_powerdown "$sock"; then
-        for i in $(seq 1 120); do
+        for _ in $(seq 1 120); do
             kill -0 "$pid" 2>/dev/null || break
             sleep 0.5
         done
     fi
     if kill -0 "$pid" 2>/dev/null; then
         kill "$pid"
-        for i in $(seq 1 50); do
+        for _ in $(seq 1 50); do
             kill -0 "$pid" 2>/dev/null || break
             sleep 0.2
         done
@@ -348,8 +347,8 @@ cmd_selftest() {
 
     # With no bootable media, OVMF ends in its boot manager or UEFI shell; both print to serial.
     local log; log="$(vm_run_dir "$name")/serial.log"
-    local ok=0 i
-    for i in $(seq 1 60); do
+    local ok=0
+    for _ in $(seq 1 60); do
         if grep -aqE 'UEFI Interactive Shell|Shell>|BdsDxe|Boot Manager' "$log" 2>/dev/null; then ok=1; break; fi
         sleep 1
     done
@@ -362,7 +361,10 @@ cmd_selftest() {
     fi
     (( ok )) || die "selftest: UEFI firmware output not seen on the serial console within 60 s"
     info "selftest passed: UEFI firmware booted under KVM and the VM was removed cleanly"
-    if [[ -n "$excerpt" ]]; then sed 's/^/    /' <<<"$excerpt"; fi
+    local line
+    while IFS= read -r line; do
+        if [[ -n "$line" ]]; then echo "    $line"; fi
+    done <<<"$excerpt"
     return 0
 }
 

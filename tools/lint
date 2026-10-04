@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Runs every project check. Used by CI and locally:
+#   tools/build-in-vm tools/lint      (inside the builder VM, where the tools are installed)
+#
+# Checks:
+#   1. shellcheck on every shell script (*.sh and files with a sh/bash shebang)
+#   2. SPDX license header on every shell script and cloud-init template
+#   3. markdownlint on every Markdown file (rules in .markdownlint-cli2.yaml)
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+MARKDOWNLINT_VERSION="0.23.3"
+SPDX="SPDX-License-Identifier: GPL-3.0-or-later"
+
+failed=()
+
+section() { printf '\n==> %s\n' "$*"; }
+
+# Files in the repository, without VM images, build output and dependencies.
+project_files() {
+    find . -type f \
+        -not -path './.git/*' -not -path './vm/images/*' -not -path './vm/run/*' \
+        -not -path './out/*' -not -path './iso/work/*' -not -path '*/node_modules/*' \
+        -print | sed 's|^\./||' | sort
+}
+
+shell_scripts() {
+    local f
+    while IFS= read -r f; do
+        if [[ "$f" == *.sh ]] || head -n1 "$f" 2>/dev/null | grep -qE '^#!.*\b(ba)?sh\b'; then
+            echo "$f"
+        fi
+    done < <(project_files)
+}
+
+need() {
+    command -v "$1" >/dev/null 2>&1 && return 0
+    echo "error: '$1' is not installed. Run the checks in the builder VM: tools/build-in-vm tools/lint" >&2
+    exit 2
+}
+
+need shellcheck
+need npx
+
+mapfile -t scripts < <(shell_scripts)
+
+section "shellcheck (${#scripts[@]} scripts)"
+if shellcheck "${scripts[@]}"; then echo "ok"; else failed+=("shellcheck"); fi
+
+section "SPDX license headers"
+spdx_missing=0
+while IFS= read -r f; do
+    if ! head -n 5 "$f" | grep -qF "$SPDX"; then
+        echo "missing '$SPDX' in the first 5 lines: $f"
+        spdx_missing=1
+    fi
+done < <(printf '%s\n' "${scripts[@]}"; project_files | grep -E '(^|/)user-data\.in$')
+if (( spdx_missing )); then failed+=("spdx"); else echo "ok"; fi
+
+section "markdownlint"
+if npx --yes "markdownlint-cli2@$MARKDOWNLINT_VERSION"; then echo "ok"; else failed+=("markdownlint"); fi
+
+echo
+if (( ${#failed[@]} )); then
+    echo "FAILED: ${failed[*]}"
+    exit 1
+fi
+echo "all checks passed"

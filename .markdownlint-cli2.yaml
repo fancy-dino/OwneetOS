@@ -1,0 +1,20 @@
+# markdownlint rules for the project documentation (run by tools/lint).
+config:
+  default: true
+  # Long lines are allowed: tables and URLs make wrapping impractical.
+  MD013: false
+  # Repeated headings are fine in different sections (e.g. "Deliverables").
+  MD024:
+    siblings_only: true
+  # Table column alignment is a formatter choice, not a correctness issue.
+  MD060: false
+
+globs:
+  - "**/*.md"
+
+ignores:
+  - "vm/images/**"
+  - "vm/run/**"
+  - "out/**"
+  - "iso/work/**"
+  - "**/node_modules/**"

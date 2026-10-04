@@ -31,7 +31,7 @@ write_files:
       pacman-key --populate archlinux
       pacman -Sy --noconfirm --needed archlinux-keyring
       pacman -Su --noconfirm
-      pacman -S --noconfirm --needed archiso base-devel devtools git rsync
+      pacman -S --noconfirm --needed archiso base-devel devtools git rsync shellcheck nodejs npm
       date -u +%Y-%m-%dT%H:%M:%SZ > /var/lib/owneet/provisioned
 
 runcmd:

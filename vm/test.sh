@@ -56,6 +56,8 @@ EOF
 }
 
 ssh_opts test "$SSH_PORT"
+# Arguments form the remote command line on purpose.
+# shellcheck disable=SC2029
 vm_ssh() { ssh "${SSH_OPTS[@]}" root@127.0.0.1 "$@"; }
 
 wait_for_ssh() {
@@ -69,7 +71,7 @@ wait_for_ssh() {
 
 default_iso() {
     local newest
-    newest="$(ls -1t "$ROOT"/out/*.iso 2>/dev/null | head -1 || true)"
+    newest="$(find "$ROOT/out" -maxdepth 1 -name '*.iso' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2- || true)"
     if [[ -n "$newest" ]]; then echo "$newest"; return; fi
     [[ -f "$ARCH_ISO" ]] || die "no ISO given, none in out/, and the stock Arch ISO is missing (vm/test.sh fetch-arch-iso)"
     echo "$ARCH_ISO"

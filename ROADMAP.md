@@ -24,16 +24,20 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 ## Phase 0 — Foundations
 
 ### [x] 0.1 Project rules
+
 - **Deliverable:** `PROJECT_RULES.md`, `CLAUDE.md`.
 
 ### [x] 0.2 Wave 1 UI mockups
+
 - **Deliverable:** `design/mockups/wave1-mockups.html` (first boot, home, library, settings).
 - **Outcome:** direction approved; palettes provisional; input conflict fixed (LT/RT for filters).
 
 ### [x] 0.3 Roadmap and global controller input map
+
 - **Deliverable:** this file; section 9.1 of the rules.
 
 ### [x] 0.4 Repository skeleton
+
 - **Goal:** a clean, documented repository that another developer can join.
 - **Deliverables:** `git init`; directory layout (`iso/`, `packages/`, `daemon/`, `frontend/`,
   `extension/`, `installer/`, `tools/`, `vm/`, `docs/`, `design/`); `README.md`, `LICENSE`
@@ -42,6 +46,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 - **Done when:** the tree is committed locally and every folder has a short README stating its purpose.
 
 ### [x] 0.5 GitHub repository — **Owner input**
+
 - **Goal:** public repository on the account connected to VS Code.
 - **Deliverables:** remote repo, first push, branch protection on `main`, issue labels per phase.
 - **Owner input:** confirm repository name and visibility before creation; invite the second developer.
@@ -50,6 +55,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   when the first issues are opened).
 
 ### [x] 0.6 Host virtualization tools — **Owner input**
+
 - **Goal:** run VMs on the host without touching anything else.
 - **Deliverables:** install `qemu-system-x86`, `ovmf`, `qemu-utils` (asked at the moment);
   `vm/` scripts that keep every disk image, firmware variable store and log inside the project folder.
@@ -59,6 +65,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   `qemu-system-gui` added afterwards (VM windows, 3D acceleration for step 0.8); owner tested a VM in a window.
 
 ### [x] 0.7 Arch builder VM *(multi-prompt)*
+
 - **Goal:** an Arch Linux VM where ISOs and packages are built (archiso needs root; it gets it only inside the VM).
 - **Deliverables:** builder VM from the official Arch cloud image, provisioned by script
   (cloud-init), project folder shared into the VM (virtiofs or 9p), `tools/build-in-vm` wrapper.
@@ -70,7 +77,8 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   cold start in ~9 s; clean ACPI shutdown. The builder itself follows current Arch (not pinned):
   pinning applies to the ISO contents (step 1.1).
 
-### [~] 0.8 Test VM harness (awaiting owner review)
+### [x] 0.8 Test VM harness
+
 - **Goal:** boot any built ISO the same way every time.
 - **Deliverables:** UEFI test VM script with blank virtual disks (single disk, multi-disk,
   "Windows-like" NTFS disk for later), controller passthrough (USB passthrough or evdev), serial
@@ -84,10 +92,14 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   (full range) and the D-pad.
   NTFS test disk moved to step 6.5, where it is first needed.
 
-### [ ] 0.9 CI skeleton
+### [~] 0.9 CI skeleton (awaiting first CI run and ruleset update)
+
 - **Goal:** GitHub Actions that lint and build what exists.
 - **Deliverables:** workflow for linting (shell, Markdown, later Go/Rust and QML), placeholder ISO job;
   extend the `main` ruleset to require pull requests and passing checks (done by the owner on the website).
+- **Progress:** `tools/lint` (shellcheck, SPDX headers, markdownlint 0.23.3) passes in the builder VM;
+  `.github/workflows/ci.yml` runs it on every push and pull request, plus a placeholder ISO job.
+  Actions pinned to commit SHAs. Builder provisioning now also installs `shellcheck`, `nodejs`, `npm`.
 - **Done when:** CI is green on `main`.
 
 ---
@@ -95,33 +107,39 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 ## Phase 1 — Minimal bootable OS (no UI yet)
 
 ### [ ] 1.1 archiso profile
+
 - **Deliverables:** `iso/` profile derived from Arch `baseline`, minimal package list, pinned
   Arch Linux Archive snapshot date, OwneetOS branding in `os-release`.
 - **Done when:** the ISO builds in the builder VM and boots to a TTY in the test VM.
 
 ### [ ] 1.2 Own package repository `[owneet]`
+
 - **Deliverables:** `packages/` with PKGBUILD layout, build script (clean chroot in the builder
   VM), repository database, package signing key, repo consumed by the ISO build.
 - **Owner input:** where the signing key is stored and who holds it.
 - **Done when:** a dummy `owneet-base` package is built, signed and installed into the ISO.
 
 ### [ ] 1.3 Console session
+
 - **Deliverables:** autologin user, session launcher that starts **gamescope** with a
   placeholder fullscreen app; Vulkan capability check with automatic **cage** fallback;
   restart-on-crash.
 - **Done when:** the ISO boots straight into a fullscreen placeholder in both modes (forced fallback tested).
 
 ### [ ] 1.4 Boot experience
+
 - **Deliverables:** systemd-boot config, Plymouth theme with the OwneetOS mark, quiet kernel
   parameters, no text on screen in normal boots.
 - **Done when:** power-on to placeholder shows only the logo.
 
 ### [ ] 1.5 Hardware support set
+
 - **Deliverables:** firmware, Mesa + Vulkan drivers, `nvidia-open` with automatic detection,
   `xone` (built into `[owneet]`), PipeWire, NetworkManager, BlueZ, udev rules for controllers.
 - **Done when:** ISO size is measured and stays **under 2 GB**; idle RAM is measured and recorded.
 
 ### [ ] 1.6 ISO build in CI
+
 - **Deliverables:** GitHub Actions job building the ISO (privileged container), checksums, build artefact.
 - **Done when:** a CI-built ISO boots in the test VM.
 
@@ -130,6 +148,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 ## Phase 2 — System daemon (`owneetd`)
 
 ### [?] 2.1 Language decision and API design — **Owner input**
+
 - **Goal:** choose **Go or Rust** and design the local API before writing the daemon.
 - **Deliverables:** short comparison (RAM, binary size, D-Bus/evdev libraries, contributor
   friendliness), API specification (endpoints + event stream), security model (local only,
@@ -137,32 +156,40 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 - **Done when:** owner approves the language and the API document.
 
 ### [ ] 2.2 Daemon skeleton and packaging
+
 - **Deliverables:** project layout, config file, logging, systemd units, PKGBUILD, CI build + tests.
 
 ### [ ] 2.3 Controller input
+
 - **Deliverables:** evdev discovery and hot-plug, SDL_GameControllerDB mapping, Guide button
   detection, controller battery level, event stream to clients.
 - **Done when:** a virtual gamepad (uinput) in the test VM produces the expected events in automated tests.
 
 ### [ ] 2.4 Virtual input (uinput)
+
 - **Deliverables:** virtual keyboard and mouse devices for the system-wide on-screen keyboard and
   for apps that need key presses.
 
 ### [ ] 2.5 Bluetooth
+
 - **Deliverables:** BlueZ over D-Bus: list, pair, trust, forget; **automatic gamepad pairing
   mode** (accept any device that identifies as a gamepad, no input needed).
 - **Done when:** a real controller pairs with zero input on real hardware (VM Bluetooth is unreliable).
 
 ### [ ] 2.6 Network
+
 - **Deliverables:** NetworkManager over D-Bus: scan, connect (with password from the OSK), forget, status.
 
 ### [ ] 2.7 Audio
+
 - **Deliverables:** PipeWire: volume, mute, output selection (speakers, HDMI, headset).
 
 ### [ ] 2.8 Power
+
 - **Deliverables:** shut down, restart, suspend.
 
 ### [ ] 2.9 Process manager and Guide button
+
 - **Deliverables:** launch / track / close games and apps, return to home on Guide, force-close a
   frozen game, focus handling inside gamescope.
 - **Done when:** a test app is launched, Guide brings back the home screen, and the app can be closed.
@@ -172,47 +199,58 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 ## Phase 3 — Frontend (Pegasus fork)
 
 ### [ ] 3.1 Pegasus study and fork
+
 - **Deliverables:** clone `mmatyas/pegasus-frontend` (master, with submodules), fork on GitHub,
   `docs/frontend-architecture.md` describing build system, data providers, theme API and the
   extension points we need.
 - **Done when:** the owner has a clear picture of what we change in C++ and what stays in QML.
 
 ### [ ] 3.2 Build and package Pegasus
+
 - **Deliverables:** reproducible build in the builder VM against Qt 5.15, PKGBUILD in `[owneet]`,
   frontend replaces the placeholder in the session.
 - **Done when:** stock Pegasus runs in gamescope in the test VM and is driven by a gamepad.
 
 ### [ ] 3.3 Theme foundations
+
 - **Deliverables:** design tokens (palettes from section 9), bundled fonts, 1280×720 scaling grid,
   safe area, focus ring, prompt bar with Xbox / PlayStation glyph sets.
 
 ### [ ] 3.4 Internationalisation
+
 - **Deliverables:** JSON message files, loader, fallback to English, `en` + `it` complete,
   `docs/translating.md` for contributors.
 - **Done when:** a new language works by adding one JSON file, with no code change.
 
 ### [ ] 3.5 Navigation and input map
+
 - **Deliverables:** spatial navigation and the global input map (rules section 9.1) implemented once and shared by every screen.
 
 ### [ ] 3.6 Home screen
+
 - **Deliverables:** home as in the approved mockup (continue playing, apps, jump back in, notices).
 
 ### [ ] 3.7 Library screen
+
 - **Deliverables:** unified grid, filters on LT/RT, sort on Y, disks with free space.
 
 ### [ ] 3.8 Frontend ↔ daemon bridge
+
 - **Deliverables:** QML client for the `owneetd` API and event stream (XMLHttpRequest or a small
   C++ plugin in the fork, decided in 3.1).
 
 ### [ ] 3.9 Settings *(multi-prompt)*
+
 - **Deliverables:** Appearance (palette, text size, reduce motion, persisted), Network, Controllers
   and Bluetooth, Audio, Display (resolution, refresh rate via gamescope), Language, Storage (read-only),
   System (version, restart, shut down).
 
 ### [ ] 3.10 On-screen keyboard
+
 - **Deliverables:** gamepad OSK for frontend text fields (Wi-Fi passwords, search), layouts per language.
 
 ### [ ] 3.11 Notifications
+
 - **Deliverables:** notice area on home + transient toasts fed by daemon events.
 
 ---
@@ -220,6 +258,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 ## Phase 4 — Games
 
 ### [?] 4.1 Steam library *(investigation first)*
+
 - **Deliverables:** installed Steam games read from local files (`libraryfolders.vdf`,
   `appmanifest_*.acf`) across all disks; play time from local Steam data; check whether Pegasus's
   built-in Steam provider can be reused.
@@ -228,13 +267,16 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   "Get more games" store tile) and update the rules.
 
 ### [ ] 4.2 Steam integration
+
 - **Deliverables:** Steam login and store in `-gamepadui` mode, game launch via the daemon, return
   to home on exit, Steam Store tile.
 
 ### [ ] 4.3 Local DRM-free games
+
 - **Deliverables:** folder convention + metadata file, automatic scan of mounted disks, artwork.
 
 ### [ ] 4.4 Artwork
+
 - **Deliverables:** cover download and cache for Steam games, generated fallback covers.
 
 ---
@@ -242,23 +284,29 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 ## Phase 5 — Streaming apps and media
 
 ### [ ] 5.1 Brave in the OS
+
 - **Deliverables:** `brave-bin` built into `[owneet]`, managed policies (forced extension, no
   first-run, Widevine on, locked settings), dedicated profile, kiosk launch through the daemon.
 - **Done when:** a test page opens fullscreen and Guide returns to home.
 
 ### [ ] 5.2 Extension core
+
 - **Deliverables:** Manifest V3 extension: Gamepad API loop, spatial navigation, B = back, exit to home, OSK for web forms.
 
 ### [ ] 5.3 YouTube
+
 - **Deliverables:** TV interface, playback controls on the gamepad.
 
 ### [ ] 5.4 Netflix
+
 - **Deliverables:** Widevine verified, browse / play / pause / seek on the gamepad.
 
 ### [ ] 5.5 Spotify
+
 - **Deliverables:** web player navigation, playback continues in the background.
 
 ### [ ] 5.6 Local videos and music
+
 - **Deliverables:** mpv with gamepad bindings, Videos and Music browsing in the frontend from mounted disks.
 
 ---
@@ -266,12 +314,15 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 ## Phase 6 — First boot, installer, disks
 
 ### [ ] 6.1 First-boot flow
+
 - **Deliverables:** controller (auto-pairing, as in the mockup) → language → network → ready.
 
 ### [ ] 6.2 Live vs installed mode
+
 - **Deliverables:** detection, "Install OwneetOS" entry shown only in live mode.
 
 ### [?] 6.3 Installer backend *(multi-prompt)*
+
 - **Deliverables:** whole-disk install: partitioning, btrfs subvolumes, snapper, bootloader, user,
   first-boot setup. Tested on virtual disks only, never on the host.
 - **Open point:** **systemd-boot cannot boot btrfs snapshots by itself.** Rollback from the boot
@@ -279,9 +330,11 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   Decision to be taken with the owner at the start of this step.
 
 ### [ ] 6.4 Installer UI
+
 - **Deliverables:** QML installer in the OwneetOS style, gamepad-only, clear warnings and a final confirmation before erasing anything.
 
 ### [ ] 6.5 Automatic disk mounting
+
 - **Deliverables:** udisks2 policy + daemon logic for internal and removable disks (ext4, btrfs,
   NTFS, exFAT), read-only NTFS when Windows left it hibernated, with an explanation to the user.
 
@@ -290,18 +343,22 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 ## Phase 7 — Updates and first release (Wave 1 complete)
 
 ### [ ] 7.1 Updates
+
 - **Deliverables:** update check and install from Settings, snapshot before every update,
   rollback path (as decided in 6.3), archive snapshot date advanced only after tests.
 
 ### [ ] 7.2 Release pipeline
+
 - **Deliverables:** tagged release builds the ISO in CI, checks the 2 GB limit, signs, writes
   checksums and release notes, publishes to GitHub Releases.
 
 ### [ ] 7.3 User guide
+
 - **Deliverables:** illustrated guide: download, write the USB stick (balenaEtcher / Ventoy),
   disable Secure Boot (per-brand pointers), anti-cheat warning for Windows games, first boot.
 
 ### [ ] 7.4 Hardware testing and v0.1.0
+
 - **Deliverables:** test matrix (Intel / AMD / NVIDIA, old iGPU fallback, 4 GB RAM machine), bug
   fixing, RAM and boot-time measurements against the targets, release **v0.1.0**.
 

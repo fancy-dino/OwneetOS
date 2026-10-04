@@ -1,7 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# shellcheck shell=bash
 #
 # Shared helpers for vm/builder.sh and vm/test.sh. Source it; do not run it.
 # Expects VM_DIR to be set by the caller.
+#
+# Variables defined here (CACHE_DIR, SSH_OPTS, ...) are used by the scripts that source this file.
+# shellcheck disable=SC2034
 
 CACHE_DIR="$VM_DIR/images/.cache"
 KEYS_DIR="$VM_DIR/images/.keys"
@@ -20,8 +24,8 @@ verified_download() {
         info "$label already downloaded"
         return
     fi
-    mkdir -p "$(dirname "$dest")"
-    mkdir -p -m 700 "$GPG_DIR"
+    mkdir -p "$(dirname "$dest")" "$GPG_DIR"
+    chmod 700 "$GPG_DIR"
 
     info "downloading $label"
     curl -fL --progress-bar -o "$dest.part" "$url"
@@ -49,7 +53,8 @@ verified_download() {
 ensure_ssh_key() {
     local key="$KEYS_DIR/$1_ed25519"
     if [[ ! -f "$key" ]]; then
-        mkdir -p -m 700 "$KEYS_DIR"
+        mkdir -p "$KEYS_DIR"
+        chmod 700 "$KEYS_DIR"
         ssh-keygen -q -t ed25519 -N "" -C "owneet-$1" -f "$key"
         info "created project SSH key vm/images/.keys/$1_ed25519 (your ~/.ssh is not used)"
     fi

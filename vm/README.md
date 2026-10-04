@@ -27,7 +27,7 @@ VirtualBox and KVM cannot run VMs at the same time on recent kernels: close Virt
 
 ## `vm.sh`
 
-```
+```text
 vm/vm.sh create  NAME [SIZE]      blank VM, default 32G disk (thin-provisioned)
 vm/vm.sh start   NAME [options]   --iso FILE, --headless, --mem MB, --cpus N, --no-net,
                                   --ssh-port N, --seed-url URL, --evdev PATH, --gl
@@ -59,7 +59,7 @@ Defaults follow the minimum hardware in PROJECT_RULES.md section 3: 4 GB RAM, 32
 An Arch Linux VM where ISOs and packages are built. archiso needs root; it only ever gets it
 inside this VM.
 
-```
+```text
 vm/builder.sh setup      download + verify the Arch image, create and provision the VM (once)
 vm/builder.sh start      start in the background, wait for SSH
 vm/builder.sh stop       clean shutdown
@@ -74,14 +74,14 @@ vm/builder.sh destroy    delete the VM (downloaded image and keys are kept)
   `vm/images/.gnupg/`. The image is never modified: the VM disk is a copy-on-write layer over it.
 - **First boot:** configured by cloud-init ([`builder/user-data.in`](builder/user-data.in)),
   served once by a temporary HTTP server on `127.0.0.1`. It creates the `builder` user
-  (passwordless sudo, SSH key only) and installs `archiso`, `base-devel`, `devtools`, `git`, `rsync`.
+  (passwordless sudo, SSH key only) and installs `archiso`, `base-devel`, `devtools`, `git`, `rsync`, `shellcheck`, `nodejs`, `npm`.
 - **Access:** SSH on `127.0.0.1:2222` with a project key in `vm/images/.keys/`; `~/.ssh` is not used.
   The VM is not reachable from the local network.
 - **Resources:** 8 GB RAM, 8 CPUs, 80 GB thin-provisioned disk.
 
 ### Running builds: `tools/build-in-vm`
 
-```
+```text
 tools/build-in-vm COMMAND [ARGS...]
 tools/build-in-vm 'shell command line'
 ```
@@ -95,7 +95,7 @@ Builds run on the VM's own disk: archiso does not work reliably on shared folder
 Boots an ISO the same way every time: UEFI, Secure Boot off, 4 GB RAM, 4 CPUs (the minimum
 hardware), blank virtual disks.
 
-```
+```text
 vm/test.sh fetch-arch-iso        stock Arch ISO, verified (used until OwneetOS has its own ISO)
 vm/test.sh create [single|multi] single: one 32G disk; multi: 32G + 64G data disk
 vm/test.sh boot [ISO] [options]  --headless, --gamepad auto|none|PATH, --gl, --ssh

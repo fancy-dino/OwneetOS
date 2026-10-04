@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Run project checks (shellcheck, SPDX headers, markdownlint)
+        run: tools/lint
+
+  iso:
+    name: ISO
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build ISO
+        run: |
+          if [ ! -f iso/profiledef.sh ]; then
+            echo "::notice::No archiso profile yet. The ISO build is added in roadmap step 1.6."
+            exit 0
+          fi
+          echo "::error::An archiso profile exists but the CI build is not implemented yet (roadmap step 1.6)."
+          exit 1
