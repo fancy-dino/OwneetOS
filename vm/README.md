@@ -48,3 +48,39 @@ Defaults follow the minimum hardware in PROJECT_RULES.md section 3: 4 GB RAM, 32
 | `vm/run/NAME/serial.log` | serial console output (firmware, kernel, systemd) |
 | `vm/run/NAME/qemu.log` | QEMU errors (headless mode) |
 | `vm/run/NAME/qmp.sock`, `qemu.pid` | control socket and process id while running |
+
+## Builder VM (`builder.sh`)
+
+An Arch Linux VM where ISOs and packages are built. archiso needs root; it only ever gets it
+inside this VM.
+
+```
+vm/builder.sh setup      download + verify the Arch image, create and provision the VM (once)
+vm/builder.sh start      start in the background, wait for SSH
+vm/builder.sh stop       clean shutdown
+vm/builder.sh status
+vm/builder.sh ssh [CMD]  shell in the VM, or run CMD
+vm/builder.sh destroy    delete the VM (downloaded image and keys are kept)
+```
+
+- **Base image:** official Arch Linux cloud image, version pinned in `builder.sh`. Verified by
+  SHA-256 and by the signature of the `arch-boxes <arch-boxes@archlinux.org>` key
+  (`1B9A 1698 4A4E 8CB4 4871  2D2A E0B7 8BF4 326C 6F8F`), using a project-local keyring in
+  `vm/images/.gnupg/`. The image is never modified: the VM disk is a copy-on-write layer over it.
+- **First boot:** configured by cloud-init ([`builder/user-data.in`](builder/user-data.in)),
+  served once by a temporary HTTP server on `127.0.0.1`. It creates the `builder` user
+  (passwordless sudo, SSH key only) and installs `archiso`, `base-devel`, `devtools`, `git`, `rsync`.
+- **Access:** SSH on `127.0.0.1:2222` with a project key in `vm/images/.keys/`; `~/.ssh` is not used.
+  The VM is not reachable from the local network.
+- **Resources:** 8 GB RAM, 8 CPUs, 80 GB thin-provisioned disk.
+
+### Running builds: `tools/build-in-vm`
+
+```
+tools/build-in-vm COMMAND [ARGS...]
+tools/build-in-vm 'shell command line'
+```
+
+Copies the repository into the VM (`~/owneet`, with rsync; VM images and build output excluded),
+runs the command there, and copies the VM's `out/` folder back to the project's `out/` folder.
+Builds run on the VM's own disk: archiso does not work reliably on shared folders.

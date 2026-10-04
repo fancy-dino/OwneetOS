@@ -1,0 +1,38 @@
+#cloud-config
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# First-boot configuration of the OwneetOS builder VM (cloud-init NoCloud).
+# @SSH_KEY@ is replaced by vm/builder.sh with the project's builder public key.
+
+hostname: owneet-builder
+
+users:
+  - name: builder
+    gecos: OwneetOS builder
+    groups: [wheel]
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - @SSH_KEY@
+
+ssh_pwauth: false
+disable_root: true
+
+write_files:
+  - path: /usr/local/sbin/owneet-provision
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      # Installs the build tools. Result is written to /var/lib/owneet/{provisioned,failed}.
+      set -euxo pipefail
+      mkdir -p /var/lib/owneet
+      pacman-key --init
+      pacman-key --populate archlinux
+      pacman -Sy --noconfirm --needed archlinux-keyring
+      pacman -Su --noconfirm
+      pacman -S --noconfirm --needed archiso base-devel devtools git rsync
+      date -u +%Y-%m-%dT%H:%M:%SZ > /var/lib/owneet/provisioned
+
+runcmd:
+  - [bash, -c, "/usr/local/sbin/owneet-provision || { mkdir -p /var/lib/owneet; touch /var/lib/owneet/failed; }"]

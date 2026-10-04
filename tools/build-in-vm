@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Run a command inside the builder VM on a fresh copy of the repository,
+# then copy the VM's out/ folder back to the project's out/ folder.
+#
+#   tools/build-in-vm COMMAND [ARGS...]     run a program with arguments
+#   tools/build-in-vm 'SHELL COMMAND LINE'   one quoted argument: run as a shell command line
+#
+# Example: tools/build-in-vm make iso
+# The command runs as the 'builder' user (passwordless sudo) in ~/owneet.
+# The VM is started if needed and left running afterwards (stop it with: vm/builder.sh stop).
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BUILDER="$ROOT/vm/builder.sh"
+REMOTE_DIR="owneet"
+
+if [[ $# -eq 0 ]]; then sed -n '4,13p' "$0" | sed 's/^# \{0,1\}//'; exit 1; fi
+if [[ $# -eq 1 ]]; then CMD="$1"; else CMD="$(printf '%q ' "$@")"; fi
+
+"$BUILDER" start >/dev/null
+
+RSH="$("$BUILDER" ssh-command)"
+REMOTE="builder@127.0.0.1"
+
+echo "==> copying the repository into the VM"
+rsync -a --delete -e "$RSH" \
+    --exclude '/vm/images/' --exclude '/vm/run/' --exclude '/out/' --exclude '/iso/work/' \
+    "$ROOT/" "$REMOTE:$REMOTE_DIR/"
+
+echo "==> running in the VM: $CMD"
+status=0
+"$BUILDER" ssh "cd $REMOTE_DIR && $CMD" || status=$?
+
+if "$BUILDER" ssh "test -d $REMOTE_DIR/out"; then
+    echo "==> copying out/ back to the project"
+    mkdir -p "$ROOT/out"
+    rsync -a -e "$RSH" "$REMOTE:$REMOTE_DIR/out/" "$ROOT/out/"
+fi
+
+if (( status != 0 )); then
+    echo "error: the command failed in the VM (exit code $status)" >&2
+fi
+exit "$status"

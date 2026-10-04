@@ -21,14 +21,18 @@ usage() {
     cat <<'EOF'
 OwneetOS VM manager
 
-  vm/vm.sh create  NAME [SIZE]        Create a VM with a blank disk (default 32G, thin-provisioned)
+  vm/vm.sh create  NAME [SIZE] [--from IMAGE]
+                                      Create a VM with a blank disk (default 32G, thin-provisioned),
+                                      or a copy-on-write layer over IMAGE (IMAGE is never modified)
   vm/vm.sh start   NAME [options]     Boot a VM
         --iso FILE      attach FILE as a CD-ROM (boots from it while the disk is empty)
         --headless      no window; runs in the background (serial log in vm/run/NAME/)
         --mem MB        RAM in MB (default 4096)
         --cpus N        virtual CPUs (default 4)
         --no-net        no network card
-  vm/vm.sh stop    NAME               Power off a running VM
+        --ssh-port N    forward host 127.0.0.1:N to the guest's SSH port
+        --seed-url URL  cloud-init NoCloud seed URL (first-boot configuration)
+  vm/vm.sh stop    NAME [--force]     Shut a VM down (ACPI, then forced after 60 s; --force: at once)
   vm/vm.sh destroy NAME               Stop a VM and delete all of its files
   vm/vm.sh status  NAME               Show whether a VM is running
   vm/vm.sh list                       List VMs
@@ -77,6 +81,23 @@ find_firmware() {
     die "UEFI firmware (OVMF) not found. Install the 'ovmf' package or set OVMF_CODE / OVMF_VARS."
 }
 
+qmp_powerdown() {
+    python3 - "$1" <<'PY' 2>/dev/null
+import json, socket, sys
+s = socket.socket(socket.AF_UNIX)
+s.settimeout(5)
+s.connect(sys.argv[1])
+f = s.makefile("rw")
+f.readline()  # greeting
+for cmd in ("qmp_capabilities", "system_powerdown"):
+    f.write(json.dumps({"execute": cmd}) + "\n"); f.flush()
+    while True:
+        msg = json.loads(f.readline())
+        if "return" in msg or "error" in msg:
+            break
+PY
+}
+
 vm_image_dir() { echo "$IMAGES_DIR/$1"; }
 vm_run_dir() { echo "$RUN_DIR/$1"; }
 
@@ -91,22 +112,37 @@ vm_pid() {
 # --- commands ---------------------------------------------------------------
 
 cmd_create() {
-    local name="${1:-}" size="${2:-$DEFAULT_DISK_SIZE}"
+    local name="${1:-}"; shift || true
     check_name "$name"
+    local size="$DEFAULT_DISK_SIZE" from=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --from) from="${2:-}"; shift 2 ;;
+            -*) die "unknown option '$1' (see: vm/vm.sh help)" ;;
+            *) size="$1"; shift ;;
+        esac
+    done
     need_cmd qemu-img
     find_firmware
     local dir; dir="$(vm_image_dir "$name")"
-    [[ -e "$dir" ]] && die "VM '$name' already exists ($dir)."
+    if [[ -e "$dir" ]]; then die "VM '$name' already exists ($dir)."; fi
     mkdir -p "$dir"
-    qemu-img create -q -f qcow2 "$dir/disk.qcow2" "$size"
+    if [[ -n "$from" ]]; then
+        [[ -f "$from" ]] || die "base image not found: $from"
+        # Relative backing path, so the project folder can be moved without breaking the VM.
+        local rel; rel="$(realpath --relative-to="$dir" "$from")"
+        qemu-img create -q -f qcow2 -b "$rel" -F qcow2 "$dir/disk.qcow2" "$size"
+    else
+        qemu-img create -q -f qcow2 "$dir/disk.qcow2" "$size"
+    fi
     cp "$OVMF_VARS" "$dir/OVMF_VARS.fd"
-    info "created VM '$name' (disk $size, thin-provisioned) in vm/images/$name"
+    info "created VM '$name' (disk $size, thin-provisioned${from:+, layered over $(basename "$from")}) in vm/images/$name"
 }
 
 cmd_start() {
     local name="${1:-}"; shift || true
     check_name "$name"
-    local iso="" headless=0 mem="$DEFAULT_MEM_MB" cpus="$DEFAULT_CPUS" net=1
+    local iso="" headless=0 mem="$DEFAULT_MEM_MB" cpus="$DEFAULT_CPUS" net=1 ssh_port="" seed_url=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --iso)      iso="${2:-}"; shift 2 ;;
@@ -114,16 +150,20 @@ cmd_start() {
             --mem)      mem="${2:-}"; shift 2 ;;
             --cpus)     cpus="${2:-}"; shift 2 ;;
             --no-net)   net=0; shift ;;
+            --ssh-port) ssh_port="${2:-}"; shift 2 ;;
+            --seed-url) seed_url="${2:-}"; shift 2 ;;
             *) die "unknown option '$1' (see: vm/vm.sh help)" ;;
         esac
     done
     [[ "$mem" =~ ^[0-9]+$ && "$cpus" =~ ^[0-9]+$ ]] || die "--mem and --cpus need numbers."
+    [[ -z "$ssh_port" || "$ssh_port" =~ ^[0-9]+$ ]] || die "--ssh-port needs a number."
+    (( net )) || [[ -z "$ssh_port" && -z "$seed_url" ]] || die "--ssh-port and --seed-url need the network (drop --no-net)."
 
     check_host
     find_firmware
     local img; img="$(vm_image_dir "$name")"
     [[ -f "$img/disk.qcow2" ]] || die "VM '$name' does not exist. Create it with: vm/vm.sh create $name"
-    vm_pid "$name" >/dev/null && die "VM '$name' is already running."
+    if vm_pid "$name" >/dev/null; then die "VM '$name' is already running."; fi
 
     local run; run="$(vm_run_dir "$name")"
     mkdir -p "$run"
@@ -145,7 +185,11 @@ cmd_start() {
         args+=(-drive "file=$(realpath "$iso"),media=cdrom,readonly=on")
     fi
     if (( net )); then
-        args+=(-nic "user,model=virtio-net-pci")
+        local nic="user,model=virtio-net-pci"
+        # Bound to 127.0.0.1 only: the VM is never reachable from the local network.
+        if [[ -n "$ssh_port" ]]; then nic+=",hostfwd=tcp:127.0.0.1:$ssh_port-:22"; fi
+        args+=(-nic "$nic")
+        if [[ -n "$seed_url" ]]; then args+=(-smbios "type=1,serial=ds=nocloud;s=$seed_url"); fi
     else
         args+=(-nic none)
     fi
@@ -166,22 +210,31 @@ cmd_start() {
 }
 
 cmd_stop() {
-    local name="${1:-}"
+    local name="${1:-}" force=0
+    if [[ "${2:-}" == "--force" ]]; then force=1; fi
     check_name "$name"
     local pid
     if ! pid="$(vm_pid "$name")"; then
         info "VM '$name' is not running"
         return 0
     fi
-    kill "$pid"
+    # Ask the guest to shut down cleanly (ACPI power button) through QMP, then force if needed.
+    local sock; sock="$(vm_run_dir "$name")/qmp.sock"
     local i
-    for i in $(seq 1 50); do
-        kill -0 "$pid" 2>/dev/null || break
-        sleep 0.2
-    done
-    if kill -0 "$pid" 2>/dev/null; then
-        kill -9 "$pid"
+    if (( ! force )) && [[ -S "$sock" ]] && qmp_powerdown "$sock"; then
+        for i in $(seq 1 120); do
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 0.5
+        done
     fi
+    if kill -0 "$pid" 2>/dev/null; then
+        kill "$pid"
+        for i in $(seq 1 50); do
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 0.2
+        done
+    fi
+    if kill -0 "$pid" 2>/dev/null; then kill -9 "$pid"; fi
     rm -f "$(vm_run_dir "$name")/qmp.sock" "$(vm_run_dir "$name")/qemu.pid"
     info "VM '$name' stopped"
 }
@@ -189,7 +242,7 @@ cmd_stop() {
 cmd_destroy() {
     local name="${1:-}"
     check_name "$name"
-    cmd_stop "$name" >/dev/null
+    cmd_stop "$name" --force >/dev/null
     local img run
     img="$(vm_image_dir "$name")"; run="$(vm_run_dir "$name")"
     [[ -e "$img" || -e "$run" ]] || die "VM '$name' does not exist."
@@ -221,7 +274,7 @@ cmd_list() {
 
 cmd_selftest() {
     local name="selftest"
-    [[ -e "$(vm_image_dir "$name")" ]] && cmd_destroy "$name" >/dev/null
+    if [[ -e "$(vm_image_dir "$name")" ]]; then cmd_destroy "$name" >/dev/null; fi
     cmd_create "$name" 1G
     cmd_start "$name" --headless --no-net --mem 512 --cpus 1
 
@@ -241,7 +294,7 @@ cmd_selftest() {
     fi
     (( ok )) || die "selftest: UEFI firmware output not seen on the serial console within 60 s"
     info "selftest passed: UEFI firmware booted under KVM and the VM was removed cleanly"
-    [[ -n "$excerpt" ]] && sed 's/^/    /' <<<"$excerpt"
+    if [[ -n "$excerpt" ]]; then sed 's/^/    /' <<<"$excerpt"; fi
     return 0
 }
 

@@ -49,19 +49,26 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   `main` blocks deletion and force push. Issue labels postponed (created when `gh` is available or
   when the first issues are opened).
 
-### [~] 0.6 Host virtualization tools — **Owner input** (awaiting owner review)
+### [x] 0.6 Host virtualization tools — **Owner input**
 - **Goal:** run VMs on the host without touching anything else.
 - **Deliverables:** install `qemu-system-x86`, `ovmf`, `qemu-utils` (asked at the moment);
   `vm/` scripts that keep every disk image, firmware variable store and log inside the project folder.
 - **Done when:** a throwaway UEFI VM boots and is removed cleanly.
 - **Outcome:** packages installed by the owner (QEMU 8.2.2, OVMF 2024.02); `vm/vm.sh` created;
   `vm/vm.sh selftest` boots UEFI firmware under KVM in about 1 s and removes every file.
+  `qemu-system-gui` added afterwards (VM windows, 3D acceleration for step 0.8); owner tested a VM in a window.
 
-### [ ] 0.7 Arch builder VM *(multi-prompt)*
+### [~] 0.7 Arch builder VM *(multi-prompt)* (awaiting owner review)
 - **Goal:** an Arch Linux VM where ISOs and packages are built (archiso needs root; it gets it only inside the VM).
 - **Deliverables:** builder VM from the official Arch cloud image, provisioned by script
   (cloud-init), project folder shared into the VM (virtiofs or 9p), `tools/build-in-vm` wrapper.
 - **Done when:** one command on the host runs a build inside the VM and returns the output to the project folder.
+- **Outcome:** `vm/builder.sh` (setup / start / stop / ssh / destroy) and `tools/build-in-vm`.
+  Official Arch cloud image 20261001.604814, verified by SHA-256 and arch-boxes signature; files are
+  copied with rsync instead of a shared folder (archiso needs a native filesystem). Verified: a command
+  run through `tools/build-in-vm` writes `out/` back on the host; failures return a non-zero exit code;
+  cold start in ~9 s; clean ACPI shutdown. The builder itself follows current Arch (not pinned):
+  pinning applies to the ISO contents (step 1.1).
 
 ### [ ] 0.8 Test VM harness
 - **Goal:** boot any built ISO the same way every time.
