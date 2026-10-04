@@ -16,6 +16,16 @@ with a gamepad. Mouse and keyboard are never required.
 - **Built for people with no technical background.**
 - **Fully open source** (GPLv3).
 
+## System requirements
+
+| | Minimum |
+|---|---|
+| Processor | 64-bit x86 (Intel or AMD), roughly the last 10 years |
+| Firmware | **UEFI** (PCs from about 2012). If your PC is set to "Legacy" or "CSM" boot, switch it to UEFI in the firmware settings. Secure Boot must be disabled. |
+| Memory | 4 GB (8 GB recommended) |
+| Storage | 32 GB |
+| Graphics | Vulkan support for the full experience; older GPUs run a reduced mode |
+
 ## Documents
 
 | File | What it is |

@@ -37,6 +37,12 @@ OwneetOS is a **lightweight, open-source Linux distribution** that turns any x86
 ## 3. Target hardware
 
 - CPU: x86_64, roughly the last ~10 years.
+- Firmware: **UEFI required** (PCs from about 2012 onwards). Legacy BIOS boot is not supported.
+  - PCs from about 2012–2019 often offer both modes: if set to "Legacy" / "CSM", the user switches
+    to UEFI in the firmware settings. The user guide explains this in the same step as disabling
+    Secure Boot, and the system requirements state it clearly.
+  - Dual boot (later wave): a Windows installed in Legacy mode cannot be started from the
+    OwneetOS boot menu; the installer must detect it and explain it.
 - RAM: **4 GB minimum**, 8 GB recommended.
 - Disk: **32 GB** minimum.
 - GPU: **Vulkan** required for the main (gamescope) session. GPUs without adequate Vulkan support
@@ -214,3 +220,4 @@ in order; the owner reviews each step before the next one starts.
 | 2026-10-04 | Repository published at github.com/fancy-dino/OwneetOS; `main` ruleset active (step 0.5). |
 | 2026-10-04 | `main` ruleset: PR + approval + green CI for contributors; owner bypasses and pushes directly (option A). |
 | 2026-10-04 | ISO boots UEFI only (no legacy BIOS); no SSH server, cloud-init or VM guest tools in the ISO (step 1.1). |
+| 2026-10-04 | UEFI firmware is a system requirement (PCs from ~2012); Legacy/CSM switch explained in the user guide (section 3). |
