@@ -87,6 +87,8 @@ OwneetOS is a **lightweight, open-source Linux distribution** that turns any x86
     without any action from users.
   - The key's identity uses a **dedicated project e-mail address** (public: it ships in every ISO),
     never a personal one.
+  - The primary key's backup lives in **two places**: a dedicated USB stick and the owner's
+    password manager.
   - Private keys never enter the repository, CI logs or the assistant's environment: the owner
     creates them on their own machine with a script provided in the repository.
 - **btrfs + snapper**: automatic snapshots, rollback selectable from the boot menu.
