@@ -1,0 +1,9 @@
+NAME="OwneetOS"
+PRETTY_NAME="OwneetOS"
+ID=owneetos
+ID_LIKE=arch
+ANSI_COLOR="38;2;255;138;91"
+HOME_URL="https://github.com/fancy-dino/OwneetOS"
+DOCUMENTATION_URL="https://github.com/fancy-dino/OwneetOS#readme"
+SUPPORT_URL="https://github.com/fancy-dino/OwneetOS/issues"
+BUG_REPORT_URL="https://github.com/fancy-dino/OwneetOS/issues"

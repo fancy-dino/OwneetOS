@@ -46,6 +46,9 @@ OwneetOS test VM (${MEM_MB} MB RAM, ${CPUS} CPUs, UEFI, Secure Boot off)
         --ssh                        live Arch ISO only: allow root SSH with the project test key
   vm/test.sh gamepads              List gamepads connected to this computer
   vm/test.sh ssh [CMD]             Shell in the VM (after boot --ssh), or run CMD
+  vm/test.sh wait-serial PATTERN [SECONDS]
+                                   Wait until the serial console shows PATTERN (regex, default 180 s)
+  vm/test.sh log                   Print the serial console log (escape codes removed)
   vm/test.sh stop                  Power the VM off
   vm/test.sh reset                 Bring every disk back to the blank state
   vm/test.sh destroy               Delete the test VM
@@ -139,6 +142,21 @@ cmd_boot() {
     fi
 }
 
+serial_log() { sed -e 's/\x1b\[[0-9;=?]*[A-Za-z]//g' -e 's/\r//g' "$VM_DIR/run/$NAME/serial.log" 2>/dev/null; }
+
+cmd_wait_serial() {
+    local pattern="${1:-}" timeout="${2:-180}" i
+    [[ -n "$pattern" ]] || die "usage: vm/test.sh wait-serial PATTERN [SECONDS]"
+    for (( i = 0; i < timeout; i++ )); do
+        if serial_log | grep -aqE -- "$pattern"; then
+            info "serial console shows: $(serial_log | grep -aE -- "$pattern" | head -1)"
+            return 0
+        fi
+        sleep 1
+    done
+    die "'$pattern' did not appear on the serial console within $timeout s (vm/test.sh log)"
+}
+
 case "${1:-help}" in
     fetch-arch-iso) verified_download "$ARCH_ISO_URL" "$ARCH_ISO" "$ARCH_ISO_SHA256" "$ARCH_ISO_KEY" \
                         "Arch Linux ISO $ARCH_ISO_VERSION (~1.6 GB)" ;;
@@ -148,6 +166,8 @@ case "${1:-help}" in
               if [[ -z "$out" ]]; then echo "no gamepads detected"; else
                   printf 'DEVICE\tNAME\tACCESS\n%s\n' "$out" | column -t -s $'\t'; fi ;;
     ssh)      shift; if [[ $# -gt 0 ]]; then vm_ssh "$@"; else ssh -t "${SSH_OPTS[@]}" root@127.0.0.1; fi ;;
+    wait-serial) shift; cmd_wait_serial "$@" ;;
+    log)      serial_log ;;
     stop)     "$VM" stop "$NAME" --force ;;
     reset)    "$VM" stop "$NAME" --force >/dev/null; "$VM" revert "$NAME" blank ;;
     destroy)  "$VM" destroy "$NAME" ;;

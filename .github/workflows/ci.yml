@@ -29,9 +29,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build ISO
         run: |
-          if [ ! -f iso/profiledef.sh ]; then
-            echo "::notice::No archiso profile yet. The ISO build is added in roadmap step 1.6."
-            exit 0
-          fi
-          echo "::error::An archiso profile exists but the CI build is not implemented yet (roadmap step 1.6)."
-          exit 1
+          # Placeholder until roadmap step 1.6. ISOs are built in the builder VM: tools/build-in-vm tools/build-iso
+          test -f iso/profiledef.sh
+          echo "::notice::The ISO is not built in CI yet (roadmap step 1.6)."
+

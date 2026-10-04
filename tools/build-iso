@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Builds the OwneetOS ISO from the archiso profile in iso/ into out/.
+# Runs inside the builder VM (it needs root and archiso):
+#   tools/build-in-vm tools/build-iso
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORK_DIR="/var/tmp/owneet-iso-work"
+MAX_ISO_BYTES=$(( 2 * 1024 * 1024 * 1024 ))   # GitHub Releases limit per file
+
+die() { echo "error: $*" >&2; exit 1; }
+
+command -v mkarchiso >/dev/null 2>&1 \
+    || die "mkarchiso not found. Build inside the builder VM: tools/build-in-vm tools/build-iso"
+
+cd "$ROOT"
+
+# Reproducible dates: the ISO version is the date of the last commit, not the build time.
+if git rev-parse --git-dir >/dev/null 2>&1; then
+    SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+    export SOURCE_DATE_EPOCH
+fi
+
+mkdir -p out
+rm -f out/owneetos-*.iso out/owneetos-*.iso.sha256
+sudo rm -rf "$WORK_DIR"
+
+echo "==> building the ISO (work dir: $WORK_DIR)"
+sudo mkarchiso -v -r -w "$WORK_DIR" -o "$ROOT/out" "$ROOT/iso"
+
+iso="$(find out -maxdepth 1 -name 'owneetos-*.iso' | head -1)"
+[[ -n "$iso" ]] || die "mkarchiso finished but no ISO was found in out/"
+sudo chown "$(id -u):$(id -g)" "$iso"
+(cd out && sha256sum "$(basename "$iso")" > "$(basename "$iso").sha256")
+
+size="$(stat -c %s "$iso")"
+echo "==> built $iso ($(( size / 1024 / 1024 )) MiB)"
+if (( size > MAX_ISO_BYTES )); then
+    die "the ISO is larger than 2 GiB, the GitHub Releases limit (PROJECT_RULES.md section 5)"
+fi

@@ -92,7 +92,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   (full range) and the D-pad.
   NTFS test disk moved to step 6.5, where it is first needed.
 
-### [~] 0.9 CI skeleton (awaiting first CI run and ruleset update)
+### [x] 0.9 CI skeleton
 
 - **Goal:** GitHub Actions that lint and build what exists.
 - **Deliverables:** workflow for linting (shell, Markdown, later Go/Rust and QML), placeholder ISO job;
@@ -106,11 +106,16 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 
 ## Phase 1 — Minimal bootable OS (no UI yet)
 
-### [ ] 1.1 archiso profile
+### [~] 1.1 archiso profile (awaiting owner review)
 
 - **Deliverables:** `iso/` profile derived from Arch `baseline`, minimal package list, pinned
   Arch Linux Archive snapshot date, OwneetOS branding in `os-release`.
 - **Done when:** the ISO builds in the builder VM and boots to a TTY in the test VM.
+- **Outcome:** `iso/` profile (UEFI only, systemd-boot; packages `base`, `linux`, `mkinitcpio`,
+  `mkinitcpio-archiso`; Arch Linux Archive snapshot 2026-10-03) and `tools/build-iso`. Build takes
+  about 2 minutes; ISO is 471 MiB. In the test VM the systemd-boot menu shows "OwneetOS" and the
+  system reaches `OwneetOS 7.2.8-arch1-2 (ttyS0)` / `owneet login:`. Added `vm/test.sh wait-serial`
+  and `vm/test.sh log` for automated boot checks.
 
 ### [ ] 1.2 Own package repository `[owneet]`
 
