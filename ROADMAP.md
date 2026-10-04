@@ -41,10 +41,13 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   (VM images, caches, build output), `.editorconfig`.
 - **Done when:** the tree is committed locally and every folder has a short README stating its purpose.
 
-### [ ] 0.5 GitHub repository — **Owner input**
+### [x] 0.5 GitHub repository — **Owner input**
 - **Goal:** public repository on the account connected to VS Code.
 - **Deliverables:** remote repo, first push, branch protection on `main`, issue labels per phase.
 - **Owner input:** confirm repository name and visibility before creation; invite the second developer.
+- **Outcome:** published by the owner from VS Code at `github.com/fancy-dino/OwneetOS`; ruleset on
+  `main` blocks deletion and force push. Issue labels postponed (created when `gh` is available or
+  when the first issues are opened).
 
 ### [ ] 0.6 Host virtualization tools — **Owner input**
 - **Goal:** run VMs on the host without touching anything else.
@@ -67,7 +70,8 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 
 ### [ ] 0.9 CI skeleton
 - **Goal:** GitHub Actions that lint and build what exists.
-- **Deliverables:** workflow for linting (shell, Markdown, later Go/Rust and QML), placeholder ISO job.
+- **Deliverables:** workflow for linting (shell, Markdown, later Go/Rust and QML), placeholder ISO job;
+  extend the `main` ruleset to require pull requests and passing checks (done by the owner on the website).
 - **Done when:** CI is green on `main`.
 
 ---
