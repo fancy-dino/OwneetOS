@@ -1,0 +1,14 @@
+#cloud-config
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Test VM, live ISO only: lets vm/test.sh log in as root over SSH with the project test key.
+# @SSH_KEY@ is replaced by vm/test.sh. No users are created.
+
+users: []
+disable_root: false
+
+write_files:
+  - path: /root/.ssh/authorized_keys
+    permissions: "0600"
+    content: |
+      @SSH_KEY@

@@ -29,9 +29,14 @@ VirtualBox and KVM cannot run VMs at the same time on recent kernels: close Virt
 
 ```
 vm/vm.sh create  NAME [SIZE]      blank VM, default 32G disk (thin-provisioned)
-vm/vm.sh start   NAME [options]   --iso FILE, --headless, --mem MB, --cpus N, --no-net
+vm/vm.sh start   NAME [options]   --iso FILE, --headless, --mem MB, --cpus N, --no-net,
+                                  --ssh-port N, --seed-url URL, --evdev PATH, --gl
 vm/vm.sh stop    NAME
 vm/vm.sh destroy NAME             stops the VM and deletes all of its files
+vm/vm.sh add-disk NAME SIZE       extra blank disk (data-N.qcow2)
+vm/vm.sh snapshot NAME TAG        save the state of every disk (VM stopped)
+vm/vm.sh revert   NAME TAG        go back to a saved state
+vm/vm.sh snapshots NAME
 vm/vm.sh status  NAME
 vm/vm.sh list
 vm/vm.sh selftest                 boots a throwaway UEFI VM, checks it, deletes it
@@ -84,3 +89,32 @@ tools/build-in-vm 'shell command line'
 Copies the repository into the VM (`~/owneet`, with rsync; VM images and build output excluded),
 runs the command there, and copies the VM's `out/` folder back to the project's `out/` folder.
 Builds run on the VM's own disk: archiso does not work reliably on shared folders.
+
+## Test VM (`test.sh`)
+
+Boots an ISO the same way every time: UEFI, Secure Boot off, 4 GB RAM, 4 CPUs (the minimum
+hardware), blank virtual disks.
+
+```
+vm/test.sh fetch-arch-iso        stock Arch ISO, verified (used until OwneetOS has its own ISO)
+vm/test.sh create [single|multi] single: one 32G disk; multi: 32G + 64G data disk
+vm/test.sh boot [ISO] [options]  --headless, --gamepad auto|none|PATH, --gl, --ssh
+vm/test.sh gamepads              gamepads connected to this computer
+vm/test.sh ssh [CMD]             root shell in the live system (after boot --ssh)
+vm/test.sh stop | reset | destroy
+```
+
+- **Default ISO:** the newest `out/*.iso`, otherwise the stock Arch ISO.
+- **Gamepads:** passed to the VM as the same input device (evdev passthrough,
+  `virtio-input-host`), so USB and Bluetooth controllers both work and the VM sees real buttons and
+  sticks. No host permission change is needed: the desktop session already gives the logged-in user
+  access to connected gamepads. While the VM runs it grabs the gamepad and the host stops seeing it.
+- **Blank state:** `create` saves a snapshot called `blank`; `reset` brings every disk back to it,
+  so each test starts from empty disks.
+- **3D:** `--gl` uses a virgl-accelerated GPU (needs `qemu-system-gui`). With QEMU 8.2 (Mint 22)
+  this gives the guest accelerated **OpenGL only, not Vulkan** (Vulkan in a VM, "Venus", needs a
+  newer QEMU). gamescope in the VM therefore runs on software Vulkan (lavapipe): fine for functional
+  tests, not for performance. Performance is measured on real hardware (roadmap step 7.4).
+- **`--ssh`:** for the live Arch ISO only. A cloud-init seed puts the project test key
+  (`vm/images/.keys/test_ed25519`) in root's `authorized_keys`, on `127.0.0.1:2223`.
+- **Not yet:** a "Windows-like" NTFS disk; it is created when automatic mounting is built (step 6.5).

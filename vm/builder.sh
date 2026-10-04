@@ -17,7 +17,6 @@ IMAGE_NAME="Arch-Linux-x86_64-cloudimg-$IMAGE_VERSION.qcow2"
 IMAGE_URL="https://fastly.mirror.pkgbuild.com/images/v$IMAGE_VERSION/$IMAGE_NAME"
 # arch-boxes <arch-boxes@archlinux.org>, the key that signs the official images.
 SIGNING_KEY="1B9A16984A4E8CB448712D2AE0B78BF4326C6F8F"
-KEYSERVER="hkps://keyserver.ubuntu.com"
 
 DISK_SIZE="80G"
 MEM_MB="8192"
@@ -26,14 +25,9 @@ SSH_PORT="${OWNEET_BUILDER_SSH_PORT:-2222}"
 SEED_PORT="${OWNEET_SEED_PORT:-8765}"
 PROVISION_TIMEOUT_S=1800
 
-CACHE_DIR="$VM_DIR/images/.cache"
-KEYS_DIR="$VM_DIR/images/.keys"
-GPG_DIR="$VM_DIR/images/.gnupg"
-SSH_KEY="$KEYS_DIR/builder_ed25519"
+# shellcheck source=lib/common.sh
+source "$VM_DIR/lib/common.sh"
 IMAGE="$CACHE_DIR/$IMAGE_NAME"
-
-die() { echo "error: $*" >&2; exit 1; }
-info() { echo "==> $*"; }
 
 usage() {
     cat <<EOF
@@ -50,11 +44,7 @@ SSH listens on 127.0.0.1:${SSH_PORT} (override with OWNEET_BUILDER_SSH_PORT).
 EOF
 }
 
-SSH_OPTS=(
-    -i "$SSH_KEY" -p "$SSH_PORT"
-    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR
-    -o ConnectTimeout=5 -o BatchMode=yes
-)
+ssh_opts builder "$SSH_PORT"
 
 vm_ssh() { ssh "${SSH_OPTS[@]}" builder@127.0.0.1 "$@"; }
 
@@ -69,67 +59,16 @@ wait_for_ssh() {
     return 1
 }
 
-# --- image download and verification ---------------------------------------
-
-fetch_image() {
-    if [[ -f "$IMAGE" ]]; then
-        info "Arch image $IMAGE_VERSION already downloaded"
-        return
-    fi
-    mkdir -p "$CACHE_DIR"
-    mkdir -p -m 700 "$GPG_DIR"
-    export GNUPGHOME="$GPG_DIR"   # project-local keyring; the user's keyring is never touched
-
-    info "downloading Arch Linux cloud image $IMAGE_VERSION (~550 MB)"
-    curl -fL --progress-bar -o "$IMAGE.part" "$IMAGE_URL"
-    curl -fsSL -o "$IMAGE.sig" "$IMAGE_URL.sig"
-
-    info "verifying checksum"
-    echo "$IMAGE_SHA256  $IMAGE.part" | sha256sum --check --quiet \
-        || { rm -f "$IMAGE.part"; die "checksum mismatch: the download is corrupted or tampered with"; }
-
-    info "verifying signature (arch-boxes key $SIGNING_KEY)"
-    if ! gpg --batch --quiet --list-keys "$SIGNING_KEY" >/dev/null 2>&1; then
-        gpg --batch --quiet --keyserver "$KEYSERVER" --recv-keys "$SIGNING_KEY" \
-            || die "could not fetch the signing key from $KEYSERVER"
-    fi
-    local status
-    status="$(gpg --batch --status-fd 1 --verify "$IMAGE.sig" "$IMAGE.part" 2>/dev/null || true)"
-    grep -q "^\[GNUPG:\] VALIDSIG .* $SIGNING_KEY\$" <<<"$status" \
-        || { rm -f "$IMAGE.part"; die "signature check failed"; }
-
-    mv "$IMAGE.part" "$IMAGE"
-    info "image verified: $IMAGE_NAME"
-}
-
 # --- commands ---------------------------------------------------------------
 
 cmd_setup() {
     if [[ -d "$VM_DIR/images/$NAME" ]]; then
         die "the builder VM already exists. To rebuild it: vm/builder.sh destroy && vm/builder.sh setup"
     fi
-    command -v python3 >/dev/null || die "python3 is required (it serves the first-boot configuration)"
-
-    fetch_image
-
-    if [[ ! -f "$SSH_KEY" ]]; then
-        mkdir -p -m 700 "$KEYS_DIR"
-        ssh-keygen -q -t ed25519 -N "" -C "owneet-builder" -f "$SSH_KEY"
-        info "created project SSH key in vm/images/.keys/ (your ~/.ssh is not used)"
-    fi
-
-    # First-boot configuration, served once over HTTP on 127.0.0.1 (seen by the VM as 10.0.2.2).
-    local seed="$VM_DIR/run/$NAME-seed"
-    rm -rf "$seed"; mkdir -p "$seed"
-    sed "s|@SSH_KEY@|$(cat "$SSH_KEY.pub")|" "$VM_DIR/builder/user-data.in" > "$seed/user-data"
-    printf 'instance-id: owneet-builder-%s\nlocal-hostname: owneet-builder\n' "$(date +%s)" > "$seed/meta-data"
-    : > "$seed/vendor-data"
-
-    python3 -m http.server --bind 127.0.0.1 --directory "$seed" "$SEED_PORT" >"$seed/server.log" 2>&1 &
-    SEED_SERVER_PID=$!
-    trap 'if [[ -n "${SEED_SERVER_PID:-}" ]]; then kill "$SEED_SERVER_PID" 2>/dev/null || true; fi' EXIT
-    sleep 1
-    kill -0 "$SEED_SERVER_PID" 2>/dev/null || die "could not start the seed server on port $SEED_PORT (set OWNEET_SEED_PORT)"
+    verified_download "$IMAGE_URL" "$IMAGE" "$IMAGE_SHA256" "$SIGNING_KEY" \
+        "Arch Linux cloud image $IMAGE_VERSION (~550 MB)"
+    ensure_ssh_key builder
+    seed_start "$VM_DIR/run/$NAME-seed" "$SEED_PORT" "$VM_DIR/builder/user-data.in" builder owneet-builder
 
     "$VM" create "$NAME" "$DISK_SIZE" --from "$IMAGE"
     "$VM" start "$NAME" --headless --mem "$MEM_MB" --cpus "$CPUS" \
@@ -150,9 +89,7 @@ cmd_setup() {
     done
     (( waited < PROVISION_TIMEOUT_S )) || die "provisioning did not finish within $(( PROVISION_TIMEOUT_S / 60 )) minutes"
 
-    kill "$SEED_SERVER_PID" 2>/dev/null || true
-    SEED_SERVER_PID=""
-    rm -rf "$seed"
+    seed_stop
 
     # A full system upgrade may have replaced the kernel: restart once so the VM runs it.
     info "restarting the VM on the updated system"

@@ -32,8 +32,14 @@ OwneetOS VM manager
         --no-net        no network card
         --ssh-port N    forward host 127.0.0.1:N to the guest's SSH port
         --seed-url URL  cloud-init NoCloud seed URL (first-boot configuration)
+        --evdev PATH    pass a host input device (e.g. a gamepad) to the guest; repeatable
+        --gl            3D-accelerated virtual GPU (virgl), needed for gamescope
   vm/vm.sh stop    NAME [--force]     Shut a VM down (ACPI, then forced after 60 s; --force: at once)
   vm/vm.sh destroy NAME               Stop a VM and delete all of its files
+  vm/vm.sh add-disk NAME SIZE         Attach an extra blank disk (data-N.qcow2) to a VM
+  vm/vm.sh snapshot NAME TAG          Save the state of all disks of a stopped VM
+  vm/vm.sh revert   NAME TAG          Bring all disks back to a saved state (VM stopped)
+  vm/vm.sh snapshots NAME             List saved states
   vm/vm.sh status  NAME               Show whether a VM is running
   vm/vm.sh list                       List VMs
   vm/vm.sh selftest                   Boot a throwaway UEFI VM, check it, delete it
@@ -142,7 +148,8 @@ cmd_create() {
 cmd_start() {
     local name="${1:-}"; shift || true
     check_name "$name"
-    local iso="" headless=0 mem="$DEFAULT_MEM_MB" cpus="$DEFAULT_CPUS" net=1 ssh_port="" seed_url=""
+    local iso="" headless=0 mem="$DEFAULT_MEM_MB" cpus="$DEFAULT_CPUS" net=1 ssh_port="" seed_url="" gl=0
+    local evdevs=()
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --iso)      iso="${2:-}"; shift 2 ;;
@@ -152,6 +159,8 @@ cmd_start() {
             --no-net)   net=0; shift ;;
             --ssh-port) ssh_port="${2:-}"; shift 2 ;;
             --seed-url) seed_url="${2:-}"; shift 2 ;;
+            --evdev)    evdevs+=("${2:-}"); shift 2 ;;
+            --gl)       gl=1; shift ;;
             *) die "unknown option '$1' (see: vm/vm.sh help)" ;;
         esac
     done
@@ -180,9 +189,20 @@ cmd_start() {
         -qmp "unix:$run/qmp.sock,server=on,wait=off"
         -pidfile "$run/qemu.pid"
     )
+    local extra
+    for extra in "$img"/data-*.qcow2; do
+        if [[ -f "$extra" ]]; then args+=(-drive "file=$extra,if=virtio,format=qcow2,discard=unmap"); fi
+    done
+    local dev
+    for dev in "${evdevs[@]}"; do
+        [[ -r "$dev" && -w "$dev" ]] || die "cannot open input device $dev (needs read and write access)"
+        # The device is grabbed by the VM: while it runs, the host no longer sees its input.
+        args+=(-device "virtio-input-host-pci,evdev=$(realpath "$dev")")
+    done
     if [[ -n "$iso" ]]; then
         [[ -f "$iso" ]] || die "ISO not found: $iso"
-        args+=(-drive "file=$(realpath "$iso"),media=cdrom,readonly=on")
+        # -cdrom uses the machine's default CD-ROM drive (no second, empty drive).
+        args+=(-cdrom "$(realpath "$iso")")
     fi
     if (( net )); then
         local nic="user,model=virtio-net-pci"
@@ -195,7 +215,8 @@ cmd_start() {
     fi
 
     if (( headless )); then
-        args+=(-display none -daemonize)
+        if (( gl )); then args+=(-device virtio-vga-gl -display egl-headless); else args+=(-display none); fi
+        args+=(-daemonize)
         qemu-system-x86_64 "${args[@]}" 2>"$run/qemu.log" || die "QEMU failed to start, see vm/run/$name/qemu.log"
         info "VM '$name' running in the background (pid $(cat "$run/qemu.pid")); serial log: vm/run/$name/serial.log"
     else
@@ -203,7 +224,7 @@ cmd_start() {
             die "QEMU cannot open windows on this host. Install its GUI support (Debian/Ubuntu/Mint: qemu-system-gui;
        Arch: qemu-ui-gtk), or use --headless."
         fi
-        args+=(-vga virtio -display gtk)
+        if (( gl )); then args+=(-device virtio-vga-gl -display gtk,gl=on); else args+=(-vga virtio -display gtk); fi
         info "starting VM '$name' in a window; close the window to power it off"
         qemu-system-x86_64 "${args[@]}"
     fi
@@ -249,6 +270,53 @@ cmd_destroy() {
     # Paths are built from a validated name under vm/, so nothing outside vm/ can be removed.
     rm -rf -- "$img" "$run"
     info "VM '$name' deleted"
+}
+
+cmd_add_disk() {
+    local name="${1:-}" size="${2:-}"
+    check_name "$name"
+    [[ "$size" =~ ^[0-9]+[KMGT]?$ ]] || die "usage: vm/vm.sh add-disk NAME SIZE (e.g. 64G)"
+    local img; img="$(vm_image_dir "$name")"
+    [[ -f "$img/disk.qcow2" ]] || die "VM '$name' does not exist."
+    if vm_pid "$name" >/dev/null; then die "stop VM '$name' first."; fi
+    local n=1
+    while [[ -e "$img/data-$n.qcow2" ]]; do n=$(( n + 1 )); done
+    qemu-img create -q -f qcow2 "$img/data-$n.qcow2" "$size"
+    info "added disk data-$n ($size, thin-provisioned) to VM '$name'"
+}
+
+vm_disks() {
+    local img; img="$(vm_image_dir "$1")"
+    [[ -f "$img/disk.qcow2" ]] || die "VM '$1' does not exist."
+    local d
+    for d in "$img/disk.qcow2" "$img"/data-*.qcow2; do if [[ -f "$d" ]]; then echo "$d"; fi; done
+    return 0
+}
+
+cmd_snapshot() {
+    local name="${1:-}" tag="${2:-}" op="${3:-create}"
+    check_name "$name"
+    [[ "$tag" =~ ^[A-Za-z0-9._-]+$ ]] || die "invalid snapshot tag '$tag'"
+    if vm_pid "$name" >/dev/null; then die "stop VM '$name' first."; fi
+    local d flag
+    case "$op" in create) flag=-c ;; revert) flag=-a ;; esac
+    while read -r d; do
+        qemu-img snapshot "$flag" "$tag" "$d" || die "snapshot '$tag' failed on $(basename "$d")"
+    done < <(vm_disks "$name")
+    if [[ "$op" == create ]]; then
+        cp "$(vm_image_dir "$name")/OVMF_VARS.fd" "$(vm_image_dir "$name")/OVMF_VARS.$tag.fd"
+        info "saved state '$tag' of VM '$name'"
+    else
+        local vars; vars="$(vm_image_dir "$name")/OVMF_VARS.$tag.fd"
+        if [[ -f "$vars" ]]; then cp "$vars" "$(vm_image_dir "$name")/OVMF_VARS.fd"; fi
+        info "VM '$name' is back to state '$tag'"
+    fi
+}
+
+cmd_snapshots() {
+    local name="${1:-}"
+    check_name "$name"
+    qemu-img snapshot -l "$(vm_image_dir "$name")/disk.qcow2"
 }
 
 cmd_status() {
@@ -309,6 +377,10 @@ case "$cmd" in
     status)   cmd_status "$@" ;;
     list)     cmd_list ;;
     selftest) cmd_selftest ;;
+    add-disk) cmd_add_disk "$@" ;;
+    snapshot) cmd_snapshot "${1:-}" "${2:-}" create ;;
+    revert)   cmd_snapshot "${1:-}" "${2:-}" revert ;;
+    snapshots) cmd_snapshots "$@" ;;
     help|-h|--help) usage ;;
     *) usage; exit 1 ;;
 esac

@@ -58,7 +58,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   `vm/vm.sh selftest` boots UEFI firmware under KVM in about 1 s and removes every file.
   `qemu-system-gui` added afterwards (VM windows, 3D acceleration for step 0.8); owner tested a VM in a window.
 
-### [~] 0.7 Arch builder VM *(multi-prompt)* (awaiting owner review)
+### [x] 0.7 Arch builder VM *(multi-prompt)*
 - **Goal:** an Arch Linux VM where ISOs and packages are built (archiso needs root; it gets it only inside the VM).
 - **Deliverables:** builder VM from the official Arch cloud image, provisioned by script
   (cloud-init), project folder shared into the VM (virtiofs or 9p), `tools/build-in-vm` wrapper.
@@ -70,12 +70,17 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   cold start in ~9 s; clean ACPI shutdown. The builder itself follows current Arch (not pinned):
   pinning applies to the ISO contents (step 1.1).
 
-### [ ] 0.8 Test VM harness
+### [~] 0.8 Test VM harness (waiting for the gamepad check)
 - **Goal:** boot any built ISO the same way every time.
 - **Deliverables:** UEFI test VM script with blank virtual disks (single disk, multi-disk,
   "Windows-like" NTFS disk for later), controller passthrough (USB passthrough or evdev), serial
   log capture, snapshot/reset.
 - **Done when:** the stock Arch ISO boots in the harness and a host gamepad reaches the guest.
+- **Progress:** `vm/test.sh` + shared `vm/lib/common.sh`. Stock Arch ISO 2026.10.01 (verified by
+  checksum and release signature) boots in UEFI mode in ~45 s with 4 GB RAM, 4 CPUs, 32G + 64G disks;
+  `reset` returns to blank disks; `--gl` gives a virgl GPU (OpenGL only with QEMU 8.2, no Vulkan).
+  Gamepad passthrough implemented (evdev); **not yet verified**: needs a controller on the host.
+  NTFS test disk moved to step 6.5, where it is first needed.
 
 ### [ ] 0.9 CI skeleton
 - **Goal:** GitHub Actions that lint and build what exists.
