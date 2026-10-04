@@ -117,6 +117,8 @@ case "${1:-help}" in
     ssh)     shift; is_running || die "the builder VM is not running (vm/builder.sh start)"
              if [[ $# -gt 0 ]]; then vm_ssh "$@"; else ssh -t "${SSH_OPTS[@]}" builder@127.0.0.1; fi ;;
     ssh-command) printf '%q ' ssh "${SSH_OPTS[@]}"; echo ;;  # used by tools/build-in-vm for rsync
+    ssh-tty) shift; is_running || die "the builder VM is not running (vm/builder.sh start)"
+             ssh -t "${SSH_OPTS[@]}" builder@127.0.0.1 "$@" ;;  # interactive command (passphrase prompts)
     destroy) "$VM" destroy "$NAME" ;;
     help|-h|--help) usage ;;
     *) usage; exit 1 ;;

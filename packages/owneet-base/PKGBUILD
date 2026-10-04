@@ -8,7 +8,7 @@ pkgdesc="OwneetOS base system: release information and the packages every Owneet
 arch=('any')
 url="https://github.com/fancy-dino/OwneetOS"
 license=('GPL-3.0-or-later')
-depends=('base')
+depends=('base' 'owneet-keyring')
 source=('owneet-release')
 sha256sums=('74f473c3e5cec980798421ac667c84f3938a1e93160b37112300a25aa2ea0400')
 

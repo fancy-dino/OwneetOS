@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
+
+pkgname=owneet-keyring
+pkgver=20261004
+pkgrel=1
+pkgdesc="OwneetOS PGP keyring: the public key that signs OwneetOS packages"
+arch=('any')
+url="https://github.com/fancy-dino/OwneetOS"
+license=('GPL-3.0-or-later')
+install=owneet-keyring.install
+# owneet.gpg and owneet-trusted are written by tools/keys/create-signing-key.
+source=('owneet.gpg' 'owneet-trusted' 'owneet-revoked')
+sha256sums=('8ed04d3db07935c518dbb2b14ba716931d9f7d9bdff05fa35e3fb802e1af7037'
+            '508252806636308633c3dbd6b8574e9a3c426c83e2c278107bc0e5580c61a53d'
+            'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
+
+package() {
+  install -Dm644 -t "$pkgdir/usr/share/pacman/keyrings/" owneet.gpg owneet-trusted owneet-revoked
+}

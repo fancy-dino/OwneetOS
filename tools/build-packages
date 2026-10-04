@@ -49,20 +49,52 @@ if [[ ! -d "$CHROOT_DIR/root" ]]; then
     echo "$snapshot" | sudo tee "$CHROOT_DIR/snapshot" >/dev/null
 fi
 
+# Dependencies between OwneetOS packages (depends + makedepends that are also in packages/).
+all_pkgs="$(find packages -mindepth 2 -maxdepth 2 -name PKGBUILD -printf '%h\n' | xargs -rn1 basename)"
+local_deps() {
+    # shellcheck disable=SC1090,SC2154  # PKGBUILDs define depends/makedepends
+    ( source "packages/$1/PKGBUILD" >/dev/null 2>&1; printf '%s\n' "${depends[@]}" "${makedepends[@]}" ) \
+        | sed 's/[<>=].*//' | grep -Fxf <(echo "$all_pkgs") || true
+}
+
+# Build order: a package comes after the OwneetOS packages it depends on.
+ordered=()
+remaining=("${pkgs[@]}")
+while (( ${#remaining[@]} )); do
+    progress=0 next=()
+    for pkg in "${remaining[@]}"; do
+        [[ -f "packages/$pkg/PKGBUILD" ]] || die "packages/$pkg/PKGBUILD not found"
+        ready=1
+        for dep in $(local_deps "$pkg"); do
+            if printf '%s\n' "${remaining[@]}" | grep -qFx "$dep" && [[ "$dep" != "$pkg" ]]; then ready=0; fi
+        done
+        if (( ready )); then ordered+=("$pkg"); progress=1; else next+=("$pkg"); fi
+    done
+    (( progress )) || die "circular dependency between: ${next[*]}"
+    remaining=("${next[@]}")
+done
+
 mkdir -p "$REPO_DIR"
-for pkg in "${pkgs[@]}"; do
-    [[ -f "packages/$pkg/PKGBUILD" ]] || die "packages/$pkg/PKGBUILD not found"
+for pkg in "${ordered[@]}"; do
     info "building $pkg"
-    rm -f "$REPO_DIR/$pkg"-[0-9]*.pkg.tar.zst
+    rm -f "$REPO_DIR/$pkg"-[0-9]*.pkg.tar.zst "$REPO_DIR/$pkg"-[0-9]*.pkg.tar.zst.sig
+    # OwneetOS dependencies are not in the Arch repositories: install the freshly built ones.
+    install_args=()
+    for dep in $(local_deps "$pkg"); do
+        for f in "$REPO_DIR/$dep"-[0-9]*.pkg.tar.zst; do
+            if [[ -f "$f" ]]; then install_args+=(-I "$f"); fi
+        done
+    done
     (
         cd "packages/$pkg"
-        PKGDEST="$REPO_DIR" makechrootpkg -c -r "$CHROOT_DIR" -- --noconfirm >/dev/null
+        PKGDEST="$REPO_DIR" makechrootpkg -c -r "$CHROOT_DIR" "${install_args[@]}" -- --noconfirm >/dev/null
     ) || die "build of $pkg failed"
 done
 
 info "updating the [$REPO_NAME] repository database"
 rm -f "$REPO_DIR/$REPO_NAME".{db,files}*
-repo-add --quiet --new "$REPO_DIR/$REPO_NAME.db.tar.gz" "$REPO_DIR"/*.pkg.tar.zst
+repo-add --quiet "$REPO_DIR/$REPO_NAME.db.tar.gz" "$REPO_DIR"/*.pkg.tar.zst
+info "the repository is UNSIGNED (development). Key holders sign it with: tools/sign-repo"
 
 info "repository ready in out/repo/x86_64:"
 find "$REPO_DIR" -maxdepth 1 -name '*.pkg.tar.zst' -printf '    %f\n' | sort

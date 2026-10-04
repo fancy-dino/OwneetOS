@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Loads the OwneetOS signing subkey ("working stamp") into the builder VM, where tools/sign-repo
+# uses it. Run once per builder VM, by a key holder:
+#
+#   tools/keys/install-working-key ~/OwneetOS-signing-key/working/owneet-signing-subkey.asc
+#
+# The key stays protected by its passphrase inside the VM; the file is streamed over SSH and
+# never copied into the repository.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+BUILDER="$ROOT/vm/builder.sh"
+
+die() { echo "error: $*" >&2; exit 1; }
+
+file="${1:-}"
+[[ -f "$file" ]] || die "usage: tools/keys/install-working-key PATH/TO/owneet-signing-subkey.asc"
+grep -q "BEGIN PGP PRIVATE KEY BLOCK" "$file" || die "$file is not a private key export"
+
+"$BUILDER" start >/dev/null
+"$BUILDER" ssh 'gpg --batch --quiet --import' < "$file"
+
+key="$(cut -d: -f1 "$ROOT/packages/owneet-keyring/owneet-trusted")"
+echo "==> keys available for signing in the builder VM:"
+"$BUILDER" ssh "gpg --list-secret-keys --keyid-format none $key" | grep -E '^(sec|ssb|uid)'
+echo "==> 'sec#' means the primary key is NOT in the VM (correct); 'ssb ... [S]' is the signing subkey."

@@ -40,11 +40,27 @@ fi
 profile="$(mktemp -d)"
 trap 'rm -rf "$profile"' EXIT
 cp -a "$ROOT/iso/." "$profile/"
-awk -v repo="$repo_dir" '
+# Never reuse OwneetOS packages from pacman's cache: a cached copy with the same version (and its
+# old signature) would silently replace the package that was just built.
+sudo find /var/cache/pacman/pkg -maxdepth 1 -name 'owneet-*' -delete
+
+# A repository signed with tools/sign-repo is verified against the OwneetOS key; an unsigned one is
+# accepted only as a development build (release builds must be signed, roadmap step 7.2).
+keyring="$ROOT/packages/owneet-keyring"
+if [[ -f "$repo_dir/owneet.db.sig" ]]; then
+    siglevel="Required DatabaseRequired"
+    key="$(cut -d: -f1 "$keyring/owneet-trusted")"
+    echo "==> signed [owneet] repository: verifying against key $key"
+    sudo pacman-key --add "$keyring/owneet.gpg" >/dev/null 2>&1
+    sudo pacman-key --lsign-key "$key" >/dev/null 2>&1
+else
+    siglevel="Optional TrustAll"
+    echo "==> WARNING: the [owneet] repository is NOT signed: this is a development build only"
+fi
+awk -v repo="$repo_dir" -v siglevel="$siglevel" '
     /^\[core\]/ && !done {
         print "[owneet]"
-        # TODO(step 1.2, signing): switch to "SigLevel = Required" once packages are signed.
-        print "SigLevel = Optional TrustAll"
+        print "SigLevel = " siglevel
         print "Server = file://" repo
         print ""
         done = 1

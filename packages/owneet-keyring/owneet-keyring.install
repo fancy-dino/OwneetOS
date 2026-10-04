@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Adds the OwneetOS key to pacman's keyring, if the keyring has been initialised.
+
+post_upgrade() {
+  if usr/bin/pacman-key -l >/dev/null 2>&1; then
+    usr/bin/pacman-key --populate owneet
+  fi
+}
+
+post_install() {
+  post_upgrade
+}

@@ -11,7 +11,7 @@ tools/build-in-vm tools/build-packages            # every package
 tools/build-in-vm tools/build-packages NAME...    # only these
 ```
 
-Packages are built in a **clean chroot** inside the builder VM, against the same Arch Linux
+Packages are built in a **clean chroot** inside the builder VM, in dependency order, against the same Arch Linux
 Archive snapshot as the ISO (`iso/pacman.conf`). The result is the `[owneet]` repository in
 `out/repo/x86_64/` (packages + `owneet.db`). `tools/build-iso` uses it automatically and builds it
 first if it is missing.
@@ -20,7 +20,8 @@ first if it is missing.
 
 | Package | Content |
 |---------|---------|
-| [`owneet-base`](owneet-base/) | OwneetOS release information; depends on `base`. Grows into the meta-package of the system. |
+| [`owneet-base`](owneet-base/) | OwneetOS release information; depends on `base` and `owneet-keyring`. Grows into the meta-package of the system. |
+| [`owneet-keyring`](owneet-keyring/) | The OwneetOS public key for pacman (`pacman-key --populate owneet`). |
 
 ## Rules
 
@@ -32,7 +33,14 @@ first if it is missing.
 ## Signing
 
 Packages and the repository database are signed with the OwneetOS signing subkey
-(PROJECT_RULES.md section 5). The key is created once by the owner with
-[`tools/keys/create-signing-key`](../tools/keys/create-signing-key); its public part lands in
-`owneet-keyring/`. Until then the local repository is used unsigned (`TODO(step 1.2, signing)` in
-`tools/build-iso`).
+(PROJECT_RULES.md section 5). Public key: [`owneet-keyring/owneet.gpg`](owneet-keyring/owneet.gpg),
+primary key fingerprint `B3BD F4E3 E477 2D3F 7E86  1A87 8D02 23BC EE51 456E`.
+
+| Who | Command | When |
+|-----|---------|------|
+| key holder | `tools/keys/install-working-key PATH/owneet-signing-subkey.asc` | once per builder VM |
+| key holder | `tools/sign-repo` (asks the passphrase) | after building packages that will be distributed |
+| anyone | `tools/build-in-vm tools/build-iso` | verifies signatures if the repository is signed; otherwise warns (development build) |
+
+`tools/build-iso` never reuses OwneetOS packages from pacman's cache, so a stale package or
+signature cannot replace a freshly built one.

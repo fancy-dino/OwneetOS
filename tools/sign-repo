@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Signs the [owneet] repository (every package and the database) in the builder VM with the
+# OwneetOS signing subkey, then copies the signed repository back to out/repo/.
+# Run by a key holder, after tools/keys/install-working-key, in an interactive terminal:
+#
+#   tools/sign-repo
+#
+# The passphrase is asked once in this terminal and never stored.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BUILDER="$ROOT/vm/builder.sh"
+key="$(cut -d: -f1 "$ROOT/packages/owneet-keyring/owneet-trusted")"
+
+"$BUILDER" start >/dev/null
+
+# shellcheck disable=SC2016  # expanded in the VM
+"$BUILDER" ssh-tty "set -euo pipefail
+key=$key"'
+cd ~/owneet/out/repo/x86_64 2>/dev/null || { echo "error: no repository in the VM; run tools/build-in-vm tools/build-packages first" >&2; exit 1; }
+gpg --list-secret-keys "$key" >/dev/null 2>&1 \
+    || { echo "error: the signing key is not in the builder VM; run tools/keys/install-working-key first" >&2; exit 1; }
+export GPG_TTY=$(tty)
+echo "==> signing packages (the passphrase is asked once)"
+for p in *.pkg.tar.zst; do
+    rm -f "$p.sig"
+    gpg --quiet --pinentry-mode loopback --local-user "$key" --detach-sign --no-armor "$p"
+    echo "    $p"
+done
+echo "==> signing the repository database"
+rm -f owneet.db* owneet.files*
+repo-add --quiet --sign --key "$key" owneet.db.tar.gz *.pkg.tar.zst
+[[ -f owneet.db.sig ]] || { echo "error: the database was not signed" >&2; exit 1; }
+for f in *.pkg.tar.zst.sig owneet.db.sig; do
+    gpg --quiet --verify "$f" >/dev/null 2>&1 || { echo "error: signature check failed: $f" >&2; exit 1; }
+done
+echo "==> all signatures verified"
+'
+
+echo "==> copying the signed repository back to out/repo/"
+mkdir -p "$ROOT/out/repo"
+rsync -a --delete -e "$("$BUILDER" ssh-command)" "builder@127.0.0.1:owneet/out/repo/" "$ROOT/out/repo/"
+echo "==> done. Next: tools/build-in-vm tools/build-iso (it will require valid signatures)"

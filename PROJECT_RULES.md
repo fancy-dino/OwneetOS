@@ -89,8 +89,15 @@ OwneetOS is a **lightweight, open-source Linux distribution** that turns any x86
     never a personal one.
   - The primary key's backup lives in **two places**: a dedicated USB stick and the owner's
     password manager.
-  - Private keys never enter the repository, CI logs or the assistant's environment: the owner
-    creates them on their own machine with a script provided in the repository.
+  - Private keys never enter the repository or CI logs, and the assistant never reads or copies
+    private key files. The owner created the key with `tools/keys/create-signing-key`.
+  - **Who signs:** every signature needs the passphrase, typed by a key holder
+    (`tools/keys/install-working-key` once per builder VM, then `tools/sign-repo`). From roadmap
+    step 7.2, release builds are signed by CI with the subkey stored as a protected GitHub secret.
+  - **Development builds** may use the local `[owneet]` repository unsigned (packages are built and
+    consumed inside the same builder VM); `tools/build-iso` prints a warning. A signed repository
+    is always verified (`SigLevel = Required DatabaseRequired`). **Anything distributed to users
+    must be signed.**
 - **btrfs + snapper**: automatic snapshots, rollback selectable from the boot menu.
 - The only "hands-on" step for the user: writing the ISO to a USB stick (balenaEtcher or Ventoy),
   explained in an illustrated guide.
@@ -236,3 +243,4 @@ in order; the owner reviews each step before the next one starts.
 | 2026-10-04 | ISO boots UEFI only (no legacy BIOS); no SSH server, cloud-init or VM guest tools in the ISO (step 1.1). |
 | 2026-10-04 | UEFI firmware is a system requirement (PCs from ~2012); Legacy/CSM switch explained in the user guide (section 3). |
 | 2026-10-04 | Package signing: two-level key (primary offline with the owner, expiring signing subkey for owner + second developer), dedicated project e-mail (section 5). |
+| 2026-10-04 | Signing key created (primary `B3BD F4E3 E477 2D3F 7E86 1A87 8D02 23BC EE51 456E`, `owneet@proton.me`). Key holders sign with their passphrase; development builds may be unsigned; distributed builds must be signed (section 5). |
