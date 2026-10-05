@@ -157,6 +157,8 @@ OwneetOS is a **lightweight, open-source Linux distribution** that turns any x86
   accent, minimal UI, Bricolage Grotesque (titles) + Lexend (UI text), 1280×720 design grid,
   5% horizontal TV safe area. Palettes (Dusk, Tide, Bloom, Daylight, High contrast) are
   **provisional** and may change.
+- **Wordmark:** "Owneet" (light) + "OS" (coral), Bricolage Grotesque 750 / width 80, generated as
+  outlines by `tools/branding/make-wordmark` (`packages/owneet-branding/owneetos-wordmark.svg`).
 
 ### 9.1 Controller input map (global, binding for every screen)
 
@@ -245,4 +247,5 @@ in order; the owner reviews each step before the next one starts.
 | 2026-10-04 | Package signing: two-level key (primary offline with the owner, expiring signing subkey for owner + second developer), dedicated project e-mail (section 5). |
 | 2026-10-04 | Signing key created (primary `B3BD F4E3 E477 2D3F 7E86 1A87 8D02 23BC EE51 456E`, `owneet@proton.me`). Key holders sign with their passphrase; development builds may be unsigned; distributed builds must be signed (section 5). |
 | 2026-10-05 | Console session: fixed Linux user `owneet` with getty autologin on tty1; gamescope when a hardware Vulkan device exists, otherwise cage; gamescope failing twice falls back to cage (step 1.3). |
-| 2026-10-05 | Boot: silent kernel/systemd, hidden systemd-boot menu (hold a key to show it), Plymouth splash `owneet` with the generated wordmark (step 1.4, pending owner approval of the splash). |
+| 2026-10-05 | Boot: silent kernel/systemd, hidden systemd-boot menu (hold a key to show it), Plymouth splash `owneet` with the generated wordmark (step 1.4). |
+| 2026-10-05 | Boot splash approved by the owner with the wordmark "Owneet" + coral "OS" (as in the mockups page header) instead of "owneet." (section 9). |

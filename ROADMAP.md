@@ -151,7 +151,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   on the owner's PC (RTX 4060 + Intel UHD 770) booting the live ISO at the end of step 1.5.
   New tools: `tools/update-checksums`, `vm/test.sh screenshot`, `--kargs`, `--journal`.
 
-### [~] 1.4 Boot experience (awaiting owner review of the splash)
+### [x] 1.4 Boot experience
 
 - **Deliverables:** systemd-boot config, Plymouth theme with the OwneetOS mark, quiet kernel
   parameters, no text on screen in normal boots.
@@ -164,7 +164,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   Problems found and fixed: Plymouth fell back to its text splash (serial console; theme images
   linked instead of copied); keeping the splash on screen until the UI (`--retain-splash`) delayed
   autologin by 30 s, so it was removed. **Left for step 3.2:** a seamless splash-to-UI handover
-  (no dark gap).
+  (no dark gap). The owner approved the splash with the wordmark changed to "Owneet" + coral "OS".
 
 ### [ ] 1.5 Hardware support set
 

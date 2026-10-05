@@ -22,7 +22,7 @@ first if it is missing.
 |---------|---------|
 | [`owneet-base`](owneet-base/) | OwneetOS release information; depends on `base` and `owneet-keyring`. Grows into the meta-package of the system. |
 | [`owneet-keyring`](owneet-keyring/) | The OwneetOS public key for pacman (`pacman-key --populate owneet`). |
-| [`owneet-branding`](owneet-branding/) | OwneetOS wordmark (SVG outlines) and the Plymouth boot splash `owneet` (wordmark + coral spinner on deep navy). |
+| [`owneet-branding`](owneet-branding/) | OwneetOS wordmark ("Owneet" + coral "OS", SVG outlines) and the Plymouth boot splash `owneet` (wordmark + coral spinner on deep navy). |
 | [`owneet-session`](owneet-session/) | Console user `owneet`, autologin on tty1, `owneet-session` (gamescope or cage, restarts, fallback) and the fullscreen placeholder shown until the real UI exists. |
 
 ## Rules
