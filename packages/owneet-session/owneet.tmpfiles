@@ -1,2 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 d /home/owneet 0700 owneet owneet -
+# No "last login" message on the console.
+f /home/owneet/.hushlogin 0644 owneet owneet -

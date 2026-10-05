@@ -2,8 +2,8 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-session
-pkgver=0.0.4
-pkgrel=2
+pkgver=0.0.5
+pkgrel=1
 pkgdesc="OwneetOS console session: console user, autologin, compositor choice (gamescope or cage)"
 arch=('any')
 url="https://github.com/fancy-dino/OwneetOS"
@@ -13,9 +13,9 @@ source=(owneet-session owneet-placeholder owneet-session.profile.sh owneet-autol
 sha256sums=('b72e1d85505b73f905b2f6bb182f64086cd1d22970d22c7eeec12161080ee064'
             'f4353688233d95d00b5b85a0b8cdeae7cf9456afd90b83eb2bdce1632dba1468'
             '8ad352c32ba71d1b9f1867dd6e53ca56c7a960e771bf10950a7e201230a9bd0c'
-            '3a6a7d03a7fc0e458e83365d8a09079e8770feb17c3c49bf846bfda5543c5051'
+            '9d99b689604e901a5b47f58ed8d436a7d88f4b9d24274982acccb14831fa0971'
             '8f429ac5cae3e2851cc2a1b9667bdb6a59e702df70e559ec017122a42cabe96f'
-            'ab135e083dd416fd2856dd6f0dd605907acfc87b6b5cd3bb4dcc9fef8cca3b76')
+            '2763838f424a2128b8c576602b35bd4c0dd90798a687dc1c72b81f6facceb4f5')
 
 package() {
   install -Dm755 owneet-session owneet-placeholder -t "$pkgdir/usr/bin/"

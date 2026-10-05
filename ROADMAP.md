@@ -135,7 +135,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   (`SigLevel = Required DatabaseRequired`), contains `owneet-base` and `owneet-keyring`, and boots
   to the login prompt.
 
-### [~] 1.3 Console session (awaiting owner review; gamescope on real hardware after 1.5)
+### [x] 1.3 Console session (gamescope on real hardware: checked at the end of 1.5)
 
 - **Deliverables:** autologin user, session launcher that starts **gamescope** with a
   placeholder fullscreen app; Vulkan capability check with automatic **cage** fallback;
@@ -151,11 +151,20 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   on the owner's PC (RTX 4060 + Intel UHD 770) booting the live ISO at the end of step 1.5.
   New tools: `tools/update-checksums`, `vm/test.sh screenshot`, `--kargs`, `--journal`.
 
-### [ ] 1.4 Boot experience
+### [~] 1.4 Boot experience (awaiting owner review of the splash)
 
 - **Deliverables:** systemd-boot config, Plymouth theme with the OwneetOS mark, quiet kernel
   parameters, no text on screen in normal boots.
 - **Done when:** power-on to placeholder shows only the logo.
+- **Outcome:** `owneet-branding` package (wordmark generated from Bricolage Grotesque by
+  `tools/branding/make-wordmark`; Plymouth theme `owneet`: wordmark + coral spinner on deep navy),
+  silent kernel/systemd parameters, hidden boot menu, silent autologin. Recorded the boot in the test
+  VM (screenshot every 0.4 s): after the VM firmware, only the splash (2.4–9.3 s), then a dark
+  screen without text (about 4 s in the VM, software rendering), then the console session.
+  Problems found and fixed: Plymouth fell back to its text splash (serial console; theme images
+  linked instead of copied); keeping the splash on screen until the UI (`--retain-splash`) delayed
+  autologin by 30 s, so it was removed. **Left for step 3.2:** a seamless splash-to-UI handover
+  (no dark gap).
 
 ### [ ] 1.5 Hardware support set
 
@@ -236,6 +245,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 - **Deliverables:** reproducible build in the builder VM against Qt 5.15, PKGBUILD in `[owneet]`,
   frontend replaces the placeholder in the session.
 - **Done when:** stock Pegasus runs in gamescope in the test VM and is driven by a gamepad.
+- **Also:** seamless handover from the boot splash to the UI, without the dark gap left in 1.4.
 
 ### [ ] 3.3 Theme foundations
 

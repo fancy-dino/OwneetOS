@@ -32,6 +32,10 @@ Move the date forward only after testing, and record it here.
 | **UEFI only**, booted by systemd-boot | PROJECT_RULES.md section 4; target hardware (last ~10 years) is UEFI. |
 | No cloud-init, VM guest tools (VMware, VirtualBox, Hyper-V, QEMU agent) or SSH server | Not needed on a console; less weight, no remote login surface. |
 | `/etc/os-release` from `airootfs/` | OwneetOS identity. `pacman.conf` sets `NoExtract = etc/os-release` so Arch's symlink does not replace it; archiso appends `IMAGE_ID` and `IMAGE_VERSION`. |
+| Silent boot: `quiet splash loglevel=3 rd.udev.log_level=3 systemd.show_status=false rd.systemd.show_status=false vt.global_cursor_default=0` | Only the OwneetOS splash is shown between firmware and console session; no text, no cursor. |
+| `plymouth.ignore-serial-consoles` | Without it Plymouth falls back to its text splash because of the serial console below. |
+| Boot menu hidden (`timeout 0`) | Holding a key (e.g. Space) while the PC starts shows the systemd-boot menu. |
+| `kms` + `plymouth` in the initramfs hooks | Graphics drivers and the splash start as early as possible. |
 | `console=ttyS0,115200 console=tty0` | Kernel and login prompt also on the serial port, so the test VM can check the boot automatically. The screen stays the main console. |
 | root locked | No password login for root. The system runs as the console user `owneet` (autologin on tty1, from `owneet-session`). |
 | `vulkan-swrast` (software Vulkan) | Lets `vulkaninfo` and tests run anywhere. It never selects gamescope: only a hardware Vulkan device does. |
