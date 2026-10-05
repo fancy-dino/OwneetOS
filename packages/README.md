@@ -22,6 +22,7 @@ first if it is missing.
 |---------|---------|
 | [`owneet-base`](owneet-base/) | OwneetOS release information; depends on `base` and `owneet-keyring`. Grows into the meta-package of the system. |
 | [`owneet-keyring`](owneet-keyring/) | The OwneetOS public key for pacman (`pacman-key --populate owneet`). |
+| [`owneet-session`](owneet-session/) | Console user `owneet`, autologin on tty1, `owneet-session` (gamescope or cage, restarts, fallback) and the fullscreen placeholder shown until the real UI exists. |
 
 ## Rules
 
@@ -29,6 +30,10 @@ first if it is missing.
   PKGBUILD and have real `sha256sums` (never `SKIP` for local files).
 - `license=('GPL-3.0-or-later')` for OwneetOS's own packages.
 - The kernel is chosen in `iso/packages.x86_64`, not as a package dependency.
+- After editing a local source file, refresh the checksums: `tools/update-checksums NAME`, and bump
+  `pkgver` or `pkgrel`.
+- Packages without a `build()` step are built without installing their runtime dependencies in the
+  chroot (faster, no large downloads).
 
 ## Signing
 

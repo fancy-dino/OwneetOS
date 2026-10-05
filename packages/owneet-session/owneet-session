@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# OwneetOS console session. Started on tty1 for the console user (see owneet-session.profile.sh).
+# Chooses the compositor, starts the console UI in it and restarts it if it stops:
+#   - gamescope when a hardware Vulkan device exists (main session),
+#   - cage otherwise, or when gamescope keeps failing (reduced session, PROJECT_RULES.md section 3).
+#
+# Kernel command line options:
+#   owneet.session=auto|gamescope|cage   force a mode (default: auto)
+
+set -uo pipefail
+
+APP="${OWNEET_APP:-/usr/bin/owneet-placeholder}"
+QUICK_EXIT_S=30          # a compositor that stops sooner than this counts as a failure
+GAMESCOPE_MAX_FAILS=2    # then fall back to cage
+CAGE_MAX_FAILS=3         # then show an error and wait before trying again
+
+# Technical messages go to the journal only (journalctl -t owneet-session); the screen is for users.
+log() {
+    echo "$*" | systemd-cat -t owneet-session 2>/dev/null || true
+}
+
+cmdline_mode() {
+    local m
+    m="$(grep -oE '(^| )owneet\.session=[a-z]+' /proc/cmdline | tail -1 | cut -d= -f2)"
+    echo "${m:-auto}"
+}
+
+has_hardware_vulkan() {
+    # lavapipe (software, CPU) does not count: it is too slow for the main session.
+    vulkaninfo --summary 2>/dev/null \
+        | grep -qE 'deviceType += PHYSICAL_DEVICE_TYPE_(INTEGRATED_GPU|DISCRETE_GPU|VIRTUAL_GPU)'
+}
+
+run_compositor() {
+    export OWNEET_SESSION_MODE="$1"
+    case "$1" in
+        gamescope) gamescope --fullscreen -- "$APP" ;;
+        # The reduced session must work even without GPU acceleration (no driver, or a VM):
+        # wlroots then renders in software instead of refusing to start.
+        cage)      WLR_RENDERER_ALLOW_SOFTWARE=1 cage -s -- "$APP" ;;
+    esac
+}
+
+mode="$(cmdline_mode)"
+case "$mode" in
+    gamescope|cage) log "mode forced on the kernel command line: $mode" ;;
+    auto)
+        if has_hardware_vulkan; then mode=gamescope; else mode=cage; fi
+        log "Vulkan check: using $mode"
+        ;;
+    *) log "unknown owneet.session=$mode, using auto"; mode=cage
+       if has_hardware_vulkan; then mode=gamescope; fi ;;
+esac
+
+fails=0
+while true; do
+    log "starting $mode"
+    start=$SECONDS
+    # Compositor and app messages go to the journal (journalctl -t owneet-cage / owneet-gamescope),
+    # never to the screen.
+    run_compositor "$mode" 2>&1 | systemd-cat -t "owneet-$mode"
+    rc=${PIPESTATUS[0]}
+    ran=$(( SECONDS - start ))
+    log "$mode stopped (exit code $rc) after ${ran}s"
+
+    if (( ran < QUICK_EXIT_S )); then fails=$(( fails + 1 )); else fails=0; fi
+
+    if [[ "$mode" == gamescope ]] && (( fails >= GAMESCOPE_MAX_FAILS )); then
+        log "gamescope failed $fails times in a row: falling back to cage"
+        mode=cage
+        fails=0
+    elif [[ "$mode" == cage ]] && (( fails >= CAGE_MAX_FAILS )); then
+        log "the console cannot start; retrying in 60s"
+        clear
+        printf '\n\n  OwneetOS could not start its interface.\n  It will try again in one minute.\n'
+        sleep 60
+        fails=0
+        continue
+    fi
+    log "restarting"
+    sleep 1
+done

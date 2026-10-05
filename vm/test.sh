@@ -44,11 +44,14 @@ OwneetOS test VM (${MEM_MB} MB RAM, ${CPUS} CPUs, UEFI, Secure Boot off)
         --gamepad auto|none|PATH     pass host gamepads to the VM (default: auto = all detected)
         --gl                         3D-accelerated GPU (needed for gamescope)
         --ssh                        live Arch ISO only: allow root SSH with the project test key
+        --kargs "ARGS"               extra kernel command line (e.g. owneet.session=cage)
+        --journal                    send the system journal to the serial log (vm/test.sh log)
   vm/test.sh gamepads              List gamepads connected to this computer
   vm/test.sh ssh [CMD]             Shell in the VM (after boot --ssh), or run CMD
   vm/test.sh wait-serial PATTERN [SECONDS]
                                    Wait until the serial console shows PATTERN (regex, default 180 s)
   vm/test.sh log                   Print the serial console log (escape codes removed)
+  vm/test.sh screenshot [FILE]     Save the VM screen as PNG (default: vm/run/test/screen.png)
   vm/test.sh stop                  Power the VM off
   vm/test.sh reset                 Bring every disk back to the blank state
   vm/test.sh destroy               Delete the test VM
@@ -89,13 +92,15 @@ cmd_create() {
 }
 
 cmd_boot() {
-    local iso="" headless=0 gamepad="auto" gl=0 ssh=0
+    local iso="" headless=0 gamepad="auto" gl=0 ssh=0 kargs=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --headless) headless=1; shift ;;
             --gamepad)  gamepad="${2:-}"; shift 2 ;;
             --gl)       gl=1; shift ;;
             --ssh)      ssh=1; shift ;;
+            --kargs)    kargs+=" ${2:-}"; shift 2 ;;
+            --journal)  kargs+=" console=ttyS0,115200 systemd.journald.forward_to_console=1 systemd.journald.max_level_console=info"; shift ;;
             -*) die "unknown option '$1' (see: vm/test.sh help)" ;;
             *) iso="$1"; shift ;;
         esac
@@ -106,6 +111,7 @@ cmd_boot() {
     local args=(--iso "$iso" --mem "$MEM_MB" --cpus "$CPUS")
     if (( headless )); then args+=(--headless); fi
     if (( gl )); then args+=(--gl); fi
+    if [[ -n "${kargs# }" ]]; then args+=(--kernel-args "${kargs# }"); info "extra kernel arguments:${kargs}"; fi
 
     case "$gamepad" in
         none) ;;
@@ -167,6 +173,7 @@ case "${1:-help}" in
                   printf 'DEVICE\tNAME\tACCESS\n%s\n' "$out" | column -t -s $'\t'; fi ;;
     ssh)      shift; if [[ $# -gt 0 ]]; then vm_ssh "$@"; else ssh -t "${SSH_OPTS[@]}" root@127.0.0.1; fi ;;
     wait-serial) shift; cmd_wait_serial "$@" ;;
+    screenshot) "$VM" screenshot "$NAME" "${2:-$VM_DIR/run/$NAME/screen.png}" ;;
     log)      serial_log ;;
     stop)     "$VM" stop "$NAME" --force ;;
     reset)    "$VM" stop "$NAME" --force >/dev/null; "$VM" revert "$NAME" blank ;;

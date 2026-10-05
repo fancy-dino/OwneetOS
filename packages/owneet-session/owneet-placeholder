@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Fullscreen placeholder shown by owneet-session until the real console UI exists (roadmap 3.2).
+# Shows the OwneetOS background colour and which session mode is running.
+#
+# Test hook (kernel command line): owneet.debug.placeholder_exit=SECONDS makes it quit after
+# SECONDS, to exercise the session's restart and fallback logic.
+
+set -euo pipefail
+
+mode="${OWNEET_SESSION_MODE:-unknown}"
+args=(
+    --msg-level=all=warn --fullscreen --keep-open=yes --keepaspect=no
+    --no-input-default-bindings --input-vo-keyboard=no --no-osc --cursor-autohide=always
+    --osd-level=1 --osd-font='DejaVu Sans' --osd-font-size=40 --osd-color='#EEF1F8'
+    --osd-border-size=0 --osd-align-x=center --osd-align-y=center
+    --osd-msg1="OwneetOS\n\nconsole session: $mode"
+)
+# Only the output methods that fit the compositor (mpv crashes when its automatic probing falls
+# through to X11 under cage). The last entry of each list works without GPU acceleration.
+case "$mode" in
+    cage)      args+=('--vo=gpu-next,gpu,wlshm' '--gpu-context=wayland,waylandvk') ;;
+    gamescope) args+=('--vo=gpu-next,gpu,x11' '--gpu-context=x11egl,x11vk') ;;
+esac
+exit_after="$(grep -oE '(^| )owneet\.debug\.placeholder_exit=[0-9]+' /proc/cmdline | tail -1 | cut -d= -f2 || true)"
+if [[ -n "$exit_after" ]]; then args+=(--length="$exit_after"); args=("${args[@]/--keep-open=yes/--keep-open=no}"); fi
+
+# Deep navy background of the approved design (PROJECT_RULES.md section 9).
+exec mpv "${args[@]}" 'av://lavfi:color=c=0x0E1424:s=1280x720:r=2'

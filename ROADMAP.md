@@ -117,7 +117,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   system reaches `OwneetOS 7.2.8-arch1-2 (ttyS0)` / `owneet login:`. Added `vm/test.sh wait-serial`
   and `vm/test.sh log` for automated boot checks.
 
-### [~] 1.2 Own package repository `[owneet]` (awaiting owner review)
+### [x] 1.2 Own package repository `[owneet]`
 
 - **Deliverables:** `packages/` with PKGBUILD layout, build script (clean chroot in the builder
   VM), repository database, package signing key, repo consumed by the ISO build.
@@ -135,12 +135,21 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   (`SigLevel = Required DatabaseRequired`), contains `owneet-base` and `owneet-keyring`, and boots
   to the login prompt.
 
-### [ ] 1.3 Console session
+### [~] 1.3 Console session (awaiting owner review; gamescope on real hardware after 1.5)
 
 - **Deliverables:** autologin user, session launcher that starts **gamescope** with a
   placeholder fullscreen app; Vulkan capability check with automatic **cage** fallback;
   restart-on-crash.
 - **Done when:** the ISO boots straight into a fullscreen placeholder in both modes (forced fallback tested).
+- **Outcome:** `owneet-session` package (user `owneet`, getty autologin, Vulkan check, gamescope or
+  cage, restart on crash, fallback, messages only in the journal). Verified in the test VM with
+  screenshots: auto mode picks cage (software-only Vulkan) and shows the fullscreen placeholder;
+  forced gamescope fails on the VM's software Vulkan ("not a valid physical device") and falls back
+  to cage after 2 attempts; with the placeholder quitting every 5 s the session restarts it, and
+  after 3 quick failures shows a plain error message and retries after 60 s. **Not verifiable in
+  the VM:** gamescope actually running. It needs a hardware Vulkan driver (step 1.5) and is tested
+  on the owner's PC (RTX 4060 + Intel UHD 770) booting the live ISO at the end of step 1.5.
+  New tools: `tools/update-checksums`, `vm/test.sh screenshot`, `--kargs`, `--journal`.
 
 ### [ ] 1.4 Boot experience
 
@@ -153,6 +162,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 - **Deliverables:** firmware, Mesa + Vulkan drivers, `nvidia-open` with automatic detection,
   `xone` (built into `[owneet]`), PipeWire, NetworkManager, BlueZ, udev rules for controllers.
 - **Done when:** ISO size is measured and stays **under 2 GB**; idle RAM is measured and recorded.
+  First real-hardware boot of the live ISO on the owner's PC, confirming gamescope (step 1.3).
 
 ### [ ] 1.6 ISO build in CI
 

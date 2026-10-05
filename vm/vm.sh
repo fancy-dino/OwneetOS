@@ -34,12 +34,14 @@ OwneetOS VM manager
         --seed-url URL  cloud-init NoCloud seed URL (first-boot configuration)
         --evdev PATH    pass a host input device (e.g. a gamepad) to the guest; repeatable
         --gl            3D-accelerated virtual GPU (virgl), needed for gamescope
+        --kernel-args S extra kernel command line, appended by systemd-boot (SMBIOS type 11)
   vm/vm.sh stop    NAME [--force]     Shut a VM down (ACPI, then forced after 60 s; --force: at once)
   vm/vm.sh destroy NAME               Stop a VM and delete all of its files
   vm/vm.sh add-disk NAME SIZE         Attach an extra blank disk (data-N.qcow2) to a VM
   vm/vm.sh snapshot NAME TAG          Save the state of all disks of a stopped VM
   vm/vm.sh revert   NAME TAG          Bring all disks back to a saved state (VM stopped)
   vm/vm.sh snapshots NAME             List saved states
+  vm/vm.sh screenshot NAME FILE.png   Save what the VM's screen shows
   vm/vm.sh status  NAME               Show whether a VM is running
   vm/vm.sh list                       List VMs
   vm/vm.sh selftest                   Boot a throwaway UEFI VM, check it, delete it
@@ -85,6 +87,26 @@ find_firmware() {
         fi
     done
     die "UEFI firmware (OVMF) not found. Install the 'ovmf' package or set OVMF_CODE / OVMF_VARS."
+}
+
+qmp_screendump() {
+    python3 - "$1" "$2" <<'PY' 2>/dev/null
+import json, socket, sys
+s = socket.socket(socket.AF_UNIX)
+s.settimeout(10)
+s.connect(sys.argv[1])
+f = s.makefile("rw")
+f.readline()  # greeting
+for cmd in ({"execute": "qmp_capabilities"},
+            {"execute": "screendump", "arguments": {"filename": sys.argv[2], "format": "png"}}):
+    f.write(json.dumps(cmd) + "\n"); f.flush()
+    while True:
+        msg = json.loads(f.readline())
+        if "error" in msg:
+            sys.exit(1)
+        if "return" in msg:
+            break
+PY
 }
 
 qmp_powerdown() {
@@ -149,7 +171,7 @@ cmd_start() {
     local name="${1:-}"; shift || true
     check_name "$name"
     local iso="" headless=0 mem="$DEFAULT_MEM_MB" cpus="$DEFAULT_CPUS" net=1 ssh_port="" seed_url="" gl=0
-    local evdevs=()
+    local evdevs=() kargs=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --iso)      iso="${2:-}"; shift 2 ;;
@@ -161,6 +183,7 @@ cmd_start() {
             --seed-url) seed_url="${2:-}"; shift 2 ;;
             --evdev)    evdevs+=("${2:-}"); shift 2 ;;
             --gl)       gl=1; shift ;;
+            --kernel-args) kargs="${2:-}"; shift 2 ;;
             *) die "unknown option '$1' (see: vm/vm.sh help)" ;;
         esac
     done
@@ -193,6 +216,11 @@ cmd_start() {
     for extra in "$img"/data-*.qcow2; do
         if [[ -f "$extra" ]]; then args+=(-drive "file=$extra,if=virtio,format=qcow2,discard=unmap"); fi
     done
+    if [[ -n "$kargs" ]]; then
+        # systemd-boot appends this to the kernel command line (only with Secure Boot off).
+        # QEMU needs commas doubled inside option values.
+        args+=(-smbios "type=11,value=io.systemd.boot.kernel-cmdline-extra=${kargs//,/,,}")
+    fi
     local dev
     for dev in "${evdevs[@]}"; do
         [[ -r "$dev" && -w "$dev" ]] || die "cannot open input device $dev (needs read and write access)"
@@ -318,6 +346,17 @@ cmd_snapshots() {
     qemu-img snapshot -l "$(vm_image_dir "$name")/disk.qcow2"
 }
 
+cmd_screenshot() {
+    local name="${1:-}" file="${2:-}"
+    check_name "$name"
+    [[ "$file" == *.png ]] || die "usage: vm/vm.sh screenshot NAME FILE.png"
+    vm_pid "$name" >/dev/null || die "VM '$name' is not running."
+    mkdir -p "$(dirname "$file")"
+    qmp_screendump "$(vm_run_dir "$name")/qmp.sock" "$(realpath "$file")" \
+        || die "screenshot failed (with --gl and no window, QEMU keeps no copy of the screen: boot without --gl)"
+    info "screenshot saved: $file"
+}
+
 cmd_status() {
     local name="${1:-}"
     check_name "$name"
@@ -383,6 +422,7 @@ case "$cmd" in
     snapshot) cmd_snapshot "${1:-}" "${2:-}" create ;;
     revert)   cmd_snapshot "${1:-}" "${2:-}" revert ;;
     snapshots) cmd_snapshots "$@" ;;
+    screenshot) cmd_screenshot "$@" ;;
     help|-h|--help) usage ;;
     *) usage; exit 1 ;;
 esac

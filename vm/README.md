@@ -115,6 +115,10 @@ vm/test.sh stop | reset | destroy
   this gives the guest accelerated **OpenGL only, not Vulkan** (Vulkan in a VM, "Venus", needs a
   newer QEMU). gamescope in the VM therefore runs on software Vulkan (lavapipe): fine for functional
   tests, not for performance. Performance is measured on real hardware (roadmap step 7.4).
+- **Screenshots:** `vm/test.sh screenshot` saves the VM screen as PNG; not available with `--gl`
+  in headless mode (QEMU keeps no copy of a 3D screen).
+- **Extra kernel arguments:** `--kargs "..."` is passed through SMBIOS and appended by systemd-boot
+  (e.g. `owneet.session=cage`); `--journal` sends the system journal to the serial log.
 - **`--ssh`:** for the live Arch ISO only. A cloud-init seed puts the project test key
   (`vm/images/.keys/test_ed25519`) in root's `authorized_keys`, on `127.0.0.1:2223`.
 - **Not yet:** a "Windows-like" NTFS disk; it is created when automatic mounting is built (step 6.5).

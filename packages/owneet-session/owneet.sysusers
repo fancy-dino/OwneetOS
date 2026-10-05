@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The OwneetOS console user. People's profiles live in the console UI, not in Linux accounts.
+u owneet 1000 "OwneetOS console" /home/owneet /bin/bash
+m owneet input
+m owneet video
+m owneet render

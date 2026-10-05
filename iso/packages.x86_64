@@ -1,5 +1,7 @@
 base
 linux
+mesa
 mkinitcpio
 mkinitcpio-archiso
 owneet-base
+vulkan-swrast

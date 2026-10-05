@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Rewrites sha256sums=() of packages/NAME/PKGBUILD from the package's local source files.
+# Every source must be a local file next to the PKGBUILD (downloads need real upstream sums).
+#
+#   tools/update-checksums NAME...
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+die() { echo "error: $*" >&2; exit 1; }
+[[ $# -gt 0 ]] || die "usage: tools/update-checksums NAME..."
+
+for pkg in "$@"; do
+    dir="$ROOT/packages/$pkg"
+    [[ -f "$dir/PKGBUILD" ]] || die "packages/$pkg/PKGBUILD not found"
+    # shellcheck disable=SC1091,SC2154  # PKGBUILDs define source=()
+    mapfile -t sources < <(cd "$dir" && source ./PKGBUILD && printf '%s\n' "${source[@]}")
+    sums=()
+    for s in "${sources[@]}"; do
+        [[ "$s" != *://* ]] || die "$pkg: '$s' is a download; set its checksum by hand"
+        [[ -f "$dir/$s" ]] || die "$pkg: source file '$s' not found"
+        sums+=("$(sha256sum "$dir/$s" | cut -d' ' -f1)")
+    done
+    block="sha256sums=('${sums[0]}'"
+    for s in "${sums[@]:1}"; do block+=$'\n'"            '$s'"; done
+    block+=")"
+    python3 - "$dir/PKGBUILD" "$block" <<'PY'
+import re, sys
+path, block = sys.argv[1], sys.argv[2]
+text = open(path).read()
+new, n = re.subn(r"sha256sums=\([^)]*\)", lambda m: block, text, count=1)
+if n != 1:
+    sys.exit(f"error: no sha256sums=() in {path}")
+open(path, "w").write(new)
+PY
+    echo "==> $pkg: ${#sums[@]} checksum(s) updated"
+done

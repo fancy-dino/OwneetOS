@@ -9,6 +9,7 @@ profile (archiso 91), reduced to what a console needs.
 tools/build-in-vm tools/build-iso      # builds out/owneetos-YYYY.MM.DD-x86_64.iso (+ .sha256)
 vm/test.sh boot --headless             # boots the newest ISO in out/
 vm/test.sh wait-serial 'login:'        # waits for the login prompt on the serial console
+vm/test.sh screenshot                  # what the screen shows (vm/run/test/screen.png)
 ```
 
 The build runs only inside the builder VM (it needs root). `tools/build-iso` fails if the ISO is
@@ -32,7 +33,8 @@ Move the date forward only after testing, and record it here.
 | No cloud-init, VM guest tools (VMware, VirtualBox, Hyper-V, QEMU agent) or SSH server | Not needed on a console; less weight, no remote login surface. |
 | `/etc/os-release` from `airootfs/` | OwneetOS identity. `pacman.conf` sets `NoExtract = etc/os-release` so Arch's symlink does not replace it; archiso appends `IMAGE_ID` and `IMAGE_VERSION`. |
 | `console=ttyS0,115200 console=tty0` | Kernel and login prompt also on the serial port, so the test VM can check the boot automatically. The screen stays the main console. |
-| root without password (live only) | Temporary, inherited from `baseline`. Replaced by the console session user in step 1.3. |
+| root locked | No password login for root. The system runs as the console user `owneet` (autologin on tty1, from `owneet-session`). |
+| `vulkan-swrast` (software Vulkan) | Lets `vulkaninfo` and tests run anywhere. It never selects gamescope: only a hardware Vulkan device does. |
 
 ## Layout
 

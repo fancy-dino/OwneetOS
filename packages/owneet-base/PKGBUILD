@@ -2,13 +2,13 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.1
+pkgver=0.0.2
 pkgrel=1
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
 url="https://github.com/fancy-dino/OwneetOS"
 license=('GPL-3.0-or-later')
-depends=('base' 'owneet-keyring')
+depends=('base' 'owneet-keyring' 'owneet-session')
 source=('owneet-release')
 sha256sums=('74f473c3e5cec980798421ac667c84f3938a1e93160b37112300a25aa2ea0400')
 

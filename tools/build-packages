@@ -75,6 +75,8 @@ while (( ${#remaining[@]} )); do
 done
 
 mkdir -p "$REPO_DIR"
+# Drop the database first: if a build fails, no stale (possibly signed) database is left behind.
+rm -f "$REPO_DIR/$REPO_NAME".{db,files}*
 for pkg in "${ordered[@]}"; do
     info "building $pkg"
     rm -f "$REPO_DIR/$pkg"-[0-9]*.pkg.tar.zst "$REPO_DIR/$pkg"-[0-9]*.pkg.tar.zst.sig
@@ -85,9 +87,13 @@ for pkg in "${ordered[@]}"; do
             if [[ -f "$f" ]]; then install_args+=(-I "$f"); fi
         done
     done
+    # Packages without a build() step (scripts and data only) do not need their runtime
+    # dependencies installed in the chroot: skip them instead of downloading hundreds of MB.
+    makepkg_args=(--noconfirm)
+    if ! grep -qE '^build\(\)' "packages/$pkg/PKGBUILD"; then makepkg_args+=(--nodeps); fi
     (
         cd "packages/$pkg"
-        PKGDEST="$REPO_DIR" makechrootpkg -c -r "$CHROOT_DIR" "${install_args[@]}" -- --noconfirm >/dev/null
+        PKGDEST="$REPO_DIR" makechrootpkg -c -r "$CHROOT_DIR" "${install_args[@]}" -- "${makepkg_args[@]}" >/dev/null
     ) || die "build of $pkg failed"
 done
 
