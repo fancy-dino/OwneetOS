@@ -199,7 +199,7 @@ cmd_start() {
 
     local run; run="$(vm_run_dir "$name")"
     mkdir -p "$run"
-    rm -f "$run/serial.log" "$run/qemu.log" "$run/qmp.sock" "$run/qemu.pid"
+    rm -f "$run/serial.log" "$run/serial.sock" "$run/qemu.log" "$run/qmp.sock" "$run/qemu.pid"
 
     local args=(
         -name "owneet-$name"
@@ -208,7 +208,9 @@ cmd_start() {
         -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE"
         -drive "if=pflash,format=raw,file=$img/OVMF_VARS.fd"
         -drive "file=$img/disk.qcow2,if=virtio,format=qcow2,discard=unmap"
-        -serial "file:$run/serial.log"
+        # Serial console: everything is logged to serial.log; serial.sock accepts input (vm/test.sh run).
+        -chardev "socket,id=ser0,path=$run/serial.sock,server=on,wait=off,logfile=$run/serial.log"
+        -serial chardev:ser0
         -qmp "unix:$run/qmp.sock,server=on,wait=off"
         -pidfile "$run/qemu.pid"
     )
@@ -283,7 +285,7 @@ cmd_stop() {
         done
     fi
     if kill -0 "$pid" 2>/dev/null; then kill -9 "$pid"; fi
-    rm -f "$(vm_run_dir "$name")/qmp.sock" "$(vm_run_dir "$name")/qemu.pid"
+    rm -f "$(vm_run_dir "$name")/qmp.sock" "$(vm_run_dir "$name")/serial.sock" "$(vm_run_dir "$name")/qemu.pid"
     info "VM '$name' stopped"
 }
 

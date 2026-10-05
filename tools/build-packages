@@ -80,17 +80,20 @@ rm -f "$REPO_DIR/$REPO_NAME".{db,files}*
 for pkg in "${ordered[@]}"; do
     info "building $pkg"
     rm -f "$REPO_DIR/$pkg"-[0-9]*.pkg.tar.zst "$REPO_DIR/$pkg"-[0-9]*.pkg.tar.zst.sig
-    # OwneetOS dependencies are not in the Arch repositories: install the freshly built ones.
-    install_args=()
-    for dep in $(local_deps "$pkg"); do
-        for f in "$REPO_DIR/$dep"-[0-9]*.pkg.tar.zst; do
-            if [[ -f "$f" ]]; then install_args+=(-I "$f"); fi
-        done
-    done
-    # Packages without a build() step (scripts and data only) do not need their runtime
-    # dependencies installed in the chroot: skip them instead of downloading hundreds of MB.
+    # Packages without a build() step (scripts and data only) need none of their dependencies in
+    # the chroot: skip them instead of downloading (and running install scripts of) hundreds of MB.
     makepkg_args=(--noconfirm)
-    if ! grep -qE '^build\(\)' "packages/$pkg/PKGBUILD"; then makepkg_args+=(--nodeps); fi
+    install_args=()
+    if ! grep -qE '^build\(\)' "packages/$pkg/PKGBUILD"; then
+        makepkg_args+=(--nodeps)
+    else
+        # OwneetOS dependencies are not in the Arch repositories: install the freshly built ones.
+        for dep in $(local_deps "$pkg"); do
+            for f in "$REPO_DIR/$dep"-[0-9]*.pkg.tar.zst; do
+                if [[ -f "$f" ]]; then install_args+=(-I "$f"); fi
+            done
+        done
+    fi
     (
         cd "packages/$pkg"
         PKGDEST="$REPO_DIR" makechrootpkg -c -r "$CHROOT_DIR" "${install_args[@]}" -- "${makepkg_args[@]}" >/dev/null

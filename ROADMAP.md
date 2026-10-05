@@ -166,12 +166,21 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   autologin by 30 s, so it was removed. **Left for step 3.2:** a seamless splash-to-UI handover
   (no dark gap). The owner approved the splash with the wordmark changed to "Owneet" + coral "OS".
 
-### [ ] 1.5 Hardware support set
+### [~] 1.5 Hardware support set (waiting for the real-hardware test)
 
 - **Deliverables:** firmware, Mesa + Vulkan drivers, `nvidia-open` with automatic detection,
   `xone` (built into `[owneet]`), PipeWire, NetworkManager, BlueZ, udev rules for controllers.
 - **Done when:** ISO size is measured and stays **under 2 GB**; idle RAM is measured and recorded.
   First real-hardware boot of the live ISO on the owner's PC, confirming gamescope (step 1.3).
+- **Progress:** `owneet-hardware` meta-package (firmware, microcode, Mesa + Vulkan for AMD/Intel,
+  `nvidia-open` + `nvidia-utils`, PipeWire, NetworkManager, BlueZ, controller rules) and
+  `owneet-gpu-select` (nvidia-open for Turing+, nouveau for older NVIDIA). Measured in the VM:
+  ISO **1664 MiB** (under 2 GB, but NVIDIA's user space alone is ~950 MiB installed: the budget left
+  for Brave and the UI is tight; options if needed: trim NVIDIA files, or a separate NVIDIA ISO),
+  boot to session ~13 s, system RAM without the placeholder UI ~235 MiB, no failed units,
+  NetworkManager and Bluetooth enabled. New test tool: `vm/test.sh --debug-shell` + `run`.
+  **xone is not included:** the dongle firmware is Microsoft's and cannot be redistributed; it needs
+  a separate decision (download on the user's PC at first use).
 
 ### [ ] 1.6 ISO build in CI
 

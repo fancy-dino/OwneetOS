@@ -98,7 +98,8 @@ hardware), blank virtual disks.
 ```text
 vm/test.sh fetch-arch-iso        stock Arch ISO, verified (used until OwneetOS has its own ISO)
 vm/test.sh create [single|multi] single: one 32G disk; multi: 32G + 64G data disk
-vm/test.sh boot [ISO] [options]  --headless, --gamepad auto|none|PATH, --gl, --ssh
+vm/test.sh boot [ISO] [options]  --headless, --gamepad auto|none|PATH, --gl, --ssh, --kargs, --journal, --debug-shell
+vm/test.sh run 'CMD'             run a command in the debug shell and print its output
 vm/test.sh gamepads              gamepads connected to this computer
 vm/test.sh ssh [CMD]             root shell in the live system (after boot --ssh)
 vm/test.sh stop | reset | destroy
@@ -119,6 +120,10 @@ vm/test.sh stop | reset | destroy
   in headless mode (QEMU keeps no copy of a 3D screen).
 - **Extra kernel arguments:** `--kargs "..."` is passed through SMBIOS and appended by systemd-boot
   (e.g. `owneet.session=cage`); `--journal` sends the system journal to the serial log.
+- **Debug shell:** `--debug-shell` starts a root shell on the serial console (kernel arguments
+  `systemd.debug_shell=ttyS0`, serial login masked); `vm/test.sh run 'CMD'` runs a command there and
+  prints its output. Test VMs only: nothing in the ISO enables it. The emulated serial port
+  occasionally garbles a character; if a command gets no answer, run it again.
 - **`--ssh`:** for the live Arch ISO only. A cloud-init seed puts the project test key
   (`vm/images/.keys/test_ed25519`) in root's `authorized_keys`, on `127.0.0.1:2223`.
 - **Not yet:** a "Windows-like" NTFS disk; it is created when automatic mounting is built (step 6.5).

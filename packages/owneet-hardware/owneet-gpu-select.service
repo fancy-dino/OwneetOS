@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+[Unit]
+Description=Choose the NVIDIA kernel driver (nvidia-open or nouveau)
+DefaultDependencies=no
+Before=systemd-udev-trigger.service systemd-modules-load.service
+ConditionPathExists=/sys/bus/pci/devices
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/owneet/owneet-gpu-select
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target

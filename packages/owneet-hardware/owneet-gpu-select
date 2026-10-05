@@ -1,0 +1,30 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Chooses the kernel driver for NVIDIA GPUs before devices are probed (owneet-gpu-select.service):
+#   - Turing (GTX 16 / RTX 20) and newer -> nvidia-open (NVIDIA's driver, full Vulkan support);
+#   - older NVIDIA GPUs                  -> nouveau (nvidia-open does not support them).
+# The decision is written to /run/modprobe.d/owneet-gpu.conf. Without an NVIDIA GPU: nothing to do.
+set -eu
+
+out=/run/modprobe.d/owneet-gpu.conf
+modern=0
+legacy=0
+
+for dev in /sys/bus/pci/devices/*; do
+    [ "$(cat "$dev/vendor")" = 0x10de ] || continue
+    case "$(cat "$dev/class")" in 0x03*) ;; *) continue ;; esac   # display controllers only
+    # Turing and newer GPUs have PCI device IDs from 0x1e00 upwards.
+    if [ "$(( $(cat "$dev/device") ))" -ge "$(( 0x1e00 ))" ]; then modern=1; else legacy=1; fi
+done
+
+mkdir -p /run/modprobe.d
+if [ "$modern" = 1 ]; then
+    echo "owneet-gpu-select: NVIDIA Turing or newer, using nvidia-open"
+    printf 'blacklist nouveau\n' > "$out"
+elif [ "$legacy" = 1 ]; then
+    echo "owneet-gpu-select: NVIDIA older than Turing, using nouveau"
+    printf 'blacklist nvidia\nblacklist nvidia_drm\nblacklist nvidia_modeset\nblacklist nvidia_uvm\n' > "$out"
+else
+    echo "owneet-gpu-select: no NVIDIA GPU"
+fi

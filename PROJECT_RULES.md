@@ -249,3 +249,5 @@ in order; the owner reviews each step before the next one starts.
 | 2026-10-05 | Console session: fixed Linux user `owneet` with getty autologin on tty1; gamescope when a hardware Vulkan device exists, otherwise cage; gamescope failing twice falls back to cage (step 1.3). |
 | 2026-10-05 | Boot: silent kernel/systemd, hidden systemd-boot menu (hold a key to show it), Plymouth splash `owneet` with the generated wordmark (step 1.4). |
 | 2026-10-05 | Boot splash approved by the owner with the wordmark "Owneet" + coral "OS" (as in the mockups page header) instead of "owneet." (section 9). |
+| 2026-10-05 | Hardware support (`owneet-hardware`): NVIDIA Turing and newer use `nvidia-open`; older NVIDIA GPUs use nouveau, chosen at boot by `owneet-gpu-select` (no `kms` initramfs hook). ISO 1664 MiB (step 1.5). |
+| 2026-10-05 | xone (Xbox wireless dongle) moved out of step 1.5: its firmware is Microsoft's and cannot be redistributed; to be decided with the owner. |

@@ -21,6 +21,7 @@ first if it is missing.
 | Package | Content |
 |---------|---------|
 | [`owneet-base`](owneet-base/) | OwneetOS release information; depends on `base` and `owneet-keyring`. Grows into the meta-package of the system. |
+| [`owneet-hardware`](owneet-hardware/) | Firmware, microcode, Mesa + Vulkan (AMD, Intel), NVIDIA driver for Turing and newer with automatic nouveau fallback for older GPUs (`owneet-gpu-select`), PipeWire, NetworkManager, BlueZ, controller hidraw access rules. |
 | [`owneet-keyring`](owneet-keyring/) | The OwneetOS public key for pacman (`pacman-key --populate owneet`). |
 | [`owneet-branding`](owneet-branding/) | OwneetOS wordmark ("Owneet" + coral "OS", SVG outlines) and the Plymouth boot splash `owneet` (wordmark + coral spinner on deep navy). |
 | [`owneet-session`](owneet-session/) | Console user `owneet`, autologin on tty1, `owneet-session` (gamescope or cage, restarts, fallback) and the fullscreen placeholder shown until the real UI exists. |
@@ -33,8 +34,8 @@ first if it is missing.
 - The kernel is chosen in `iso/packages.x86_64`, not as a package dependency.
 - After editing a local source file, refresh the checksums: `tools/update-checksums NAME`, and bump
   `pkgver` or `pkgrel`.
-- Packages without a `build()` step are built without installing their runtime dependencies in the
-  chroot (faster, no large downloads).
+- Packages without a `build()` step are built without installing any dependency in the chroot
+  (faster, no large downloads, no install scripts of unrelated packages).
 
 ## Signing
 

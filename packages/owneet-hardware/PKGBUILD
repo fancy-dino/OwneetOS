@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
+
+pkgname=owneet-hardware
+pkgver=0.0.1
+pkgrel=1
+pkgdesc="OwneetOS hardware support: firmware, GPU drivers (AMD, Intel, NVIDIA), audio, network, Bluetooth"
+arch=('any')
+url="https://github.com/fancy-dino/OwneetOS"
+license=('GPL-3.0-or-later')
+depends=(
+  # Firmware and CPU microcode
+  'linux-firmware' 'sof-firmware' 'amd-ucode' 'intel-ucode'
+  # Graphics: Mesa (AMD, Intel, older NVIDIA via nouveau) and NVIDIA's driver for Turing and newer
+  'mesa' 'vulkan-radeon' 'vulkan-intel' 'nvidia-open' 'nvidia-utils'
+  # Audio
+  'pipewire' 'wireplumber' 'pipewire-pulse' 'pipewire-alsa'
+  # Network and Bluetooth
+  'networkmanager' 'wireless-regdb' 'bluez'
+)
+install=owneet-hardware.install
+source=('owneet-gpu-select' 'owneet-gpu-select.service' 'nvidia-utils.modprobe.conf'
+        '70-owneet-controllers.rules' '50-owneet-hardware.preset')
+sha256sums=('2b93ae8686f0f3d192198e7ff94b0790f4ade9314a6f138cdac958872cfff70d'
+            '2c0da903acbed5a54ef471002dbc61422604153a4d537a32a90237063d008f00'
+            '3bf736a7d5438a7cfeccd88d26515791b16f9e7dd8b978bcec264fcc6c3bd412'
+            '2af13c1829a66561198e1ebfb8b948319e418bae09fa09865ff8180814dd7c19'
+            'a3a127e7237dac4c751883b11deca681349ac3658210970071e3a1e34961d686')
+
+package() {
+  install -Dm755 owneet-gpu-select "$pkgdir/usr/lib/owneet/owneet-gpu-select"
+  install -Dm644 owneet-gpu-select.service "$pkgdir/usr/lib/systemd/system/owneet-gpu-select.service"
+  # Same file name in /etc overrides nvidia-utils' blacklist of nouveau.
+  install -Dm644 nvidia-utils.modprobe.conf "$pkgdir/etc/modprobe.d/nvidia-utils.conf"
+  install -Dm644 70-owneet-controllers.rules "$pkgdir/usr/lib/udev/rules.d/70-owneet-controllers.rules"
+  install -Dm644 50-owneet-hardware.preset "$pkgdir/usr/lib/systemd/system-preset/50-owneet-hardware.preset"
+}

@@ -46,12 +46,14 @@ OwneetOS test VM (${MEM_MB} MB RAM, ${CPUS} CPUs, UEFI, Secure Boot off)
         --ssh                        live Arch ISO only: allow root SSH with the project test key
         --kargs "ARGS"               extra kernel command line (e.g. owneet.session=cage)
         --journal                    send the system journal to the serial log (vm/test.sh log)
+        --debug-shell                root shell on the serial console, for vm/test.sh run (tests only)
   vm/test.sh gamepads              List gamepads connected to this computer
   vm/test.sh ssh [CMD]             Shell in the VM (after boot --ssh), or run CMD
   vm/test.sh wait-serial PATTERN [SECONDS]
                                    Wait until the serial console shows PATTERN (regex, default 180 s)
   vm/test.sh log                   Print the serial console log (escape codes removed)
   vm/test.sh screenshot [FILE]     Save the VM screen as PNG (default: vm/run/test/screen.png)
+  vm/test.sh run 'CMD' [SECONDS]   Run CMD in the VM's debug shell and print its output (boot --debug-shell)
   vm/test.sh stop                  Power the VM off
   vm/test.sh reset                 Bring every disk back to the blank state
   vm/test.sh destroy               Delete the test VM
@@ -100,6 +102,7 @@ cmd_boot() {
             --gl)       gl=1; shift ;;
             --ssh)      ssh=1; shift ;;
             --kargs)    kargs+=" ${2:-}"; shift 2 ;;
+            --debug-shell) kargs+=" systemd.debug_shell=ttyS0 systemd.mask=serial-getty@ttyS0.service"; shift ;;
             --journal)  kargs+=" console=ttyS0,115200 systemd.journald.forward_to_console=1 systemd.journald.max_level_console=info"; shift ;;
             -*) die "unknown option '$1' (see: vm/test.sh help)" ;;
             *) iso="$1"; shift ;;
@@ -163,6 +166,43 @@ cmd_wait_serial() {
     die "'$pattern' did not appear on the serial console within $timeout s (vm/test.sh log)"
 }
 
+cmd_run() {
+    local command="${1:-}" timeout="${2:-60}"
+    [[ -n "$command" ]] || die "usage: vm/test.sh run 'CMD' [SECONDS]"
+    local sock="$VM_DIR/run/$NAME/serial.sock"
+    [[ -S "$sock" ]] || die "the test VM is not running"
+    python3 - "$sock" "$VM_DIR/run/$NAME/serial.log" "$command" "$timeout" <<'PY'
+import re, socket, sys, time, uuid
+sock_path, log_path, command, timeout = sys.argv[1], sys.argv[2], sys.argv[3], float(sys.argv[4])
+tag = uuid.uuid4().hex[:8]
+start = len(open(log_path, "rb").read())
+s = socket.socket(socket.AF_UNIX)
+s.connect(sock_path)
+# The marker is split in the typed command so that only the command's own output matches it.
+data = f"{command}; echo __OWNEET_END_\"\"{tag}__ $?\r".encode()
+# The emulated UART has a 16-byte FIFO: send in small chunks or characters get lost.
+for i in range(0, len(data), 8):
+    s.sendall(data[i:i + 8])
+    time.sleep(0.01)
+# The emulated serial port occasionally garbles a character, so do not require the exact tag;
+# the echoed command line never matches (its marker contains "").
+end_re = re.compile(r"__OWNEET_END_[0-9a-f]+_+ (\d+)")
+deadline = time.time() + timeout
+while time.time() < deadline:
+    text = open(log_path, "rb").read()[start:].decode(errors="replace")
+    text = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]|\r", "", text)
+    m = end_re.search(text)
+    if m:
+        lines = text[:m.start()].split("\n")
+        body = "\n".join(l for l in lines[1:] if "__OWNEET_END_" not in l).strip("\n")
+        if body:
+            print(body)
+        sys.exit(int(m.group(1)))
+    time.sleep(0.3)
+sys.exit("error: no answer from the debug shell (was the VM booted with --debug-shell?)")
+PY
+}
+
 case "${1:-help}" in
     fetch-arch-iso) verified_download "$ARCH_ISO_URL" "$ARCH_ISO" "$ARCH_ISO_SHA256" "$ARCH_ISO_KEY" \
                         "Arch Linux ISO $ARCH_ISO_VERSION (~1.6 GB)" ;;
@@ -175,6 +215,7 @@ case "${1:-help}" in
     wait-serial) shift; cmd_wait_serial "$@" ;;
     screenshot) "$VM" screenshot "$NAME" "${2:-$VM_DIR/run/$NAME/screen.png}" ;;
     log)      serial_log ;;
+    run)      shift; cmd_run "$@" ;;
     stop)     "$VM" stop "$NAME" --force ;;
     reset)    "$VM" stop "$NAME" --force >/dev/null; "$VM" revert "$NAME" blank ;;
     destroy)  "$VM" destroy "$NAME" ;;

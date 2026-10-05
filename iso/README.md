@@ -25,6 +25,13 @@ Move the date forward only after testing, and record it here.
 |----------|--------|----------|
 | 2026-10-03 | 7.2.8-arch1-2 | 2026-10-04 |
 
+## Measurements
+
+| Date | ISO size | Boot to session (VM) | RAM without UI (VM) | Notes |
+|------|----------|----------------------|---------------------|-------|
+| 2026-10-04 | 471 MiB | — | — | base system only (step 1.1) |
+| 2026-10-05 | 1664 MiB | ~13 s (systemd: 9.1 s) | ~235 MiB | hardware support set (step 1.5); NVIDIA user space alone is ~950 MiB installed |
+
 ## Choices
 
 | Choice | Why |
@@ -35,7 +42,7 @@ Move the date forward only after testing, and record it here.
 | Silent boot: `quiet splash loglevel=3 rd.udev.log_level=3 systemd.show_status=false rd.systemd.show_status=false vt.global_cursor_default=0` | Only the OwneetOS splash is shown between firmware and console session; no text, no cursor. |
 | `plymouth.ignore-serial-consoles` | Without it Plymouth falls back to its text splash because of the serial console below. |
 | Boot menu hidden (`timeout 0`) | Holding a key (e.g. Space) while the PC starts shows the systemd-boot menu. |
-| `kms` + `plymouth` in the initramfs hooks | Graphics drivers and the splash start as early as possible. |
+| Initramfs hooks `base udev microcode plymouth modconf archiso block filesystems` | CPU microcode early; the splash runs on the firmware framebuffer. No `kms` hook: it would load nouveau before `owneet-gpu-select` can choose the NVIDIA driver. |
 | `console=ttyS0,115200 console=tty0` | Kernel and login prompt also on the serial port, so the test VM can check the boot automatically. The screen stays the main console. |
 | root locked | No password login for root. The system runs as the console user `owneet` (autologin on tty1, from `owneet-session`). |
 | `vulkan-swrast` (software Vulkan) | Lets `vulkaninfo` and tests run anywhere. It never selects gamescope: only a hardware Vulkan device does. |

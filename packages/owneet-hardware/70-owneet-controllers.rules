@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Give the logged-in console user access to the raw HID interface of game controllers, which SDL and
+# Steam Input use for full support (rumble, gyro, lights, extra buttons). USB and Bluetooth.
+# Vendors: Sony 054c, Microsoft 045e, Nintendo 057e, Valve 28de, 8BitDo 2dc8.
+KERNEL=="hidraw*", ATTRS{idVendor}=="054c|045e|057e|28de|2dc8", TAG+="uaccess"
+KERNEL=="hidraw*", KERNELS=="*054C:*|*045E:*|*057E:*|*28DE:*|*2DC8:*", TAG+="uaccess"
