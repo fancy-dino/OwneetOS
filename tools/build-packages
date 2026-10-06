@@ -8,6 +8,9 @@
 #
 # The chroot uses the same Arch Linux Archive snapshot as the ISO (iso/pacman.conf), so packages
 # are built against exactly the libraries they will run with.
+#
+# OWNEET_NO_CHROOT=1 builds with plain makepkg instead (CI: the throwaway container already is a
+# clean environment, and systemd-nspawn does not run inside it).
 
 set -euo pipefail
 
@@ -19,8 +22,11 @@ REPO_DIR="$ROOT/out/repo/x86_64"
 die() { echo "error: $*" >&2; exit 1; }
 info() { echo "==> $*"; }
 
-command -v makechrootpkg >/dev/null 2>&1 \
-    || die "devtools not found. Build inside the builder VM: tools/build-in-vm tools/build-packages"
+NO_CHROOT="${OWNEET_NO_CHROOT:-0}"
+if [[ "$NO_CHROOT" != 1 ]]; then
+    command -v makechrootpkg >/dev/null 2>&1 \
+        || die "devtools not found. Build inside the builder VM: tools/build-in-vm tools/build-packages"
+fi
 
 cd "$ROOT"
 
@@ -32,6 +38,7 @@ fi
 [[ ${#pkgs[@]} -gt 0 ]] || die "no PKGBUILDs found in packages/"
 
 # pacman configuration for the chroot: the ISO's snapshot repositories, without ISO-only options.
+if [[ "$NO_CHROOT" != 1 ]]; then
 chroot_conf="$(mktemp)"
 trap 'rm -f "$chroot_conf"' EXIT
 grep -v '^NoExtract' iso/pacman.conf > "$chroot_conf"
@@ -47,6 +54,7 @@ if [[ ! -d "$CHROOT_DIR/root" ]]; then
     sudo mkdir -p "$CHROOT_DIR"
     sudo mkarchroot -C "$chroot_conf" "$CHROOT_DIR/root" base-devel >/dev/null
     echo "$snapshot" | sudo tee "$CHROOT_DIR/snapshot" >/dev/null
+fi
 fi
 
 # Dependencies between OwneetOS packages (depends + makedepends that are also in packages/).
@@ -96,7 +104,17 @@ for pkg in "${ordered[@]}"; do
     fi
     (
         cd "packages/$pkg"
-        PKGDEST="$REPO_DIR" makechrootpkg -c -r "$CHROOT_DIR" "${install_args[@]}" -- "${makepkg_args[@]}" >/dev/null
+        if [[ "$NO_CHROOT" == 1 ]]; then
+            if (( ${#install_args[@]} )); then
+                # -I FILE pairs -> just the files, installed into the (throwaway) system
+                mapfile -t files < <(printf '%s\n' "${install_args[@]}" | grep -v '^-I$')
+                sudo pacman -U --noconfirm --needed "${files[@]}" >/dev/null
+            fi
+            [[ " ${makepkg_args[*]} " == *" --nodeps "* ]] || makepkg_args+=(--syncdeps)
+            PKGDEST="$REPO_DIR" makepkg --clean --cleanbuild --force "${makepkg_args[@]}" >/dev/null
+        else
+            PKGDEST="$REPO_DIR" makechrootpkg -c -r "$CHROOT_DIR" "${install_args[@]}" -- "${makepkg_args[@]}" >/dev/null
+        fi
     ) || die "build of $pkg failed"
 done
 

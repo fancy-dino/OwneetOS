@@ -5,6 +5,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Build the ISO on demand ("Run workflow" in the Actions tab) and once a week.
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"
 
 permissions:
   contents: read
@@ -25,11 +29,64 @@ jobs:
   iso:
     name: ISO
     runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      # Arch Linux container used for the build, pinned by tag and digest.
+      ARCH_IMAGE: archlinux:base-devel-20261004.0.606936@sha256:996c3a1d6b0d87b01242f6fcd8cfa3ad3eece1a67ab5c8f108e20af1d7b97bdd
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Build ISO
-        run: |
-          # Placeholder until roadmap step 1.6. ISOs are built in the builder VM: tools/build-in-vm tools/build-iso
-          test -f iso/profiledef.sh
-          echo "::notice::The ISO is not built in CI yet (roadmap step 1.6)."
+        with:
+          fetch-depth: 0
 
+      # The ISO build takes a long time: only run it when something that goes into the ISO changed,
+      # on demand, or on the weekly schedule. Otherwise the job succeeds at once, so pull requests
+      # are not blocked by the required "ISO" check.
+      - name: Decide whether the ISO must be built
+        id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          build=false
+          range=""
+          case "$EVENT" in
+            workflow_dispatch|schedule) build=true ;;
+            pull_request) range="$BASE...HEAD" ;;
+            push)
+              if [ -n "$BEFORE" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+                range="$BEFORE..HEAD"
+              else
+                build=true
+              fi ;;
+          esac
+          if [ "$build" = false ] && [ -n "$range" ] && git diff --name-only "$range" \
+              | grep -qE '^(iso/|packages/|tools/(build-iso|build-packages|ci/)|\.github/workflows/ci\.yml)'; then
+            build=true
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          if [ "$build" = false ]; then
+            echo "::notice::Nothing that goes into the ISO changed: ISO build skipped."
+          fi
+
+      - name: Free disk space
+        if: steps.changes.outputs.build == 'true'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
+          df -h /
+
+      - name: Build the packages and the ISO in an Arch Linux container
+        if: steps.changes.outputs.build == 'true'
+        run: docker run --rm --privileged -v "$PWD:/src" "$ARCH_IMAGE" /src/tools/ci/build-iso
+
+      - name: Upload the ISO (unsigned development build)
+        if: steps.changes.outputs.build == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: owneetos-dev-iso-${{ github.run_number }}
+          path: |
+            out/owneetos-*.iso
+            out/owneetos-*.iso.sha256
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

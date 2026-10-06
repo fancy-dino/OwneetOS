@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Builds the [owneet] packages and the ISO inside a throwaway, privileged Arch Linux container.
+# Used by GitHub Actions (.github/workflows/ci.yml); runs as root, the repository mounted at /src:
+#
+#   docker run --privileged -v "$PWD:/src" ARCH_IMAGE /src/tools/ci/build-iso
+#
+# Output: /src/out/owneetos-*.iso and .sha256 (an unsigned development build).
+
+set -euo pipefail
+
+SRC="${1:-/src}"
+die() { echo "error: $*" >&2; exit 1; }
+[[ $EUID -eq 0 ]] || die "run as root inside the CI container"
+[[ -f "$SRC/iso/profiledef.sh" ]] || die "repository not found in $SRC"
+
+echo "==> preparing the container"
+pacman-key --init >/dev/null 2>&1
+pacman-key --populate archlinux >/dev/null 2>&1
+pacman -Syu --noconfirm --needed archiso git sudo >/dev/null
+
+# makepkg refuses to run as root: build as an unprivileged user with passwordless sudo.
+useradd -m builder
+echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+# Work on a copy owned by the builder; results are copied back to the mounted repository.
+mkdir -p /home/builder/owneet
+cp -a "$SRC/." /home/builder/owneet/
+rm -rf /home/builder/owneet/out
+chown -R builder:builder /home/builder/owneet
+
+run() { sudo -u builder -H env OWNEET_NO_CHROOT=1 "$@"; }
+run git config --global --add safe.directory '*'
+
+echo "==> building the [owneet] packages"
+run bash -c 'cd ~/owneet && tools/build-packages'
+
+echo "==> building the ISO"
+run bash -c 'cd ~/owneet && tools/build-iso'
+
+mkdir -p "$SRC/out"
+cp /home/builder/owneet/out/owneetos-*.iso /home/builder/owneet/out/owneetos-*.iso.sha256 "$SRC/out/"
+ls -l "$SRC/out"

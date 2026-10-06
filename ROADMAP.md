@@ -199,10 +199,14 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   **xone is not included:** the dongle firmware is Microsoft's and cannot be redistributed; it needs
   a separate decision (download on the user's PC at first use).
 
-### [ ] 1.6 ISO build in CI
+### [~] 1.6 ISO build in CI (waiting for the first run on GitHub)
 
 - **Deliverables:** GitHub Actions job building the ISO (privileged container), checksums, build artefact.
 - **Done when:** a CI-built ISO boots in the test VM.
+- **Progress:** job `ISO` builds packages and ISO in a privileged, pinned Arch Linux container
+  (`tools/ci/build-iso`, `OWNEET_NO_CHROOT=1`), only when ISO inputs changed, on demand or weekly;
+  artifact kept 7 days (unsigned development build). Simulated with Podman in the builder VM with
+  the same image: ISO built (1664 MiB) in 2 min 50 s with a warm package cache.
 
 ### [ ] 1.7 Xbox wireless dongle (xone)
 
