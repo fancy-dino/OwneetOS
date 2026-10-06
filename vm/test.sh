@@ -185,9 +185,9 @@ data = f"{command}; echo __OWNEET_END_\"\"{tag}__ $?\r".encode()
 for i in range(0, len(data), 8):
     s.sendall(data[i:i + 8])
     time.sleep(0.01)
-# The emulated serial port occasionally garbles a character, so do not require the exact tag;
+# The emulated serial port occasionally duplicates a character, so match the marker loosely;
 # the echoed command line never matches (its marker contains "").
-end_re = re.compile(r"__OWNEET_END_[0-9a-f]+_+ (\d+)")
+end_re = re.compile(r"_+O+W+N+E+T+_+E+N+D+_+[0-9a-f]+_+ (\d+)")
 deadline = time.time() + timeout
 while time.time() < deadline:
     text = open(log_path, "rb").read()[start:].decode(errors="replace")

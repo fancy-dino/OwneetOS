@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Rewrites sha256sums=() of packages/NAME/PKGBUILD from the package's local source files.
-# Every source must be a local file next to the PKGBUILD (downloads need real upstream sums).
+# Downloaded sources (URLs) keep the checksum already written for them, which must be a real one
+# set by hand from the verified upstream file (never SKIP).
 #
 #   tools/update-checksums NAME...
 
@@ -17,9 +18,17 @@ for pkg in "$@"; do
     [[ -f "$dir/PKGBUILD" ]] || die "packages/$pkg/PKGBUILD not found"
     # shellcheck disable=SC1091,SC2154  # PKGBUILDs define source=()
     mapfile -t sources < <(cd "$dir" && source ./PKGBUILD && printf '%s\n' "${source[@]}")
+    # shellcheck disable=SC1091,SC2154
+    mapfile -t old_sums < <(cd "$dir" && source ./PKGBUILD && printf '%s\n' "${sha256sums[@]}")
     sums=()
-    for s in "${sources[@]}"; do
-        [[ "$s" != *://* ]] || die "$pkg: '$s' is a download; set its checksum by hand"
+    for i in "${!sources[@]}"; do
+        s="${sources[$i]}"
+        if [[ "$s" == *://* ]]; then
+            old="${old_sums[$i]:-}"
+            [[ "$old" =~ ^[0-9a-f]{64}$ ]] || die "$pkg: '$s' is a download; write its real sha256 in sha256sums first"
+            sums+=("$old")
+            continue
+        fi
         [[ -f "$dir/$s" ]] || die "$pkg: source file '$s' not found"
         sums+=("$(sha256sum "$dir/$s" | cut -d' ' -f1)")
     done

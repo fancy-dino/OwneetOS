@@ -27,7 +27,9 @@ rebuilding the same commit gives the same version.
 ## Package snapshot
 
 Arch packages come from the **Arch Linux Archive snapshot of 2026-10-03** (`pacman.conf`).
-Move the date forward only after testing, and record it here.
+Move the date forward only after testing, and record it here. A new snapshot usually brings a new
+kernel: kernel modules built by OwneetOS (`owneet-xone`) are rebuilt by `tools/build-packages` and
+must be tested again.
 
 | Snapshot | Kernel | Recorded |
 |----------|--------|----------|

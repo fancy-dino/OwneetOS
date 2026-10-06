@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
+
+pkgname=owneet-xone
+pkgver=0.5.8
+pkgrel=2
+pkgdesc="Xbox wireless dongle driver (xone) built for the OwneetOS kernel, and the firmware download helper"
+arch=('x86_64')
+url="https://github.com/dlundqvist/xone"
+# xone: GPL-2.0; OwneetOS files: GPL-3.0-or-later. The dongle firmware is NOT included.
+license=('GPL-2.0-only' 'GPL-3.0-or-later')
+# The exact kernel dependency (linux=VERSION) is added in package(): declaring 'linux' here would
+# install the whole kernel in the build chroot, where its install hooks fail.
+depends=('curl' 'libarchive' 'kmod')
+makedepends=('linux-headers')
+source=("xone-$pkgver.tar.gz::https://github.com/dlundqvist/xone/archive/refs/tags/v$pkgver.tar.gz"
+        'owneet-xone-firmware' 'xone.modprobe.conf' '70-owneet-xone.rules')
+sha256sums=('f1905d5046ce79b94df0501045008203c4ae4ce6f43dbcf8bd04d7c944bf420e'
+            'bea212d5b9f20d990985f9076e14b16c93b152284c13fbd3bcdd2c758c2a6377'
+            '83f0f7c4fbb83e1d0fe9f09698b753ed349ae0f7eb5b32e6551a5fba180b3507'
+            'e799d4e25f44e38920dc6361473872c5a219a7a45e1299fee45ee931ed680a46')
+
+# Modules for the dongle. xone_wired is left out on purpose: the kernel's xpad driver already
+# handles wired Xbox controllers (and many others), and the two would compete for them.
+_modules=(xone_gip xone_dongle xone_gip_gamepad xone_gip_headset xone_gip_chatpad
+          xone_gip_madcatz_strat xone_gip_madcatz_glam xone_gip_pdp_jaguar)
+
+build() {
+  make -C /usr/src/linux M="$srcdir/xone-$pkgver" modules
+}
+
+package() {
+  # Tie the package to the exact kernel it was built for (rebuild on every kernel change).
+  local kver pkgkver
+  kver="$(cat /usr/src/linux/version)"
+  pkgkver="$(pacman -Q linux-headers | cut -d' ' -f2)"
+  depends=("linux=$pkgkver" 'curl' 'libarchive' 'kmod')
+
+  local moddir="$pkgdir/usr/lib/modules/$kver/extramodules" m
+  for m in "${_modules[@]}"; do
+    install -Dm644 "$srcdir/xone-$pkgver/$m.ko" "$moddir/$m.ko"
+    zstd -q --rm -19 "$moddir/$m.ko"
+  done
+
+  install -Dm755 owneet-xone-firmware "$pkgdir/usr/lib/owneet/owneet-xone-firmware"
+  install -Dm644 xone.modprobe.conf "$pkgdir/usr/lib/modprobe.d/owneet-xone.conf"
+  install -Dm644 70-owneet-xone.rules "$pkgdir/usr/lib/udev/rules.d/70-owneet-xone.rules"
+  install -Dm644 "$srcdir/xone-$pkgver/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE.xone"
+}

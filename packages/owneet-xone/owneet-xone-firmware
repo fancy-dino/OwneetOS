@@ -1,0 +1,112 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Firmware for the Xbox wireless dongle (xone driver). The firmware belongs to Microsoft and may
+# not be redistributed, so OwneetOS downloads it on the user's PC, from Microsoft's Windows Update
+# servers, only after the user has accepted Microsoft's terms (PROJECT_RULES.md section 7).
+#
+#   owneet-xone-firmware status
+#       Connected dongles and whether their firmware is installed. Exit code 3 if some is missing.
+#   owneet-xone-firmware install --accept-microsoft-terms [--all]
+#       Download, verify (SHA-256) and install the firmware for the connected dongles (or for
+#       every dongle model with --all), then reload the driver. Needs root and internet.
+#   owneet-xone-firmware --mark-needed
+#       Called by udev when a dongle is plugged in: if its firmware is missing, writes
+#       /run/owneet/xone-firmware-needed so the console UI can ask the user for consent.
+#
+# Download sources and checksums are those of the xone project (install/firmware.sh, v0.5.8).
+
+set -euo pipefail
+
+FW_DIR=/usr/lib/firmware
+TERMS_URL="https://www.microsoft.com/en-us/legal/terms-of-use"
+NEEDED_FLAG=/run/owneet/xone-firmware-needed
+
+# USB product id | Windows Update cabinet | file inside the cabinet | SHA-256 of that file
+MODELS=(
+    "02e6|https://catalog.s.download.windowsupdate.com/d/msdownload/update/driver/drvs/2017/03/2ea9591b-f751-442c-80ce-8f4692cdc67b_6b555a3a288153cf04aec6e03cba360afe2fce34.cab|FW_ACC_00U.bin|080ce4091e53a4ef3e5fe29939f51fd91f46d6a88be6d67eb6e99a5723b3a223"
+    "02fe|https://catalog.s.download.windowsupdate.com/c/msdownload/update/driver/drvs/2017/07/1cd6a87c-623f-4407-a52d-c31be49e925c_e19f60808bdcbfbd3c3df6be3e71ffc52e43261e.cab|FW_ACC_00U.bin|48084d9fa53b9bb04358f3bb127b7495dc8f7bb0b3ca1437bd24ef2b6eabdf66"
+    "02f9|https://catalog.s.download.windowsupdate.com/c/msdownload/update/driver/drvs/2017/06/1dbd7cb4-53bc-4857-a5b0-5955c8acaf71_9081931e7d664429a93ffda0db41b7545b7ac257.cab|FW_ACC_CL.bin|0023a7bae02974834500c665a281e25b1ba52c9226c84989f9084fa5ce591d9b"
+    "091e|https://catalog.s.download.windowsupdate.com/d/msdownload/update/driver/drvs/2017/08/aeff215c-3bc4-4d36-a3ea-e14bfa8fa9d2_e58550c4f74a27e51e5cb6868b10ff633fa77164.cab|FW_ACC_BR.bin|e2710daf81e7b36d35985348f68a81d18bc537a2b0c508ffdfde6ac3eae1bad7"
+)
+
+die() { echo "owneet-xone-firmware: $*" >&2; exit 1; }
+
+known_pids() { local m; for m in "${MODELS[@]}"; do echo "${m%%|*}"; done; }
+
+connected_pids() {
+    local d
+    for d in /sys/bus/usb/devices/*; do
+        [[ -f "$d/idVendor" && "$(cat "$d/idVendor")" == 045e ]] || continue
+        local pid; pid="$(cat "$d/idProduct")"
+        if known_pids | grep -qx "$pid"; then echo "$pid"; fi
+    done | sort -u
+}
+
+installed() { [[ -f "$FW_DIR/xone_dongle_$1.bin" ]]; }
+
+cmd_status() {
+    local pid missing=0
+    local pids; pids="$(connected_pids)"
+    if [[ -z "$pids" ]]; then echo "no Xbox wireless dongle connected"; return 0; fi
+    for pid in $pids; do
+        if installed "$pid"; then echo "dongle $pid: firmware installed"
+        else echo "dongle $pid: firmware MISSING"; missing=1; fi
+    done
+    if (( missing )); then return 3; fi
+}
+
+install_one() {
+    local pid="$1" entry url file sum tmp
+    entry="$(printf '%s\n' "${MODELS[@]}" | grep "^$pid|")"
+    IFS='|' read -r _ url file sum <<<"$entry"
+    if installed "$pid"; then echo "dongle $pid: firmware already installed"; return 0; fi
+    tmp="$(mktemp -d)"
+    echo "dongle $pid: downloading firmware from Microsoft..."
+    curl -fsSL --retry 3 -o "$tmp/driver.cab" "$url" || { rm -rf "$tmp"; die "download failed (is the PC online?)"; }
+    bsdtar -xf "$tmp/driver.cab" -C "$tmp" "$file" || { rm -rf "$tmp"; die "could not extract $file"; }
+    echo "$sum  $tmp/$file" | sha256sum --check --quiet || { rm -rf "$tmp"; die "checksum mismatch for $file"; }
+    install -Dm644 "$tmp/$file" "$FW_DIR/xone_dongle_$pid.bin"
+    rm -rf "$tmp"
+    echo "dongle $pid: firmware installed"
+}
+
+cmd_install() {
+    local accepted=0 all=0 arg pid
+    for arg in "$@"; do
+        case "$arg" in
+            --accept-microsoft-terms) accepted=1 ;;
+            --all) all=1 ;;
+            *) die "unknown option $arg" ;;
+        esac
+    done
+    (( accepted )) || die "the firmware is subject to Microsoft's terms ($TERMS_URL): pass --accept-microsoft-terms"
+    [[ $EUID -eq 0 ]] || die "must run as root"
+    local pids
+    if (( all )); then pids="$(known_pids)"; else pids="$(connected_pids)"; fi
+    [[ -n "$pids" ]] || die "no Xbox wireless dongle connected (use --all to install every model)"
+    for pid in $pids; do install_one "$pid"; done
+    rm -f "$NEEDED_FLAG"
+    # Reload the driver so a connected dongle picks up its firmware.
+    if [[ -n "$(connected_pids)" ]]; then
+        modprobe -r xone_dongle 2>/dev/null || true
+        modprobe xone_dongle
+    fi
+}
+
+cmd_mark_needed() {
+    local pid
+    for pid in $(connected_pids); do
+        if ! installed "$pid"; then
+            mkdir -p "$(dirname "$NEEDED_FLAG")"
+            echo "$pid" >> "$NEEDED_FLAG"
+        fi
+    done
+}
+
+case "${1:-}" in
+    status)        cmd_status ;;
+    install)       shift; cmd_install "$@" ;;
+    --mark-needed) cmd_mark_needed ;;
+    *) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac

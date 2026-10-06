@@ -24,6 +24,7 @@ first if it is missing.
 | [`owneet-hardware`](owneet-hardware/) | Firmware, microcode, Mesa + Vulkan (AMD, Intel), NVIDIA driver for Turing and newer with automatic nouveau fallback for older GPUs (`owneet-gpu-select`), PipeWire, NetworkManager, BlueZ, controller hidraw access rules. |
 | [`owneet-keyring`](owneet-keyring/) | The OwneetOS public key for pacman (`pacman-key --populate owneet`). |
 | [`owneet-branding`](owneet-branding/) | OwneetOS wordmark ("Owneet" + coral "OS", SVG outlines) and the Plymouth boot splash `owneet` (wordmark + coral spinner on deep navy). |
+| [`owneet-xone`](owneet-xone/) | Xbox wireless dongle driver ([xone](https://github.com/dlundqvist/xone) 0.5.8) built for the ISO's exact kernel, without `xone_wired` (wired controllers stay on the kernel's `xpad`); loads before `mt76x2u` so USB Wi-Fi adapters keep working; `owneet-xone-firmware` downloads Microsoft's firmware only with consent. **Rebuilt for every kernel change.** |
 | [`owneet-session`](owneet-session/) | Console user `owneet`, autologin on tty1, `owneet-session` (gamescope or cage, restarts, fallback) and the fullscreen placeholder shown until the real UI exists. |
 
 ## Rules
@@ -33,7 +34,7 @@ first if it is missing.
 - `license=('GPL-3.0-or-later')` for OwneetOS's own packages.
 - The kernel is chosen in `iso/packages.x86_64`, not as a package dependency.
 - After editing a local source file, refresh the checksums: `tools/update-checksums NAME`, and bump
-  `pkgver` or `pkgrel`.
+  `pkgver` or `pkgrel`. Downloaded sources keep the real checksum written by hand.
 - Packages without a `build()` step are built without installing any dependency in the chroot
   (faster, no large downloads, no install scripts of unrelated packages).
 

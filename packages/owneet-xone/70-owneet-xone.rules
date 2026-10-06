@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Xbox wireless dongle plugged in: flag missing firmware for the console UI (consent first).
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="045e", ATTR{idProduct}=="02e6|02fe|02f9|091e", RUN+="/usr/lib/owneet/owneet-xone-firmware --mark-needed"

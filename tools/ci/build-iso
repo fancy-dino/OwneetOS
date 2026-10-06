@@ -18,7 +18,10 @@ die() { echo "error: $*" >&2; exit 1; }
 echo "==> preparing the container"
 pacman-key --init >/dev/null 2>&1
 pacman-key --populate archlinux >/dev/null 2>&1
-pacman -Syu --noconfirm --needed archiso git sudo >/dev/null
+# Use the ISO's Arch Linux Archive snapshot for everything, build dependencies included: kernel
+# modules (owneet-xone) must be built against the headers of exactly the kernel in the ISO.
+grep -v '^NoExtract' "$SRC/iso/pacman.conf" > /etc/pacman.conf
+pacman -Syuu --noconfirm --needed archiso git sudo >/dev/null
 
 # makepkg refuses to run as root: build as an unprivileged user with passwordless sudo.
 useradd -m builder
