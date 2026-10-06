@@ -166,7 +166,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   autologin by 30 s, so it was removed. **Left for step 3.2:** a seamless splash-to-UI handover
   (no dark gap). The owner approved the splash with the wordmark changed to "Owneet" + coral "OS".
 
-### [~] 1.5 Hardware support set (waiting for the real-hardware test)
+### [x] 1.5 Hardware support set
 
 - **Deliverables:** firmware, Mesa + Vulkan drivers, `nvidia-open` with automatic detection,
   `xone` (built into `[owneet]`), PipeWire, NetworkManager, BlueZ, udev rules for controllers.
@@ -182,7 +182,11 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   arguments, so testers do not have to type them. **Done:** boot entry "OwneetOS (diagnostics)"
   with an automatic report on tty9 (`owneet-diagnostics`), verified in the VM.
   Owner's desktop (RTX 4060 + Intel UHD 770): normal boot shows "console session: gamescope";
-  diagnostics report to be collected. Observed: the live boot from USB is slow (USB stick speed,
+  diagnostics report: `blacklist nouveau` (Turing+ detected), `nvidia` + `nvidia_drm` loaded (plus
+  `i915`/`xe` for the Intel iGPU), Vulkan lists the RTX 4060 as discrete GPU. Memory: 2824 MiB used,
+  of which 1540 MiB were the live image copied to RAM by archiso (`copytoram` defaults to on with
+  plenty of RAM): this also explained the slow boot from USB. Fixed with `copytoram=n`. The RAM target
+  (500 MB) is measured on the installed system with the real UI. Observed: the live boot from USB is slow (USB stick speed,
   LZMA-compressed root, first NVIDIA initialisation; an installed system will not have the first two),
   and the boot menu editor uses the US keyboard layout (firmware limitation).
 - **Progress:** `owneet-hardware` meta-package (firmware, microcode, Mesa + Vulkan for AMD/Intel,

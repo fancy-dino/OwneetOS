@@ -31,6 +31,7 @@ Move the date forward only after testing, and record it here.
 |------|----------|----------------------|---------------------|-------|
 | 2026-10-04 | 471 MiB | — | — | base system only (step 1.1) |
 | 2026-10-05 | 1664 MiB | ~13 s (systemd: 9.1 s) | ~235 MiB | hardware support set (step 1.5); NVIDIA user space alone is ~950 MiB installed |
+| 2026-10-06 | 1664 MiB | — | ~1.3 GB used on the owner's desktop (RTX 4060), excluding the 1.5 GB image copied to RAM | real hardware, cage + placeholder on the NVIDIA GPU; before `copytoram=n` |
 
 ## Choices
 
@@ -39,6 +40,7 @@ Move the date forward only after testing, and record it here.
 | **UEFI only**, booted by systemd-boot | PROJECT_RULES.md section 4; target hardware (last ~10 years) is UEFI. |
 | No cloud-init, VM guest tools (VMware, VirtualBox, Hyper-V, QEMU agent) or SSH server | Not needed on a console; less weight, no remote login surface. |
 | `/etc/os-release` from `airootfs/` | OwneetOS identity. `pacman.conf` sets `NoExtract = etc/os-release` so Arch's symlink does not replace it; archiso appends `IMAGE_ID` and `IMAGE_VERSION`. |
+| `copytoram=n` | The live system reads from the USB stick on demand. By default archiso copies the whole image (~1.6 GB) to RAM first on PCs with plenty of RAM, which made the boot very slow from ordinary USB sticks. The stick must stay plugged in (it must for installing anyway). |
 | Silent boot: `quiet splash loglevel=3 rd.udev.log_level=3 systemd.show_status=false rd.systemd.show_status=false vt.global_cursor_default=0` | Only the OwneetOS splash is shown between firmware and console session; no text, no cursor. |
 | `plymouth.ignore-serial-consoles` | Without it Plymouth falls back to its text splash because of the serial console below. |
 | Boot menu hidden (`timeout 0`) | Tapping Space repeatedly right after choosing the USB stick shows the systemd-boot menu. The menu editor (`e`) always uses the **US keyboard layout** (firmware limitation). |
