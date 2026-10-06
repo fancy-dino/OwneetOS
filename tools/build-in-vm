@@ -37,7 +37,12 @@ status=0
 if "$BUILDER" ssh "test -d $REMOTE_DIR/out"; then
     echo "==> copying out/ back to the project"
     mkdir -p "$ROOT/out"
-    rsync -a -e "$RSH" "$REMOTE:$REMOTE_DIR/out/" "$ROOT/out/"
+    # out/repo mirrors the VM exactly (old package versions disappear); the rest of out/ is only
+    # added to, so host-only folders such as out/ci and out/screenshots are kept.
+    rsync -a -e "$RSH" --exclude '/repo/' "$REMOTE:$REMOTE_DIR/out/" "$ROOT/out/"
+    if "$BUILDER" ssh "test -d $REMOTE_DIR/out/repo"; then
+        rsync -a --delete -e "$RSH" "$REMOTE:$REMOTE_DIR/out/repo/" "$ROOT/out/repo/"
+    fi
 fi
 
 if (( status != 0 )); then
