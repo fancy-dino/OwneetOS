@@ -135,7 +135,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   (`SigLevel = Required DatabaseRequired`), contains `owneet-base` and `owneet-keyring`, and boots
   to the login prompt.
 
-### [x] 1.3 Console session (gamescope on real hardware: checked at the end of 1.5)
+### [x] 1.3 Console session
 
 - **Deliverables:** autologin user, session launcher that starts **gamescope** with a
   placeholder fullscreen app; Vulkan capability check with automatic **cage** fallback;
@@ -173,6 +173,9 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 - **Done when:** ISO size is measured and stays **under 2 GB**; idle RAM is measured and recorded.
   First real-hardware boot of the live ISO on the owner's NiPoGi E3B mini PC (AMD/Intel path), and
   later on the owner's desktop (RTX 4060, NVIDIA path), confirming gamescope (step 1.3).
+- **Real hardware, 2026-10-06:** the live ISO boots on the owner's NiPoGi E3B mini PC (integrated
+  graphics): boot splash shown, then the placeholder with **"console session: gamescope"**, so the
+  Vulkan check and gamescope work on real hardware. Still to test: the NVIDIA path (owner's desktop).
 - **Progress:** `owneet-hardware` meta-package (firmware, microcode, Mesa + Vulkan for AMD/Intel,
   `nvidia-open` + `nvidia-utils`, PipeWire, NetworkManager, BlueZ, controller rules) and
   `owneet-gpu-select` (nvidia-open for Turing+, nouveau for older NVIDIA). Measured in the VM:
