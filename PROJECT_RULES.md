@@ -71,6 +71,8 @@ OwneetOS is a **lightweight, open-source Linux distribution** that turns any x86
 
 - The OS is distributed as an **ISO on GitHub Releases** (public repository).
   - GitHub limits release assets to **2 GB per file**: the ISO must stay under it.
+    If the ISO cannot stay under it, a free hosting service other than GitHub may be used for the
+    ISO (to be decided when needed).
   - Steam's runtime is downloaded on first launch, not shipped in the ISO.
 - ISO built with **archiso**, automated with **GitHub Actions**, with checksums and signatures.
 - Packages built with **PKGBUILD**s; updates served from an **own pacman repository `[owneet]`**
@@ -125,6 +127,10 @@ OwneetOS is a **lightweight, open-source Linux distribution** that turns any x86
 
 - Wired and 2.4 GHz dongle controllers must work instantly.
 - Drivers shipped in the image: kernel HID drivers, **xone** (Xbox wireless dongle).
+  - The dongle's **firmware is Microsoft's and cannot be redistributed**: OwneetOS downloads it on
+    the user's PC, with the user's consent, the first time a dongle is plugged in (internet needed).
+  - First-boot warning: the first setup needs a **Bluetooth or USB-cable controller**; a wireless
+    Xbox controller can be used over its USB cable until the dongle is ready.
 - **First Bluetooth pairing must need zero input**: when no controller is connected, the system
   scans and **auto-pairs and trusts any device that identifies as a gamepad**.
 - Large, animated, per-brand pairing instructions on screen (e.g. "Hold PS + Share").
@@ -250,4 +256,6 @@ in order; the owner reviews each step before the next one starts.
 | 2026-10-05 | Boot: silent kernel/systemd, hidden systemd-boot menu (hold a key to show it), Plymouth splash `owneet` with the generated wordmark (step 1.4). |
 | 2026-10-05 | Boot splash approved by the owner with the wordmark "Owneet" + coral "OS" (as in the mockups page header) instead of "owneet." (section 9). |
 | 2026-10-05 | Hardware support (`owneet-hardware`): NVIDIA Turing and newer use `nvidia-open`; older NVIDIA GPUs use nouveau, chosen at boot by `owneet-gpu-select` (no `kms` initramfs hook). ISO 1664 MiB (step 1.5). |
-| 2026-10-05 | xone (Xbox wireless dongle) moved out of step 1.5: its firmware is Microsoft's and cannot be redistributed; to be decided with the owner. |
+| 2026-10-05 | xone (Xbox wireless dongle) moved out of step 1.5: its firmware is Microsoft's and cannot be redistributed. |
+| 2026-10-06 | xone: driver in the image, Microsoft firmware downloaded on the user's PC at first dongle use with consent; first setup needs a Bluetooth or cable controller (section 7). |
+| 2026-10-06 | ISO size: if 2 GB is exceeded, consider a free hosting service other than GitHub for the ISO (section 5, decided later). |

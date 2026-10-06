@@ -171,7 +171,8 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 - **Deliverables:** firmware, Mesa + Vulkan drivers, `nvidia-open` with automatic detection,
   `xone` (built into `[owneet]`), PipeWire, NetworkManager, BlueZ, udev rules for controllers.
 - **Done when:** ISO size is measured and stays **under 2 GB**; idle RAM is measured and recorded.
-  First real-hardware boot of the live ISO on the owner's PC, confirming gamescope (step 1.3).
+  First real-hardware boot of the live ISO on the owner's NiPoGi E3B mini PC (AMD/Intel path), and
+  later on the owner's desktop (RTX 4060, NVIDIA path), confirming gamescope (step 1.3).
 - **Progress:** `owneet-hardware` meta-package (firmware, microcode, Mesa + Vulkan for AMD/Intel,
   `nvidia-open` + `nvidia-utils`, PipeWire, NetworkManager, BlueZ, controller rules) and
   `owneet-gpu-select` (nvidia-open for Turing+, nouveau for older NVIDIA). Measured in the VM:
@@ -186,6 +187,14 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 
 - **Deliverables:** GitHub Actions job building the ISO (privileged container), checksums, build artefact.
 - **Done when:** a CI-built ISO boots in the test VM.
+
+### [ ] 1.7 Xbox wireless dongle (xone)
+
+- **Deliverables:** xone kernel module built for the ISO's kernel (rebuilt with every kernel
+  change), firmware download helper (Microsoft's firmware, fetched on the user's PC with consent at
+  first dongle use), first-boot notice that setup needs a Bluetooth or cable controller.
+- **Done when:** a dongle-connected Xbox controller works after the firmware download, on real
+  hardware.
 
 ---
 
