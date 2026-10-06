@@ -41,7 +41,8 @@ Move the date forward only after testing, and record it here.
 | `/etc/os-release` from `airootfs/` | OwneetOS identity. `pacman.conf` sets `NoExtract = etc/os-release` so Arch's symlink does not replace it; archiso appends `IMAGE_ID` and `IMAGE_VERSION`. |
 | Silent boot: `quiet splash loglevel=3 rd.udev.log_level=3 systemd.show_status=false rd.systemd.show_status=false vt.global_cursor_default=0` | Only the OwneetOS splash is shown between firmware and console session; no text, no cursor. |
 | `plymouth.ignore-serial-consoles` | Without it Plymouth falls back to its text splash because of the serial console below. |
-| Boot menu hidden (`timeout 0`) | Holding a key (e.g. Space) while the PC starts shows the systemd-boot menu. |
+| Boot menu hidden (`timeout 0`) | Tapping Space repeatedly right after choosing the USB stick shows the systemd-boot menu. The menu editor (`e`) always uses the **US keyboard layout** (firmware limitation). |
+| Boot entry **"OwneetOS (diagnostics)"** | Starts the cage session and writes a report (GPUs, NVIDIA choice, drivers, Vulkan, session, RAM, failed units, errors) on **tty9**: press Ctrl+Alt+F9, take a photo, Ctrl+Alt+F1 to go back. Leaves a root shell on tty9: acceptable on the live medium (physical access only); not for installed systems as is. |
 | Initramfs hooks `base udev microcode plymouth modconf archiso block filesystems` | CPU microcode early; the splash runs on the firmware framebuffer. No `kms` hook: it would load nouveau before `owneet-gpu-select` can choose the NVIDIA driver. |
 | `console=ttyS0,115200 console=tty0` | Kernel and login prompt also on the serial port, so the test VM can check the boot automatically. The screen stays the main console. |
 | root locked | No password login for root. The system runs as the console user `owneet` (autologin on tty1, from `owneet-session`). |

@@ -1,0 +1,29 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# OwneetOS diagnostics report, shown on tty9 (Ctrl+Alt+F9) when the system is started from the
+# "OwneetOS (diagnostics)" boot menu entry (kernel argument owneet.diagnostics). Testers only need
+# to switch terminal and take a photo: nothing has to be typed. A root shell stays open afterwards.
+
+set -u
+
+report=/run/owneet-diagnostics.txt
+sleep 15   # let the console session start first
+
+{
+    # shellcheck disable=SC1091
+    echo "=== OwneetOS diagnostics ($(. /etc/os-release; echo "${IMAGE_VERSION:-unknown}"), kernel $(uname -r))"
+    echo "--- boot time";       systemd-analyze 2>/dev/null | head -1
+    echo "--- GPUs";            lspci -nn | grep -iE 'vga|3d|display'
+    echo "--- NVIDIA choice";   cat /run/modprobe.d/owneet-gpu.conf 2>/dev/null || echo "no NVIDIA GPU"
+    echo "--- GPU drivers";     lsmod | awk '$1 ~ /^(nvidia|nvidia_drm|nouveau|amdgpu|radeon|i915|xe)$/ {print $1}' | paste -sd' '
+    echo "--- Vulkan";          vulkaninfo --summary 2>/dev/null | grep -E 'deviceName|deviceType'
+    echo "--- session";         journalctl -b -t owneet-session -o cat --no-pager | tail -4
+    echo "--- memory (MiB)";    free -m | head -2
+    echo "--- failed units";    systemctl --failed --no-legend --plain --no-pager
+    echo "--- last errors";     journalctl -b -p err -o cat --no-pager | tail -6
+} 2>&1 | tee "$report"
+
+echo
+echo "Saved to $report. Ctrl+Alt+F1 goes back to the console session."
+exec /bin/bash

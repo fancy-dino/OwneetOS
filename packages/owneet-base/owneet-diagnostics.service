@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Runs only when the system is started from the diagnostics boot entry (owneet.diagnostics).
+[Unit]
+Description=OwneetOS diagnostics report on tty9
+ConditionKernelCommandLine=owneet.diagnostics
+After=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/owneet/owneet-diagnostics
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/tty9
+TTYReset=yes
+TTYVHangup=yes
+
+[Install]
+WantedBy=multi-user.target

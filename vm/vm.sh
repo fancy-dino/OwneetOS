@@ -42,6 +42,7 @@ OwneetOS VM manager
   vm/vm.sh revert   NAME TAG          Bring all disks back to a saved state (VM stopped)
   vm/vm.sh snapshots NAME             List saved states
   vm/vm.sh screenshot NAME FILE.png   Save what the VM's screen shows
+  vm/vm.sh keys NAME COMBO            Press a key combination, e.g. ctrl-alt-f9 (QEMU key names)
   vm/vm.sh status  NAME               Show whether a VM is running
   vm/vm.sh list                       List VMs
   vm/vm.sh selftest                   Boot a throwaway UEFI VM, check it, delete it
@@ -99,6 +100,26 @@ f = s.makefile("rw")
 f.readline()  # greeting
 for cmd in ({"execute": "qmp_capabilities"},
             {"execute": "screendump", "arguments": {"filename": sys.argv[2], "format": "png"}}):
+    f.write(json.dumps(cmd) + "\n"); f.flush()
+    while True:
+        msg = json.loads(f.readline())
+        if "error" in msg:
+            sys.exit(1)
+        if "return" in msg:
+            break
+PY
+}
+
+qmp_keys() {
+    python3 - "$1" "$2" <<'PY' 2>/dev/null
+import json, socket, sys
+s = socket.socket(socket.AF_UNIX)
+s.settimeout(10)
+s.connect(sys.argv[1])
+f = s.makefile("rw")
+f.readline()  # greeting
+keys = [{"type": "qcode", "data": k} for k in sys.argv[2].split("-")]
+for cmd in ({"execute": "qmp_capabilities"}, {"execute": "send-key", "arguments": {"keys": keys}}):
     f.write(json.dumps(cmd) + "\n"); f.flush()
     while True:
         msg = json.loads(f.readline())
@@ -359,6 +380,14 @@ cmd_screenshot() {
     info "screenshot saved: $file"
 }
 
+cmd_keys() {
+    local name="${1:-}" combo="${2:-}"
+    check_name "$name"
+    [[ "$combo" =~ ^[a-z0-9_]+(-[a-z0-9_]+)*$ ]] || die "usage: vm/vm.sh keys NAME COMBO (e.g. ctrl-alt-f9)"
+    vm_pid "$name" >/dev/null || die "VM '$name' is not running."
+    qmp_keys "$(vm_run_dir "$name")/qmp.sock" "$combo" || die "could not send keys '$combo'"
+}
+
 cmd_status() {
     local name="${1:-}"
     check_name "$name"
@@ -425,6 +454,7 @@ case "$cmd" in
     revert)   cmd_snapshot "${1:-}" "${2:-}" revert ;;
     snapshots) cmd_snapshots "$@" ;;
     screenshot) cmd_screenshot "$@" ;;
+    keys)     cmd_keys "$@" ;;
     help|-h|--help) usage ;;
     *) usage; exit 1 ;;
 esac

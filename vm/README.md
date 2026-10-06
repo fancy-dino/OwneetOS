@@ -100,6 +100,7 @@ vm/test.sh fetch-arch-iso        stock Arch ISO, verified (used until OwneetOS h
 vm/test.sh create [single|multi] single: one 32G disk; multi: 32G + 64G data disk
 vm/test.sh boot [ISO] [options]  --headless, --gamepad auto|none|PATH, --gl, --ssh, --kargs, --journal, --debug-shell
 vm/test.sh run 'CMD'             run a command in the debug shell and print its output
+vm/test.sh keys COMBO            press keys in the VM, e.g. ctrl-alt-f9
 vm/test.sh gamepads              gamepads connected to this computer
 vm/test.sh ssh [CMD]             root shell in the live system (after boot --ssh)
 vm/test.sh stop | reset | destroy

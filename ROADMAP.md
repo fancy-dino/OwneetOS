@@ -179,7 +179,12 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   Note: gamescope does not allow switching to other virtual terminals (Ctrl+Alt+F9), so the debug
   shell is reachable only in the cage session: diagnostics use
   `systemd.debug_shell owneet.session=cage`. To do: a "diagnostics" boot menu entry with these
-  arguments, so testers do not have to type them.
+  arguments, so testers do not have to type them. **Done:** boot entry "OwneetOS (diagnostics)"
+  with an automatic report on tty9 (`owneet-diagnostics`), verified in the VM.
+  Owner's desktop (RTX 4060 + Intel UHD 770): normal boot shows "console session: gamescope";
+  diagnostics report to be collected. Observed: the live boot from USB is slow (USB stick speed,
+  LZMA-compressed root, first NVIDIA initialisation; an installed system will not have the first two),
+  and the boot menu editor uses the US keyboard layout (firmware limitation).
 - **Progress:** `owneet-hardware` meta-package (firmware, microcode, Mesa + Vulkan for AMD/Intel,
   `nvidia-open` + `nvidia-utils`, PipeWire, NetworkManager, BlueZ, controller rules) and
   `owneet-gpu-select` (nvidia-open for Turing+, nouveau for older NVIDIA). Measured in the VM:
@@ -377,6 +382,8 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 ### [ ] 6.1 First-boot flow
 
 - **Deliverables:** controller (auto-pairing, as in the mockup) → language → network → ready.
+  The keyboard layout follows the chosen language (console and on-screen keyboard), and can be
+  changed in Settings.
 
 ### [ ] 6.2 Live vs installed mode
 

@@ -54,6 +54,7 @@ OwneetOS test VM (${MEM_MB} MB RAM, ${CPUS} CPUs, UEFI, Secure Boot off)
   vm/test.sh log                   Print the serial console log (escape codes removed)
   vm/test.sh screenshot [FILE]     Save the VM screen as PNG (default: vm/run/test/screen.png)
   vm/test.sh run 'CMD' [SECONDS]   Run CMD in the VM's debug shell and print its output (boot --debug-shell)
+  vm/test.sh keys COMBO            Press keys in the VM, e.g. ctrl-alt-f9
   vm/test.sh stop                  Power the VM off
   vm/test.sh reset                 Bring every disk back to the blank state
   vm/test.sh destroy               Delete the test VM
@@ -216,6 +217,7 @@ case "${1:-help}" in
     screenshot) "$VM" screenshot "$NAME" "${2:-$VM_DIR/run/$NAME/screen.png}" ;;
     log)      serial_log ;;
     run)      shift; cmd_run "$@" ;;
+    keys)     "$VM" keys "$NAME" "${2:-}" ;;
     stop)     "$VM" stop "$NAME" --force ;;
     reset)    "$VM" stop "$NAME" --force >/dev/null; "$VM" revert "$NAME" blank ;;
     destroy)  "$VM" destroy "$NAME" ;;
