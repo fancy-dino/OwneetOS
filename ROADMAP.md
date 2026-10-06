@@ -106,7 +106,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 
 ## Phase 1 — Minimal bootable OS (no UI yet)
 
-### [~] 1.1 archiso profile (awaiting owner review)
+### [x] 1.1 archiso profile
 
 - **Deliverables:** `iso/` profile derived from Arch `baseline`, minimal package list, pinned
   Arch Linux Archive snapshot date, OwneetOS branding in `os-release`.
