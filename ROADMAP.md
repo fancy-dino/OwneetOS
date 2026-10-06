@@ -199,7 +199,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   **xone is not included:** the dongle firmware is Microsoft's and cannot be redistributed; it needs
   a separate decision (download on the user's PC at first use).
 
-### [~] 1.6 ISO build in CI (waiting for the first run on GitHub)
+### [x] 1.6 ISO build in CI
 
 - **Deliverables:** GitHub Actions job building the ISO (privileged container), checksums, build artefact.
 - **Done when:** a CI-built ISO boots in the test VM.
@@ -207,6 +207,10 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   (`tools/ci/build-iso`, `OWNEET_NO_CHROOT=1`), only when ISO inputs changed, on demand or weekly;
   artifact kept 7 days (unsigned development build). Simulated with Podman in the builder VM with
   the same image: ISO built (1664 MiB) in 2 min 50 s with a warm package cache.
+  **First run on GitHub (2026-10-06): green.** Job `ISO` took about 10 min (2.5 min freeing disk
+  space, 7.5 min packages + ISO); artifact `owneetos-dev-iso-14`, 1664 MiB. Downloaded, checksum
+  verified, booted in the test VM: console session starts; diagnostics report clean (boot 8.5 s,
+  no failed units).
 
 ### [ ] 1.7 Xbox wireless dongle (xone)
 
