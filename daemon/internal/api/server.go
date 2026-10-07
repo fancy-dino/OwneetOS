@@ -38,6 +38,8 @@ type Server struct {
 	Bluetooth Bluetooth
 	// Network is NetworkManager: status, Wi-Fi (nil without a system bus).
 	Network Network
+	// Audio is PipeWire (through its PulseAudio protocol).
+	Audio Audio
 
 	started time.Time
 }
@@ -69,6 +71,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/network/wifi/disconnect", s.handleWifiDisconnect)
 	mux.HandleFunc("DELETE /v1/network/wifi/{ssid}", s.handleWifiForget)
 	mux.HandleFunc("PUT /v1/network/wifi/enabled", s.handleWifiEnabled)
+	mux.HandleFunc("GET /v1/audio", s.handleAudio)
+	mux.HandleFunc("PUT /v1/audio/volume", s.handleAudioVolume)
+	mux.HandleFunc("PUT /v1/audio/mute", s.handleAudioMute)
+	mux.HandleFunc("PUT /v1/audio/output", s.handleAudioOutput)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusNotFound, "not_found", "no such endpoint: "+r.Method+" "+r.URL.Path)
 	})

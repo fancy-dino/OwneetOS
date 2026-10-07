@@ -34,6 +34,7 @@ OwneetOS VM manager
         --seed-url URL  cloud-init NoCloud seed URL (first-boot configuration)
         --evdev PATH    pass a host input device (e.g. a gamepad) to the guest; repeatable
         --gl            3D-accelerated virtual GPU (virgl), needed for gamescope
+        --audio         two virtual sound cards (built-in HDA + USB), silent on the host
         --kernel-args S extra kernel command line, appended by systemd-boot (SMBIOS type 11)
   vm/vm.sh stop    NAME [--force]     Shut a VM down (ACPI, then forced after 60 s; --force: at once)
   vm/vm.sh destroy NAME               Stop a VM and delete all of its files
@@ -192,7 +193,7 @@ cmd_create() {
 cmd_start() {
     local name="${1:-}"; shift || true
     check_name "$name"
-    local iso="" headless=0 mem="$DEFAULT_MEM_MB" cpus="$DEFAULT_CPUS" net=1 ssh_port="" seed_url="" gl=0
+    local iso="" headless=0 mem="$DEFAULT_MEM_MB" cpus="$DEFAULT_CPUS" net=1 ssh_port="" seed_url="" gl=0 audio=0
     local evdevs=() kargs=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -205,6 +206,7 @@ cmd_start() {
             --seed-url) seed_url="${2:-}"; shift 2 ;;
             --evdev)    evdevs+=("${2:-}"); shift 2 ;;
             --gl)       gl=1; shift ;;
+            --audio)    audio=1; shift ;;
             --kernel-args) kargs="${2:-}"; shift 2 ;;
             *) die "unknown option '$1' (see: vm/vm.sh help)" ;;
         esac
@@ -261,6 +263,13 @@ cmd_start() {
         [[ -f "$iso" ]] || die "ISO not found: $iso"
         # -cdrom uses the machine's default CD-ROM drive (no second, empty drive).
         args+=(-cdrom "$(realpath "$iso")")
+    fi
+    if (( audio )); then
+        # Two outputs to test output selection: a built-in HDA card and a USB card. The "none"
+        # backend discards the sound (nothing plays on the host). Fixed PCI slots, as above.
+        args+=(-audiodev "none,id=snd0"
+               -device "ich9-intel-hda,addr=0x11" -device "hda-output,audiodev=snd0"
+               -device "qemu-xhci,addr=0x12" -device "usb-audio,audiodev=snd0")
     fi
     if (( net )); then
         local nic="user,model=virtio-net-pci"

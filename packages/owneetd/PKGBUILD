@@ -2,15 +2,15 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneetd
-pkgver=0.5.0
+pkgver=0.6.0
 pkgrel=1
 pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps) and owneetctl"
 arch=('x86_64')
 url="https://github.com/fancy-dino/OwneetOS"
 # owneetd: GPL-3.0-or-later; SDL_GameControllerDB: Zlib; vendored Go modules (daemon/vendor/):
-# godbus/dbus BSD-2-Clause, golang.org/x/sys BSD-3-Clause
-license=('GPL-3.0-or-later' 'Zlib' 'BSD-2-Clause' 'BSD-3-Clause')
-depends=('systemd' 'bluez' 'networkmanager' 'polkit')
+# godbus/dbus BSD-2-Clause, golang.org/x/sys BSD-3-Clause, jfreymuth/pulse MIT
+license=('GPL-3.0-or-later' 'Zlib' 'BSD-2-Clause' 'BSD-3-Clause' 'MIT')
+depends=('systemd' 'bluez' 'networkmanager' 'polkit' 'pipewire-pulse')
 makedepends=('go')
 options=('!debug')
 install=owneetd.install
@@ -59,4 +59,5 @@ package() {
   install -Dm644 daemon/vendor/github.com/godbus/dbus/v5/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE.godbus-dbus"
   install -Dm644 daemon/vendor/golang.org/x/sys/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE.golang-x-sys"
   install -Dm644 daemon/vendor/golang.org/x/sys/PATENTS "$pkgdir/usr/share/licenses/$pkgname/PATENTS.golang-x-sys"
+  install -Dm644 daemon/vendor/github.com/jfreymuth/pulse/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE.jfreymuth-pulse"
 }

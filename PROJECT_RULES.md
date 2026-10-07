@@ -290,3 +290,6 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-06 | xone packaged without `xone_wired` and without blacklisting `xpad`/`mt76x2u` (wired controllers and USB Wi-Fi adapters keep working); CI builds use the ISO's Arch snapshot for build dependencies too (step 1.7). |
 | 2026-10-07 | `owneetd`: Go; HTTP + JSON over a Unix socket instead of a localhost TCP port (web pages in Brave cannot reach it); runs as a user service of `owneet`, not root (step 2.1). |
 | 2026-10-07 | Legal compliance rules adopted (section 12). CI stops publishing the ISO as a download until releases ship a GPL source archive (option A). |
+| 2026-10-07 | Bluetooth: owneetd auto-pairs gamepads whenever no controller is connected; its pairing agent accepts only gamepads, only while auto-pair is on. Verified on real hardware (step 2.5). |
+| 2026-10-07 | Wi-Fi networks are saved system-wide: a polkit rule allows `settings.modify.system` to `owneet` in the active local session only; `owneet` is not an administrator (step 2.6). |
+| 2026-10-07 | Third-party Go modules are vendored in `daemon/vendor/` (builds need no network; licences shipped with the package). |

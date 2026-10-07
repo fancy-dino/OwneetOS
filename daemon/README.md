@@ -1,8 +1,9 @@
 # daemon/
 
 **`owneetd`**, the OwneetOS system daemon, and **`owneetctl`**, its command-line client. Go;
-the only external module is `github.com/godbus/dbus/v5` (D-Bus, BSD-2-Clause), vendored in
-`vendor/` with `golang.org/x/sys`. Update it in the builder VM with `go get`, `go mod tidy`,
+external modules are `github.com/godbus/dbus/v5` (D-Bus, BSD-2-Clause, with `golang.org/x/sys`)
+and `github.com/jfreymuth/pulse` (audio, MIT), vendored in `vendor/`. Update them in the builder
+VM with `go get`, `go mod tidy`,
 `go mod vendor`, and copy `go.mod`, `go.sum` and `vendor/` back. Design and API: [`docs/daemon-design.md`](../docs/daemon-design.md).
 
 - Runs as a **systemd user service** of the console user `owneet` (not root).
@@ -32,6 +33,7 @@ the only external module is `github.com/godbus/dbus/v5` (D-Bus, BSD-2-Clause), v
 | `internal/sdldb` | SDL_GameControllerDB: Guide button of generic controllers |
 | `internal/bluetooth` | BlueZ over D-Bus: devices, automatic gamepad pairing, pairing agent |
 | `internal/network` | NetworkManager over D-Bus: status, Wi-Fi scan, connect, forget |
+| `internal/audio` | PipeWire (PulseAudio protocol): volume, mute, output selection |
 | `vendor/` | vendored Go modules (third-party code, not linted) |
 
 ## Build and test

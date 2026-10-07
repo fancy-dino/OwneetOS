@@ -99,7 +99,7 @@ hardware), blank virtual disks.
 ```text
 vm/test.sh fetch-arch-iso        stock Arch ISO, verified (used until OwneetOS has its own ISO)
 vm/test.sh create [single|multi] single: one 32G disk; multi: 32G + 64G data disk
-vm/test.sh boot [ISO] [options]  --headless, --gamepad auto|none|PATH, --gl, --ssh, --kargs, --journal, --debug-shell
+vm/test.sh boot [ISO] [options]  --headless, --gamepad auto|none|PATH, --gl, --audio, --ssh, --kargs, --journal, --debug-shell
 vm/test.sh run 'CMD'             run a command in the debug shell and print its output
 vm/test.sh keys COMBO            press keys in the VM, e.g. ctrl-alt-f9
 vm/test.sh gamepads              gamepads connected to this computer
@@ -129,6 +129,9 @@ vm/test.sh stop | reset | destroy
   `vm/run/NAME/console.log`; the serial port keeps kernel and journal messages (`serial.log`).
 - **`--ssh`:** for the live Arch ISO only. A cloud-init seed puts the project test key
   (`vm/images/.keys/test_ed25519`) in root's `authorized_keys`, on `127.0.0.1:2223`.
+- **Sound cards:** `--audio` adds a built-in sound card (Intel HDA) and a USB sound card, to test
+  output selection (step 2.7). The QEMU backend is `none`: nothing plays on the host. Fixed PCI
+  slots `0x11` and `0x12`.
 - **Simulated Wi-Fi** (step 2.6): the kernel module `mac80211_hwsim` creates virtual Wi-Fi radios
   that see each other, and NetworkManager makes one of them a hotspot. NetworkManager's hotspot
   needs `dnsmasq`, which is not in the ISO: it is installed in the live system only (lost at

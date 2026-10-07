@@ -43,6 +43,7 @@ OwneetOS test VM (${MEM_MB} MB RAM, ${CPUS} CPUs, UEFI, Secure Boot off)
         --headless                   no window, runs in the background
         --gamepad auto|none|PATH     pass host gamepads to the VM (default: auto = all detected)
         --gl                         3D-accelerated GPU (needed for gamescope)
+        --audio                      two virtual sound cards (built-in + USB), silent on the host
         --ssh                        live Arch ISO only: allow root SSH with the project test key
         --kargs "ARGS"               extra kernel command line (e.g. owneet.session=cage)
         --journal                    send the system journal to the serial log (vm/test.sh log)
@@ -95,12 +96,13 @@ cmd_create() {
 }
 
 cmd_boot() {
-    local iso="" headless=0 gamepad="auto" gl=0 ssh=0 kargs=""
+    local iso="" headless=0 gamepad="auto" gl=0 audio=0 ssh=0 kargs=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --headless) headless=1; shift ;;
             --gamepad)  gamepad="${2:-}"; shift 2 ;;
             --gl)       gl=1; shift ;;
+            --audio)    audio=1; shift ;;
             --ssh)      ssh=1; shift ;;
             --kargs)    kargs+=" ${2:-}"; shift 2 ;;
             --debug-shell) kargs+=" systemd.debug_shell=hvc0 systemd.mask=serial-getty@hvc0.service"; shift ;;
@@ -115,6 +117,7 @@ cmd_boot() {
     local args=(--iso "$iso" --mem "$MEM_MB" --cpus "$CPUS")
     if (( headless )); then args+=(--headless); fi
     if (( gl )); then args+=(--gl); fi
+    if (( audio )); then args+=(--audio); fi
     if [[ -n "${kargs# }" ]]; then args+=(--kernel-args "${kargs# }"); info "extra kernel arguments:${kargs}"; fi
 
     case "$gamepad" in

@@ -35,6 +35,7 @@ show_report() {
     echo "--- controllers";     owneetd_get /v1/controllers
     echo "--- Bluetooth";       owneetd_get /v1/bluetooth
     echo "--- network";         owneetd_get /v1/network
+    echo "--- audio";           owneetd_get /v1/audio
     echo "--- owneetd";         journalctl -b _SYSTEMD_USER_UNIT=owneetd.service -o cat --no-pager \
                                     | grep -iE 'bluetooth|pairing|controller|wi-fi' | tail -5
 }

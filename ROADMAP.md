@@ -306,7 +306,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   90 s for the shell to exit (now 3 s; normal shutdown was not affected). Approved by the owner;
   the re-test of these fixes on real hardware is postponed.
 
-### [~] 2.6 Network (awaiting owner review)
+### [x] 2.6 Network
 
 - **Deliverables:** NetworkManager over D-Bus: scan, connect (with password from the OSK), forget, status.
 - **Outcome:** `internal/network`: status (state, connectivity, Wi-Fi, Ethernet), visible networks
@@ -322,11 +322,23 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   disconnect and reconnect without password; forget; Wi-Fi off → `wifi_disabled`; WPA3-only
   network: wrong and right password both handled. Passwords never appear in the journal. owneetd
   ~17.7 MB RSS (unchanged). Unit tests: security classification, password rules, network list.
-  Real-hardware Wi-Fi is tested with the settings UI (step 3.9), or earlier on request.
+  Real-hardware Wi-Fi is tested with the settings UI (step 3.9), or earlier on request. Approved
+  by the owner (system-wide saved networks with the polkit rule).
 
-### [ ] 2.7 Audio
+### [~] 2.7 Audio (awaiting owner review)
 
 - **Deliverables:** PipeWire: volume, mute, output selection (speakers, HDMI, headset).
+- **Outcome:** `internal/audio`: PipeWire through its PulseAudio protocol (`jfreymuth/pulse`, MIT,
+  vendored, as planned in the daemon design). Outputs with name and kind (speakers, headphones,
+  HDMI, Bluetooth, USB), default output, volume (mixer scale, 0–100) and mute; changing the output
+  moves sounds already playing; changes made by any program produce `audio.changed`; reconnects
+  when PipeWire restarts. The diagnostics report shows the audio status.
+- **Test VM** (`vm/test.sh boot --audio`: built-in + USB virtual sound cards): both outputs listed
+  (`usb`, `speakers`); volume 25 and mute applied (checked with `pactl`); output switched while a
+  sound played, and the sound moved; volume changed by another program → event; PipeWire restarted
+  → reconnected in 26 ms, settings kept. owneetd ~18 MB RSS; PipeWire starts at login (pipewire,
+  pipewire-pulse, WirePlumber ~40 MB, needed anyway by the UI's sounds). HDMI and Bluetooth outputs
+  are checked on real hardware with the settings UI (step 3.9).
 
 ### [ ] 2.8 Power
 

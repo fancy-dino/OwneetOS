@@ -15,6 +15,7 @@ import (
 	"syscall"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/api"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/audio"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/bluetooth"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/config"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
@@ -103,6 +104,9 @@ func run(configPath string) error {
 		go nm.Run(ctx)
 	}
 
+	sound := &audio.Pulse{Log: log, Broker: broker}
+	go sound.Run(ctx)
+
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
@@ -111,6 +115,7 @@ func run(configPath string) error {
 		Input:           input,
 		Bluetooth:       btAPI,
 		Network:         netAPI,
+		Audio:           sound,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

@@ -152,14 +152,29 @@ Errors: `network.unavailable` (503), `network.no_wifi` / `network.wifi_disabled`
 - Passwords are never logged and never returned by the API.
 - Tested in the test VM with simulated Wi-Fi (`mac80211_hwsim`, see `vm/README.md`).
 
-### Audio
+### Audio — implemented (2.7)
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/v1/audio` | Outputs (speakers, HDMI, headset…), default output, volume, mute |
-| PUT | `/v1/audio/volume` | `{"volume": 0–100}` |
+| GET | `/v1/audio` | `available`, default `output` (id), its `volume` (0–100) and `muted`; `outputs`: id, name, kind (speakers, headphones, hdmi, bluetooth, usb, other), default, volume, muted |
+| PUT | `/v1/audio/volume` | `{"volume": 0–100}` — default output, all channels alike |
 | PUT | `/v1/audio/mute` | `{"muted": true}` |
-| PUT | `/v1/audio/output` | `{"id": "…"}` — default output |
+| PUT | `/v1/audio/output` | `{"id": "…"}` — default output; sounds already playing move to it |
+
+Errors: `audio.unavailable` (503, no audio server), `audio.no_output` (409),
+`audio.unknown_output` (404), `audio.failed` (502).
+
+- **How:** PipeWire's PulseAudio protocol (`pipewire-pulse`, socket `$XDG_RUNTIME_DIR/pulse/native`)
+  through `github.com/jfreymuth/pulse/proto` (MIT, pure Go, vendored). owneetd subscribes to
+  output, server and card changes, so changes made by any program produce `audio.changed`; it
+  reconnects when PipeWire restarts. Connecting starts PipeWire (socket activation) at login.
+- **Volume** uses the same scale as desktop mixers (PulseAudio's, perceived loudness), so 50 here
+  is 50 in any other tool. Above 100 is not offered.
+- **Outputs** are the ones PipeWire/WirePlumber expose for the active card profiles; headphones
+  plugged into a jack switch automatically (WirePlumber). Choosing among card profiles (for cards
+  where HDMI and analog outputs exclude each other) is left for later, if real hardware needs it.
+- WirePlumber remembers volume and default output across restarts.
+- Tested in the test VM with two virtual sound cards (`vm/test.sh boot --audio`).
 
 ### Power
 
@@ -200,8 +215,8 @@ Events format). Event types (initial list):
 `guide.pressed`, `controller.added`, `controller.removed`, `controller.battery` (implemented, 2.3),
 `bluetooth.auto_pair`, `bluetooth.pairing`, `bluetooth.paired`, `bluetooth.pair_failed`,
 `bluetooth.forgotten` (implemented, 2.5), `network.changed`, `network.connecting`,
-`network.connect_failed`, `network.forgotten`, `wifi.scan_done` (implemented, 2.6), `wifi.scan_done`, `audio.changed`,
-`app.started`, `app.exited`, `xone.firmware_needed`, `power.changed`, `input.layout_changed` (implemented, 2.4).
+`network.connect_failed`, `network.forgotten`, `wifi.scan_done` (implemented, 2.6), `audio.changed`
+(implemented, 2.7), `app.started`, `app.exited`, `xone.firmware_needed`, `power.changed`, `input.layout_changed` (implemented, 2.4).
 
 ## 5. Open points for later steps
 
