@@ -3,14 +3,15 @@
 #
 # OwneetOS diagnostics report, shown on tty9 (Ctrl+Alt+F9) when the system is started from the
 # "OwneetOS (diagnostics)" boot menu entry (kernel argument owneet.diagnostics). Testers only need
-# to switch terminal and take a photo: nothing has to be typed. A root shell stays open afterwards.
+# to switch terminal and take a photo: nothing has to be typed (Enter refreshes the report).
+# A root shell stays open afterwards.
 
 set -u
 
 report=/run/owneet-diagnostics.txt
 sleep 15   # let the console session start first
 
-{
+show_report() {
     # shellcheck disable=SC1091
     echo "=== OwneetOS diagnostics ($(. /etc/os-release; echo "${IMAGE_VERSION:-unknown}"), kernel $(uname -r))"
     echo "--- boot time";       systemd-analyze 2>/dev/null | head -1
@@ -22,8 +23,19 @@ sleep 15   # let the console session start first
     echo "--- memory (MiB)";    free -m | head -2
     echo "--- failed units";    systemctl --failed --no-legend --plain --no-pager
     echo "--- last errors";     journalctl -b -p err -o cat --no-pager | tail -6
-} 2>&1 | tee "$report"
+    echo "--- Bluetooth";       bt="$(bluetoothctl show 2>/dev/null | grep -E 'Controller|Powered:|Discovering:')"
+                                echo "${bt:-no adapter}" | paste -sd' '
+    echo "--- paired devices";  bluetoothctl devices Paired 2>/dev/null
+    echo "--- owneetd";         journalctl -b _SYSTEMD_USER_UNIT=owneetd.service -o cat --no-pager \
+                                    | grep -iE 'bluetooth|pairing|controller' | tail -5
+}
 
-echo
-echo "Saved to $report. Ctrl+Alt+F1 goes back to the console session."
+while :; do
+    clear
+    show_report 2>&1 | tee "$report"
+    echo
+    echo "Saved to $report. Ctrl+Alt+F1 goes back to the console session."
+    read -r -p "Enter: refresh the report. q then Enter: root shell. " answer || break
+    [[ "$answer" == q ]] && break
+done
 exec /bin/bash

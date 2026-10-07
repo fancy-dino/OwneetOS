@@ -18,3 +18,4 @@ ignores:
   - "out/**"
   - "iso/work/**"
   - "**/node_modules/**"
+  - "daemon/vendor/**"

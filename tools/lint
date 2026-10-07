@@ -23,11 +23,13 @@ failed=()
 
 section() { printf '\n==> %s\n' "$*"; }
 
-# Files in the repository, without VM images, build output and dependencies.
+# Files in the repository, without VM images, build output and third-party code (dependencies,
+# vendored Go modules).
 project_files() {
     find . -type f \
         -not -path './.git/*' -not -path './vm/images/*' -not -path './vm/run/*' \
         -not -path './out/*' -not -path './iso/work/*' -not -path '*/node_modules/*' \
+        -not -path './daemon/vendor/*' \
         -print | sed 's|^\./||' | sort
 }
 
@@ -69,7 +71,7 @@ section "markdownlint"
 if npx --yes "markdownlint-cli2@$MARKDOWNLINT_VERSION"; then echo "ok"; else failed+=("markdownlint"); fi
 
 section "Go (daemon/)"
-unformatted="$(gofmt -l daemon)"
+unformatted="$(gofmt -l daemon/cmd daemon/internal)"
 if [[ -n "$unformatted" ]]; then
     echo "not gofmt-formatted:"; echo "$unformatted"; failed+=("gofmt")
 elif (cd daemon && go vet ./... && go test ./...); then

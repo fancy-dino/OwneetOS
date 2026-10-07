@@ -29,12 +29,16 @@ type Config struct {
 	// KeyboardLayout is the XKB layout of the console session ("us", "it"): the virtual keyboard
 	// needs it to type the right characters.
 	KeyboardLayout string `json:"keyboard_layout"`
+	// BluetoothAutoPairWithoutController turns automatic gamepad pairing on whenever no
+	// controller is connected (PROJECT_RULES.md section 7: the first pairing needs no input).
+	BluetoothAutoPairWithoutController bool `json:"bluetooth_autopair_without_controller"`
 }
 
 // Load returns the configuration from defaults, the file at path (if it exists) and the
 // environment.
 func Load(path string) (Config, error) {
-	cfg := Config{LogLevel: "info", ControllerDB: "/usr/share/owneet/gamecontrollerdb.txt", KeyboardLayout: "us"}
+	cfg := Config{LogLevel: "info", ControllerDB: "/usr/share/owneet/gamecontrollerdb.txt", KeyboardLayout: "us",
+		BluetoothAutoPairWithoutController: true}
 
 	data, err := os.ReadFile(path)
 	switch {

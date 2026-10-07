@@ -2,14 +2,15 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneetd
-pkgver=0.3.0
+pkgver=0.4.0
 pkgrel=1
 pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps) and owneetctl"
 arch=('x86_64')
 url="https://github.com/fancy-dino/OwneetOS"
-# owneetd: GPL-3.0-or-later; SDL_GameControllerDB: Zlib
-license=('GPL-3.0-or-later' 'Zlib')
-depends=('systemd')
+# owneetd: GPL-3.0-or-later; SDL_GameControllerDB: Zlib; vendored Go modules (daemon/vendor/):
+# godbus/dbus BSD-2-Clause, golang.org/x/sys BSD-3-Clause
+license=('GPL-3.0-or-later' 'Zlib' 'BSD-2-Clause' 'BSD-3-Clause')
+depends=('systemd' 'bluez')
 makedepends=('go')
 options=('!debug')
 install=owneetd.install
@@ -34,14 +35,15 @@ _ldflags() {
 
 build() {
   cd daemon
-  export CGO_ENABLED=0 GOFLAGS="-trimpath -mod=readonly -modcacherw"
+  # Dependencies are vendored in daemon/vendor/: the build needs no network.
+  export CGO_ENABLED=0 GOFLAGS="-trimpath -mod=vendor"
   go build -ldflags "$(_ldflags)" -o owneetd ./cmd/owneetd
   go build -ldflags "$(_ldflags)" -o owneetctl ./cmd/owneetctl
 }
 
 check() {
   cd daemon
-  CGO_ENABLED=0 go test ./...
+  CGO_ENABLED=0 GOFLAGS="-mod=vendor" go test ./...
 }
 
 package() {
@@ -52,4 +54,7 @@ package() {
   install -Dm644 owneet-uinput.modules-load.conf "$pkgdir/usr/lib/modules-load.d/owneet-uinput.conf"
   install -Dm644 "gamecontrollerdb-$_sdldb.txt" "$pkgdir/usr/share/owneet/gamecontrollerdb.txt"
   install -Dm644 "gamecontrollerdb-LICENSE-$_sdldb" "$pkgdir/usr/share/licenses/$pkgname/LICENSE.gamecontrollerdb"
+  install -Dm644 daemon/vendor/github.com/godbus/dbus/v5/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE.godbus-dbus"
+  install -Dm644 daemon/vendor/golang.org/x/sys/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE.golang-x-sys"
+  install -Dm644 daemon/vendor/golang.org/x/sys/PATENTS "$pkgdir/usr/share/licenses/$pkgname/PATENTS.golang-x-sys"
 }

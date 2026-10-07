@@ -1,12 +1,14 @@
 # daemon/
 
-**`owneetd`**, the OwneetOS system daemon, and **`owneetctl`**, its command-line client. Go,
-standard library only for now. Design and API: [`docs/daemon-design.md`](../docs/daemon-design.md).
+**`owneetd`**, the OwneetOS system daemon, and **`owneetctl`**, its command-line client. Go;
+the only external module is `github.com/godbus/dbus/v5` (D-Bus, BSD-2-Clause), vendored in
+`vendor/` with `golang.org/x/sys`. Update it in the builder VM with `go get`, `go mod tidy`,
+`go mod vendor`, and copy `go.mod`, `go.sum` and `vendor/` back. Design and API: [`docs/daemon-design.md`](../docs/daemon-design.md).
 
 - Runs as a **systemd user service** of the console user `owneet` (not root).
 - Serves **HTTP + JSON on a Unix socket**: `$XDG_RUNTIME_DIR/owneetd.sock`, mode `0600`.
 - Optional configuration: `/etc/owneet/owneetd.json`, e.g. `{"log_level": "debug",
-  "keyboard_layout": "it"}`, or the environment variable `OWNEETD_LOG_LEVEL`.
+  "keyboard_layout": "it", "bluetooth_autopair_without_controller": true}`, or the environment variable `OWNEETD_LOG_LEVEL`.
 - Needs access to `/dev/uinput` for the virtual keyboard and mouse: granted to the console session
   by `70-owneet-uinput.rules` (package `owneetd`).
 - Logs go to the journal: `journalctl --user -u owneetd`.
@@ -26,6 +28,8 @@ standard library only for now. Design and API: [`docs/daemon-design.md`](../docs
 | `internal/uinput` | virtual input devices (test controllers, virtual keyboard and mouse) |
 | `internal/vinput` | virtual keyboard and mouse, keyboard layouts (US, Italian) |
 | `internal/sdldb` | SDL_GameControllerDB: Guide button of generic controllers |
+| `internal/bluetooth` | BlueZ over D-Bus: devices, automatic gamepad pairing, pairing agent |
+| `vendor/` | vendored Go modules (third-party code, not linted) |
 
 ## Build and test
 

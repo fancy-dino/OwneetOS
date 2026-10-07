@@ -15,6 +15,7 @@ import (
 	"syscall"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/api"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/bluetooth"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/config"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
@@ -76,12 +77,29 @@ func run(configPath string) error {
 		input = vin
 	}
 
+	bt := &bluetooth.Manager{
+		Broker:                    broker,
+		Log:                       log,
+		Controllers:               func() int { return len(pads.List()) },
+		AutoPairWithoutController: cfg.BluetoothAutoPairWithoutController,
+	}
+	var btAPI api.Bluetooth
+	if backend, err := bluetooth.NewBlueZ(log, bt); err != nil {
+		log.Warn("Bluetooth not available", "err", err)
+	} else {
+		defer backend.Close()
+		bt.Backend = backend
+		btAPI = bt
+		go bt.Run(ctx)
+	}
+
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
 		SessionModeFile: filepath.Join(filepath.Dir(cfg.Socket), "owneet", "session-mode"),
 		Controllers:     pads,
 		Input:           input,
+		Bluetooth:       btAPI,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

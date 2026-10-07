@@ -34,6 +34,8 @@ type Server struct {
 	Controllers interface{ List() []gamepad.Controller }
 	// Input is the virtual keyboard and mouse (nil when /dev/uinput is not available).
 	Input VirtualInput
+	// Bluetooth manages adapters, devices and gamepad auto-pairing (nil without a system bus).
+	Bluetooth Bluetooth
 
 	started time.Time
 }
@@ -53,6 +55,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/input/click", s.handleInputClick)
 	mux.HandleFunc("GET /v1/input/layout", s.handleGetLayout)
 	mux.HandleFunc("PUT /v1/input/layout", s.handlePutLayout)
+	mux.HandleFunc("GET /v1/bluetooth", s.handleBluetooth)
+	mux.HandleFunc("POST /v1/bluetooth/auto-pair", s.handleBluetoothAutoPair)
+	mux.HandleFunc("POST /v1/bluetooth/devices/{address}/connect", s.handleBluetoothDevice(Bluetooth.Connect))
+	mux.HandleFunc("POST /v1/bluetooth/devices/{address}/disconnect", s.handleBluetoothDevice(Bluetooth.Disconnect))
+	mux.HandleFunc("DELETE /v1/bluetooth/devices/{address}", s.handleBluetoothDevice(Bluetooth.Forget))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusNotFound, "not_found", "no such endpoint: "+r.Method+" "+r.URL.Path)
 	})

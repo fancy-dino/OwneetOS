@@ -268,7 +268,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   Guide available; 3 presses of the Xbox button gave exactly 3 `guide.pressed` events, other
   buttons none. (In the VM the id is the virtio path: the Bluetooth address is not passed through.)
 
-### [~] 2.4 Virtual input (uinput) (awaiting owner review)
+### [x] 2.4 Virtual input (uinput)
 
 - **Deliverables:** virtual keyboard and mouse devices for the system-wide on-screen keyboard and
   for apps that need key presses.
@@ -279,11 +279,23 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   console session by a udev `uaccess` rule (owneetd stays unprivileged), `uinput` loaded at boot.
   Integration test reads back the key events of the real virtual keyboard (Italian "a@" + Enter).
 
-### [ ] 2.5 Bluetooth
+### [~] 2.5 Bluetooth (software done; real-hardware test open)
 
 - **Deliverables:** BlueZ over D-Bus: list, pair, trust, forget; **automatic gamepad pairing
   mode** (accept any device that identifies as a gamepad, no input needed).
 - **Done when:** a real controller pairs with zero input on real hardware (VM Bluetooth is unreliable).
+- **Progress:** `internal/bluetooth`: BlueZ over D-Bus (`godbus/dbus` v5.2.2, BSD-2-Clause, vendored
+  with `golang.org/x/sys`; licences shipped in `/usr/share/licenses/owneetd/`). Auto-pair turns on
+  by itself whenever no controller is connected (any connection) and off as soon as one is: adapter
+  powered, scan, every device that identifies as a gamepad (class of device, LE appearance or BlueZ
+  icon) is paired, trusted and connected. Pairing agent `NoInputNoOutput`: accepts only gamepads
+  while auto-pair is on, re-registers when bluetoothd (re)starts; BlueZ is never D-Bus-activated
+  (no journal noise without an adapter). API `GET /v1/bluetooth`, `POST /v1/bluetooth/auto-pair`,
+  connect / disconnect / forget; events `bluetooth.*`. Unit tests with a fake BlueZ (policy, agent,
+  no adapter) and API tests; race detector clean. **Test VM (no adapter):** `adapter: false`, clean
+  log, no failed units; owneetd ~18 MB RSS (9.7 MB anonymous + 8.2 MB binary pages). The
+  diagnostics report (tty9) now shows adapter, paired devices and owneetd's Bluetooth log, and
+  refreshes with Enter. Open: zero-input pairing of a real controller on real hardware.
 
 ### [ ] 2.6 Network
 

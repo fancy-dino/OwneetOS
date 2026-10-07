@@ -42,7 +42,7 @@ session, **not as root**:
 | Read controllers (evdev) | Console user is in the `input` group; logind already grants access to gamepads |
 | Virtual keyboard/mouse (uinput) | udev rule giving the console session access to `/dev/uinput` |
 | Wi-Fi (NetworkManager) | NetworkManager lets the active local session manage connections (polkit) |
-| Bluetooth (BlueZ) | D-Bus policy / polkit rule for the console user |
+| Bluetooth (BlueZ) | BlueZ's default D-Bus policy already lets any local user call it (checked in 2.5): no extra rule |
 | Audio (PipeWire) | PipeWire runs in the user session anyway: the daemon must be there too |
 | Power (logind) | logind lets the active local session shut down, restart, suspend |
 | Launch games and apps | Must run in the session, with the compositor's environment |
@@ -87,14 +87,36 @@ and most others); otherwise the `guide` entry of SDL_GameControllerDB tells whic
 Some Bluetooth controllers send it as `KEY_HOMEPAGE` on a second input device with the same
 unique id: that device is followed too. Devices are never grabbed.
 
-### Bluetooth
+### Bluetooth — implemented (2.5)
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/v1/bluetooth` | Adapter present/powered, known and connected devices |
-| POST | `/v1/bluetooth/auto-pair` | `{"enabled": true, "seconds": 120}` — scan, pair and trust any gamepad, no input (section 7) |
-| POST | `/v1/bluetooth/devices/{address}/connect` · `/disconnect` | |
-| DELETE | `/v1/bluetooth/devices/{address}` | Forget a device |
+| GET | `/v1/bluetooth` | `adapter`, `powered`, `discovering`, `auto_pair`, `devices` (address, name, paired, trusted, connected, gamepad, battery) |
+| POST | `/v1/bluetooth/auto-pair` | `{"enabled": true, "seconds": 120}` (default 120, max 600) — scan, pair, trust and connect any gamepad, no input |
+| POST | `/v1/bluetooth/devices/{address}/connect` · `/disconnect` | Connect or disconnect a known device |
+| DELETE | `/v1/bluetooth/devices/{address}` | Forget (unpair) a device |
+
+Errors: `bluetooth.unavailable` (503, no system bus), `bluetooth.no_adapter` (409),
+`bluetooth.unknown_device` (404), `bluetooth.invalid_address` (400), `bluetooth.failed` (502, BlueZ
+refused; the message says why).
+
+**First pairing with zero input** (PROJECT_RULES.md section 7): whenever **no controller is
+connected** (USB, dongle or Bluetooth), auto-pair turns on by itself — the adapter is powered, a scan
+runs, and every device that **identifies as a gamepad** is paired, trusted and connected. It turns
+off as soon as a controller is connected. The UI can also turn it on for a while (pairing a second
+controller). Configuration: `bluetooth_autopair_without_controller` (default `true`).
+
+A device is a gamepad when its Bluetooth Classic class of device is "peripheral / joystick or
+gamepad", its Bluetooth LE appearance is joystick or gamepad, or BlueZ's icon is `input-gaming`.
+
+owneetd registers a BlueZ **pairing agent** with the `NoInputNoOutput` capability (nobody can type
+or compare a code). It accepts a pairing request **only from a gamepad while auto-pair is on** and
+rejects everything else, so keyboards, phones or headsets are never paired without the user. The
+agent is registered again when bluetoothd starts or restarts. Trusted devices reconnect by themselves.
+
+D-Bus library: `github.com/godbus/dbus/v5` (BSD-2-Clause), **vendored** in `daemon/vendor/` with
+its dependency `golang.org/x/sys` (BSD-3-Clause): the package build needs no network and the source
+archive is complete.
 
 ### Network
 
@@ -152,7 +174,8 @@ chosen at first boot). Access to `/dev/uinput` is granted to the console session
 Events format). Event types (initial list):
 
 `guide.pressed`, `controller.added`, `controller.removed`, `controller.battery` (implemented, 2.3),
-`bluetooth.changed`, `bluetooth.paired`, `network.changed`, `wifi.scan_done`, `audio.changed`,
+`bluetooth.auto_pair`, `bluetooth.pairing`, `bluetooth.paired`, `bluetooth.pair_failed`,
+`bluetooth.forgotten` (implemented, 2.5), `network.changed`, `wifi.scan_done`, `audio.changed`,
 `app.started`, `app.exited`, `xone.firmware_needed`, `power.changed`, `input.layout_changed` (implemented, 2.4).
 
 ## 5. Open points for later steps
