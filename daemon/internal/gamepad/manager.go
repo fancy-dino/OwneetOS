@@ -52,6 +52,8 @@ type Manager struct {
 	// BluetoothName returns the name BlueZ knows for a Bluetooth address ("" if unknown). Bluetooth
 	// LE controllers often have a generic input device name ("bluez-hog-device").
 	BluetoothName func(address string) string
+	// OnGuide is called when the Guide button goes down or up (after the events are published).
+	OnGuide func(controller string, down bool)
 
 	mu    sync.Mutex
 	devs  map[string]*tracked // by device path
@@ -227,13 +229,23 @@ func (m *Manager) read(path string, t *tracked) {
 			return
 		}
 		for _, ev := range evs {
-			if ev.Type == evdev.EvKey && int(ev.Code) == t.guideCode && ev.Value == 1 {
-				id := t.info.ID
-				if t.companion && !m.hasController(id) {
-					continue
-				}
+			// Value 1: pressed, 0: released, 2: autorepeat (ignored).
+			if ev.Type != evdev.EvKey || int(ev.Code) != t.guideCode || ev.Value > 1 {
+				continue
+			}
+			id := t.info.ID
+			if t.companion && !m.hasController(id) {
+				continue
+			}
+			down := ev.Value == 1
+			if down {
 				m.Log.Debug("guide pressed", "id", id)
 				m.Broker.Publish("guide.pressed", map[string]string{"controller": id})
+			} else {
+				m.Broker.Publish("guide.released", map[string]string{"controller": id})
+			}
+			if m.OnGuide != nil {
+				m.OnGuide(id, down)
 			}
 		}
 	}

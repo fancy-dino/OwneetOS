@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Runs inside the compositor, started by owneet-session: tells owneetd where the session's display
+# is and which process is the console UI ("home"), then becomes the console UI.
+#   owneet-session-app COMMAND [ARGS...]
+# owneetd reads $XDG_RUNTIME_DIR/owneet/session-env to start games and apps in this session and,
+# under gamescope, to bring the home screen back on Guide (docs/daemon-design.md).
+
+set -euo pipefail
+
+dir="${XDG_RUNTIME_DIR:?}/owneet"
+mkdir -p "$dir"
+{
+    for var in DISPLAY WAYLAND_DISPLAY GAMESCOPE_WAYLAND_DISPLAY XAUTHORITY OWNEET_SESSION_MODE; do
+        if [[ -n "${!var:-}" ]]; then printf '%s=%s\n' "$var" "${!var}"; fi
+    done
+    # exec below keeps this process id: it is the home screen's.
+    printf 'OWNEET_HOME_PID=%s\n' "$$"
+} > "$dir/session-env.tmp"
+mv "$dir/session-env.tmp" "$dir/session-env"
+
+exec "$@"

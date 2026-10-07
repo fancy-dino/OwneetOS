@@ -116,8 +116,12 @@ vm/test.sh stop | reset | destroy
   so each test starts from empty disks.
 - **3D:** `--gl` uses a virgl-accelerated GPU (needs `qemu-system-gui`). With QEMU 8.2 (Mint 22)
   this gives the guest accelerated **OpenGL only, not Vulkan** (Vulkan in a VM, "Venus", needs a
-  newer QEMU). gamescope in the VM therefore runs on software Vulkan (lavapipe): fine for functional
-  tests, not for performance. Performance is measured on real hardware (roadmap step 7.4).
+  newer QEMU). gamescope cannot drive the VM's screen with software Vulkan (llvmpipe has no DRM
+  device: "not a valid physical device"), so the session falls back to cage. To test gamescope
+  logic (windows, focus, Guide), boot with `--kargs "owneet.session=gamescope
+  owneet.debug.gamescope_backend=headless"`: gamescope then runs without a screen. What it shows
+  is checked through owneetd (`GET /v1/apps`, field `focus`). Screen output and performance are
+  checked on real hardware (roadmap step 7.4).
 - **Screenshots:** `vm/test.sh screenshot` saves the VM screen as PNG; not available with `--gl`
   in headless mode (QEMU keeps no copy of a 3D screen).
 - **Extra kernel arguments:** `--kargs "..."` is passed through SMBIOS and appended by systemd-boot

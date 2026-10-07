@@ -15,6 +15,7 @@ import (
 	"syscall"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/api"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/audio"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/bluetooth"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/config"
@@ -70,7 +71,31 @@ func run(configPath string) error {
 		Log:                       log,
 		AutoPairWithoutController: cfg.BluetoothAutoPairWithoutController,
 	}
+	runtimeDir := filepath.Dir(cfg.Socket)
+	appsMgr := &apps.Manager{
+		Broker: broker,
+		Log:    log,
+		Session: func() (apps.Session, error) {
+			return apps.ReadSession(filepath.Join(runtimeDir, "owneet", "session-env"))
+		},
+		FocusFor: apps.GamescopeFocus(log),
+		UnitOf:   apps.UnitOfPID,
+	}
+	var appsAPI api.Apps
+	if units, err := apps.NewSystemd(log); err != nil {
+		log.Warn("games and apps cannot be started", "err", err)
+	} else {
+		defer units.Close()
+		appsMgr.Units = units
+		appsAPI = appsMgr
+		go appsMgr.Run(ctx.Done())
+	}
+
 	pads := &gamepad.Manager{Broker: broker, Log: log, DB: db, BluetoothName: bt.Name}
+	if appsAPI != nil {
+		// The Guide button belongs to the system (PROJECT_RULES.md section 9.1).
+		pads.OnGuide = func(_ string, down bool) { appsMgr.Guide(down) }
+	}
 	bt.Controllers = func() int { return len(pads.List()) }
 	go func() {
 		if err := pads.Run(ctx); err != nil {
@@ -120,13 +145,14 @@ func run(configPath string) error {
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
-		SessionModeFile: filepath.Join(filepath.Dir(cfg.Socket), "owneet", "session-mode"),
+		SessionModeFile: filepath.Join(runtimeDir, "owneet", "session-mode"),
 		Controllers:     pads,
 		Input:           input,
 		Bluetooth:       btAPI,
 		Network:         netAPI,
 		Audio:           sound,
 		Power:           powerAPI,
+		Apps:            appsAPI,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

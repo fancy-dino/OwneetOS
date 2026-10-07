@@ -11,6 +11,8 @@
 #
 # OWNEET_NO_CHROOT=1 builds with plain makepkg instead (CI: the throwaway container already is a
 # clean environment, and systemd-nspawn does not run inside it).
+#
+# OWNEET_VERBOSE=1 shows the build output (compiler, tests), hidden by default.
 
 set -euo pipefail
 
@@ -97,6 +99,10 @@ make_source_tarball() {
 }
 
 mkdir -p "$REPO_DIR"
+# Build output (compiler, tests) is hidden unless OWNEET_VERBOSE=1.
+BUILD_OUT=/dev/null
+if [[ "${OWNEET_VERBOSE:-0}" == 1 ]]; then BUILD_OUT=/dev/stdout; fi
+
 # Drop the database first: if a build fails, no stale (possibly signed) database is left behind.
 rm -f "$REPO_DIR/$REPO_NAME".{db,files}*
 for pkg in "${ordered[@]}"; do
@@ -126,9 +132,9 @@ for pkg in "${ordered[@]}"; do
                 sudo pacman -U --noconfirm --needed "${files[@]}" >/dev/null
             fi
             [[ " ${makepkg_args[*]} " == *" --nodeps "* ]] || makepkg_args+=(--syncdeps)
-            PKGDEST="$REPO_DIR" makepkg --clean --cleanbuild --force "${makepkg_args[@]}" >/dev/null
+            PKGDEST="$REPO_DIR" makepkg --clean --cleanbuild --force "${makepkg_args[@]}" >"$BUILD_OUT"
         else
-            PKGDEST="$REPO_DIR" makechrootpkg -c -r "$CHROOT_DIR" "${install_args[@]}" -- "${makepkg_args[@]}" >/dev/null
+            PKGDEST="$REPO_DIR" makechrootpkg -c -r "$CHROOT_DIR" "${install_args[@]}" -- "${makepkg_args[@]}" >"$BUILD_OUT"
         fi
     ) || die "build of $pkg failed"
 done

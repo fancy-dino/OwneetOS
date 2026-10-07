@@ -104,9 +104,7 @@ func TestNetworkEndpoints(t *testing.T) {
 		t.Fatalf("forget unknown: %d", code)
 	}
 
-	req, _ := http.NewRequest(http.MethodPut, "http://owneetd/v1/network/wifi/enabled", nil)
-	req.Body = http.NoBody
-	if resp, err := c.Do(req); err != nil || resp.StatusCode != 400 {
-		t.Fatalf("enabled without body: %v %v", resp.StatusCode, err)
+	if code := put(t, c, "/v1/network/wifi/enabled", ``); code != 400 {
+		t.Fatalf("enabled without body: %d", code)
 	}
 }

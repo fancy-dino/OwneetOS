@@ -4,6 +4,7 @@ go 1.26
 
 require (
 	github.com/godbus/dbus/v5 v5.2.2
+	github.com/jezek/xgb v1.3.1
 	github.com/jfreymuth/pulse v0.1.3
 )
 

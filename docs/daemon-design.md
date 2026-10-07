@@ -195,14 +195,43 @@ it), `power.failed` (502).
 - Tested in the test VM: suspend (QEMU reports the machine suspended; woken through QMP), restart,
   shutdown.
 
-### Apps and games
+### Apps and games — implemented (2.9)
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/v1/apps/launch` | `{"id": "…", "command": ["…"], "kind": "game"/"app"}` — start inside the session |
-| GET | `/v1/apps` | Running apps and games |
-| POST | `/v1/apps/{id}/close` | Ask to close (SIGTERM / window close) |
-| POST | `/v1/apps/{id}/kill` | Force-close a frozen game |
+| POST | `/v1/apps/launch` | `{"id": "…", "name": "…", "kind": "game"/"app", "command": ["…"]}` — start inside the session (201) |
+| GET | `/v1/apps` | Running apps and games, and `focus`: `home`, an app id, or empty (cage, or no session) |
+| POST | `/v1/apps/{id}/focus` | Bring an app to the front ("Resume" on the home screen; gamescope only) |
+| POST | `/v1/apps/{id}/close` | Close: SIGTERM to all its processes, SIGKILL after 10 seconds |
+| POST | `/v1/apps/{id}/kill` | Force-close a frozen game at once (SIGKILL to all its processes) |
+
+Errors: `apps.unavailable` (503), `apps.invalid` (400), `apps.program_not_found` (400),
+`apps.no_session` (409), `apps.already_running` (409, same id), `apps.game_running` (409, one game
+at a time; apps such as the browser may run next to it), `apps.unknown_app` (404),
+`apps.focus_unsupported` (409, cage), `apps.no_window` (409), `apps.failed` (502).
+
+- **Session:** `owneet-session` starts the console UI through `owneet-session-app`, which writes
+  `$XDG_RUNTIME_DIR/owneet/session-env` (display variables, session mode, process id of the home
+  screen). Apps get those variables, so they open in the console session.
+- **Each app runs in its own transient systemd user service** (`owneet-app-ID.service`, created
+  over the user's D-Bus): closing it stops every process it started (launchers, Proton, wine), its
+  output goes to the journal, and apps still running are found again when owneetd restarts.
+- **gamescope** runs with `--steam`. It then shows only windows tagged with an app id
+  (`STEAM_GAME`) and lets the shell choose which app is on screen, as Steam does on SteamOS.
+  owneetd watches new windows on gamescope's X server (`github.com/jezek/xgb`, BSD-3-Clause,
+  vendored), tags the home screen and each app (by process: the home screen's process id, or the
+  app's systemd unit from `/proc/PID/cgroup`), and sets `GAMESCOPECTRL_BASELAYER_APPID`: a new app
+  comes to the front as soon as its window appears, with the home screen as fallback. App ids
+  are derived from the app's id, so they survive an owneetd restart.
+- **Guide** (owned by the system, PROJECT_RULES.md section 9.1): in gamescope it toggles between
+  the home screen and the app last shown; the game keeps running behind the home screen. In cage,
+  which shows only the newest window, holding Guide for 2 seconds closes the app on screen; a short
+  press does nothing. `guide.pressed` and `guide.released` are still sent to clients.
+- Events: `app.started`, `app.exited` (with systemd's result: `success`, `exit-code`, `signal`,
+  `timeout`…), `focus.changed`.
+- Tested in the test VM: gamescope with its headless backend (test hook
+  `owneet.debug.gamescope_backend=headless`) and cage, a virtual gamepad for Guide, `mpv` as the
+  test app.
 
 ### Virtual input (on-screen keyboard) — implemented (2.4)
 
@@ -230,12 +259,15 @@ Events format). Event types (initial list):
 `bluetooth.forgotten` (implemented, 2.5), `network.changed`, `network.connecting`,
 `network.connect_failed`, `network.forgotten`, `wifi.scan_done` (implemented, 2.6), `audio.changed`
 (implemented, 2.7), `power.suspending`, `power.resumed`, `power.shutting_down` (implemented, 2.8), `app.started`,
-`app.exited`, `xone.firmware_needed`, `input.layout_changed` (implemented, 2.4).
+`app.exited`, `focus.changed`, `guide.released` (implemented, 2.9), `input.layout_changed`
+(implemented, 2.4), `xone.firmware_needed` (later).
 
 ## 5. Open points for later steps
 
 - The PC's power button keeps logind's default (shut down) for now; a console-like behaviour
   (e.g. short press = suspend) is decided with the UI.
-- Focus switching inside gamescope (bring the UI back on Guide) — step 2.9.
+- When Steam runs inside the session (store, login: phase 4) it also wants to choose what
+  gamescope shows: decide then how owneetd and Steam share it.
+- The real console UI tags its own window too (step 3.2), so it shows even if owneetd is down.
 - Which privileged helpers exist and their interfaces — installer (6.3), updates (7.1), disks (6.5).
 - Configuration file format and location — step 2.2.

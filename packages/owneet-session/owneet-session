@@ -8,10 +8,15 @@
 #
 # Kernel command line options:
 #   owneet.session=auto|gamescope|cage   force a mode (default: auto)
+#   owneet.debug.gamescope_backend=headless
+#                                        test hook: gamescope without a screen, for VMs without a
+#                                        hardware Vulkan device (windows and focus still work)
 
 set -uo pipefail
 
 APP="${OWNEET_APP:-/usr/bin/owneet-placeholder}"
+# Publishes the session's display for owneetd, then runs the app.
+SESSION_APP=/usr/lib/owneet/owneet-session-app
 QUICK_EXIT_S=30          # a compositor that stops sooner than this counts as a failure
 GAMESCOPE_MAX_FAILS=2    # then fall back to cage
 CAGE_MAX_FAILS=3         # then show an error and wait before trying again
@@ -33,16 +38,25 @@ has_hardware_vulkan() {
         | grep -qE 'deviceType += PHYSICAL_DEVICE_TYPE_(INTEGRATED_GPU|DISCRETE_GPU|VIRTUAL_GPU)'
 }
 
+# Extra gamescope arguments from the kernel command line (test hook).
+GAMESCOPE_EXTRA=()
+backend="$(grep -oE '(^| )owneet\.debug\.gamescope_backend=[a-z]+' /proc/cmdline | tail -1 | cut -d= -f2 || true)"
+if [[ "$backend" == headless ]]; then GAMESCOPE_EXTRA=(--backend headless); fi
+
 run_compositor() {
     export OWNEET_SESSION_MODE="$1"
     # Read by owneetd (GET /v1/status).
     mkdir -p "${XDG_RUNTIME_DIR:-/tmp}/owneet"
     echo "$1" > "${XDG_RUNTIME_DIR:-/tmp}/owneet/session-mode"
+    # Stale until the new session publishes its display.
+    rm -f "${XDG_RUNTIME_DIR:-/tmp}/owneet/session-env"
     case "$1" in
-        gamescope) gamescope --fullscreen -- "$APP" ;;
+        # --steam: gamescope shows the windows owneetd tags and lets it choose which one is on
+        # screen (home screen or game, Guide button). docs/daemon-design.md, "Apps and games".
+        gamescope) gamescope --fullscreen --steam "${GAMESCOPE_EXTRA[@]}" -- "$SESSION_APP" "$APP" ;;
         # The reduced session must work even without GPU acceleration (no driver, or a VM):
         # wlroots then renders in software instead of refusing to start.
-        cage)      WLR_RENDERER_ALLOW_SOFTWARE=1 cage -s -- "$APP" ;;
+        cage)      WLR_RENDERER_ALLOW_SOFTWARE=1 cage -s -- "$SESSION_APP" "$APP" ;;
     esac
 }
 

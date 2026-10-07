@@ -3,6 +3,7 @@
 package api
 
 import (
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -36,6 +37,7 @@ func put(t *testing.T, c *http.Client, path, body string) int {
 	if err != nil {
 		t.Fatal(err)
 	}
+	io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
 	return resp.StatusCode
 }

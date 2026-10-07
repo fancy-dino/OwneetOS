@@ -1,8 +1,9 @@
 # daemon/
 
 **`owneetd`**, the OwneetOS system daemon, and **`owneetctl`**, its command-line client. Go;
-external modules are `github.com/godbus/dbus/v5` (D-Bus, BSD-2-Clause, with `golang.org/x/sys`)
-and `github.com/jfreymuth/pulse` (audio, MIT), vendored in `vendor/`. Update them in the builder
+external modules are `github.com/godbus/dbus/v5` (D-Bus, BSD-2-Clause, with `golang.org/x/sys`),
+`github.com/jfreymuth/pulse` (audio, MIT) and `github.com/jezek/xgb` (X11 for gamescope,
+BSD-3-Clause), vendored in `vendor/`. Update them in the builder
 VM with `go get`, `go mod tidy`,
 `go mod vendor`, and copy `go.mod`, `go.sum` and `vendor/` back. Design and API: [`docs/daemon-design.md`](../docs/daemon-design.md).
 
@@ -35,6 +36,7 @@ VM with `go get`, `go mod tidy`,
 | `internal/network` | NetworkManager over D-Bus: status, Wi-Fi scan, connect, forget |
 | `internal/audio` | PipeWire (PulseAudio protocol): volume, mute, output selection |
 | `internal/power` | systemd-logind: shut down, restart, suspend; sleep and shutdown events |
+| `internal/apps` | games and apps in systemd user services, gamescope focus, Guide button |
 | `vendor/` | vendored Go modules (third-party code, not linted) |
 
 ## Build and test

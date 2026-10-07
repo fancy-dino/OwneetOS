@@ -43,13 +43,17 @@ func start(t *testing.T) (*Server, *http.Client, string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- s.Serve(ctx, ln) }()
+	c := client.New(sock)
 	t.Cleanup(func() {
+		// The HTTP client may have dialled a spare connection it never used: the server's
+		// shutdown would wait 5 s for it.
+		c.CloseIdleConnections()
 		cancel()
 		if err := <-done; err != nil {
 			t.Errorf("Serve: %v", err)
 		}
 	})
-	return s, client.New(sock), sock
+	return s, c, sock
 }
 
 func TestSocketIsPrivate(t *testing.T) {
