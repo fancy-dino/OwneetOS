@@ -41,7 +41,7 @@ session, **not as root**:
 |---|---|
 | Read controllers (evdev) | Console user is in the `input` group; logind already grants access to gamepads |
 | Virtual keyboard/mouse (uinput) | udev rule giving the console session access to `/dev/uinput` |
-| Wi-Fi (NetworkManager) | NetworkManager lets the active local session manage connections (polkit) |
+| Wi-Fi (NetworkManager) | NetworkManager lets the active local session scan, connect and switch Wi-Fi (polkit). Saving a network for the whole system needs one polkit rule (checked in 2.6, see Network) |
 | Bluetooth (BlueZ) | BlueZ's default D-Bus policy already lets any local user call it (checked in 2.5): no extra rule |
 | Audio (PipeWire) | PipeWire runs in the user session anyway: the daemon must be there too |
 | Power (logind) | logind lets the active local session shut down, restart, suspend |
@@ -120,15 +120,37 @@ D-Bus library: `github.com/godbus/dbus/v5` (BSD-2-Clause), **vendored** in `daem
 its dependency `golang.org/x/sys` (BSD-3-Clause): the package build needs no network and the source
 archive is complete.
 
-### Network
+### Network — implemented (2.6)
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/v1/network` | Connectivity (none/limited/full), active connection, signal |
-| POST | `/v1/network/wifi/scan` | Start a scan (results arrive as an event and via GET below) |
-| GET | `/v1/network/wifi` | Visible networks: SSID, signal, security, known |
-| POST | `/v1/network/wifi/connect` | `{"ssid": "…", "password": "…"}` |
-| DELETE | `/v1/network/wifi/{ssid}` | Forget a network |
+| GET | `/v1/network` | `available` (NetworkManager running), `state`, `connectivity` (full/limited/portal/none/unknown), `wifi` (present, enabled, hardware_enabled, state, ssid, strength), `ethernet` (present, connected) |
+| GET | `/v1/network/wifi` | Visible networks: `ssid`, `strength`, `security` (open/wpa/wpa3/wep/enterprise), `known` (saved), `connected`; connected first, then saved, then by signal |
+| POST | `/v1/network/wifi/scan` | Start a scan (202); `wifi.scan_done` follows |
+| POST | `/v1/network/wifi/connect` | `{"ssid": "…", "password": "…"}`; waits for the result (up to 60 s) |
+| POST | `/v1/network/wifi/disconnect` | Disconnect Wi-Fi |
+| DELETE | `/v1/network/wifi/{ssid}` | Forget a saved network (SSID URL-encoded) |
+| PUT | `/v1/network/wifi/enabled` | `{"enabled": false}` — Wi-Fi radio off/on |
+
+Errors: `network.unavailable` (503), `network.no_wifi` / `network.wifi_disabled` (409),
+`network.not_found` (404, not visible), `network.unknown_network` (404, not saved),
+`network.unsupported_security` (422, WEP or enterprise), `network.password_required` (422),
+`network.invalid_password` (400, WPA: 8–63 characters or 64 hex digits),
+`network.wrong_password` (422), `network.timeout` (504), `network.connect_failed` (502).
+
+- **Connecting:** without a password, a saved network is reused; with one, a new saved network is
+  created and replaces the old one **only if it works** (a wrong password never leaves a broken
+  saved network behind). WPA/WPA2 (and WPA2/WPA3 transition) networks use `wpa-psk`, WPA3-only
+  networks `sae`. Hidden networks are not listed (later, if needed).
+- **Wrong password:** NetworkManager has no secret agent to ask, so a refused password ends the
+  attempt at once with reason `no-secrets`, read from the device's `StateChanged` signal.
+- **Saved networks** are system-wide (`/etc/NetworkManager/system-connections`, readable by root
+  only), so they also work before login and for system services. NetworkManager allows this only
+  to administrators, so the package `owneetd` ships one polkit rule,
+  `50-owneet-networkmanager.rules`: the action `settings.modify.system` is allowed to the user
+  `owneet` only, from the active local session only. `owneet` is **not** an administrator.
+- Passwords are never logged and never returned by the API.
+- Tested in the test VM with simulated Wi-Fi (`mac80211_hwsim`, see `vm/README.md`).
 
 ### Audio
 
@@ -177,7 +199,8 @@ Events format). Event types (initial list):
 
 `guide.pressed`, `controller.added`, `controller.removed`, `controller.battery` (implemented, 2.3),
 `bluetooth.auto_pair`, `bluetooth.pairing`, `bluetooth.paired`, `bluetooth.pair_failed`,
-`bluetooth.forgotten` (implemented, 2.5), `network.changed`, `wifi.scan_done`, `audio.changed`,
+`bluetooth.forgotten` (implemented, 2.5), `network.changed`, `network.connecting`,
+`network.connect_failed`, `network.forgotten`, `wifi.scan_done` (implemented, 2.6), `wifi.scan_done`, `audio.changed`,
 `app.started`, `app.exited`, `xone.firmware_needed`, `power.changed`, `input.layout_changed` (implemented, 2.4).
 
 ## 5. Open points for later steps

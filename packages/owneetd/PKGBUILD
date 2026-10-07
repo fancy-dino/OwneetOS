@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneetd
-pkgver=0.4.1
+pkgver=0.5.0
 pkgrel=1
 pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps) and owneetctl"
 arch=('x86_64')
@@ -10,7 +10,7 @@ url="https://github.com/fancy-dino/OwneetOS"
 # owneetd: GPL-3.0-or-later; SDL_GameControllerDB: Zlib; vendored Go modules (daemon/vendor/):
 # godbus/dbus BSD-2-Clause, golang.org/x/sys BSD-3-Clause
 license=('GPL-3.0-or-later' 'Zlib' 'BSD-2-Clause' 'BSD-3-Clause')
-depends=('systemd' 'bluez')
+depends=('systemd' 'bluez' 'networkmanager' 'polkit')
 makedepends=('go')
 options=('!debug')
 install=owneetd.install
@@ -18,7 +18,7 @@ install=owneetd.install
 _sdldb=c1d5289a1f713b30a2c121e9fe6529d39360be0f
 # owneetd-src.tar.gz is generated from daemon/ by tools/build-packages (listed in source-dirs).
 source=('owneetd-src.tar.gz' 'owneetd.service' '50-owneetd.preset'
-        '70-owneet-uinput.rules' 'owneet-uinput.modules-load.conf'
+        '70-owneet-uinput.rules' 'owneet-uinput.modules-load.conf' '50-owneet-networkmanager.rules'
         "gamecontrollerdb-$_sdldb.txt::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/gamecontrollerdb.txt"
         "gamecontrollerdb-LICENSE-$_sdldb::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/LICENSE")
 sha256sums=('SKIP'
@@ -26,6 +26,7 @@ sha256sums=('SKIP'
             '2a0b34565694c894f522721980ee014d8ada9e5ca6e77be199aaf845e87170fb'
             '05704193de80d2e0de3f1fe137d3b189b9c29986a2976ae87c5b6da1d64642c8'
             '31a567f64e305e209a81c69a5d00593eb0a6a9f82248a6627ab0066d272a2ea8'
+            'fd39be370627656bfc6ac2df05fbace5fced1699b1a1b62fac77d5d1a99d2536'
             'e606134678e6b3fdbdec9081289a1f0ba3e25d53b59b2aa3cdfe69bf491ad18f'
             '97f35b302b361680ec1e891e95d2d52097bb95abff361434916d99dc1305f127')
 
@@ -52,6 +53,7 @@ package() {
   install -Dm644 50-owneetd.preset "$pkgdir/usr/lib/systemd/user-preset/50-owneetd.preset"
   install -Dm644 70-owneet-uinput.rules "$pkgdir/usr/lib/udev/rules.d/70-owneet-uinput.rules"
   install -Dm644 owneet-uinput.modules-load.conf "$pkgdir/usr/lib/modules-load.d/owneet-uinput.conf"
+  install -Dm644 50-owneet-networkmanager.rules "$pkgdir/usr/share/polkit-1/rules.d/50-owneet-networkmanager.rules"
   install -Dm644 "gamecontrollerdb-$_sdldb.txt" "$pkgdir/usr/share/owneet/gamecontrollerdb.txt"
   install -Dm644 "gamecontrollerdb-LICENSE-$_sdldb" "$pkgdir/usr/share/licenses/$pkgname/LICENSE.gamecontrollerdb"
   install -Dm644 daemon/vendor/github.com/godbus/dbus/v5/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE.godbus-dbus"

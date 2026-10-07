@@ -36,6 +36,8 @@ type Server struct {
 	Input VirtualInput
 	// Bluetooth manages adapters, devices and gamepad auto-pairing (nil without a system bus).
 	Bluetooth Bluetooth
+	// Network is NetworkManager: status, Wi-Fi (nil without a system bus).
+	Network Network
 
 	started time.Time
 }
@@ -60,6 +62,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/bluetooth/devices/{address}/connect", s.handleBluetoothDevice(Bluetooth.Connect))
 	mux.HandleFunc("POST /v1/bluetooth/devices/{address}/disconnect", s.handleBluetoothDevice(Bluetooth.Disconnect))
 	mux.HandleFunc("DELETE /v1/bluetooth/devices/{address}", s.handleBluetoothDevice(Bluetooth.Forget))
+	mux.HandleFunc("GET /v1/network", s.handleNetwork)
+	mux.HandleFunc("GET /v1/network/wifi", s.handleWifiNetworks)
+	mux.HandleFunc("POST /v1/network/wifi/scan", s.handleWifiScan)
+	mux.HandleFunc("POST /v1/network/wifi/connect", s.handleWifiConnect)
+	mux.HandleFunc("POST /v1/network/wifi/disconnect", s.handleWifiDisconnect)
+	mux.HandleFunc("DELETE /v1/network/wifi/{ssid}", s.handleWifiForget)
+	mux.HandleFunc("PUT /v1/network/wifi/enabled", s.handleWifiEnabled)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusNotFound, "not_found", "no such endpoint: "+r.Method+" "+r.URL.Path)
 	})

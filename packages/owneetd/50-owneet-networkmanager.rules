@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// owneetd runs as the console user and saves Wi-Fi networks for the whole system, so they also
+// work before login and for system services. Everything else NetworkManager already allows to the
+// active local session. Only the console user, only from the active local session.
+polkit.addRule(function (action, subject) {
+    if (action.id === "org.freedesktop.NetworkManager.settings.modify.system" &&
+            subject.user === "owneet" && subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});

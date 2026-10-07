@@ -19,6 +19,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/config"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/network"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/sdldb"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/vinput"
@@ -93,6 +94,15 @@ func run(configPath string) error {
 		go bt.Run(ctx)
 	}
 
+	var netAPI api.Network
+	if nm, err := network.NewNM(log, broker); err != nil {
+		log.Warn("networking not available", "err", err)
+	} else {
+		defer nm.Close()
+		netAPI = nm
+		go nm.Run(ctx)
+	}
+
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
@@ -100,6 +110,7 @@ func run(configPath string) error {
 		Controllers:     pads,
 		Input:           input,
 		Bluetooth:       btAPI,
+		Network:         netAPI,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

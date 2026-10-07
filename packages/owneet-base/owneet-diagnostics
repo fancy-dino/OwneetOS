@@ -34,8 +34,9 @@ show_report() {
     echo "--- last errors";     journalctl -b -p err -o cat --no-pager | tail -6
     echo "--- controllers";     owneetd_get /v1/controllers
     echo "--- Bluetooth";       owneetd_get /v1/bluetooth
+    echo "--- network";         owneetd_get /v1/network
     echo "--- owneetd";         journalctl -b _SYSTEMD_USER_UNIT=owneetd.service -o cat --no-pager \
-                                    | grep -iE 'bluetooth|pairing|controller' | tail -5
+                                    | grep -iE 'bluetooth|pairing|controller|wi-fi' | tail -5
 }
 
 while :; do

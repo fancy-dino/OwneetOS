@@ -129,6 +129,20 @@ vm/test.sh stop | reset | destroy
   `vm/run/NAME/console.log`; the serial port keeps kernel and journal messages (`serial.log`).
 - **`--ssh`:** for the live Arch ISO only. A cloud-init seed puts the project test key
   (`vm/images/.keys/test_ed25519`) in root's `authorized_keys`, on `127.0.0.1:2223`.
+- **Simulated Wi-Fi** (step 2.6): the kernel module `mac80211_hwsim` creates virtual Wi-Fi radios
+  that see each other, and NetworkManager makes one of them a hotspot. NetworkManager's hotspot
+  needs `dnsmasq`, which is not in the ISO: it is installed in the live system only (lost at
+  power-off), from the ISO's Arch Linux Archive snapshot. In the debug shell:
+
+  ```text
+  echo 'Server = https://archive.archlinux.org/repos/2026/10/03/$repo/os/$arch' > /etc/pacman.d/mirrorlist
+  pacman-key --init; pacman-key --populate archlinux; pacman -Sy --noconfirm dnsmasq
+  modprobe mac80211_hwsim radios=2
+  nmcli dev wifi hotspot ifname wlan1 ssid OwneetTest password testpass123
+  ```
+
+  owneetd uses `wlan0` (the first Wi-Fi adapter) and sees `OwneetTest`. For a WPA3-only network:
+  `nmcli con modify Hotspot 802-11-wireless-security.key-mgmt sae && nmcli con up Hotspot`.
 - **Not yet:** a "Windows-like" NTFS disk; it is created when automatic mounting is built (step 6.5).
 - **Changing virtual hardware:** VMs keep firmware boot entries that point at PCI addresses. New
   devices get fixed PCI slots (the virtio console uses `0x10`) so existing VMs keep booting. If a VM

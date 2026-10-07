@@ -11,6 +11,8 @@ the only external module is `github.com/godbus/dbus/v5` (D-Bus, BSD-2-Clause), v
   "keyboard_layout": "it", "bluetooth_autopair_without_controller": true}`, or the environment variable `OWNEETD_LOG_LEVEL`.
 - Needs access to `/dev/uinput` for the virtual keyboard and mouse: granted to the console session
   by `70-owneet-uinput.rules` (package `owneetd`).
+- Saves Wi-Fi networks system-wide through NetworkManager, allowed by the polkit rule
+  `50-owneet-networkmanager.rules` (package `owneetd`).
 - Logs go to the journal: `journalctl --user -u owneetd`.
 
 ## Layout
@@ -29,6 +31,7 @@ the only external module is `github.com/godbus/dbus/v5` (D-Bus, BSD-2-Clause), v
 | `internal/vinput` | virtual keyboard and mouse, keyboard layouts (US, Italian) |
 | `internal/sdldb` | SDL_GameControllerDB: Guide button of generic controllers |
 | `internal/bluetooth` | BlueZ over D-Bus: devices, automatic gamepad pairing, pairing agent |
+| `internal/network` | NetworkManager over D-Bus: status, Wi-Fi scan, connect, forget |
 | `vendor/` | vendored Go modules (third-party code, not linted) |
 
 ## Build and test
