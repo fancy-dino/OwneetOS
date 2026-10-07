@@ -25,6 +25,8 @@ type Spec struct {
 	ID   evdev.ID
 	Keys []int
 	Axes []Axis
+	// Rel lists relative axes (REL_X, REL_Y, REL_WHEEL) for virtual mice.
+	Rel []int
 }
 
 // Device is a virtual input device.
@@ -37,6 +39,7 @@ const (
 	uiDevDestroy = 0x5502     // _IO('U', 2)
 	uiSetEvBit   = 0x40045564 // _IOW('U', 100, int)
 	uiSetKeyBit  = 0x40045565 // _IOW('U', 101, int)
+	uiSetRelBit  = 0x40045566 // _IOW('U', 102, int)
 	uiSetAbsBit  = 0x40045567 // _IOW('U', 103, int)
 	absCnt       = evdev.AbsMax + 1
 	nameSize     = 80
@@ -55,6 +58,12 @@ func Create(spec Spec) (*Device, error) {
 		calls := [][2]uintptr{{uiSetEvBit, evdev.EvKey}, {uiSetEvBit, evdev.EvSyn}}
 		if len(spec.Axes) > 0 {
 			calls = append(calls, [2]uintptr{uiSetEvBit, evdev.EvAbs})
+		}
+		if len(spec.Rel) > 0 {
+			calls = append(calls, [2]uintptr{uiSetEvBit, evdev.EvRel})
+		}
+		for _, rel := range spec.Rel {
+			calls = append(calls, [2]uintptr{uiSetRelBit, uintptr(rel)})
 		}
 		for _, k := range spec.Keys {
 			calls = append(calls, [2]uintptr{uiSetKeyBit, uintptr(k)})

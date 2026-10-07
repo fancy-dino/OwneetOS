@@ -81,7 +81,7 @@ fi
 section "Go integration tests (virtual devices)"
 if sudo -n true 2>/dev/null && sudo modprobe uinput 2>/dev/null; then
     if (cd daemon && sudo env PATH="$PATH" GOCACHE=/tmp/owneet-gocache-root GOPATH=/tmp/owneet-gopath-root \
-            go test -tags uinput -count=1 ./internal/gamepad/); then
+            go test -tags uinput -count=1 ./internal/gamepad/ ./internal/vinput/); then
         echo "ok"
     else
         failed+=("go-integration")

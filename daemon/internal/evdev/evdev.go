@@ -17,6 +17,7 @@ import (
 const (
 	EvSyn = 0x00
 	EvKey = 0x01
+	EvRel = 0x02
 	EvAbs = 0x03
 
 	KeyHomepage     = 172

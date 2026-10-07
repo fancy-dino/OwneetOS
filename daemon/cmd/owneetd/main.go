@@ -20,6 +20,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/sdldb"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/vinput"
 )
 
 func main() {
@@ -67,11 +68,20 @@ func run(configPath string) error {
 		}
 	}()
 
+	var input api.VirtualInput
+	if vin, err := vinput.New(cfg.KeyboardLayout); err != nil {
+		log.Warn("virtual keyboard and mouse not available", "err", err)
+	} else {
+		defer vin.Close()
+		input = vin
+	}
+
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
 		SessionModeFile: filepath.Join(filepath.Dir(cfg.Socket), "owneet", "session-mode"),
 		Controllers:     pads,
+		Input:           input,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

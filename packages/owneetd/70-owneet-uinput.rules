@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Let the user sitting at the console (logind's active session, i.e. the console user owneet)
+# create virtual input devices: owneetd's virtual keyboard and mouse run without root.
+# Same rule as Steam's controller support uses.
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"

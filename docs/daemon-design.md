@@ -130,12 +130,21 @@ unique id: that device is followed too. Devices are never grabbed.
 | POST | `/v1/apps/{id}/close` | Ask to close (SIGTERM / window close) |
 | POST | `/v1/apps/{id}/kill` | Force-close a frozen game |
 
-### Virtual input (on-screen keyboard)
+### Virtual input (on-screen keyboard) — implemented (2.4)
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/v1/input/text` | `{"text": "…"}` — typed into the focused app |
-| POST | `/v1/input/key` | `{"key": "enter"}` and other special keys |
+| POST | `/v1/input/text` | `{"text": "…"}` — typed into the focused app. If one character is not available in the keyboard layout nothing is typed: `422 input.unsupported_character` |
+| POST | `/v1/input/key` | `{"key": "enter", "modifiers": ["ctrl"]}` — keys: enter, backspace, tab, escape, space, delete, home, end, up, down, left, right, pageup, pagedown; modifiers: ctrl, shift, alt, meta |
+| POST | `/v1/input/pointer` | `{"dx": 10, "dy": -5, "wheel": 0}` — move the pointer / scroll |
+| POST | `/v1/input/click` | `{"button": "left"}` (left, right, middle) |
+| GET / PUT | `/v1/input/layout` | `{"layout": "it"}` — keyboard layout used to type text (`us`, `it`) |
+
+A virtual keyboard sends **keys, not characters**: the character depends on the XKB layout of the
+console session. `owneetd` therefore keeps its own layout tables (US and Italian for Wave 1) and
+must use the same layout as the session (setting `keyboard_layout`, later driven by the language
+chosen at first boot). Access to `/dev/uinput` is granted to the console session by a udev
+`uaccess` rule, so owneetd stays unprivileged.
 
 ### Event stream
 
@@ -144,7 +153,7 @@ Events format). Event types (initial list):
 
 `guide.pressed`, `controller.added`, `controller.removed`, `controller.battery` (implemented, 2.3),
 `bluetooth.changed`, `bluetooth.paired`, `network.changed`, `wifi.scan_done`, `audio.changed`,
-`app.started`, `app.exited`, `xone.firmware_needed`, `power.changed`.
+`app.started`, `app.exited`, `xone.firmware_needed`, `power.changed`, `input.layout_changed` (implemented, 2.4).
 
 ## 5. Open points for later steps
 

@@ -32,6 +32,8 @@ type Server struct {
 	Heartbeat time.Duration
 	// Controllers lists the connected game controllers (nil: none).
 	Controllers interface{ List() []gamepad.Controller }
+	// Input is the virtual keyboard and mouse (nil when /dev/uinput is not available).
+	Input VirtualInput
 
 	started time.Time
 }
@@ -45,6 +47,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/status", s.handleStatus)
 	mux.HandleFunc("GET /v1/events", s.handleEvents)
 	mux.HandleFunc("GET /v1/controllers", s.handleControllers)
+	mux.HandleFunc("POST /v1/input/text", s.handleInputText)
+	mux.HandleFunc("POST /v1/input/key", s.handleInputKey)
+	mux.HandleFunc("POST /v1/input/pointer", s.handleInputPointer)
+	mux.HandleFunc("POST /v1/input/click", s.handleInputClick)
+	mux.HandleFunc("GET /v1/input/layout", s.handleGetLayout)
+	mux.HandleFunc("PUT /v1/input/layout", s.handlePutLayout)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusNotFound, "not_found", "no such endpoint: "+r.Method+" "+r.URL.Path)
 	})
