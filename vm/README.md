@@ -40,6 +40,7 @@ vm/vm.sh snapshots NAME
 vm/vm.sh status  NAME
 vm/vm.sh list
 vm/vm.sh selftest                 boots a throwaway UEFI VM, checks it, deletes it
+vm/vm.sh reset-firmware NAME      fresh UEFI variables if a VM no longer finds its disk
 ```
 
 Defaults follow the minimum hardware in PROJECT_RULES.md section 3: 4 GB RAM, 32 GB disk.
@@ -74,7 +75,7 @@ vm/builder.sh destroy    delete the VM (downloaded image and keys are kept)
   `vm/images/.gnupg/`. The image is never modified: the VM disk is a copy-on-write layer over it.
 - **First boot:** configured by cloud-init ([`builder/user-data.in`](builder/user-data.in)),
   served once by a temporary HTTP server on `127.0.0.1`. It creates the `builder` user
-  (passwordless sudo, SSH key only) and installs `archiso`, `base-devel`, `devtools`, `git`, `rsync`, `shellcheck`, `nodejs`, `npm`.
+  (passwordless sudo, SSH key only) and installs `archiso`, `base-devel`, `devtools`, `git`, `rsync`, `shellcheck`, `nodejs`, `npm`, `go`.
 - **Access:** SSH on `127.0.0.1:2222` with a project key in `vm/images/.keys/`; `~/.ssh` is not used.
   The VM is not reachable from the local network.
 - **Resources:** 8 GB RAM, 8 CPUs, 80 GB thin-provisioned disk.
@@ -121,10 +122,14 @@ vm/test.sh stop | reset | destroy
   in headless mode (QEMU keeps no copy of a 3D screen).
 - **Extra kernel arguments:** `--kargs "..."` is passed through SMBIOS and appended by systemd-boot
   (e.g. `owneet.session=cage`); `--journal` sends the system journal to the serial log.
-- **Debug shell:** `--debug-shell` starts a root shell on the serial console (kernel arguments
-  `systemd.debug_shell=ttyS0`, serial login masked); `vm/test.sh run 'CMD'` runs a command there and
-  prints its output. Test VMs only: nothing in the ISO enables it. The emulated serial port
-  occasionally garbles a character; if a command gets no answer, run it again.
+- **Debug shell:** `--debug-shell` starts a root shell on a virtio console (`hvc0`, kernel argument
+  `systemd.debug_shell=hvc0`); `vm/test.sh run 'CMD'` runs a command there and prints its output.
+  The virtio console has flow control, unlike the emulated serial port (which lost or duplicated
+  characters). Test VMs only: nothing in the ISO enables it. Output also lands in
+  `vm/run/NAME/console.log`; the serial port keeps kernel and journal messages (`serial.log`).
 - **`--ssh`:** for the live Arch ISO only. A cloud-init seed puts the project test key
   (`vm/images/.keys/test_ed25519`) in root's `authorized_keys`, on `127.0.0.1:2223`.
 - **Not yet:** a "Windows-like" NTFS disk; it is created when automatic mounting is built (step 6.5).
+- **Changing virtual hardware:** VMs keep firmware boot entries that point at PCI addresses. New
+  devices get fixed PCI slots (the virtio console uses `0x10`) so existing VMs keep booting. If a VM
+  still tries to boot from the network or stops in the UEFI shell, run `vm/vm.sh reset-firmware NAME`.

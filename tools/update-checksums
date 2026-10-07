@@ -23,6 +23,10 @@ for pkg in "$@"; do
     sums=()
     for i in "${!sources[@]}"; do
         s="${sources[$i]}"
+        if [[ "$s" == "$pkg-src.tar.gz" && -f "$dir/source-dirs" ]]; then
+            sums+=("SKIP")   # generated from this repository at build time
+            continue
+        fi
         if [[ "$s" == *://* ]]; then
             old="${old_sums[$i]:-}"
             [[ "$old" =~ ^[0-9a-f]{64}$ ]] || die "$pkg: '$s' is a download; write its real sha256 in sha256sums first"

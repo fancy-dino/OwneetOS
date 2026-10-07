@@ -103,7 +103,7 @@ cmd_boot() {
             --gl)       gl=1; shift ;;
             --ssh)      ssh=1; shift ;;
             --kargs)    kargs+=" ${2:-}"; shift 2 ;;
-            --debug-shell) kargs+=" systemd.debug_shell=ttyS0 systemd.mask=serial-getty@ttyS0.service"; shift ;;
+            --debug-shell) kargs+=" systemd.debug_shell=hvc0"; shift ;;
             --journal)  kargs+=" console=ttyS0,115200 systemd.journald.forward_to_console=1 systemd.journald.max_level_console=info"; shift ;;
             -*) die "unknown option '$1' (see: vm/test.sh help)" ;;
             *) iso="$1"; shift ;;
@@ -170,9 +170,9 @@ cmd_wait_serial() {
 cmd_run() {
     local command="${1:-}" timeout="${2:-60}"
     [[ -n "$command" ]] || die "usage: vm/test.sh run 'CMD' [SECONDS]"
-    local sock="$VM_DIR/run/$NAME/serial.sock"
+    local sock="$VM_DIR/run/$NAME/console.sock"
     [[ -S "$sock" ]] || die "the test VM is not running"
-    python3 - "$sock" "$VM_DIR/run/$NAME/serial.log" "$command" "$timeout" <<'PY'
+    python3 - "$sock" "$VM_DIR/run/$NAME/console.log" "$command" "$timeout" <<'PY'
 import re, socket, sys, time, uuid
 sock_path, log_path, command, timeout = sys.argv[1], sys.argv[2], sys.argv[3], float(sys.argv[4])
 tag = uuid.uuid4().hex[:8]
@@ -191,7 +191,8 @@ end_re = re.compile(r"_+O+W+N+E+T+_+E+N+D+_+[0-9a-f]+_+ (\d+)")
 deadline = time.time() + timeout
 while time.time() < deadline:
     text = open(log_path, "rb").read()[start:].decode(errors="replace")
-    text = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]|\r", "", text)
+    # Remove terminal control sequences (CSI, and OSC such as systemd's "]3008;" context marks).
+    text = re.sub(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;?]*[A-Za-z]|\r", "", text)
     m = end_re.search(text)
     if m:
         lines = text[:m.start()].split("\n")

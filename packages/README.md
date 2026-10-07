@@ -24,13 +24,16 @@ first if it is missing.
 | [`owneet-hardware`](owneet-hardware/) | Firmware, microcode, Mesa + Vulkan (AMD, Intel), NVIDIA driver for Turing and newer with automatic nouveau fallback for older GPUs (`owneet-gpu-select`), PipeWire, NetworkManager, BlueZ, controller hidraw access rules. |
 | [`owneet-keyring`](owneet-keyring/) | The OwneetOS public key for pacman (`pacman-key --populate owneet`). |
 | [`owneet-branding`](owneet-branding/) | OwneetOS wordmark ("Owneet" + coral "OS", SVG outlines) and the Plymouth boot splash `owneet` (wordmark + coral spinner on deep navy). |
+| [`owneetd`](owneetd/) | The system daemon and `owneetctl`, built from [`daemon/`](../daemon/); systemd **user** service enabled for the console user. |
 | [`owneet-xone`](owneet-xone/) | Xbox wireless dongle driver ([xone](https://github.com/dlundqvist/xone) 0.5.8) built for the ISO's exact kernel, without `xone_wired` (wired controllers stay on the kernel's `xpad`); loads before `mt76x2u` so USB Wi-Fi adapters keep working; `owneet-xone-firmware` downloads Microsoft's firmware only with consent. **Rebuilt for every kernel change.** |
 | [`owneet-session`](owneet-session/) | Console user `owneet`, autologin on tty1, `owneet-session` (gamescope or cage, restarts, fallback) and the fullscreen placeholder shown until the real UI exists. |
 
 ## Rules
 
 - One folder per package, named after the package; sources other than downloads live next to the
-  PKGBUILD and have real `sha256sums` (never `SKIP` for local files).
+  PKGBUILD and have real `sha256sums` (never `SKIP` for local files). Only exception: packages built
+  from this repository list their folders in `source-dirs`; `tools/build-packages` packs them into a
+  reproducible `NAME-src.tar.gz` (not committed), whose checksum is `SKIP`.
 - `license=('GPL-3.0-or-later')` for OwneetOS's own packages.
 - The kernel is chosen in `iso/packages.x86_64`, not as a package dependency.
 - After editing a local source file, refresh the checksums: `tools/update-checksums NAME`, and bump

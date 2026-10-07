@@ -82,11 +82,26 @@ while (( ${#remaining[@]} )); do
     remaining=("${next[@]}")
 done
 
+# Packages built from this repository (e.g. owneetd from daemon/) list the source folders in
+# packages/NAME/source-dirs; they get a reproducible NAME-src.tar.gz next to their PKGBUILD.
+make_source_tarball() {
+    local pkg="$1" list="packages/$1/source-dirs"
+    [[ -f "$list" ]] || return 0
+    local dirs=() d
+    mapfile -t dirs < <(grep -v '^\s*$' "$list")
+    for d in "${dirs[@]}"; do [[ -d "$d" ]] || die "$list: folder '$d' not found"; done
+    local mtime
+    mtime="$(git log -1 --format=%ct 2>/dev/null || date +%s)"
+    tar --sort=name --mtime="@$mtime" --owner=0 --group=0 --numeric-owner \
+        --exclude-vcs -cf - "${dirs[@]}" | gzip -n > "packages/$pkg/$pkg-src.tar.gz"
+}
+
 mkdir -p "$REPO_DIR"
 # Drop the database first: if a build fails, no stale (possibly signed) database is left behind.
 rm -f "$REPO_DIR/$REPO_NAME".{db,files}*
 for pkg in "${ordered[@]}"; do
     info "building $pkg"
+    make_source_tarball "$pkg"
     rm -f "$REPO_DIR/$pkg"-[0-9]*.pkg.tar.zst "$REPO_DIR/$pkg"-[0-9]*.pkg.tar.zst.sig
     # Packages without a build() step (scripts and data only) need none of their dependencies in
     # the chroot: skip them instead of downloading (and running install scripts of) hundreds of MB.

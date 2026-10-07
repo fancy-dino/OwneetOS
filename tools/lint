@@ -8,6 +8,7 @@
 #   1. shellcheck on every shell script (*.sh and files with a sh/bash shebang)
 #   2. SPDX license header on every shell script and cloud-init template
 #   3. markdownlint on every Markdown file (rules in .markdownlint-cli2.yaml)
+#   4. Go (daemon/): gofmt, go vet, go test
 
 set -euo pipefail
 
@@ -46,6 +47,7 @@ need() {
 
 need shellcheck
 need npx
+need go
 
 mapfile -t scripts < <(shell_scripts)
 
@@ -64,6 +66,16 @@ if (( spdx_missing )); then failed+=("spdx"); else echo "ok"; fi
 
 section "markdownlint"
 if npx --yes "markdownlint-cli2@$MARKDOWNLINT_VERSION"; then echo "ok"; else failed+=("markdownlint"); fi
+
+section "Go (daemon/)"
+unformatted="$(gofmt -l daemon)"
+if [[ -n "$unformatted" ]]; then
+    echo "not gofmt-formatted:"; echo "$unformatted"; failed+=("gofmt")
+elif (cd daemon && go vet ./... && go test ./...); then
+    echo "ok"
+else
+    failed+=("go")
+fi
 
 echo
 if (( ${#failed[@]} )); then

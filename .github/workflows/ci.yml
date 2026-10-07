@@ -23,7 +23,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Run project checks (shellcheck, SPDX headers, markdownlint)
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: daemon/go.mod
+          cache: false
+      - name: Run project checks (shellcheck, SPDX headers, markdownlint, Go)
         run: tools/lint
 
   iso:
@@ -61,7 +65,7 @@ jobs:
               fi ;;
           esac
           if [ "$build" = false ] && [ -n "$range" ] && git diff --name-only "$range" \
-              | grep -qE '^(iso/|packages/|tools/(build-iso|build-packages|ci/)|\.github/workflows/ci\.yml)'; then
+              | grep -qE '^(iso/|packages/|daemon/|tools/(build-iso|build-packages|ci/)|\.github/workflows/ci\.yml)'; then
             build=true
           fi
           echo "build=$build" >> "$GITHUB_OUTPUT"

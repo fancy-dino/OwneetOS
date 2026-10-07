@@ -43,6 +43,7 @@ OwneetOS VM manager
   vm/vm.sh snapshots NAME             List saved states
   vm/vm.sh screenshot NAME FILE.png   Save what the VM's screen shows
   vm/vm.sh keys NAME COMBO            Press a key combination, e.g. ctrl-alt-f9 (QEMU key names)
+  vm/vm.sh reset-firmware NAME        Fresh UEFI variables (lost boot entries); disks untouched
   vm/vm.sh status  NAME               Show whether a VM is running
   vm/vm.sh list                       List VMs
   vm/vm.sh selftest                   Boot a throwaway UEFI VM, check it, delete it
@@ -220,7 +221,7 @@ cmd_start() {
 
     local run; run="$(vm_run_dir "$name")"
     mkdir -p "$run"
-    rm -f "$run/serial.log" "$run/serial.sock" "$run/qemu.log" "$run/qmp.sock" "$run/qemu.pid"
+    rm -f "$run/serial.log" "$run/serial.sock" "$run/console.log" "$run/console.sock" "$run/qemu.log" "$run/qmp.sock" "$run/qemu.pid"
 
     local args=(
         -name "owneet-$name"
@@ -232,6 +233,12 @@ cmd_start() {
         # Serial console: everything is logged to serial.log; serial.sock accepts input (vm/test.sh run).
         -chardev "socket,id=ser0,path=$run/serial.sock,server=on,wait=off,logfile=$run/serial.log"
         -serial chardev:ser0
+        # Virtio console (hvc0): reliable two-way channel for test shells (no lost characters).
+        # Fixed PCI slot, so adding it does not move the disks and NIC: firmware boot entries of
+        # existing VMs (e.g. the builder) point at their PCI addresses.
+        -device "virtio-serial-pci,addr=0x10"
+        -chardev "socket,id=con0,path=$run/console.sock,server=on,wait=off,logfile=$run/console.log"
+        -device "virtconsole,chardev=con0"
         -qmp "unix:$run/qmp.sock,server=on,wait=off"
         -pidfile "$run/qemu.pid"
     )
@@ -306,7 +313,7 @@ cmd_stop() {
         done
     fi
     if kill -0 "$pid" 2>/dev/null; then kill -9 "$pid"; fi
-    rm -f "$(vm_run_dir "$name")/qmp.sock" "$(vm_run_dir "$name")/serial.sock" "$(vm_run_dir "$name")/qemu.pid"
+    rm -f "$(vm_run_dir "$name")"/{qmp.sock,serial.sock,console.sock,qemu.pid}
     info "VM '$name' stopped"
 }
 
@@ -388,6 +395,16 @@ cmd_keys() {
     qmp_keys "$(vm_run_dir "$name")/qmp.sock" "$combo" || die "could not send keys '$combo'"
 }
 
+cmd_reset_firmware() {
+    local name="${1:-}"
+    check_name "$name"
+    [[ -f "$(vm_image_dir "$name")/disk.qcow2" ]] || die "VM '$name' does not exist."
+    if vm_pid "$name" >/dev/null; then die "stop VM '$name' first."; fi
+    find_firmware
+    cp "$OVMF_VARS" "$(vm_image_dir "$name")/OVMF_VARS.fd"
+    info "UEFI variables of VM '$name' reset; the firmware will find its disk again at next boot"
+}
+
 cmd_status() {
     local name="${1:-}"
     check_name "$name"
@@ -455,6 +472,7 @@ case "$cmd" in
     snapshots) cmd_snapshots "$@" ;;
     screenshot) cmd_screenshot "$@" ;;
     keys)     cmd_keys "$@" ;;
+    reset-firmware) cmd_reset_firmware "$@" ;;
     help|-h|--help) usage ;;
     *) usage; exit 1 ;;
 esac

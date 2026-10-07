@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
+
+pkgname=owneetd
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps) and owneetctl"
+arch=('x86_64')
+url="https://github.com/fancy-dino/OwneetOS"
+license=('GPL-3.0-or-later')
+depends=('systemd')
+makedepends=('go')
+options=('!debug')
+install=owneetd.install
+# owneetd-src.tar.gz is generated from daemon/ by tools/build-packages (listed in source-dirs).
+source=('owneetd-src.tar.gz' 'owneetd.service' '50-owneetd.preset')
+sha256sums=('SKIP'
+            '96c8efc684cfb759ade0fbab2b438655e46380d6a8476489df6b7cf00f00425c'
+            '2a0b34565694c894f522721980ee014d8ada9e5ca6e77be199aaf845e87170fb')
+
+_ldflags() {
+  echo "-s -w -X github.com/fancy-dino/OwneetOS/daemon/internal/version.Version=$pkgver"
+}
+
+build() {
+  cd daemon
+  export CGO_ENABLED=0 GOFLAGS="-trimpath -mod=readonly -modcacherw"
+  go build -ldflags "$(_ldflags)" -o owneetd ./cmd/owneetd
+  go build -ldflags "$(_ldflags)" -o owneetctl ./cmd/owneetctl
+}
+
+check() {
+  cd daemon
+  CGO_ENABLED=0 go test ./...
+}
+
+package() {
+  install -Dm755 daemon/owneetd daemon/owneetctl -t "$pkgdir/usr/bin/"
+  install -Dm644 owneetd.service "$pkgdir/usr/lib/systemd/user/owneetd.service"
+  install -Dm644 50-owneetd.preset "$pkgdir/usr/lib/systemd/user-preset/50-owneetd.preset"
+}

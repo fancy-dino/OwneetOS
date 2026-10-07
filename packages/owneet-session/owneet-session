@@ -35,6 +35,9 @@ has_hardware_vulkan() {
 
 run_compositor() {
     export OWNEET_SESSION_MODE="$1"
+    # Read by owneetd (GET /v1/status).
+    mkdir -p "${XDG_RUNTIME_DIR:-/tmp}/owneet"
+    echo "$1" > "${XDG_RUNTIME_DIR:-/tmp}/owneet/session-mode"
     case "$1" in
         gamescope) gamescope --fullscreen -- "$APP" ;;
         # The reduced session must work even without GPU acceleration (no driver, or a VM):

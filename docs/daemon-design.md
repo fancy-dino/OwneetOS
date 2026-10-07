@@ -1,7 +1,7 @@
 # owneetd — design (draft for roadmap step 2.1)
 
-Status: **draft, awaiting the owner's decisions** (language, transport, process split).
-Nothing here is implemented yet.
+Status: **approved by the owner on 2026-10-07**: Go, HTTP over a Unix socket, user service (not root).
+The API list is a draft that grows step by step (phase 2).
 
 `owneetd` is the OwneetOS system daemon (PROJECT_RULES.md section 4): it owns the controllers and
 the Guide button, provides the on-screen keyboard's virtual input, manages Wi-Fi, Bluetooth, audio
