@@ -2,21 +2,28 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneetd
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps) and owneetctl"
 arch=('x86_64')
 url="https://github.com/fancy-dino/OwneetOS"
-license=('GPL-3.0-or-later')
+# owneetd: GPL-3.0-or-later; SDL_GameControllerDB: Zlib
+license=('GPL-3.0-or-later' 'Zlib')
 depends=('systemd')
 makedepends=('go')
 options=('!debug')
 install=owneetd.install
+# SDL_GameControllerDB, pinned: tells owneetd which button is Guide on generic controllers.
+_sdldb=c1d5289a1f713b30a2c121e9fe6529d39360be0f
 # owneetd-src.tar.gz is generated from daemon/ by tools/build-packages (listed in source-dirs).
-source=('owneetd-src.tar.gz' 'owneetd.service' '50-owneetd.preset')
+source=('owneetd-src.tar.gz' 'owneetd.service' '50-owneetd.preset'
+        "gamecontrollerdb-$_sdldb.txt::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/gamecontrollerdb.txt"
+        "gamecontrollerdb-LICENSE-$_sdldb::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/LICENSE")
 sha256sums=('SKIP'
             '96c8efc684cfb759ade0fbab2b438655e46380d6a8476489df6b7cf00f00425c'
-            '2a0b34565694c894f522721980ee014d8ada9e5ca6e77be199aaf845e87170fb')
+            '2a0b34565694c894f522721980ee014d8ada9e5ca6e77be199aaf845e87170fb'
+            'e606134678e6b3fdbdec9081289a1f0ba3e25d53b59b2aa3cdfe69bf491ad18f'
+            '97f35b302b361680ec1e891e95d2d52097bb95abff361434916d99dc1305f127')
 
 _ldflags() {
   echo "-s -w -X github.com/fancy-dino/OwneetOS/daemon/internal/version.Version=$pkgver"
@@ -38,4 +45,6 @@ package() {
   install -Dm755 daemon/owneetd daemon/owneetctl -t "$pkgdir/usr/bin/"
   install -Dm644 owneetd.service "$pkgdir/usr/lib/systemd/user/owneetd.service"
   install -Dm644 50-owneetd.preset "$pkgdir/usr/lib/systemd/user-preset/50-owneetd.preset"
+  install -Dm644 "gamecontrollerdb-$_sdldb.txt" "$pkgdir/usr/share/owneet/gamecontrollerdb.txt"
+  install -Dm644 "gamecontrollerdb-LICENSE-$_sdldb" "$pkgdir/usr/share/licenses/$pkgname/LICENSE.gamecontrollerdb"
 }

@@ -24,12 +24,14 @@ type Config struct {
 	LogLevel string `json:"log_level"`
 	// Socket is the path of the API socket. Empty means $XDG_RUNTIME_DIR/owneetd.sock.
 	Socket string `json:"socket"`
+	// ControllerDB is SDL_GameControllerDB, used to find the Guide button of generic controllers.
+	ControllerDB string `json:"controller_db"`
 }
 
 // Load returns the configuration from defaults, the file at path (if it exists) and the
 // environment.
 func Load(path string) (Config, error) {
-	cfg := Config{LogLevel: "info"}
+	cfg := Config{LogLevel: "info", ControllerDB: "/usr/share/owneet/gamecontrollerdb.txt"}
 
 	data, err := os.ReadFile(path)
 	switch {

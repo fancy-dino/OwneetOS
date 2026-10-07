@@ -103,7 +103,7 @@ cmd_boot() {
             --gl)       gl=1; shift ;;
             --ssh)      ssh=1; shift ;;
             --kargs)    kargs+=" ${2:-}"; shift 2 ;;
-            --debug-shell) kargs+=" systemd.debug_shell=hvc0"; shift ;;
+            --debug-shell) kargs+=" systemd.debug_shell=hvc0 systemd.mask=serial-getty@hvc0.service"; shift ;;
             --journal)  kargs+=" console=ttyS0,115200 systemd.journald.forward_to_console=1 systemd.journald.max_level_console=info"; shift ;;
             -*) die "unknown option '$1' (see: vm/test.sh help)" ;;
             *) iso="$1"; shift ;;

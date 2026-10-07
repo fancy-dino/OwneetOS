@@ -240,7 +240,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   per-session token), process split (system service vs user service).
 - **Done when:** owner approves the language and the API document.
 
-### [~] 2.2 Daemon skeleton and packaging (awaiting owner review)
+### [x] 2.2 Daemon skeleton and packaging
 
 - **Deliverables:** project layout, config file, logging, systemd units, PKGBUILD, CI build + tests.
 - **Outcome:** Go module in `daemon/` (standard library only): `owneetd` serves `GET /v1/status`
@@ -252,11 +252,17 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   error on unknown endpoints, another user is refused by the socket, ~10.6 MB RAM. Test tooling:
   the VM debug shell moved to a virtio console (reliable, unlike the emulated serial port).
 
-### [ ] 2.3 Controller input
+### [~] 2.3 Controller input (waiting for the real-controller check)
 
 - **Deliverables:** evdev discovery and hot-plug, SDL_GameControllerDB mapping, Guide button
   detection, controller battery level, event stream to clients.
 - **Done when:** a virtual gamepad (uinput) in the test VM produces the expected events in automated tests.
+- **Progress:** `internal/gamepad` (scan + inotify hot-plug, no grab), Guide from `BTN_MODE` or
+  SDL_GameControllerDB (pinned, shipped in `owneetd`), `KEY_HOMEPAGE` companion devices, battery
+  from sysfs power_supply; `GET /v1/controllers`, events `controller.added/removed/battery` and
+  `guide.pressed`. Integration tests create real virtual controllers through `/dev/uinput` (Xbox-like
+  pad: hot-plug, Guide, removal; generic pad: Guide found through the database): pass in the builder
+  VM, run by `tools/lint` and CI. **Open:** check with the owner's Xbox controller (passthrough).
 
 ### [ ] 2.4 Virtual input (uinput)
 

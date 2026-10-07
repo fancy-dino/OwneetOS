@@ -17,6 +17,8 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/api"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/config"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/sdldb"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
 )
 
@@ -52,12 +54,26 @@ func run(configPath string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	broker := events.NewBroker()
+
+	db, dbErr := sdldb.Load(cfg.ControllerDB)
+	if dbErr != nil {
+		log.Warn("controller database not loaded: generic controllers may lack a Guide button", "err", dbErr)
+	}
+	pads := &gamepad.Manager{Broker: broker, Log: log, DB: db}
+	go func() {
+		if err := pads.Run(ctx); err != nil {
+			log.Error("controller tracking stopped", "err", err)
+		}
+	}()
+
 	srv := &api.Server{
-		Broker:          events.NewBroker(),
+		Broker:          broker,
 		Log:             log,
 		SessionModeFile: filepath.Join(filepath.Dir(cfg.Socket), "owneet", "session-mode"),
+		Controllers:     pads,
 	}
-	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket)
+	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)
 	log.Info("owneetd stopped")
 	return err

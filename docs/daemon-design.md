@@ -74,13 +74,18 @@ Conventions: JSON bodies; `/v1` prefix; errors as `{"error": {"code": "wifi.wron
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/v1/status` | Daemon version, OwneetOS version, session mode (gamescope/cage) |
+| GET | `/v1/status` | **Implemented (2.2).** Daemon version, OwneetOS version, session mode (gamescope/cage) |
 
 ### Controllers
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/v1/controllers` | Connected controllers: id, name, brand, connection (usb/bluetooth/dongle), battery |
+| GET | `/v1/controllers` | **Implemented (2.3).** Connected controllers: id, name, brand, connection (usb/bluetooth/dongle), Guide available, battery |
+
+The **Guide button** is `BTN_MODE` when the kernel driver reports it (Xbox, PlayStation, Nintendo
+and most others); otherwise the `guide` entry of SDL_GameControllerDB tells which button it is.
+Some Bluetooth controllers send it as `KEY_HOMEPAGE` on a second input device with the same
+unique id: that device is followed too. Devices are never grabbed.
 
 ### Bluetooth
 
@@ -137,7 +142,7 @@ Conventions: JSON bodies; `/v1` prefix; errors as `{"error": {"code": "wifi.wron
 `GET /v1/events` keeps the connection open and sends one JSON object per event (Server-Sent
 Events format). Event types (initial list):
 
-`guide.pressed`, `controller.added`, `controller.removed`, `controller.battery`,
+`guide.pressed`, `controller.added`, `controller.removed`, `controller.battery` (implemented, 2.3),
 `bluetooth.changed`, `bluetooth.paired`, `network.changed`, `wifi.scan_done`, `audio.changed`,
 `app.started`, `app.exited`, `xone.firmware_needed`, `power.changed`.
 

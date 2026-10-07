@@ -89,6 +89,19 @@ func TestStatus(t *testing.T) {
 	}
 }
 
+func TestControllersEmptyList(t *testing.T) {
+	_, c, _ := start(t)
+	resp, err := c.Get("http://owneetd/v1/controllers")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK || strings.TrimSpace(string(data)) != `{"controllers":[]}` {
+		t.Fatalf("got %d %s", resp.StatusCode, data)
+	}
+}
+
 func TestUnknownEndpointIsJSONError(t *testing.T) {
 	_, c, _ := start(t)
 	resp, err := c.Get("http://owneetd/v1/nope")

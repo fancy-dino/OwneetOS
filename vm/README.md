@@ -123,7 +123,7 @@ vm/test.sh stop | reset | destroy
 - **Extra kernel arguments:** `--kargs "..."` is passed through SMBIOS and appended by systemd-boot
   (e.g. `owneet.session=cage`); `--journal` sends the system journal to the serial log.
 - **Debug shell:** `--debug-shell` starts a root shell on a virtio console (`hvc0`, kernel argument
-  `systemd.debug_shell=hvc0`); `vm/test.sh run 'CMD'` runs a command there and prints its output.
+  `systemd.debug_shell=hvc0`, with the login prompt on `hvc0` masked); `vm/test.sh run 'CMD'` runs a command there and prints its output.
   The virtio console has flow control, unlike the emulated serial port (which lost or duplicated
   characters). Test VMs only: nothing in the ISO enables it. Output also lands in
   `vm/run/NAME/console.log`; the serial port keeps kernel and journal messages (`serial.log`).

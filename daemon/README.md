@@ -19,6 +19,10 @@ standard library only for now. Design and API: [`docs/daemon-design.md`](../docs
 | `internal/events` | event broker |
 | `internal/config` | configuration loading |
 | `internal/client` | HTTP client over the Unix socket |
+| `internal/gamepad` | controller discovery and hot-plug, Guide button, battery |
+| `internal/evdev` | reading input devices (no grab: games keep their input) |
+| `internal/uinput` | virtual input devices (test controllers; on-screen keyboard later) |
+| `internal/sdldb` | SDL_GameControllerDB: Guide button of generic controllers |
 
 ## Build and test
 
@@ -29,6 +33,7 @@ tools/build-in-vm 'cd daemon && go test ./...'
 tools/build-in-vm tools/build-packages owneetd
 ```
 
-`tools/lint` also runs `gofmt`, `go vet` and `go test` (locally and in CI).
+`tools/lint` also runs `gofmt`, `go vet` and `go test` (locally and in CI), plus integration tests
+that create **virtual controllers** through `/dev/uinput` (`go test -tags uinput`, run as root).
 
 Roadmap: phase 2.

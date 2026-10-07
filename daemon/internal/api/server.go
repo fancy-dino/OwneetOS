@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
 )
 
@@ -29,6 +30,8 @@ type Server struct {
 	SessionModeFile string
 	// Heartbeat is the interval of keep-alive comments on the event stream.
 	Heartbeat time.Duration
+	// Controllers lists the connected game controllers (nil: none).
+	Controllers interface{ List() []gamepad.Controller }
 
 	started time.Time
 }
@@ -41,6 +44,7 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/status", s.handleStatus)
 	mux.HandleFunc("GET /v1/events", s.handleEvents)
+	mux.HandleFunc("GET /v1/controllers", s.handleControllers)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusNotFound, "not_found", "no such endpoint: "+r.Method+" "+r.URL.Path)
 	})
@@ -111,6 +115,14 @@ func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
 		SessionMode:     readTrimmed(s.SessionModeFile),
 		UptimeSeconds:   int64(time.Since(s.started).Seconds()),
 	})
+}
+
+func (s *Server) handleControllers(w http.ResponseWriter, _ *http.Request) {
+	list := []gamepad.Controller{}
+	if s.Controllers != nil {
+		list = s.Controllers.List()
+	}
+	WriteJSON(w, http.StatusOK, map[string]any{"controllers": list})
 }
 
 // handleEvents streams events as Server-Sent Events until the client or the daemon goes away.
