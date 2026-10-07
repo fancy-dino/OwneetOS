@@ -3,7 +3,7 @@
 > **Source of truth** for every requirement and decision agreed so far.
 > Anyone working on this project (humans and AI assistants) must read this file before starting
 > and must not contradict it. If something is not covered here, **ask** — do not assume.
-> New decisions are added here as they are made (see [Decision log](#12-decision-log)).
+> New decisions are added here as they are made (see [Decision log](#13-decision-log)).
 > This file may be edited by the project owner at any time; the owner's edits always win.
 
 ---
@@ -232,7 +232,34 @@ in order; the owner reviews each step before the next one starts.
     actions are done by the owner through VS Code or the website, until `gh` is installed (with
     the owner's approval).
 
-## 12. Decision log
+## 12. Legal compliance
+
+These rules are not legal advice. Before the first public release meant for end users (v1.0), the
+project is reviewed by someone experienced in open-source licensing.
+
+- **Source code for distributed binaries (GPL and similar licences).** Whoever distributes compiled
+  GPL software (kernel, xone, many Arch packages, OwneetOS's own packages) must provide the
+  corresponding source code. Every published ISO and package repository comes with a **source
+  archive** (PKGBUILDs and the exact sources of every package it contains) or a valid written
+  offer. Until the release pipeline does this (roadmap step 7.2), **CI does not publish downloadable
+  ISOs or packages**: ISOs built in CI are checks only; test ISOs are built locally.
+- **Licence notices:** every package keeps its licence files (`/usr/share/licenses`); the ISO and
+  the UI ("About → Licences", later) list the licences of what OwneetOS ships.
+- **Proprietary but redistributable components** (NVIDIA driver, device firmware, CPU microcode)
+  are shipped only as their licences allow, unmodified, with their licence texts.
+- **Never redistributed:** Widevine, the Xbox wireless dongle firmware, Steam's runtime, games and
+  store content. They are downloaded by the user's own system, with consent where required.
+- **Trademarks:** third-party names (Xbox, PlayStation, Netflix, Steam…) only to say what works
+  with OwneetOS; no third-party logos; never imply endorsement. "Based on Arch Linux" is allowed;
+  the Arch logo is not used. The name **OwneetOS** gets a trademark search (EUIPO, Italian register)
+  before the public launch.
+- **Third-party services:** only official clients and web apps; no circumvention of DRM or content
+  protection; the Brave extension and any user-agent change are checked against each service's
+  terms of service before they ship (roadmap step 5.2).
+- **Privacy:** no telemetry. Any collection of personal data (e.g. opt-in crash reports) needs
+  explicit consent and a privacy notice compliant with the GDPR.
+
+## 13. Decision log
 
 | Date       | Decision                                                                              |
 | ---------- | ------------------------------------------------------------------------------------- |
@@ -262,3 +289,4 @@ in order; the owner reviews each step before the next one starts.
 | 2026-10-06 | Step 1.5 verified on real hardware (NiPoGi E3B AMD, owner's desktop RTX 4060). Live ISO boots with `copytoram=n` (no copy of the image to RAM: faster boot from USB). |
 | 2026-10-06 | xone packaged without `xone_wired` and without blacklisting `xpad`/`mt76x2u` (wired controllers and USB Wi-Fi adapters keep working); CI builds use the ISO's Arch snapshot for build dependencies too (step 1.7). |
 | 2026-10-07 | `owneetd`: Go; HTTP + JSON over a Unix socket instead of a localhost TCP port (web pages in Brave cannot reach it); runs as a user service of `owneet`, not root (step 2.1). |
+| 2026-10-07 | Legal compliance rules adopted (section 12). CI stops publishing the ISO as a download until releases ship a GPL source archive (option A). |

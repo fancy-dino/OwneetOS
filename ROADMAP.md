@@ -210,7 +210,8 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   **First run on GitHub (2026-10-06): green.** Job `ISO` took about 10 min (2.5 min freeing disk
   space, 7.5 min packages + ISO); artifact `owneetos-dev-iso-14`, 1664 MiB. Downloaded, checksum
   verified, booted in the test VM: console session starts; diagnostics report clean (boot 8.5 s,
-  no failed units).
+  no failed units). **Since 2026-10-07 the ISO is no longer uploaded** (GPL source obligations,
+  PROJECT_RULES.md section 12): CI builds it as a check only.
 
 ### [~] 1.7 Xbox wireless dongle (xone) (software done; real dongle test open)
 
@@ -391,6 +392,9 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 
 ### [ ] 5.2 Extension core
 
+- **Before shipping:** check the extension's behaviour and any user-agent change against the terms
+  of service of each streaming service (PROJECT_RULES.md section 12).
+
 - **Deliverables:** Manifest V3 extension: Gamepad API loop, spatial navigation, B = back, exit to home, OSK for web forms.
 
 ### [ ] 5.3 YouTube
@@ -456,6 +460,9 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 
 - **Deliverables:** tagged release builds the ISO in CI, checks the 2 GB limit, signs, writes
   checksums and release notes, publishes to GitHub Releases.
+- **Legal (PROJECT_RULES.md section 12):** a **source archive** for every release (PKGBUILDs and
+  exact sources of every package in the ISO and the repository), licence list in the ISO; only
+  then may CI publish ISOs and packages again.
 
 ### [ ] 7.3 User guide
 
@@ -466,6 +473,12 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 
 - **Deliverables:** test matrix (Intel / AMD / NVIDIA, old iGPU fallback, 4 GB RAM machine), bug
   fixing, RAM and boot-time measurements against the targets, release **v0.1.0**.
+
+### [ ] 7.5 Legal review before the public launch
+
+- **Deliverables:** trademark search for "OwneetOS" (EUIPO, Italian register); licence notices in
+  the UI ("About → Licences"); review of licences, third-party terms and privacy by someone
+  experienced in open-source licensing (PROJECT_RULES.md section 12).
 
 ---
 

@@ -83,14 +83,8 @@ jobs:
         if: steps.changes.outputs.build == 'true'
         run: docker run --rm --privileged -v "$PWD:/src" "$ARCH_IMAGE" /src/tools/ci/build-iso
 
-      - name: Upload the ISO (unsigned development build)
+      # The ISO is NOT uploaded: publishing binaries requires the GPL source archive that the
+      # release pipeline will provide (PROJECT_RULES.md section 12, roadmap step 7.2).
+      - name: Check the ISO
         if: steps.changes.outputs.build == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: owneetos-dev-iso-${{ github.run_number }}
-          path: |
-            out/owneetos-*.iso
-            out/owneetos-*.iso.sha256
-          if-no-files-found: error
-          retention-days: 7
-          compression-level: 0
+        run: ls -l out/owneetos-*.iso && cd out && sha256sum -c owneetos-*.iso.sha256

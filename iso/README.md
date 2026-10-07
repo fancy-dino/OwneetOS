@@ -19,8 +19,9 @@ The build runs only inside the builder VM (it needs root), or in CI.
 (`OWNEET_NO_CHROOT=1`: the throwaway container already is a clean environment) and then the ISO. It
 runs only when something that goes into the ISO changed (`iso/`, `packages/`, the build scripts or
 the workflow), on demand ("Run workflow" in the Actions tab) and every Monday; otherwise the job
-succeeds at once. The ISO is uploaded as an **unsigned development build** (artifact
-`owneetos-dev-iso-N`, kept 7 days). Signed release builds come with roadmap step 7.2. `tools/build-iso` fails if the ISO is
+succeeds at once. The ISO is **not published**: distributing it requires the GPL source archive
+of the release pipeline (PROJECT_RULES.md section 12, roadmap step 7.2). Test ISOs are built
+locally with `tools/build-in-vm tools/build-iso`. `tools/build-iso` fails if the ISO is
 larger than 2 GiB, the GitHub Releases limit. The ISO version is the date of the last commit, so
 rebuilding the same commit gives the same version.
 
