@@ -17,6 +17,7 @@ import (
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/power"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
 )
 
@@ -40,6 +41,8 @@ type Server struct {
 	Network Network
 	// Audio is PipeWire (through its PulseAudio protocol).
 	Audio Audio
+	// Power is systemd-logind: shut down, restart, suspend (nil without a system bus).
+	Power Power
 
 	started time.Time
 }
@@ -75,6 +78,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /v1/audio/volume", s.handleAudioVolume)
 	mux.HandleFunc("PUT /v1/audio/mute", s.handleAudioMute)
 	mux.HandleFunc("PUT /v1/audio/output", s.handleAudioOutput)
+	mux.HandleFunc("GET /v1/power", s.handlePower)
+	mux.HandleFunc("POST /v1/power/shutdown", s.handlePowerAction(power.Shutdown))
+	mux.HandleFunc("POST /v1/power/restart", s.handlePowerAction(power.Restart))
+	mux.HandleFunc("POST /v1/power/suspend", s.handlePowerAction(power.Suspend))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusNotFound, "not_found", "no such endpoint: "+r.Method+" "+r.URL.Path)
 	})

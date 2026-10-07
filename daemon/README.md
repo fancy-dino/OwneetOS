@@ -34,6 +34,7 @@ VM with `go get`, `go mod tidy`,
 | `internal/bluetooth` | BlueZ over D-Bus: devices, automatic gamepad pairing, pairing agent |
 | `internal/network` | NetworkManager over D-Bus: status, Wi-Fi scan, connect, forget |
 | `internal/audio` | PipeWire (PulseAudio protocol): volume, mute, output selection |
+| `internal/power` | systemd-logind: shut down, restart, suspend; sleep and shutdown events |
 | `vendor/` | vendored Go modules (third-party code, not linted) |
 
 ## Build and test

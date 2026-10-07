@@ -325,7 +325,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   Real-hardware Wi-Fi is tested with the settings UI (step 3.9), or earlier on request. Approved
   by the owner (system-wide saved networks with the polkit rule).
 
-### [~] 2.7 Audio (awaiting owner review)
+### [x] 2.7 Audio
 
 - **Deliverables:** PipeWire: volume, mute, output selection (speakers, HDMI, headset).
 - **Outcome:** `internal/audio`: PipeWire through its PulseAudio protocol (`jfreymuth/pulse`, MIT,
@@ -340,9 +340,17 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   pipewire-pulse, WirePlumber ~40 MB, needed anyway by the UI's sounds). HDMI and Bluetooth outputs
   are checked on real hardware with the settings UI (step 3.9).
 
-### [ ] 2.8 Power
+### [~] 2.8 Power (awaiting owner review)
 
 - **Deliverables:** shut down, restart, suspend.
+- **Outcome:** `internal/power`: systemd-logind over D-Bus (no new dependency). `GET /v1/power`
+  (what is possible), `POST /v1/power/shutdown`, `/restart`, `/suspend`; events
+  `power.suspending`, `power.resumed`, `power.shutting_down`. logind already allows these to the
+  active local session: no polkit rule; owneetd never asks for a password. Hibernation not offered.
+- **Test VM:** all three possible for `owneet`; suspend → QEMU reports the machine suspended, woken
+  through QMP → `power.suspending` and `power.resumed` events, network back; restart → the system
+  boots again; shutdown → VM off in 2 s. The PC's power button keeps logind's default for now
+  (decided with the UI). Suspend/resume on real hardware is checked with the UI (step 3.9).
 
 ### [ ] 2.9 Process manager and Guide button
 

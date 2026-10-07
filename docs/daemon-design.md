@@ -176,11 +176,24 @@ Errors: `audio.unavailable` (503, no audio server), `audio.no_output` (409),
 - WirePlumber remembers volume and default output across restarts.
 - Tested in the test VM with two virtual sound cards (`vm/test.sh boot --audio`).
 
-### Power
+### Power — implemented (2.8)
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/v1/power/shutdown` · `/restart` · `/suspend` | |
+| GET | `/v1/power` | `can_shutdown`, `can_restart`, `can_suspend` |
+| POST | `/v1/power/shutdown` · `/restart` · `/suspend` | 202 once systemd-logind accepted it |
+
+Errors: `power.unavailable` (503), `power.unsupported` (409, e.g. no suspend support),
+`power.not_allowed` (403, a password would be needed), `power.inhibited` (409, a program blocks
+it), `power.failed` (502).
+
+- systemd-logind allows these actions to the active local session without a password (checked
+  in 2.8): no extra polkit rule. owneetd never asks for a password (`interactive=false`).
+- Events from logind's signals: `power.suspending`, `power.resumed` (the UI can, for example,
+  refresh the controller list), `power.shutting_down`.
+- Hibernation is not offered (no swap, and resume times are long).
+- Tested in the test VM: suspend (QEMU reports the machine suspended; woken through QMP), restart,
+  shutdown.
 
 ### Apps and games
 
@@ -216,10 +229,13 @@ Events format). Event types (initial list):
 `bluetooth.auto_pair`, `bluetooth.pairing`, `bluetooth.paired`, `bluetooth.pair_failed`,
 `bluetooth.forgotten` (implemented, 2.5), `network.changed`, `network.connecting`,
 `network.connect_failed`, `network.forgotten`, `wifi.scan_done` (implemented, 2.6), `audio.changed`
-(implemented, 2.7), `app.started`, `app.exited`, `xone.firmware_needed`, `power.changed`, `input.layout_changed` (implemented, 2.4).
+(implemented, 2.7), `power.suspending`, `power.resumed`, `power.shutting_down` (implemented, 2.8), `app.started`,
+`app.exited`, `xone.firmware_needed`, `input.layout_changed` (implemented, 2.4).
 
 ## 5. Open points for later steps
 
+- The PC's power button keeps logind's default (shut down) for now; a console-like behaviour
+  (e.g. short press = suspend) is decided with the UI.
 - Focus switching inside gamescope (bring the UI back on Guide) — step 2.9.
 - Which privileged helpers exist and their interfaces — installer (6.3), updates (7.1), disks (6.5).
 - Configuration file format and location — step 2.2.

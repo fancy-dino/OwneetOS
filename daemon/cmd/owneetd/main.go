@@ -21,6 +21,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/network"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/power"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/sdldb"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/vinput"
@@ -107,6 +108,15 @@ func run(configPath string) error {
 	sound := &audio.Pulse{Log: log, Broker: broker}
 	go sound.Run(ctx)
 
+	var powerAPI api.Power
+	if logind, err := power.New(log, broker); err != nil {
+		log.Warn("power control not available", "err", err)
+	} else {
+		defer logind.Close()
+		powerAPI = logind
+		go logind.Run(ctx)
+	}
+
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
@@ -116,6 +126,7 @@ func run(configPath string) error {
 		Bluetooth:       btAPI,
 		Network:         netAPI,
 		Audio:           sound,
+		Power:           powerAPI,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)
