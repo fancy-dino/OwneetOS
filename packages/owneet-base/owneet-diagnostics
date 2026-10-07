@@ -11,6 +11,15 @@ set -u
 report=/run/owneet-diagnostics.txt
 sleep 15   # let the console session start first
 
+# Asks owneetd (the console user's daemon) and prints its JSON compactly: one line per object.
+owneetd_get() {
+    local uid
+    uid="$(id -u owneet)"
+    runuser -u owneet -- env XDG_RUNTIME_DIR="/run/user/$uid" owneetctl get "$1" 2>&1 \
+        | tr -d '\n' | tr -s ' ' | sed 's/\[ *{/\n{/g; s/}, *{/}\n{/g' | tr -d '{}[]"'
+    echo
+}
+
 show_report() {
     # shellcheck disable=SC1091
     echo "=== OwneetOS diagnostics ($(. /etc/os-release; echo "${IMAGE_VERSION:-unknown}"), kernel $(uname -r))"
@@ -23,9 +32,8 @@ show_report() {
     echo "--- memory (MiB)";    free -m | head -2
     echo "--- failed units";    systemctl --failed --no-legend --plain --no-pager
     echo "--- last errors";     journalctl -b -p err -o cat --no-pager | tail -6
-    echo "--- Bluetooth";       bt="$(bluetoothctl show 2>/dev/null | grep -E 'Controller|Powered:|Discovering:')"
-                                echo "${bt:-no adapter}" | paste -sd' '
-    echo "--- paired devices";  bluetoothctl devices Paired 2>/dev/null
+    echo "--- controllers";     owneetd_get /v1/controllers
+    echo "--- Bluetooth";       owneetd_get /v1/bluetooth
     echo "--- owneetd";         journalctl -b _SYSTEMD_USER_UNIT=owneetd.service -o cat --no-pager \
                                     | grep -iE 'bluetooth|pairing|controller' | tail -5
 }

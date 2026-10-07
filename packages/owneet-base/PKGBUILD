@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.7
+pkgver=0.0.8
 pkgrel=1
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
@@ -12,8 +12,8 @@ depends=('base' 'owneet-keyring' 'owneet-session' 'owneet-branding' 'owneet-hard
 install=owneet-base.install
 source=('owneet-release' 'owneet-diagnostics' 'owneet-diagnostics.service' '50-owneet-base.preset')
 sha256sums=('74f473c3e5cec980798421ac667c84f3938a1e93160b37112300a25aa2ea0400'
-            'f79eb15e30b47d6209fbb0c8a8a0cae0243710ec65e10bbf26f996d0b7929bb1'
-            'e77cc53e17ad0fd80372fb1b82ccff9a0cc8c7897cc064c305976ad58c2d936f'
+            '736ce9e62c383bfe5b293e1da6e1e74cfa9cbaf639f9a1f07fd005d9011196a2'
+            'dfcdb91edaa6fd46121f8f3a2ce95b0a8e461c5f04c6f9325a1babe45e53cdea'
             '9d4565c8345f6e84c8a7667f7174e8b2c7e5e9f55d30122084f3fa97f95c05fc')
 
 package() {

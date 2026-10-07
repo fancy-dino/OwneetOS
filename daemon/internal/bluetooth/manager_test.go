@@ -228,3 +228,23 @@ func TestNoAdapter(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestNameIgnoresAddressAliases(t *testing.T) {
+	fake := newFake(
+		Device{Address: "AA:00:00:00:00:01", Name: "Xbox Wireless Controller", Paired: true},
+		Device{Address: "AA:00:00:00:00:02", Name: "AA-00-00-00-00-02"}, // name not resolved yet
+	)
+	m := &Manager{Backend: fake}
+	_, stop := run(t, m)
+	defer stop()
+	time.Sleep(60 * time.Millisecond)
+	if got := m.Name("aa:00:00:00:00:01"); got != "Xbox Wireless Controller" {
+		t.Errorf("Name(known) = %q", got)
+	}
+	if got := m.Name("AA:00:00:00:00:02"); got != "" {
+		t.Errorf("Name(unresolved) = %q, want empty", got)
+	}
+	if got := m.Name("AA:00:00:00:00:03"); got != "" {
+		t.Errorf("Name(unknown) = %q, want empty", got)
+	}
+}

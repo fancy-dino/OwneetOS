@@ -13,6 +13,10 @@ StandardOutput=tty
 TTYPath=/dev/tty9
 TTYReset=yes
 TTYVHangup=yes
+# The interactive root shell left open at the end ignores SIGTERM: without this, shutting down
+# waits 90 s for it.
+KillSignal=SIGHUP
+TimeoutStopSec=5
 
 [Install]
 WantedBy=multi-user.target

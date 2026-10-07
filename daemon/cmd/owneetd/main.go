@@ -62,7 +62,13 @@ func run(configPath string) error {
 	if dbErr != nil {
 		log.Warn("controller database not loaded: generic controllers may lack a Guide button", "err", dbErr)
 	}
-	pads := &gamepad.Manager{Broker: broker, Log: log, DB: db}
+	bt := &bluetooth.Manager{
+		Broker:                    broker,
+		Log:                       log,
+		AutoPairWithoutController: cfg.BluetoothAutoPairWithoutController,
+	}
+	pads := &gamepad.Manager{Broker: broker, Log: log, DB: db, BluetoothName: bt.Name}
+	bt.Controllers = func() int { return len(pads.List()) }
 	go func() {
 		if err := pads.Run(ctx); err != nil {
 			log.Error("controller tracking stopped", "err", err)
@@ -77,12 +83,6 @@ func run(configPath string) error {
 		input = vin
 	}
 
-	bt := &bluetooth.Manager{
-		Broker:                    broker,
-		Log:                       log,
-		Controllers:               func() int { return len(pads.List()) },
-		AutoPairWithoutController: cfg.BluetoothAutoPairWithoutController,
-	}
 	var btAPI api.Bluetooth
 	if backend, err := bluetooth.NewBlueZ(log, bt); err != nil {
 		log.Warn("Bluetooth not available", "err", err)

@@ -49,6 +49,9 @@ type Manager struct {
 	SysInputDir string
 	// BatteryInterval is how often battery levels are refreshed.
 	BatteryInterval time.Duration
+	// BluetoothName returns the name BlueZ knows for a Bluetooth address ("" if unknown). Bluetooth
+	// LE controllers often have a generic input device name ("bluez-hog-device").
+	BluetoothName func(address string) string
 
 	mu    sync.Mutex
 	devs  map[string]*tracked // by device path
@@ -90,11 +93,19 @@ func (m *Manager) init() {
 func (m *Manager) List() []Controller {
 	m.init()
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	out := []Controller{}
 	for _, t := range m.devs {
 		if !t.companion {
 			out = append(out, t.info)
+		}
+	}
+	m.mu.Unlock()
+	// The BlueZ name may become known only after the controller connected (first pairing).
+	for i := range out {
+		if out[i].Connection == "bluetooth" && m.BluetoothName != nil {
+			if name := m.BluetoothName(out[i].ID); name != "" {
+				out[i].Name = name
+			}
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
@@ -292,7 +303,7 @@ func (m *Manager) guideCode(d *evdev.Device) int {
 }
 
 func (m *Manager) describe(d *evdev.Device, hasGuide bool) Controller {
-	return Controller{
+	c := Controller{
 		ID:         controllerID(d),
 		Name:       d.Name,
 		Brand:      brand(d.ID.Vendor),
@@ -301,6 +312,12 @@ func (m *Manager) describe(d *evdev.Device, hasGuide bool) Controller {
 		Product:    hex4(d.ID.Product),
 		HasGuide:   hasGuide,
 	}
+	if c.Connection == "bluetooth" && d.Uniq != "" && m.BluetoothName != nil {
+		if name := m.BluetoothName(d.Uniq); name != "" {
+			c.Name = name
+		}
+	}
+	return c
 }
 
 // controllerID is stable across reconnections when the device has a unique id (Bluetooth MAC).

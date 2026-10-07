@@ -279,7 +279,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   console session by a udev `uaccess` rule (owneetd stays unprivileged), `uinput` loaded at boot.
   Integration test reads back the key events of the real virtual keyboard (Italian "a@" + Enter).
 
-### [~] 2.5 Bluetooth (software done; real-hardware test open)
+### [~] 2.5 Bluetooth (awaiting owner review)
 
 - **Deliverables:** BlueZ over D-Bus: list, pair, trust, forget; **automatic gamepad pairing
   mode** (accept any device that identifies as a gamepad, no input needed).
@@ -294,8 +294,16 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   connect / disconnect / forget; events `bluetooth.*`. Unit tests with a fake BlueZ (policy, agent,
   no adapter) and API tests; race detector clean. **Test VM (no adapter):** `adapter: false`, clean
   log, no failed units; owneetd ~18 MB RSS (9.7 MB anonymous + 8.2 MB binary pages). The
-  diagnostics report (tty9) now shows adapter, paired devices and owneetd's Bluetooth log, and
-  refreshes with Enter. Open: zero-input pairing of a real controller on real hardware.
+  diagnostics report (tty9) shows owneetd's controllers and Bluetooth state and its log, and
+  refreshes with Enter.
+- **Outcome on real hardware (2026-10-07, NiPoGi E3B, owner's Xbox Wireless Controller over
+  Bluetooth LE):** live ISO, no controller connected → auto-pair on at boot; controller put in
+  pairing mode → paired, trusted and connected in 5 s with no input (`pairing gamepad` 18:04:05,
+  `controller connected … guide=true` 18:04:10), auto-pair off; controller switched off and on →
+  reconnected by itself in 4 s. Fixed after the test: the report used `bluetoothctl`, which fails
+  without a terminal (showed "no adapter"; now it asks owneetd); Bluetooth LE controllers were named
+  `bluez-hog-device` (now BlueZ's device name is used); `poweroff` from the diagnostics shell waited
+  90 s for the shell to exit (now 3 s; normal shutdown was not affected).
 
 ### [ ] 2.6 Network
 

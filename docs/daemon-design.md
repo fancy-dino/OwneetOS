@@ -113,6 +113,8 @@ owneetd registers a BlueZ **pairing agent** with the `NoInputNoOutput` capabilit
 or compare a code). It accepts a pairing request **only from a gamepad while auto-pair is on** and
 rejects everything else, so keyboards, phones or headsets are never paired without the user. The
 agent is registered again when bluetoothd starts or restarts. Trusted devices reconnect by themselves.
+Bluetooth controllers are listed in `/v1/controllers` with BlueZ's device name (Bluetooth LE
+controllers otherwise appear as `bluez-hog-device`).
 
 D-Bus library: `github.com/godbus/dbus/v5` (BSD-2-Clause), **vendored** in `daemon/vendor/` with
 its dependency `golang.org/x/sys` (BSD-3-Clause): the package build needs no network and the source

@@ -189,6 +189,22 @@ func (m *Manager) AllowPairing(address string) bool {
 	return false
 }
 
+// Name returns the name of a known device, or "" when BlueZ does not know it (its alias is then
+// just the address).
+func (m *Manager) Name(address string) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, d := range m.state.Devices {
+		if strings.EqualFold(d.Address, address) {
+			if strings.EqualFold(strings.ReplaceAll(d.Name, "-", ":"), d.Address) {
+				return ""
+			}
+			return d.Name
+		}
+	}
+	return ""
+}
+
 // IsTrusted tells the agent whether a device is already trusted (its services are authorised).
 func (m *Manager) IsTrusted(address string) bool {
 	m.mu.Lock()
