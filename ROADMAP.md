@@ -232,7 +232,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 
 ## Phase 2 — System daemon (`owneetd`)
 
-### [?] 2.1 Language decision and API design — **Owner input**
+### [~] 2.1 Language decision and API design — **Owner input** (draft: docs/daemon-design.md)
 
 - **Goal:** choose **Go or Rust** and design the local API before writing the daemon.
 - **Deliverables:** short comparison (RAM, binary size, D-Bus/evdev libraries, contributor
