@@ -253,7 +253,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   error on unknown endpoints, another user is refused by the socket, ~10.6 MB RAM. Test tooling:
   the VM debug shell moved to a virtio console (reliable, unlike the emulated serial port).
 
-### [~] 2.3 Controller input (waiting for the real-controller check)
+### [x] 2.3 Controller input
 
 - **Deliverables:** evdev discovery and hot-plug, SDL_GameControllerDB mapping, Guide button
   detection, controller battery level, event stream to clients.
@@ -263,7 +263,10 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   from sysfs power_supply; `GET /v1/controllers`, events `controller.added/removed/battery` and
   `guide.pressed`. Integration tests create real virtual controllers through `/dev/uinput` (Xbox-like
   pad: hot-plug, Guide, removal; generic pad: Guide found through the database): pass in the builder
-  VM, run by `tools/lint` and CI. **Open:** check with the owner's Xbox controller (passthrough).
+  VM, run by `tools/lint` and CI. **Real controller (2026-10-07):** the owner's Xbox Wireless
+  Controller (Bluetooth, passed to the test VM) is listed as brand `xbox`, connection `bluetooth`,
+  Guide available; 3 presses of the Xbox button gave exactly 3 `guide.pressed` events, other
+  buttons none. (In the VM the id is the virtio path: the Bluetooth address is not passed through.)
 
 ### [ ] 2.4 Virtual input (uinput)
 
