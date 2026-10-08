@@ -432,10 +432,12 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 
 - **Deliverables:** Appearance (palette, text size, reduce motion, persisted), Network, Controllers
   and Bluetooth, Audio, Display (resolution, refresh rate via gamescope; with several screens,
-  which one the console uses, and the others turned off), Language, Storage (read-only),
-  System (version, restart, shut down).
+  which one the console uses), Language, Storage (read-only), System (version, restart, shut down).
 - **Known issue to fix here (2026-10-08, owner's desktop with two monitors on two GPUs):**
   gamescope uses one screen; a screen on the other GPU keeps showing the frozen boot splash.
+  Other screens are **not** turned off by default (owner's decision): they must show something
+  sensible instead of the frozen splash. Using a second screen for something (e.g. chat, guides)
+  is a possible later feature.
 
 ### [ ] 3.10 On-screen keyboard
 

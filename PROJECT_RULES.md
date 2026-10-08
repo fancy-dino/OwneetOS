@@ -295,3 +295,5 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-07 | Third-party Go modules are vendored in `daemon/vendor/` (builds need no network; licences shipped with the package). |
 | 2026-10-07 | Guide button (step 2.9): in the gamescope session it toggles between the home screen and the running game, which keeps running behind the home screen; in the reduced (cage) session, where the home screen cannot be shown over a game, holding Guide for 2 seconds closes the game and a short press does nothing. |
 | 2026-10-07 | gamescope runs with `--steam`: owneetd tags each window with an app id and chooses what is on screen (as Steam does on SteamOS); each game or app runs in its own systemd user service, so closing it stops all of its processes. |
+| 2026-10-08 | With the NVIDIA driver, gamescope always composites (direct scanout showed flickering black rectangles on the owner's RTX 4060). |
+| 2026-10-08 | Several screens: the console uses one (choice in Settings, step 3.9); the others are not turned off by default, a use for a second screen may come later. |
