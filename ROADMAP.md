@@ -537,6 +537,15 @@ code is written (PROJECT_RULES.md section 9).
 
 - **Deliverables:** notice area on home + transient toasts fed by daemon events.
 
+### [ ] 3.12 Interface sounds *(Owner input: sound files)*
+
+- **Deliverables:** sounds for navigation and feedback, as listed in `design/sounds.md` (WAV
+  files provided by the owner, with their licences in `CREDITS.md`); a sound service in the theme
+  (Qt `SoundEffect`, preloaded, no delay), played by the shared navigation components (3.5) so every
+  screen gets them; Settings → Sound: "Interface sounds" on/off and volume; silent while a game is
+  on screen. Priority-2 sounds are wired when their features arrive (notifications, controllers,
+  game launch, on-screen keyboard).
+
 ---
 
 ## Phase 4 — Games

@@ -14,6 +14,9 @@ Mockups and design assets.
     language list. Start state in the address: `#pal=ember&glyphs=ps&lang=it&ts=1.2&safe=1`
     (add `&open=palette` or `&open=language` to open a picker).
 
+- [`sounds.md`](sounds.md): the interface sounds (list, length, file format), provided by the
+  owner (roadmap 3.12).
+
 Design rules (palettes as tokens, fonts, TV safe area, input map) are in PROJECT_RULES.md section 9.
 
 ## Fonts

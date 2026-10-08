@@ -1,0 +1,54 @@
+# Interface sounds
+
+Sounds the OwneetOS interface plays (roadmap step 3.12). The owner provides the files; this page
+is the list and the technical requirements.
+
+## File requirements
+
+- **Format:** WAV, PCM 16-bit, 48 kHz (PipeWire's native rate: no resampling), **mono**
+  (stereo only if the sound really uses it). Uncompressed so it plays without delay
+  (Qt's `SoundEffect` plays only WAV).
+- **No silence at the start:** the sound must begin on the first millisecond, otherwise it feels
+  late. A short fade-out at the end, no long tail or reverb.
+- **Same loudness for the whole set:** peaks around −6 dBFS, the frequent sounds (move, tick)
+  softer than the rest. They will be played quietly, under the TV's volume.
+- **One family:** the same "material" for all sounds (e.g. soft wooden/glass clicks, warm synth),
+  so that they sound like one interface. Frequent sounds must not tire after hours of use.
+- **Licence:** own work, or a licence that allows redistribution and commercial use (CC0, CC BY,
+  CC BY-SA; never NonCommercial or NoDerivatives; PROJECT_RULES.md section 12). For each file:
+  author, source and licence, for `CREDITS.md`.
+- **Name:** the file names below (e.g. `nav-move.wav`).
+
+## List
+
+Priority **1** = needed for the first version of the interface (step 3.12), **2** = needed when
+its feature arrives, **3** = optional.
+
+| File | When | Length | Prio |
+|---|---|---|---|
+| `nav-move.wav` | The selection moves (D-pad / stick); also each tick of fast scrolling | 20–50 ms | 1 |
+| `nav-edge.wav` | The selection cannot move further, or a disabled item is pressed ("blocked") | 60–120 ms | 1 |
+| `nav-confirm.wav` | A / ✕ on an item (select, open) | 60–150 ms | 1 |
+| `nav-back.wav` | B / ○ (back, close, cancel) | 60–150 ms | 1 |
+| `nav-section.wav` | LB / RB: another top-level section (Home, Library, Settings) | 120–250 ms | 1 |
+| `nav-tab.wav` | LT / RT: another filter or sub-tab | 60–120 ms | 1 |
+| `toggle-on.wav` | A switch turned on | 60–120 ms | 1 |
+| `toggle-off.wav` | A switch turned off (same sound as `toggle-on`, lower or reversed) | 60–120 ms | 1 |
+| `sheet-open.wav` | A window / picker / options menu opens | 120–250 ms | 1 |
+| `sheet-close.wav` | That window closes (mirror of `sheet-open`) | 100–200 ms | 1 |
+| `volume-tick.wav` | Volume changed in Settings (played at the new volume, as a preview) | 80–150 ms | 1 |
+| `notify.wav` | A notification appears (download finished, friend online…) | 250–600 ms | 2 |
+| `success.wav` | An action completed (Wi-Fi connected, controller paired, update installed) | 250–700 ms | 2 |
+| `warning.wav` | A warning that needs attention (low battery, disk almost full) | 300–600 ms | 2 |
+| `error.wav` | Something failed (wrong Wi-Fi password, game did not start) | 300–600 ms | 2 |
+| `pad-connected.wav` | A controller connects | 250–500 ms | 2 |
+| `pad-disconnected.wav` | A controller disconnects (mirror of `pad-connected`) | 250–500 ms | 2 |
+| `game-launch.wav` | A game or app starts | 0.5–1.5 s | 2 |
+| `home-open.wav` | Guide: the home screen opens over a running game | 150–300 ms | 2 |
+| `key-press.wav` | A key of the on-screen keyboard (step 3.10); softer than `nav-confirm` | 20–50 ms | 2 |
+| `key-delete.wav` | Delete on the on-screen keyboard | 20–60 ms | 3 |
+| `startup.wav` | The interface appears after boot (short "console on" chime) | 1.5–3 s | 3 |
+| `screenshot.wav` | A screenshot is taken (later wave) | 150–400 ms | 3 |
+
+Sounds are never played while a game is on screen (except over the home screen and, later, the
+quick menu). Settings → Sound will have "Interface sounds" on/off and their volume.
