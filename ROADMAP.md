@@ -431,8 +431,11 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 ### [ ] 3.9 Settings *(multi-prompt)*
 
 - **Deliverables:** Appearance (palette, text size, reduce motion, persisted), Network, Controllers
-  and Bluetooth, Audio, Display (resolution, refresh rate via gamescope), Language, Storage (read-only),
+  and Bluetooth, Audio, Display (resolution, refresh rate via gamescope; with several screens,
+  which one the console uses, and the others turned off), Language, Storage (read-only),
   System (version, restart, shut down).
+- **Known issue to fix here (2026-10-08, owner's desktop with two monitors on two GPUs):**
+  gamescope uses one screen; a screen on the other GPU keeps showing the frozen boot splash.
 
 ### [ ] 3.10 On-screen keyboard
 
