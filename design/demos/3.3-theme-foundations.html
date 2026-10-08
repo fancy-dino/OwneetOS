@@ -19,12 +19,6 @@
   --ts: 1;                 /* text size factor (Settings → Appearance) */
   --motion: 1;             /* 0 with "Reduce motion" */
 }
-.stage[data-palette="dusk"]     { --bg:#0E1424; --surface:#172036; --raised:#222D4A; --line:#2E3A5C; --fg:#EEF1F8; --muted:#8F9AB5; --accent:#FF8A5B; --on-accent:#1E0E06; }
-.stage[data-palette="tide"]     { --bg:#0B1A1D; --surface:#12272B; --raised:#1B363B; --line:#26474D; --fg:#E9F4F3; --muted:#86A6A6; --accent:#4FD1C5; --on-accent:#04201D; }
-.stage[data-palette="bloom"]    { --bg:#1A1020; --surface:#25182D; --raised:#33223D; --line:#45304F; --fg:#F7EEF6; --muted:#AE93AE; --accent:#FF7AA8; --on-accent:#2A0614; }
-.stage[data-palette="daylight"] { --bg:#EEF0F5; --surface:#FFFFFF; --raised:#E2E6EF; --line:#C9CFDC; --fg:#121826; --muted:#5A6378; --accent:#2F5BEA; --on-accent:#FFFFFF; }
-.stage[data-palette="contrast"] { --bg:#000000; --surface:#000000; --raised:#161616; --line:#FFFFFF; --fg:#FFFFFF; --muted:#E0E0E0; --accent:#FFE14D; --on-accent:#000000; }
-
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: #05070C; }
 body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
@@ -122,10 +116,28 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .value { color: var(--muted); }
 
 /* Appearance */
-.pals { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(56px * var(--ts)), 1fr)); gap: 8px; }
-.pal { display: grid; gap: 6px; padding: 7px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); text-align: center; }
-.pal .strip { display: grid; grid-template-columns: repeat(3, 1fr); height: 22px; border-radius: 6px; overflow: hidden; }
-.pal[aria-pressed="true"] { border-color: var(--accent); }
+.pick-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 16px; width: 100%;
+            background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.pick-row .cur { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); }
+.pick-row .cur::after { content: "›"; font-size: 1.3em; line-height: 1; }
+.mini-strip { display: inline-grid; grid-template-columns: repeat(4, 12px); height: 16px; border-radius: 5px; overflow: hidden; border: 1px solid var(--line); }
+
+/* Picker window (palette grid, language list) */
+.overlay { position: absolute; inset: 0; background: rgba(0,0,0,.55); display: none; z-index: 10; }
+.overlay.open { display: block; }
+.sheet { position: absolute; inset: 56px 64px 76px; background: var(--bg); border: 1px solid var(--line); border-radius: 18px;
+         padding: 20px 24px; display: grid; grid-template-rows: auto 1fr; gap: 14px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.7); }
+.sheet.narrow { inset: 150px 360px auto; max-height: 440px; }
+.picker-open > .prompts { visibility: hidden; } /* the open window has its own prompt bar */
+.sheet-body { overflow-y: auto; scrollbar-width: none; padding: 8px; margin: -8px; display: grid; gap: 12px; align-content: start; }
+.pal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+.pal-card { display: grid; gap: 7px; padding: 8px; border-radius: 12px; border: 1px solid var(--line); text-align: center; }
+.pal-card .strip4 { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; height: 34px; border-radius: 7px; overflow: hidden; }
+.pal-card[aria-pressed="true"] { border-color: var(--accent); }
+.lang-list { display: grid; gap: 8px; }
+.lang-item { display: flex; justify-content: space-between; padding: 11px 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+.lang-item[aria-pressed="true"]::after { content: "✓"; color: var(--accent); font-weight: 600; }
+.sheet-prompts { position: absolute; left: 64px; right: 64px; bottom: 28px; }
 .seg { display: grid; grid-auto-flow: column; gap: 6px; }
 .seg button { padding: 8px 0; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); text-align: center; color: var(--muted); }
 .seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 500; }
@@ -156,8 +168,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       <nav class="tabs t-s" id="tabs">
         <span class="tab" data-tab data-i18n="tab.home">Home</span>
         <span class="tab" data-tab data-i18n="tab.library">Library</span>
-        <span class="tab" data-tab aria-current="page" data-i18n="tab.foundations">Foundations</span>
-        <span class="tab" data-tab data-i18n="tab.settings">Settings</span>
+        <span class="tab" data-tab aria-current="page" data-i18n="tab.settings">Settings</span>
       </nav>
     </div>
     <div class="status t-s">
@@ -209,8 +220,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 
     <!-- Appearance (what Settings → Appearance will offer) -->
     <section class="panel">
-      <span class="label t-xs" data-i18n="h.palette">Color palette</span>
-      <div class="pals t-xs" id="pals"></div>
+      <span class="label t-xs" data-i18n="h.appearance">Appearance</span>
+      <button class="pick-row t-s" data-f data-open="palette"><span data-i18n="h.palette">Color palette</span><span class="cur"><span class="mini-strip" id="cur-strip"></span><span id="cur-pal">Dusk</span></span></button>
       <span class="label t-xs" data-i18n="h.textsize">Text size</span>
       <div class="seg t-s" id="sizes">
         <button data-f data-size="0.9">S</button>
@@ -226,10 +237,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       </div>
       <button class="set-row t-s" data-f data-switch data-opt="motion" role="switch" aria-checked="false"><span data-i18n="row.motion">Reduce motion</span><span class="switch"></span></button>
       <button class="set-row t-s" data-f data-switch data-opt="safe" role="switch" aria-checked="false"><span data-i18n="row.safe">Show TV safe area</span><span class="switch"></span></button>
-      <div class="seg t-s" id="langs">
-        <button data-f data-lang="en" aria-pressed="true">English</button>
-        <button data-f data-lang="it">Italiano</button>
-      </div>
+      <button class="pick-row t-s" data-f data-open="language"><span data-i18n="h.language">Language</span><span class="cur" id="cur-lang">English</span></button>
     </section>
   </main>
 
@@ -243,10 +251,32 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     </div>
     <div class="set">
       <span class="prompt"><span data-glyph="lb"></span><span data-glyph="rb"></span><span data-i18n="p.sections">Sections</span></span>
-      <span class="prompt"><span data-glyph="guide"></span><span data-i18n="p.guide">Home, from anywhere</span></span>
+      <span class="prompt"><span data-glyph="guide"></span><span data-i18n="p.guide">Home</span></span>
     </div>
   </footer>
   <div class="toast t-s" id="toast"></div>
+
+  <!-- Picker windows -->
+  <div class="overlay" id="ov-palette">
+    <div class="sheet">
+      <span class="disp t-l" data-i18n="h.palette">Color palette</span>
+      <div class="sheet-body" id="pal-body"></div>
+    </div>
+    <div class="prompts t-s sheet-prompts"><div class="set">
+      <span class="prompt"><span data-glyph="a"></span><span data-i18n="p.apply">Apply</span></span>
+      <span class="prompt"><span data-glyph="b"></span><span data-i18n="p.cancel">Cancel</span></span>
+    </div><span class="muted" data-i18n="p.preview">Moving the selection previews the palette</span></div>
+  </div>
+  <div class="overlay" id="ov-language">
+    <div class="sheet narrow">
+      <span class="disp t-l" data-i18n="h.language">Language</span>
+      <div class="sheet-body lang-list t-m" id="lang-body"></div>
+    </div>
+    <div class="prompts t-s sheet-prompts"><div class="set">
+      <span class="prompt"><span data-glyph="a"></span><span data-i18n="p.select">Select</span></span>
+      <span class="prompt"><span data-glyph="b"></span><span data-i18n="p.back">Back</span></span>
+    </div></div>
+  </div>
 </div></div>
 
 <p class="help"><b>Gamepad:</b> D-pad / stick move, A select, B back, X details, Y safe area, LB/RB sections, LT/RT filter, Menu options.
@@ -267,18 +297,34 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   }
   addEventListener('resize', fit); fit();
 
-  /* ---------- Palettes and contrast (WCAG) ---------- */
-  const PALETTES = {
-    dusk:     ['Dusk', '#0E1424', '#222D4A', '#FF8A5B'],
-    tide:     ['Tide', '#0B1A1D', '#1B363B', '#4FD1C5'],
-    bloom:    ['Bloom', '#1A1020', '#33223D', '#FF7AA8'],
-    daylight: ['Daylight', '#EEF0F5', '#E2E6EF', '#2F5BEA'],
-    contrast: ['Contrast', '#000000', '#FFFFFF', '#FFE14D'],
-  };
+  /* ---------- Palettes: eight tokens each (bg, surface, raised, line, fg, muted, accent, on-accent).
+     Every palette was checked: text ≥ 7:1, secondary text and text on accent ≥ 4.5:1, accent ≥ 3:1. */
+  const PALETTES = [
+    ['dusk', 'Dusk', 'dark', '#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+    ['tide', 'Tide', 'dark', '#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+    ['bloom', 'Bloom', 'dark', '#1A1020', '#25182D', '#33223D', '#45304F', '#F7EEF6', '#AE93AE', '#FF7AA8', '#2A0614'],
+    ['ember', 'Ember', 'dark', '#1C0F0C', '#2A1713', '#3A201A', '#4E2C24', '#FBEDE9', '#C49C93', '#FF6B47', '#2A0A03'],
+    ['espresso', 'Espresso', 'dark', '#1A1310', '#261C17', '#33261F', '#47362C', '#F5ECE4', '#BBA693', '#D9A066', '#2A1707'],
+    ['harbor', 'Harbor', 'dark', '#0D1B2E', '#14263D', '#1D3350', '#2A4566', '#F3EAD8', '#B7AE99', '#E8D3A8', '#142033'],
+    ['forest', 'Forest', 'dark', '#0E1A14', '#15261D', '#1E3428', '#2B4636', '#ECF5EE', '#95B2A0', '#7BD88F', '#072012'],
+    ['lagoon', 'Lagoon', 'dark', '#0A1426', '#101E38', '#182A4B', '#23395F', '#EAF1FF', '#90A4C9', '#4DA3FF', '#03162E'],
+    ['amethyst', 'Amethyst', 'dark', '#15121F', '#1F1A2E', '#2A2340', '#3A3155', '#F1EDFA', '#A99FC4', '#B69CFF', '#1B0E3A'],
+    ['crimson', 'Crimson', 'dark', '#170A0E', '#241018', '#321722', '#47202F', '#FCECEF', '#C597A1', '#FF4D6D', '#2B0510'],
+    ['synthwave', 'Synthwave', 'dark', '#140B24', '#1F1236', '#2B1A4A', '#3D2563', '#FBEFFF', '#B99DD8', '#FF4FD8', '#2B0326'],
+    ['amber', 'Amber', 'dark', '#0F0B05', '#1A1409', '#251C0D', '#3A2C14', '#FFE8C2', '#C9AA78', '#FFB000', '#241700'],
+    ['olive', 'Olive', 'dark', '#14160E', '#1E2116', '#292D1F', '#3A402B', '#F1F3E6', '#ABB092', '#C5D86D', '#1C2306'],
+    ['graphite', 'Graphite', 'dark', '#121212', '#1C1C1C', '#262626', '#383838', '#F2F2F2', '#A6A6A6', '#DADADA', '#121212'],
+    ['daylight', 'Daylight', 'light', '#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+    ['arctic', 'Arctic', 'light', '#EEF5FA', '#FFFFFF', '#DCE9F3', '#C3D5E4', '#0F1E2B', '#4E6577', '#0A78B8', '#FFFFFF'],
+    ['sand', 'Sand', 'light', '#F4EEE3', '#FFFBF4', '#E8DFD0', '#D3C6B1', '#2A2117', '#6A5C49', '#B04A28', '#FFFFFF'],
+    ['latte', 'Latte', 'light', '#F3ECE4', '#FFFAF5', '#E6DACD', '#D2C1AF', '#2B1E14', '#6B5746', '#8B5A2B', '#FFFFFF'],
+    ['sakura', 'Sakura', 'light', '#FBEFF3', '#FFFFFF', '#F3DDE5', '#E3C3CF', '#2A1420', '#76505F', '#C92A62', '#FFFFFF'],
+    ['contrast', 'High contrast', 'access', '#000000', '#000000', '#161616', '#FFFFFF', '#FFFFFF', '#E0E0E0', '#FFE14D', '#000000'],
+    ['contrast-light', 'High contrast light', 'access', '#FFFFFF', '#FFFFFF', '#EDEDED', '#000000', '#000000', '#262626', '#0038B8', '#FFFFFF'],
+  ];
   const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
-  $('#pals').innerHTML = Object.entries(PALETTES).map(([k, [name, a, b, c]]) =>
-    `<button class="pal" data-f data-pal="${k}" aria-pressed="${k === 'dusk'}"><span class="strip"><i style="background:${a}"></i><i style="background:${b}"></i><i style="background:${c}"></i></span>${name}</button>`).join('');
-  $('#swatches').innerHTML = TOKENS.map(t => `<span class="sw"><i style="background:var(--${t})"></i><span class="muted">${t}</span></span>`).join('');
+  const palette = k => PALETTES.find(p => p[0] === k);
+  let palKey = 'dusk';
 
   function lum(hex) {
     const v = hex.replace('#', '').match(/../g).map(h => parseInt(h, 16) / 255)
@@ -286,21 +332,24 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
   }
   function ratio(a, b) { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); }
-  function token(t) { return getComputedStyle(stage).getPropertyValue('--' + t).trim(); }
-  function showContrast() {
+  function applyPalette(k) {
+    const p = palette(k);
+    TOKENS.forEach((t, i) => stage.style.setProperty('--' + t, p[3 + i]));
+    const [bg, , , , fg, muted, accent, on] = p.slice(3);
     const fmt = r => `${r.toFixed(1)} : 1 ${r >= 7 ? 'AAA' : r >= 4.5 ? 'AA' : r >= 3 ? 'AA large' : '✗'}`;
-    $('#c1').textContent = fmt(ratio(token('fg'), token('bg')));
-    $('#c2').textContent = fmt(ratio(token('muted'), token('bg')));
-    $('#c3').textContent = fmt(ratio(token('on-accent'), token('accent')));
+    $('#c1').textContent = fmt(ratio(fg, bg));
+    $('#c2').textContent = fmt(ratio(muted, bg));
+    $('#c3').textContent = fmt(ratio(on, accent));
   }
-  function setPalette(p) {
-    stage.dataset.palette = p;
-    $$('[data-pal]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pal === p)));
-    showContrast();
+  function setPalette(k) {
+    palKey = k; applyPalette(k);
+    const p = palette(k);
+    $('#cur-pal').textContent = p[1];
+    $('#cur-strip').innerHTML = [3, 5, 9, 7].map(i => `<i style="background:${p[i]}"></i>`).join('');
   }
-  showContrast();
+  $('#swatches').innerHTML = TOKENS.map(t => `<span class="sw"><i style="background:var(--${t})"></i><span class="muted">${t}</span></span>`).join('');
 
-  /* ---------- Button glyphs, drawn for OwneetOS ---------- */
+  /* ---------- Button glyphs, drawn for OwneetOS (no third-party logos) ---------- */
   let glyphSet = 'auto', padKind = 'xbox';
   const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
   const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
@@ -325,26 +374,30 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   drawGlyphs();
 
   /* ---------- i18n (the console uses JSON message files; this demo inlines two) ---------- */
+  const LANGS = [['en', 'English'], ['it', 'Italiano']];
   const IT = {
-    'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.foundations': 'Fondamenti', 'tab.settings': 'Impostazioni',
+    'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni',
     'pad.none': 'Nessun controller', 'h.type': 'Tipografia', 'type.xl': 'Buonasera', 'type.l': 'Continua a giocare',
     'type.m': 'Testo in Lexend, pensato per la lettura.', 'type.s': 'Testo secondario, dettagli.', 'type.xs': 'Note e didascalie.',
     'h.colors': 'Colori della palette', 'c.text': 'Testo sullo sfondo', 'c.muted': 'Testo secondario', 'c.accent': 'Testo sull’accento',
     'h.components': 'Componenti', 'chip.all': 'Tutti', 'chip.installed': 'Installati', 'chip.favorites': 'Preferiti', 'src.local': 'Locale',
     'btn.play': 'Gioca', 'btn.details': 'Dettagli', 'row.vibration': 'Vibrazione del controller', 'row.output': 'Uscita audio',
-    'h.palette': 'Palette colori', 'h.textsize': 'Dimensione testo', 'h.glyphs': 'Simboli dei tasti', 'g.auto': 'Automatico',
-    'row.motion': 'Riduci animazioni', 'row.safe': 'Mostra area sicura TV',
-    'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.safe': 'Area sicura', 'p.filter': 'Filtro', 'p.sections': 'Sezioni', 'p.guide': 'Home, da ovunque',
+    'h.appearance': 'Aspetto', 'h.palette': 'Palette colori', 'h.textsize': 'Dimensione testo', 'h.glyphs': 'Simboli dei tasti', 'g.auto': 'Automatico',
+    'row.motion': 'Riduci animazioni', 'row.safe': 'Mostra area sicura TV', 'h.language': 'Lingua',
+    'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.safe': 'Area sicura', 'p.filter': 'Filtro', 'p.sections': 'Sezioni', 'p.guide': 'Home',
+    'p.apply': 'Applica', 'p.cancel': 'Annulla', 'p.preview': 'Spostando la selezione vedi l’anteprima',
+    'grp.dark': 'Scure', 'grp.light': 'Chiare', 'grp.access': 'Accessibilità',
     'toast.back': 'Indietro', 'toast.details': 'Dettagli', 'toast.options': 'Opzioni', 'toast.play': 'Avvio del gioco…', 'toast.section': 'Sezione',
   };
-  const EN = { 'toast.back': 'Back', 'toast.details': 'Details', 'toast.options': 'Options', 'toast.play': 'Starting the game…', 'toast.section': 'Section' };
-  let lang = 'en';
+  const EN = { 'grp.dark': 'Dark', 'grp.light': 'Light', 'grp.access': 'Accessibility',
+    'toast.back': 'Back', 'toast.details': 'Details', 'toast.options': 'Options', 'toast.play': 'Starting the game…', 'toast.section': 'Section' };
+  let lang = 'en', pad = null;
   $$('[data-i18n]').forEach(el => { EN[el.dataset.i18n] = el.textContent; });
   const tr = k => (lang === 'it' ? IT : EN)[k] || EN[k] || k;
   function setLang(l) {
     lang = l;
     $$('[data-i18n]').forEach(el => { el.textContent = tr(el.dataset.i18n); });
-    $$('[data-lang]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === l)));
+    $('#cur-lang').textContent = LANGS.find(x => x[0] === l)[1];
     if (!pad) $('#pad-name').textContent = tr('pad.none');
   }
 
@@ -354,26 +407,52 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1300);
   }
 
-  /* ---------- Spatial navigation ---------- */
+  /* ---------- Picker windows (palette grid with live preview, language list) ---------- */
+  let openPicker = null, returnTo = null, palBefore = null;
+  function buildPalettes() {
+    const card = p => `<button class="pal-card t-xs" data-f data-pal="${p[0]}" aria-pressed="${p[0] === palKey}" style="background:${p[4]}; color:${p[7]}; border-color:${p[0] === palKey ? p[9] : p[6]}">
+      <span class="strip4"><i style="background:${p[3]}"></i><i style="background:${p[5]}"></i><i style="background:${p[9]}"></i><i style="background:${p[7]}"></i></span>${p[1]}</button>`;
+    $('#pal-body').innerHTML = ['dark', 'light', 'access'].map(g =>
+      `<span class="label t-xs">${tr('grp.' + g)}</span><div class="pal-grid">${PALETTES.filter(p => p[2] === g).map(card).join('')}</div>`).join('');
+  }
+  function buildLanguages() {
+    $('#lang-body').innerHTML = LANGS.map(([k, name]) => `<button class="lang-item" data-f data-lang="${k}" aria-pressed="${k === lang}">${name}</button>`).join('');
+  }
+  function open(kind) {
+    returnTo = focused;
+    if (kind === 'palette') { palBefore = palKey; buildPalettes(); } else buildLanguages();
+    openPicker = $('#ov-' + kind); openPicker.classList.add('open'); stage.classList.add('picker-open');
+    focus($('[aria-pressed="true"]', openPicker) || $('[data-f]', openPicker));
+  }
+  function close(apply) {
+    if (!openPicker) return;
+    if (openPicker.id === 'ov-palette') {
+      if (apply && focused && focused.dataset.pal) setPalette(focused.dataset.pal);
+      else setPalette(palBefore);
+    } else if (apply && focused && focused.dataset.lang) setLang(focused.dataset.lang);
+    openPicker.classList.remove('open'); openPicker = null; stage.classList.remove('picker-open');
+    focus(returnTo);
+  }
+
+  /* ---------- Spatial navigation (inside the open picker, if any) ---------- */
   let focused = null;
   function focus(el) {
     if (focused) focused.classList.remove('focus');
     focused = el; el.classList.add('focus');
-    el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: getComputedStyle(document.documentElement).getPropertyValue('--motion').trim() === '0' ? 'auto' : 'smooth' });
+    el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (openPicker && el.dataset.pal) applyPalette(el.dataset.pal); // live preview
   }
   function move(dir) {
-    const items = $$('[data-f]'), a = focused.getBoundingClientRect();
-    const ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    const items = openPicker ? $$('[data-f]', openPicker) : $$('[data-f]').filter(el => !el.closest('.overlay'));
+    const a = focused.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
     let best = null, bestScore = Infinity;
     for (const el of items) {
       if (el === focused) continue;
-      const b = el.getBoundingClientRect(), bx = b.left + b.width / 2, by = b.top + b.height / 2;
-      const dx = bx - ax, dy = by - ay;
+      const b = el.getBoundingClientRect(), dx = b.left + b.width / 2 - ax, dy = b.top + b.height / 2 - ay;
       const ok = dir === 'left' ? dx < -4 : dir === 'right' ? dx > 4 : dir === 'up' ? dy < -4 : dy > 4;
       if (!ok) continue;
-      const main = dir === 'left' || dir === 'right' ? Math.abs(dx) : Math.abs(dy);
-      const cross = dir === 'left' || dir === 'right' ? Math.abs(dy) : Math.abs(dx);
-      const score = main + cross * 2.5;
+      const horiz = dir === 'left' || dir === 'right';
+      const score = (horiz ? Math.abs(dx) : Math.abs(dy)) + (horiz ? Math.abs(dy) : Math.abs(dx)) * 2.5;
       if (score < bestScore) { bestScore = score; best = el; }
     }
     if (best) focus(best);
@@ -381,7 +460,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 
   /* ---------- Actions ---------- */
   function activate(el) {
-    if (el.dataset.pal) setPalette(el.dataset.pal);
+    if (openPicker) { close(true); return; }
+    if (el.dataset.open) open(el.dataset.open);
     else if (el.dataset.size) {
       document.documentElement.style.setProperty('--ts', el.dataset.size);
       $$('[data-size]').forEach(b => b.setAttribute('aria-pressed', String(b === el)));
@@ -389,8 +469,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       glyphSet = el.dataset.glyphset;
       $$('[data-glyphset]').forEach(b => b.setAttribute('aria-pressed', String(b === el)));
       drawGlyphs();
-    } else if (el.dataset.lang) setLang(el.dataset.lang);
-    else if (el.hasAttribute('data-chip')) $$('[data-chip]').forEach(c => c.setAttribute('aria-pressed', String(c === el)));
+    } else if (el.hasAttribute('data-chip')) $$('[data-chip]').forEach(c => c.setAttribute('aria-pressed', String(c === el)));
     else if (el.hasAttribute('data-switch')) {
       const on = el.getAttribute('aria-checked') !== 'true';
       el.setAttribute('aria-checked', String(on));
@@ -410,22 +489,29 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     tabs.forEach(t => t.removeAttribute('aria-current')); next.setAttribute('aria-current', 'page');
     toast(tr('toast.section') + ': ' + next.textContent);
   }
+  const page = fn => () => { if (!openPicker) fn(); };
   const press = {
-    a: () => activate(focused), b: () => toast(tr('toast.back')), x: () => toast(tr('toast.details')),
-    y: toggleSafe, lb: () => cycleTab(-1), rb: () => cycleTab(1), lt: () => cycleChip(-1), rt: () => cycleChip(1),
-    menu: () => toast(tr('toast.options')),
+    a: () => activate(focused),
+    b: () => openPicker ? close(false) : toast(tr('toast.back')),
+    x: page(() => toast(tr('toast.details'))), y: page(toggleSafe),
+    lb: page(() => cycleTab(-1)), rb: page(() => cycleTab(1)), lt: page(() => cycleChip(-1)), rt: page(() => cycleChip(1)),
+    menu: page(() => toast(tr('toast.options'))),
   };
 
   document.addEventListener('keydown', e => {
     const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
     const keys = { Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b', x: 'x', y: 'y', q: 'lb', e: 'rb', z: 'lt', c: 'rt', m: 'menu' };
+    const k = keys[e.key.length === 1 ? e.key.toLowerCase() : e.key];
     if (dirs[e.key]) { e.preventDefault(); move(dirs[e.key]); }
-    else if (keys[e.key.length === 1 ? e.key.toLowerCase() : e.key]) { e.preventDefault(); press[keys[e.key.length === 1 ? e.key.toLowerCase() : e.key]](); }
+    else if (k) { e.preventDefault(); press[k](); }
   });
-  document.addEventListener('click', e => { const el = e.target.closest('[data-f]'); if (el) { focus(el); activate(el); } });
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-f]');
+    if (el) { focus(el); activate(el); }
+    else if (openPicker && e.target === openPicker) close(false);
+  });
 
   /* ---------- Gamepad (standard mapping) ---------- */
-  let pad = null;
   const prev = {};
   let repeatAt = 0, lastDir = null;
   function kindOf(id) { return /054c|sony|dualsense|dualshock|playstation|wireless controller/i.test(id) ? 'ps' : 'xbox'; }
@@ -450,16 +536,18 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   requestAnimationFrame(poll);
 
   /* ---------- Clock ---------- */
-  function tick() { const d = new Date(); $('#clock').textContent = d.toTimeString().slice(0, 5); }
+  function tick() { $('#clock').textContent = new Date().toTimeString().slice(0, 5); }
   tick(); setInterval(tick, 10000);
 
-  /* ---------- Optional start state: #pal=daylight&glyphs=ps&lang=it&ts=1.2&safe=1 ---------- */
+  /* ---------- Optional start state: #pal=daylight&glyphs=ps&lang=it&ts=1.2&safe=1&open=palette ---------- */
   const q = new URLSearchParams(location.hash.slice(1));
+  setPalette(palette(q.get('pal')) ? q.get('pal') : 'dusk');
+  if (q.get('lang') === 'it') setLang('it');
   const pick = (attr, v) => { const el = v && $(`[${attr}="${v}"]`); if (el) activate(el); };
-  pick('data-pal', q.get('pal')); pick('data-glyphset', q.get('glyphs')); pick('data-lang', q.get('lang')); pick('data-size', q.get('ts'));
+  pick('data-glyphset', q.get('glyphs')); pick('data-size', q.get('ts'));
   if (q.get('safe') === '1') toggleSafe();
-
   focus($('.cover'));
+  if (q.get('open')) { focus($(`[data-open="${q.get('open')}"]`)); open(q.get('open')); }
 })();
 </script>
 </body>

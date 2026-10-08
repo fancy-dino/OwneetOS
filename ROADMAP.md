@@ -462,7 +462,10 @@ code is written (PROJECT_RULES.md section 9).
 
 - **Deliverables:** design tokens (palettes from section 9), bundled fonts, 1280×720 scaling grid,
   safe area, focus ring, prompt bar with Xbox / PlayStation glyph sets.
-- **Demo:** `design/demos/3.3-theme-foundations.html` (gamepad or keyboard). Proposals in it:
+- **Demo:** `design/demos/3.3-theme-foundations.html` (gamepad or keyboard). First review
+  (2026-10-08): the "Foundations" tab exists only in the demo (now shown as Settings →
+  Appearance); 21 palettes in a picker with live preview (Tide made vivid "minty" cyan; Ember,
+  Espresso, Harbor and others added); language chosen from a list; Guide prompt "Home". Proposals in it:
   text sizes S/M/L/XL = 90/100/120/140 % (text only; columns scroll, prompt bar and safe area never
   move); glyphs drawn for OwneetOS (letters in circles for Xbox-style pads, geometric shapes for
   PlayStation, a generic "home" glyph for Guide: no third-party logos), chosen automatically from
@@ -635,6 +638,11 @@ code is written (PROJECT_RULES.md section 9).
 - **Deliverables:** trademark search for "OwneetOS" (EUIPO, Italian register); licence notices in
   the UI ("About → Licences"); review of licences, third-party terms and privacy by someone
   experienced in open-source licensing (PROJECT_RULES.md section 12).
+
+### [ ] 7.6 Final logo and brand
+
+- **Deliverables:** the final OwneetOS logo and wordmark (the current wordmark is provisional),
+  checked together with the trademark search of 7.5; boot splash, interface and documents updated.
 
 ---
 

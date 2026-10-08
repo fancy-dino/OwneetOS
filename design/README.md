@@ -10,8 +10,9 @@ Mockups and design assets.
   with a gamepad or the keyboard:
   - [`3.3-theme-foundations.html`](demos/3.3-theme-foundations.html): type scale, palette tokens
     with live contrast check, focus ring, components, text sizes, button prompts (Xbox /
-    PlayStation, drawn for OwneetOS), TV safe area. Start state in the address:
-    `#pal=daylight&glyphs=ps&lang=it&ts=1.2&safe=1`.
+    PlayStation, drawn for OwneetOS), TV safe area, 21 palettes in a picker with live preview,
+    language list. Start state in the address: `#pal=ember&glyphs=ps&lang=it&ts=1.2&safe=1`
+    (add `&open=palette` or `&open=language` to open a picker).
 
 Design rules (palettes as tokens, fonts, TV safe area, input map) are in PROJECT_RULES.md section 9.
 

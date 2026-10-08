@@ -165,9 +165,16 @@ OwneetOS is a **lightweight, open-source Linux distribution** that turns any x86
   screen is implemented only after the owner approves its demo.
 - Approved direction (2026-10-03): `design/mockups/wave1-mockups.html` — deep navy ground, coral
   accent, minimal UI, Bricolage Grotesque (titles) + Lexend (UI text), 1280×720 design grid,
-  5% horizontal TV safe area. Palettes (Dusk, Tide, Bloom, Daylight, High contrast) are
-  **provisional** and may change.
-- **Wordmark:** "Owneet" (light) + "OS" (coral), Bricolage Grotesque 750 / width 80, generated as
+  5% horizontal TV safe area. Palettes are **provisional** and may change.
+- **Palettes (2026-10-08, demo 3.3):** about twenty, chosen in a picker window with live preview
+  (Settings → Appearance shows only the current one): dark (Dusk, Tide in vivid "minty" cyan,
+  Bloom, Ember, Espresso, Harbor navy/beige, Forest, Lagoon, Amethyst, Crimson, Synthwave, Amber,
+  Olive, Graphite), light (Daylight, Arctic, Sand, Latte, Sakura), accessibility (high contrast
+  dark and light). Every palette passes a contrast check: text ≥ 7:1, secondary text and text on
+  the accent ≥ 4.5:1, accent against the background ≥ 3:1.
+- **Pickers instead of button rows** for choices that can grow (palette, language): one compact
+  row showing the current value opens a window with the full list.
+- **Wordmark (provisional, the final logo comes before the public launch, roadmap 7.6):** "Owneet" (light) + "OS" (coral), Bricolage Grotesque 750 / width 80, generated as
   outlines by `tools/branding/make-wordmark` (`packages/owneet-branding/owneetos-wordmark.svg`).
 
 ### 9.1 Controller input map (global, binding for every screen)
@@ -186,7 +193,7 @@ same screen. New bindings are added here before they are implemented.
 | LT / RT (L2 / R2)           | Switch filter / sub-tab inside the current page                                                                          |
 | Menu / Options              | Options menu for the selected item                                                                                       |
 | View / Create               | Reserved (screenshot in a later wave)                                                                                    |
-| Guide / PS                  | **Owned by the system daemon**: home / quick menu from anywhere, including in games. Apps and themes must never bind it. |
+| Guide / PS                  | **Owned by the system daemon**: home / quick menu from anywhere, including in games. Apps and themes must never bind it. Prompt label: "Home". |
 | Right stick                 | Fast scroll in long lists                                                                                                |
 
 While a game or app is running, the system intercepts **only** the Guide button; every other input
@@ -315,3 +322,4 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-08 | Several screens: the console uses one (choice in Settings, step 3.9); the others are not turned off by default, a use for a second screen may come later. |
 | 2026-10-08 | Legal check before phase 3: the frontend fork is named `owneet-frontend` (Pegasus's trademark terms); Pegasus's CC BY-NC-SA theme, logo, Roboto fonts and button images are not used; its online metadata downloads are disabled. `CREDITS.md` credits every project OwneetOS builds on and ships in the image (section 12). Step 2.9 approved. |
 | 2026-10-08 | Each screen gets an interactive demo approved by the owner before its code is written (section 9). |
+| 2026-10-08 | Demo 3.3 feedback: wordmark/logo provisional (final logo before the launch, roadmap 7.6); about twenty palettes (Tide in vivid "minty" cyan; new Ember, Espresso, Harbor and more) in a picker with live preview; language chosen from a list; the Guide prompt reads "Home" (section 9). |
