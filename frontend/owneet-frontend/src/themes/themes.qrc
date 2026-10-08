@@ -1,6 +1,18 @@
 <RCC>
     <qresource prefix="/themes">
-        <file>owneet-minimal/theme.cfg</file>
-        <file>owneet-minimal/theme.qml</file>
+        <file>owneet/theme.cfg</file>
+        <file>owneet/theme.qml</file>
+        <file>owneet/AppearanceSheet.qml</file>
+        <file>owneet/foundation/qmldir</file>
+        <file>owneet/foundation/Theme.qml</file>
+        <file>owneet/foundation/Choice.qml</file>
+        <file>owneet/foundation/FocusFrame.qml</file>
+        <file>owneet/foundation/Glyph.qml</file>
+        <file>owneet/foundation/Label.qml</file>
+        <file>owneet/foundation/PalettePicker.qml</file>
+        <file>owneet/foundation/Prompt.qml</file>
+        <file>owneet/foundation/PromptBar.qml</file>
+        <file>owneet/foundation/SettingRow.qml</file>
+        <file>owneet/foundation/Sheet.qml</file>
     </qresource>
 </RCC>

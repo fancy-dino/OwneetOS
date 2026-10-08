@@ -85,6 +85,10 @@ logos; Pegasus's copyright notices are kept in its source code.
 | [Bricolage Grotesque](https://github.com/ateliertriay/bricolage) | Mathieu Triay | OFL-1.1 | Titles; the OwneetOS wordmark is drawn from its outlines |
 | [Lexend](https://www.lexend.com) | Bonnie Shaver-Troup, Thomas Jockin and the Lexend team | OFL-1.1 | Interface text |
 
+Both fonts are bundled in `owneet-frontend` as static instances generated from the variable fonts
+by `tools/branding/make-fonts` (Qt 5 cannot select variation axes); their licence texts are
+installed in `/usr/share/licenses/owneet-frontend/`.
+
 ## Inspiration
 
 OwneetOS learned a lot from projects that walked this road first:
@@ -100,7 +104,7 @@ OwneetOS learned a lot from projects that walked this road first:
 ## Development tools
 
 [QEMU](https://www.qemu.org) and [EDK II / OVMF](https://github.com/tianocore/edk2) (virtual
-machines for building and testing), [fontTools](https://github.com/fonttools/fonttools) (wordmark),
+machines for building and testing), [fontTools](https://github.com/fonttools/fonttools) (wordmark and font instances),
 [ShellCheck](https://www.shellcheck.net) and [markdownlint](https://github.com/DavidAnson/markdownlint)
 (checks), [GitHub Actions](https://github.com/features/actions) (CI).
 

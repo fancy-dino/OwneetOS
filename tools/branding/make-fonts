@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Generates the static fonts of the OwneetOS interface from the variable fonts of the approved
+# design (PROJECT_RULES.md section 9), pinned to a Google Fonts commit and checked by SHA-256.
+# Qt 5 cannot select variation axes (e.g. width 80), so each weight becomes its own file.
+# Runs in the builder VM (needs python-fonttools and network access):
+#
+#   tools/build-in-vm 'tools/branding/make-fonts frontend/owneet-frontend/assets/fonts/owneet'
+#
+# Both fonts are under the SIL Open Font License 1.1, which allows modified versions such as
+# these instances. Bricolage Grotesque has no Reserved Font Name; Lexend reserves only
+# "RevReading Lexend", which is not used. The licence texts are copied next to the fonts.
+
+import hashlib
+import os
+import sys
+import urllib.request
+
+from fontTools.ttLib import TTFont
+from fontTools.varLib.instancer import instantiateVariableFont
+
+COMMIT = "2eb0b48d5f760f62e286216f0859a8c540dbc1bd"  # github.com/google/fonts
+BASE = f"https://raw.githubusercontent.com/google/fonts/{COMMIT}/ofl"
+SOURCES = {
+    "bricolage": ("bricolagegrotesque/BricolageGrotesque%5Bopsz,wdth,wght%5D.ttf",
+                  "413e7357809ddd12fd80a96a8a396de0e401638d4acd3cb3e37532f0472ac682"),
+    "bricolage-ofl": ("bricolagegrotesque/OFL.txt",
+                      "4b5a7d8f37f5602621c8a8d7358a6a2e71317e6c231c661e15aef0275d3e07ba"),
+    "lexend": ("lexend/Lexend%5Bwght%5D.ttf",
+               "3add53e641fbc81da64da4bb254285e2831b52b029527bc0714e2b9610832ee6"),
+    "lexend-ofl": ("lexend/OFL.txt",
+                   "5da8505887d0fa7fe963445fd58852707fda34adfeb65af25c99d152bab285bd"),
+}
+
+# (source, family, style, axes). Titles: width 80 as in the mockups and the wordmark, optical
+# size 32 (titles are 24-40 px on the 1280 x 720 grid). Interface text: Lexend.
+INSTANCES = [
+    ("bricolage", "Bricolage Grotesque", "SemiBold", 600, {"wght": 600, "wdth": 80, "opsz": 32}),
+    ("bricolage", "Bricolage Grotesque", "Bold", 700, {"wght": 700, "wdth": 80, "opsz": 32}),
+    ("bricolage", "Bricolage Grotesque", "ExtraBold", 800, {"wght": 800, "wdth": 80, "opsz": 32}),
+    ("lexend", "Lexend", "Light", 300, {"wght": 300}),
+    ("lexend", "Lexend", "Regular", 400, {"wght": 400}),
+    ("lexend", "Lexend", "Medium", 500, {"wght": 500}),
+    ("lexend", "Lexend", "SemiBold", 600, {"wght": 600}),
+]
+
+
+def fetch(key: str) -> bytes:
+    path, sha = SOURCES[key]
+    data = urllib.request.urlopen(f"{BASE}/{path}", timeout=60).read()
+    got = hashlib.sha256(data).hexdigest()
+    if got != sha:
+        sys.exit(f"error: {path}: SHA-256 {got}, expected {sha}")
+    return data
+
+
+def set_names(font: TTFont, family: str, style: str) -> None:
+    """Plain family + style names, so that Qt picks the file by family and weight."""
+    name = font["name"]
+    full = f"{family} {style}"
+    postscript = f"{family.replace(' ', '')}-{style}"
+    for record_id in (16, 17, 21, 22, 25):  # drop typographic and variation names
+        name.removeNames(nameID=record_id)
+    basic_style = "Regular" if style not in ("Bold",) else "Bold"
+    legacy_family = family if style in ("Regular", "Bold") else f"{family} {style}"
+    name.setName(legacy_family, 1, 3, 1, 0x409)
+    name.setName(basic_style, 2, 3, 1, 0x409)
+    name.setName(full, 4, 3, 1, 0x409)
+    name.setName(postscript, 6, 3, 1, 0x409)
+    name.setName(family, 16, 3, 1, 0x409)
+    name.setName(style, 17, 3, 1, 0x409)
+
+
+def main(out_dir: str) -> None:
+    os.makedirs(out_dir, exist_ok=True)
+    tmp = os.path.join(out_dir, ".src")
+    os.makedirs(tmp, exist_ok=True)
+    for key in ("bricolage", "lexend"):
+        with open(os.path.join(tmp, key + ".ttf"), "wb") as f:
+            f.write(fetch(key))
+    with open(os.path.join(out_dir, "OFL-BricolageGrotesque.txt"), "wb") as f:
+        f.write(fetch("bricolage-ofl"))
+    with open(os.path.join(out_dir, "OFL-Lexend.txt"), "wb") as f:
+        f.write(fetch("lexend-ofl"))
+
+    for source, family, style, weight, axes in INSTANCES:
+        font = instantiateVariableFont(TTFont(os.path.join(tmp, source + ".ttf")), axes)
+        font["OS/2"].usWeightClass = weight
+        set_names(font, family, style)
+        out = os.path.join(out_dir, f"{family.replace(' ', '')}-{style}.ttf")
+        font.save(out)
+        print(f"{out}  ({os.path.getsize(out) // 1024} KiB)")
+    for f in os.listdir(tmp):
+        os.remove(os.path.join(tmp, f))
+    os.rmdir(tmp)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        sys.exit("usage: tools/branding/make-fonts OUT_DIR")
+    main(sys.argv[1])

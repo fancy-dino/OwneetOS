@@ -37,11 +37,16 @@ Window {
         Internal.system.quit();
     }
 
-    FontLoader { id: sansFont; source: "/fonts/Roboto-Regular.ttf" }
-    FontLoader { id: sansBoldFont; source: "/fonts/Roboto-Bold.ttf" }
-    FontLoader { id: monoFont; source: "/fonts/RobotoMono-Regular.ttf" }
-    FontLoader { id: condensedFont; source: "/fonts/RobotoCondensed-Regular.ttf" }
-    FontLoader { id: condensedBoldFont; source: "/fonts/RobotoCondensed-Bold.ttf" }
+    // OwneetOS fonts (SIL Open Font License, see assets/fonts/owneet): Lexend for interface
+    // text, Bricolage Grotesque for titles. Pegasus's Roboto fonts are not bundled.
+    FontLoader { id: sansFont; source: "/fonts/owneet/Lexend-Regular.ttf" }
+    FontLoader { source: "/fonts/owneet/Lexend-Light.ttf" }
+    FontLoader { id: sansBoldFont; source: "/fonts/owneet/Lexend-Medium.ttf" }
+    FontLoader { source: "/fonts/owneet/Lexend-SemiBold.ttf" }
+    FontLoader { id: condensedFont; source: "/fonts/owneet/BricolageGrotesque-SemiBold.ttf" }
+    FontLoader { id: condensedBoldFont; source: "/fonts/owneet/BricolageGrotesque-Bold.ttf" }
+    FontLoader { source: "/fonts/owneet/BricolageGrotesque-ExtraBold.ttf" }
+    readonly property alias monoFont: sansFont // no monospace font in OwneetOS
 
 
     // a globally avalable utility object

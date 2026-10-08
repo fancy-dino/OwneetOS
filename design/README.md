@@ -16,6 +16,13 @@ Mockups and design assets.
 
 Design rules (palettes as tokens, fonts, TV safe area, input map) are in PROJECT_RULES.md section 9.
 
+## Fonts
+
+The interface fonts (Bricolage Grotesque for titles, Lexend for text, both SIL Open Font License)
+are bundled in `frontend/owneet-frontend/assets/fonts/owneet/` as static instances, generated from
+the pinned Google Fonts files by [`tools/branding/make-fonts`](../tools/branding/make-fonts)
+(checked by SHA-256). Do not edit them by hand.
+
 ## Wordmark
 
 The OwneetOS wordmark ("Owneet" light + "OS" coral, Bricolage Grotesque 750 / width 80, as in the

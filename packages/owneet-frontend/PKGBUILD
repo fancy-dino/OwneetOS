@@ -2,14 +2,15 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-frontend
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="OwneetOS console interface, a modified version of Pegasus Frontend by Mátyás Mustoha and contributors"
 arch=('x86_64')
 url="https://github.com/fancy-dino/OwneetOS"
 # owneet-frontend / Pegasus Frontend: GPL-3.0-or-later with additional terms (LICENSE.md);
-# SortFilterProxyModel: MIT; bundled Roboto fonts: Apache-2.0; bundled SDL_GameControllerDB: Zlib
-license=('GPL-3.0-or-later' 'MIT' 'Apache-2.0' 'Zlib')
+# SortFilterProxyModel: MIT; bundled Bricolage Grotesque and Lexend fonts: OFL-1.1;
+# bundled SDL_GameControllerDB: Zlib
+license=('GPL-3.0-or-later' 'MIT' 'OFL-1.1' 'Zlib')
 depends=('qt5-base' 'qt5-declarative' 'qt5-multimedia' 'qt5-svg' 'sdl2-compat' 'libxcb'
          'owneet-branding')
 makedepends=('cmake' 'ninja' 'qt5-tools')
@@ -42,5 +43,6 @@ package() {
   local src=frontend/owneet-frontend lic="$pkgdir/usr/share/licenses/$pkgname"
   install -Dm644 "$src/LICENSE.md" "$lic/LICENSE.md"
   install -Dm644 "$src/thirdparty/SortFilterProxyModel/LICENSE" "$lic/LICENSE.SortFilterProxyModel"
-  install -Dm644 "$src/doc/Roboto.LICENSE" "$lic/LICENSE.Roboto"
+  install -Dm644 "$src/assets/fonts/owneet/OFL-BricolageGrotesque.txt" "$lic/OFL-BricolageGrotesque.txt"
+  install -Dm644 "$src/assets/fonts/owneet/OFL-Lexend.txt" "$lic/OFL-Lexend.txt"
 }

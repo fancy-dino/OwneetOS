@@ -458,18 +458,25 @@ code is written (PROJECT_RULES.md section 9).
 - **Open:** (1) In cage, the mouse pointer shows until the first input (drawn by cage).
   (2) Games are still started by the frontend itself; through owneetd in 3.8.
 
-### [~] 3.3 Theme foundations (demo awaiting owner review)
+### [~] 3.3 Theme foundations (awaiting owner review)
 
 - **Deliverables:** design tokens (palettes from section 9), bundled fonts, 1280×720 scaling grid,
   safe area, focus ring, prompt bar with Xbox / PlayStation glyph sets.
-- **Demo:** `design/demos/3.3-theme-foundations.html` (gamepad or keyboard). First review
-  (2026-10-08): the "Foundations" tab exists only in the demo (now shown as Settings →
-  Appearance); 21 palettes in a picker with live preview (Tide made vivid "minty" cyan; Ember,
-  Espresso, Harbor and others added); language chosen from a list; Guide prompt "Home". Proposals in it:
-  text sizes S/M/L/XL = 90/100/120/140 % (text only; columns scroll, prompt bar and safe area never
-  move); glyphs drawn for OwneetOS (letters in circles for Xbox-style pads, geometric shapes for
-  PlayStation, a generic "home" glyph for Guide: no third-party logos), chosen automatically from
-  the connected controller; live WCAG contrast check of each palette.
+- **Demo:** `design/demos/3.3-theme-foundations.html`, approved on 2026-10-08 after one review
+  (the "Foundations" tab exists only in the demo; 21 palettes in a picker with live preview, Tide
+  made vivid "minty" cyan, Ember, Espresso, Harbor and others added; language chosen from a list;
+  Guide prompt "Home"; text sizes S/M/L/XL = 90/100/120/140 %, text only, columns scroll while the
+  prompt bar and safe area never move; glyphs drawn for OwneetOS, no third-party logos, chosen
+  automatically from the connected controller).
+- **Outcome:** theme `owneet` (built-in default, replaces `owneet-minimal`) with its foundations
+  in `src/themes/owneet/foundation/` (docs/frontend-architecture.md section 4): `Theme` tokens and
+  the 21 palettes, focus ring with lift, glyphs and prompt bar, picker window, settings rows.
+  Bricolage Grotesque and Lexend bundled as static instances (`tools/branding/make-fonts`, OFL-1.1
+  licence texts installed); Pegasus's Roboto fonts and button images removed. Until the home
+  screen (3.6) the theme shows a plain game list; **Y opens a temporary Appearance window**
+  (palette, text size, button prompts, reduce motion, TV safe area outline), saved in the theme's
+  memory, which moves to Settings in 3.9. Language choice comes with 3.4. Checked in the builder VM
+  (frontend under Xvfb, screenshots of every option).
 
 ### [ ] 3.4 Internationalisation
 

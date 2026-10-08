@@ -107,8 +107,7 @@ menu). **Guide is also turned into a key** (not bound to anything by default).
 ### In C++ (small, targeted changes)
 
 Done in step 3.2: names, providers and Steam download, Guide removed, window tag, Pegasus's
-screens hidden (Pegasus's Roboto fonts are still bundled, unused by our theme, with their Apache-2.0
-licence installed; removed in 3.3), and also: the interface stays loaded during games (no teardown, no blocking wait), button
+screens hidden, and also: the interface stays loaded during games (no teardown, no blocking wait), button
 repeat stopped when input pauses, SDL's SIGTERM handler disabled, pointer hidden until the mouse
 is used. Still to do: owneetd client, launching and power through owneetd (3.8), input map (3.5).
 
@@ -116,7 +115,7 @@ is used. Still to do: owneetd client, launching and power through owneetd (3.8),
 |---|---|---|
 | Names: window title, application and organisation name, executable `owneet-frontend`, config folder `~/.config/owneet-frontend`; Pegasus logo and icons not installed | Pegasus's trademark terms (PROJECT_RULES.md section 12) | 3.2 |
 | Build only the providers listed above; remove the Steam store download | Local data only, offline (section 12, C9) | 3.2 |
-| Do not use Pegasus's Roboto fonts and button images | Own fonts and glyphs (section 12) | 3.2–3.3 |
+| Pegasus's Roboto fonts and button images removed; Bricolage Grotesque and Lexend bundled (OFL-1.1, static instances from `tools/branding/make-fonts`) | Own fonts and glyphs (section 12) | 3.3 |
 | **owneetd client**: a small C++ object exposed to QML (`owneetd.get/post/put/delete` and an event stream) | QML's `XMLHttpRequest` cannot reach a Unix socket; owneetd listens only there (no TCP port, by design) | 3.8 |
 | **Game launching through owneetd** (`POST /v1/apps/launch`) instead of `QProcess`; **no interface teardown**; play time updated from `app.exited` | Guide toggles home ↔ game; games in their own services | 3.8 / 4.x |
 | Power actions (`Internal.system.reboot/shutdown/suspend`) through owneetd | One place for power, with its events | 3.8 |
@@ -130,9 +129,22 @@ cache and the QML engine stay as they are.
 
 ### In QML (everything the user sees)
 
-The **OwneetOS theme**: design tokens and palettes (3.3), translations with JSON message files
+The **OwneetOS theme** (`src/themes/owneet/`, the built-in default): design tokens and palettes (3.3), translations with JSON message files
 (3.4), navigation (3.5), home (3.6), library (3.7), settings (3.9), on-screen keyboard (3.10),
 notifications (3.11). Each screen starts with an interactive demo approved by the owner.
+
+**Foundations (3.3)**, in `src/themes/owneet/foundation/`, used by every screen:
+
+| Component | What |
+|---|---|
+| `Theme` (singleton) | Palettes (eight color tokens each), fonts, sizes on the 1280×720 grid (`px()`), text sizes that follow the "Text size" option (`fs()`), TV safe area, reduce motion, button glyph set |
+| `FocusFrame` | Focus ring (background gap + accent ring) and lift of the selected item |
+| `Glyph`, `Prompt`, `PromptBar` | Button glyphs drawn in QML (Xbox-style letters, PlayStation-style shapes, chosen from the connected controller's name), the prompt bar |
+| `Sheet`, `PalettePicker` | Window over the screen with its own prompt bar; palette picker with live preview |
+| `Label`, `Choice`, `SettingRow` | Section label, segmented choice, settings row (switch or picker) |
+
+Appearance choices are saved in the theme's memory (`api.memory`). Until Settings exists (3.9),
+they are opened with Y from the temporary game list (`AppearanceSheet.qml`).
 
 ### Not changed / not needed
 

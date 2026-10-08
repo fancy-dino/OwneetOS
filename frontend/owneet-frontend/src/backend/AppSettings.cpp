@@ -146,7 +146,7 @@ namespace appsettings {
 
 General::General()
     : DEFAULT_LOCALE(QStringLiteral("en"))
-    , DEFAULT_THEME(QStringLiteral(":/themes/owneet-minimal/"))
+    , DEFAULT_THEME(QStringLiteral(":/themes/owneet/"))
     , locale() // intentionally blank
     , theme(DEFAULT_THEME)
 {}
