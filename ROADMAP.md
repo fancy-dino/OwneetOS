@@ -400,13 +400,22 @@ Every screen step (home, library, settings, on-screen keyboard, notifications, a
 setup screens of phase 6) starts with an **interactive demo** approved by the owner before its
 code is written (PROJECT_RULES.md section 9).
 
-### [ ] 3.1 Pegasus study and fork
+### [~] 3.1 Pegasus study and fork (awaiting owner review)
 
 - **Deliverables:** clone `mmatyas/pegasus-frontend` (master, with submodules), fork on GitHub as
   `owneet-frontend`, `docs/frontend-architecture.md` describing build system, data providers, theme
   API and the extension points we need, and what must be removed or disabled for the legal
   requirements above.
 - **Done when:** the owner has a clear picture of what we change in C++ and what stays in QML.
+- **Outcome:** owner's choice: the fork lives **inside this repository** (`frontend/owneet-frontend`,
+  no separate GitHub repository). Pegasus `5d58223` imported unmodified (without the CC BY-NC-SA
+  grid theme, the unlicensed translations and upstream CI files), then a minimal own theme as the
+  built-in default. Builds against the ISO's snapshot with Qt 5.15 (Qt 6 not possible yet: the
+  frontend still needs Qt 5-only parts); 20/23 upstream tests pass headless, the 3 QML scene tests
+  need a GPU context (same upstream). About +30 MiB in the ISO. `docs/frontend-architecture.md`:
+  build, structure, theme API, providers (kept / compiled out), launching (Pegasus unloads its UI
+  during games and runs them as children: replaced by owneetd launching, UI kept loaded), the
+  owneetd client in C++ (QML cannot reach a Unix socket), and the list of C++ changes.
 
 ### [ ] 3.2 Build and package the frontend
 
