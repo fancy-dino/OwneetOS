@@ -450,6 +450,11 @@ code is written (PROJECT_RULES.md section 9).
   error screen). RAM on the desktop: programs ~60 MB, kernel ~340 MB, ~800 MB not attributed
   (typical of GPU drivers: NVIDIA with GSP firmware plus the Intel GPU); the NiPoGi (AMD) used
   ~235 MiB without the UI in 1.5. C1 is measured on the target low-budget hardware.
+  **Verified by the owner (desktop, diagnostics entry):** report opened at once → "the console is
+  not on screen: waiting", no failed start; back on tty1 → cage starts, interface running. RAM in
+  cage there: owneet-frontend 230, cage 176, Xwayland 160 MiB RSS (including the shared NVIDIA
+  libraries; anonymous memory +250 MB in total), 1427 MiB used. To measure in gamescope on low-cost
+  hardware and optimise if needed (step 7.4).
 - **Open:** (1) In cage, the mouse pointer shows until the first input (drawn by cage).
   (2) Games are still started by the frontend itself; through owneetd in 3.8.
 
