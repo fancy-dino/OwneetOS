@@ -33,6 +33,7 @@ with a gamepad. Mouse and keyboard are never required.
 | [PROJECT_RULES.md](PROJECT_RULES.md) | Every agreed requirement and decision. Source of truth. |
 | [ROADMAP.md](ROADMAP.md) | Step-by-step plan and current status. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to work on the project. |
+| [CREDITS.md](CREDITS.md) | The projects OwneetOS is built on, their authors and licences. |
 | [design/mockups/wave1-mockups.html](design/mockups/wave1-mockups.html) | Approved UI mockups (open in a browser). |
 
 ## Repository layout
@@ -42,13 +43,20 @@ with a gamepad. Mouse and keyboard are never required.
 | [`iso/`](iso/) | archiso profile that produces the bootable ISO. |
 | [`packages/`](packages/) | PKGBUILDs for the `[owneet]` pacman repository. |
 | [`daemon/`](daemon/) | `owneetd`, the system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, app launching). |
-| [`frontend/`](frontend/) | The console interface: Pegasus Frontend fork and the OwneetOS theme. |
+| [`frontend/`](frontend/) | The console interface (`owneet-frontend`, based on Pegasus Frontend) and the OwneetOS theme. |
 | [`extension/`](extension/) | Brave extension that makes streaming sites usable with a gamepad. |
 | [`installer/`](installer/) | Gamepad-driven installer (UI and backend). |
 | [`tools/`](tools/) | Developer scripts (build wrappers, helpers). |
 | [`vm/`](vm/) | Builder and test virtual machines. Images stay local and are never committed. |
 | [`docs/`](docs/) | Technical and user documentation. |
 | [`design/`](design/) | Mockups and design assets. |
+
+## Credits
+
+OwneetOS stands on the shoulders of Arch Linux, the Linux kernel, systemd, gamescope, Mesa,
+PipeWire, BlueZ, NetworkManager, SDL, Pegasus Frontend and many more free software projects.
+[CREDITS.md](CREDITS.md) names them, their authors and their licences. Thank you to everyone who
+built them.
 
 ## License
 

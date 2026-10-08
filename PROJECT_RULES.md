@@ -253,9 +253,21 @@ project is reviewed by someone experienced in open-source licensing.
   with OwneetOS; no third-party logos; never imply endorsement. "Based on Arch Linux" is allowed;
   the Arch logo is not used. The name **OwneetOS** gets a trademark search (EUIPO, Italian register)
   before the public launch.
+- **Credits:** the projects OwneetOS is built on are credited by name, author and licence in
+  `CREDITS.md` (shipped in the image at `/usr/share/doc/owneetos/CREDITS.md`, shown in the UI
+  under "About → Credits and licences" with the full list of installed packages). Every new
+  third-party component is added there when it is introduced.
+- **Licences of assets:** only free licences that allow commercial use and redistribution
+  (e.g. GPL, LGPL, MIT, BSD, Apache, Zlib, OFL, CC0, CC BY, CC BY-SA). Assets under "NonCommercial"
+  or "NoDerivatives" terms (e.g. CC BY-NC-SA) are never shipped.
+- **Pegasus Frontend fork:** Pegasus's licence adds trademark terms (GPL section 7): the modified
+  frontend is named `owneet-frontend`, never uses "Pegasus" or Pegasus's logos as its title or logo,
+  keeps Pegasus's copyright notices and credits it. Its CC BY-NC-SA default theme is not used.
 - **Third-party services:** only official clients and web apps; no circumvention of DRM or content
   protection; the Brave extension and any user-agent change are checked against each service's
   terms of service before they ship (roadmap step 5.2).
+- **Local data first:** game metadata comes from local files; no scraping or undocumented store
+  APIs (Pegasus's Steam store, GOG API and Play Store downloads are disabled).
 - **Privacy:** no telemetry. Any collection of personal data (e.g. opt-in crash reports) needs
   explicit consent and a privacy notice compliant with the GDPR.
 
@@ -297,3 +309,4 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-07 | gamescope runs with `--steam`: owneetd tags each window with an app id and chooses what is on screen (as Steam does on SteamOS); each game or app runs in its own systemd user service, so closing it stops all of its processes. |
 | 2026-10-08 | With the NVIDIA driver, gamescope always composites (direct scanout showed flickering black rectangles on the owner's RTX 4060). |
 | 2026-10-08 | Several screens: the console uses one (choice in Settings, step 3.9); the others are not turned off by default, a use for a second screen may come later. |
+| 2026-10-08 | Legal check before phase 3: the frontend fork is named `owneet-frontend` (Pegasus's trademark terms); Pegasus's CC BY-NC-SA theme, logo, Roboto fonts and button images are not used; its online metadata downloads are disabled. `CREDITS.md` credits every project OwneetOS builds on and ships in the image (section 12). Step 2.9 approved. |

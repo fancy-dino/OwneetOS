@@ -352,7 +352,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   boots again; shutdown → VM off in 2 s. The PC's power button keeps logind's default for now
   (decided with the UI). Suspend/resume on real hardware is checked with the UI (step 3.9).
 
-### [~] 2.9 Process manager and Guide button (awaiting owner review)
+### [x] 2.9 Process manager and Guide button
 
 - **Deliverables:** launch / track / close games and apps, return to home on Guide, force-close a
   frozen game, focus handling inside gamescope.
@@ -386,20 +386,30 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 
 ---
 
-## Phase 3 — Frontend (Pegasus fork)
+## Phase 3 — Frontend (`owneet-frontend`, a Pegasus Frontend fork)
+
+Legal requirements for the whole phase (checked 2026-10-08, PROJECT_RULES.md section 12):
+Pegasus is GPL-3.0-or-later with additional terms: a significantly modified version must not use
+"Pegasus Frontend", "Pegasus Launcher", "Pegasus" or Pegasus's logos as its title or logo (the fork
+is `owneet-frontend`, the product is OwneetOS; copyright notices are kept and Pegasus is credited).
+Pegasus's default theme (`pegasus-theme-grid`) is CC BY-NC-SA 4.0 and is never shipped. Pegasus's
+Roboto fonts and button images are not used (own fonts and glyphs). Pegasus's online metadata
+downloads (Steam store, GOG API, Play Store) are disabled: local data only.
 
 ### [ ] 3.1 Pegasus study and fork
 
-- **Deliverables:** clone `mmatyas/pegasus-frontend` (master, with submodules), fork on GitHub,
-  `docs/frontend-architecture.md` describing build system, data providers, theme API and the
-  extension points we need.
+- **Deliverables:** clone `mmatyas/pegasus-frontend` (master, with submodules), fork on GitHub as
+  `owneet-frontend`, `docs/frontend-architecture.md` describing build system, data providers, theme
+  API and the extension points we need, and what must be removed or disabled for the legal
+  requirements above.
 - **Done when:** the owner has a clear picture of what we change in C++ and what stays in QML.
 
-### [ ] 3.2 Build and package Pegasus
+### [ ] 3.2 Build and package the frontend
 
 - **Deliverables:** reproducible build in the builder VM against Qt 5.15, PKGBUILD in `[owneet]`,
   frontend replaces the placeholder in the session.
-- **Done when:** stock Pegasus runs in gamescope in the test VM and is driven by a gamepad.
+- **Done when:** the unmodified frontend, with a minimal theme of our own (never the CC BY-NC-SA
+  grid theme), runs in gamescope in the test VM and is driven by a gamepad.
 - **Also:** seamless handover from the boot splash to the UI, without the dark gap left in 1.4.
 
 ### [ ] 3.3 Theme foundations
@@ -457,7 +467,7 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
 
 - **Deliverables:** installed Steam games read from local files (`libraryfolders.vdf`,
   `appmanifest_*.acf`) across all disks; play time from local Steam data; check whether Pegasus's
-  built-in Steam provider can be reused.
+  built-in Steam provider can be reused (without its Steam store downloads: local data only).
 - **Open point:** listing games that are **owned but not installed** may not be possible from local
   files alone. If it isn't, report options to the owner (e.g. show only installed games plus a
   "Get more games" store tile) and update the rules.

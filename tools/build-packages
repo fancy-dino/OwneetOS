@@ -84,14 +84,15 @@ while (( ${#remaining[@]} )); do
     remaining=("${next[@]}")
 done
 
-# Packages built from this repository (e.g. owneetd from daemon/) list the source folders in
-# packages/NAME/source-dirs; they get a reproducible NAME-src.tar.gz next to their PKGBUILD.
+# Packages built from this repository (e.g. owneetd from daemon/) list their sources (folders or
+# files) in packages/NAME/source-dirs; they get a reproducible NAME-src.tar.gz next to their
+# PKGBUILD.
 make_source_tarball() {
     local pkg="$1" list="packages/$1/source-dirs"
     [[ -f "$list" ]] || return 0
     local dirs=() d
     mapfile -t dirs < <(grep -v '^\s*$' "$list")
-    for d in "${dirs[@]}"; do [[ -d "$d" ]] || die "$list: folder '$d' not found"; done
+    for d in "${dirs[@]}"; do [[ -e "$d" ]] || die "$list: '$d' not found"; done
     local mtime
     mtime="$(git log -1 --format=%ct 2>/dev/null || date +%s)"
     tar --sort=name --mtime="@$mtime" --owner=0 --group=0 --numeric-owner \
