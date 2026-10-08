@@ -33,6 +33,9 @@ public:
 
 public slots:
     void onButtonChanged(int deviceId, GamepadButton button, bool pressed);
+    /// OwneetOS: stops the repeat of every held button (gamepad input paused: the release
+    /// events will not come).
+    void releaseAll();
 
 private:
     const HashMap<GamepadButton, QTimer* const, EnumHash> m_timers;

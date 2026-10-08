@@ -57,7 +57,8 @@ FrontendLayer::FrontendLayer(QObject* const api_public, QObject* const api_priva
 
 void FrontendLayer::rebuild()
 {
-    Q_ASSERT(!m_engine);
+    if (m_engine) // OwneetOS: already loaded (the interface is no longer unloaded during games)
+        return;
 
     m_engine = new QQmlApplicationEngine(this);
     m_engine->addImportPath(QStringLiteral("lib/qml"));

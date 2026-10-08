@@ -1,4 +1,6 @@
 target_sources(pegasus-backend PRIVATE
+    CursorHider.cpp
+    CursorHider.h
     PowerCommands.h
     TerminalKbd.cpp
     TerminalKbd.h

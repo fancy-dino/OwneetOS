@@ -41,7 +41,7 @@ FocusScope {
             font.pixelSize: root.height * 0.04
         }
         Keys.onPressed: {
-            if (api.keys.isAccept(event) && currentItem) {
+            if (api.keys.isAccept(event) && !event.isAutoRepeat && currentItem) {
                 event.accepted = true;
                 currentItem.game.launch();
             }

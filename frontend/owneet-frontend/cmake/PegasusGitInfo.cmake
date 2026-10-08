@@ -29,3 +29,11 @@ execute_process(COMMAND
     OUTPUT_STRIP_TRAILING_WHITESPACE
     OUTPUT_VARIABLE PEGASUS_GIT_COMMIT_CNT
 )
+
+# OwneetOS: a build from a source archive has no .git; the package passes its version and date.
+if(OWNEET_VERSION)
+    set(PEGASUS_GIT_REVISION "${OWNEET_VERSION}")
+endif()
+if(OWNEET_DATE)
+    set(PEGASUS_GIT_DATE "${OWNEET_DATE}")
+endif()

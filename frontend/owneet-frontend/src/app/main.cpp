@@ -17,6 +17,7 @@
 
 #include "backend/Backend.h"
 #include "backend/Paths.h"
+#include "backend/platform/CursorHider.h"
 #include "backend/platform/TerminalKbd.h"
 
 #include <QCommandLineParser>
@@ -64,6 +65,7 @@ int main(int argc, char *argv[])
     app.setApplicationName(QStringLiteral("owneet-frontend"));
     app.setApplicationVersion(QStringLiteral(GIT_REVISION));
     app.setOrganizationName(QStringLiteral("owneet-frontend"));
+    app.installEventFilter(new platform::CursorHider(&app)); // OwneetOS
 
     if (!request_runtime_permissions())
         return 1;

@@ -102,6 +102,12 @@ void GamepadButtonNavigation::onButtonChanged(int, GamepadButton button, bool pr
         it->second->stop();
 }
 
+void GamepadButtonNavigation::releaseAll()
+{
+    for (const auto& pair : m_timers)
+        pair.second->stop();
+}
+
 void GamepadButtonNavigation::onTimerTimeout()
 {
     QTimer* const timer = static_cast<QTimer*>(QObject::sender());

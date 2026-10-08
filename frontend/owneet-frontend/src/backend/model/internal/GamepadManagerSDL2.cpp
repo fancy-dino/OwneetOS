@@ -339,6 +339,9 @@ GamepadManagerSDL2::GamepadManagerSDL2(QObject* parent)
 
 void GamepadManagerSDL2::start(const backend::CliArgs& args)
 {
+    // OwneetOS: SDL would catch SIGTERM and SIGINT and turn them into an SDL_QUIT event that is
+    // never handled, so the interface could not be stopped (shutdown, session restart).
+    SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
     if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) != 0) {
         Log::info(LOGMSG("Failed to initialize SDL2. Gamepad support may not work."));
         print_sdl_error();

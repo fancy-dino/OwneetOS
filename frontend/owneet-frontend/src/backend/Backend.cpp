@@ -53,7 +53,7 @@ class FolderListModel;
 namespace {
 void print_metainfo()
 {
-    Log::info(LOGMSG("Pegasus " GIT_REVISION " (" GIT_DATE ")"));
+    Log::info(LOGMSG("owneet-frontend " GIT_REVISION " (" GIT_DATE "), based on Pegasus Frontend")); // OwneetOS
     Log::info(LOGMSG("Running on %1 (%2, %3)").arg(
         QSysInfo::prettyProductName(),
         QSysInfo::currentCpuArchitecture(),
@@ -268,7 +268,9 @@ void Backend::onFavoritesChanged()
 
 void Backend::onProcessLaunched()
 {
-    m_frontend->teardown();
+    // OwneetOS: the interface is not unloaded while a game runs, so that it can be shown again
+    // at once (Guide button). Gamepad input is paused so that the hidden interface does not react
+    // to the game's buttons.
     m_api_private->gamepad().stop();
 }
 

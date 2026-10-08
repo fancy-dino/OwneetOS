@@ -23,8 +23,9 @@ import QtQuick.Window 2.2
 Window {
     id: appWindow
     visible: true
-    width: 1280
-    height: 720
+    // OwneetOS: born at the screen's size (no 1280x720 frame before going full screen)
+    width: Screen.width
+    height: Screen.height
     title: "OwneetOS"
     color: "#0E1424"
 

@@ -316,6 +316,9 @@ void ProcessLauncher::onProcessFinished(int exitcode, QProcess::ExitStatus exits
     }
 
     afterRun();
+    // OwneetOS: the interface stays loaded while a game runs (no teardown, no blocking wait in
+    // onTeardownComplete): report the end of the game here.
+    emit processFinished();
 }
 
 void ProcessLauncher::beforeRun(const QString& game_path)

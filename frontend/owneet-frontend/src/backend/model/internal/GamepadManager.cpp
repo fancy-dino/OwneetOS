@@ -92,6 +92,9 @@ void GamepadManager::start(const backend::CliArgs& args)
 void GamepadManager::stop()
 {
     m_backend->stop();
+#ifndef Q_OS_ANDROID
+    padbuttonnav.releaseAll(); // OwneetOS: no endless repeat of a button held when input stops
+#endif
 }
 
 void GamepadManager::configureButton(int deviceId, GMButton button)
