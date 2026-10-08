@@ -18,7 +18,9 @@
 
 set -uo pipefail
 
-APP="${OWNEET_APP:-/usr/bin/owneet-placeholder}"
+# The console interface; the placeholder only if it is not installed.
+APP="${OWNEET_APP:-/usr/bin/owneet-frontend}"
+if [[ ! -x "$APP" ]]; then APP=/usr/bin/owneet-placeholder; fi
 # Publishes the session's display for owneetd, then runs the app.
 SESSION_APP=/usr/lib/owneet/owneet-session-app
 QUICK_EXIT_S=30          # a compositor that stops sooner than this counts as a failure

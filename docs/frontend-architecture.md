@@ -106,6 +106,12 @@ menu). **Guide is also turned into a key** (not bound to anything by default).
 
 ### In C++ (small, targeted changes)
 
+Done in step 3.2: names, providers and Steam download, Guide removed, window tag, Pegasus's
+screens hidden (Pegasus's Roboto fonts are still bundled, unused by our theme, with their Apache-2.0
+licence installed; removed in 3.3), and also: the interface stays loaded during games (no teardown, no blocking wait), button
+repeat stopped when input pauses, SDL's SIGTERM handler disabled, pointer hidden until the mouse
+is used. Still to do: owneetd client, launching and power through owneetd (3.8), input map (3.5).
+
 | Change | Why | Step |
 |---|---|---|
 | Names: window title, application and organisation name, executable `owneet-frontend`, config folder `~/.config/owneet-frontend`; Pegasus logo and icons not installed | Pegasus's trademark terms (PROJECT_RULES.md section 12) | 3.2 |

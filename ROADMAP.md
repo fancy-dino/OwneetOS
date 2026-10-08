@@ -400,7 +400,7 @@ Every screen step (home, library, settings, on-screen keyboard, notifications, a
 setup screens of phase 6) starts with an **interactive demo** approved by the owner before its
 code is written (PROJECT_RULES.md section 9).
 
-### [~] 3.1 Pegasus study and fork (awaiting owner review)
+### [x] 3.1 Pegasus study and fork
 
 - **Deliverables:** clone `mmatyas/pegasus-frontend` (master, with submodules), fork on GitHub as
   `owneet-frontend`, `docs/frontend-architecture.md` describing build system, data providers, theme
@@ -417,13 +417,34 @@ code is written (PROJECT_RULES.md section 9).
   during games and runs them as children: replaced by owneetd launching, UI kept loaded), the
   owneetd client in C++ (QML cannot reach a Unix socket), and the list of C++ changes.
 
-### [ ] 3.2 Build and package the frontend
+### [~] 3.2 Build and package the frontend (awaiting owner review)
 
 - **Deliverables:** reproducible build in the builder VM against Qt 5.15, PKGBUILD in `[owneet]`,
   frontend replaces the placeholder in the session.
 - **Done when:** the unmodified frontend, with a minimal theme of our own (never the CC BY-NC-SA
   grid theme), runs in gamescope in the test VM and is driven by a gamepad.
 - **Also:** seamless handover from the boot splash to the UI, without the dark gap left in 1.4.
+- **Outcome:** package `owneet-frontend` (built in the clean chroot; 20 upstream tests pass with
+  the offscreen platform and Qt Quick's software renderer, flaky `test_Playtime` left out; LTO off:
+  Qt's two-pass resource compiler fails with LTO objects); the session starts it instead of the
+  placeholder (kept as fallback). Fork changes: OwneetOS names (executable, window title, config
+  folder, log), no Pegasus logo/icons/splash images, loading screen identical to the boot splash,
+  Pegasus's menu hidden, only local game data (8 providers not built, no Steam store download),
+  Guide not passed to the interface, window tags itself for gamescope and shows the home screen if
+  nobody chose (works with owneetd stopped), **interface kept loaded while a game runs** (Pegasus
+  unloaded it and blocked until the game ended: black screen in cage), no endless button repeat
+  when input pauses, SDL no longer swallows SIGTERM (the interface could not be stopped), mouse
+  pointer hidden until the mouse is used, window born at screen size. ISO 1720 MiB.
+- **Test VM:** cage: list of test games, D-pad moves the selection, A starts the game once, the
+  game shows, closing it returns to the list and input works again. gamescope (headless):
+  interface on screen and tagged, also with owneetd stopped. RAM in the VM (software rendering):
+  owneet-frontend ~170 MB, whole live system 566 MiB — to be measured on real hardware (C1).
+- **Open:** (1) the ~4 s dark gap between the boot splash and the interface remains (VM);
+  keeping Plymouth's last frame (`--retain-splash`) does not survive the console handover and
+  risks the 30 s autologin delay of 1.4, so it was dropped. A truly seamless handover needs a small
+  root helper that stops Plymouth only once the compositor is ready: decide after measuring the gap
+  on real hardware. (2) In cage, the mouse pointer shows until the first input (drawn by cage).
+  (3) Games are still started by the frontend itself; through owneetd in 3.8.
 
 ### [ ] 3.3 Theme foundations
 

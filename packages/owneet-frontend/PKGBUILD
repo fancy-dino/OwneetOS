@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
+
+pkgname=owneet-frontend
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="OwneetOS console interface, a modified version of Pegasus Frontend by Mátyás Mustoha and contributors"
+arch=('x86_64')
+url="https://github.com/fancy-dino/OwneetOS"
+# owneet-frontend / Pegasus Frontend: GPL-3.0-or-later with additional terms (LICENSE.md);
+# SortFilterProxyModel: MIT; bundled Roboto fonts: Apache-2.0; bundled SDL_GameControllerDB: Zlib
+license=('GPL-3.0-or-later' 'MIT' 'Apache-2.0' 'Zlib')
+depends=('qt5-base' 'qt5-declarative' 'qt5-multimedia' 'qt5-svg' 'sdl2-compat' 'libxcb'
+         'owneet-branding')
+makedepends=('cmake' 'ninja' 'qt5-tools')
+# !lto: Qt's two-pass resource compiler (rcc, big resources) fails with LTO objects.
+options=('!debug' '!lto')
+# owneet-frontend-src.tar.gz is generated from frontend/owneet-frontend by tools/build-packages.
+source=('owneet-frontend-src.tar.gz')
+sha256sums=('SKIP')
+
+build() {
+  cmake -S frontend/owneet-frontend -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DPEGASUS_ENABLE_LTO=OFF \
+    -DOWNEET_VERSION="$pkgver" \
+    -DOWNEET_DATE="$(date -u -d "@${SOURCE_DATE_EPOCH:-0}" +%F)"
+  ninja -C build
+}
+
+check() {
+  # No display in the build chroot: offscreen platform and Qt Quick's software renderer.
+  # test_Playtime is left out: it fails now and then upstream too.
+  cd build
+  QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software ctest --output-on-failure -E 'test_Playtime'
+}
+
+package() {
+  # Only the executable: Pegasus's icons, desktop file and documents are not installed
+  # (Pegasus's licence: a modified version does not use its name or logos).
+  install -Dm755 build/src/app/owneet-frontend "$pkgdir/usr/bin/owneet-frontend"
+  local src=frontend/owneet-frontend lic="$pkgdir/usr/share/licenses/$pkgname"
+  install -Dm644 "$src/LICENSE.md" "$lic/LICENSE.md"
+  install -Dm644 "$src/thirdparty/SortFilterProxyModel/LICENSE" "$lic/LICENSE.SortFilterProxyModel"
+  install -Dm644 "$src/doc/Roboto.LICENSE" "$lic/LICENSE.Roboto"
+}

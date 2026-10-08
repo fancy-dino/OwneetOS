@@ -30,6 +30,8 @@ show_report() {
     echo "--- Vulkan";          vulkaninfo --summary 2>/dev/null | grep -E 'deviceName|deviceType'
     echo "--- session";         journalctl -b -t owneet-session -o cat --no-pager | tail -4
     echo "--- memory (MiB)";    free -m | head -2
+    echo "--- processes (MiB)"; ps -o rss=,comm= -C owneet-frontend,gamescope-wl,cage,Xwayland,owneetd,pipewire,wireplumber \
+                                    | awk '{printf "%s %d  ", $2, $1 / 1024} END {print ""}'
     echo "--- failed units";    systemctl --failed --no-legend --plain --no-pager
     echo "--- last errors";     journalctl -b -p err -o cat --no-pager | tail -6
     echo "--- controllers";     owneetd_get /v1/controllers

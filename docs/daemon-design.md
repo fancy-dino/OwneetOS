@@ -268,6 +268,5 @@ Events format). Event types (initial list):
   (e.g. short press = suspend) is decided with the UI.
 - When Steam runs inside the session (store, login: phase 4) it also wants to choose what
   gamescope shows: decide then how owneetd and Steam share it.
-- The real console UI tags its own window too (step 3.2), so it shows even if owneetd is down.
 - Which privileged helpers exist and their interfaces — installer (6.3), updates (7.1), disks (6.5).
 - Configuration file format and location — step 2.2.
