@@ -5,6 +5,14 @@ Mockups and design assets.
 - [`mockups/wave1-mockups.html`](mockups/wave1-mockups.html): approved Wave 1 mockups (first
   boot, home, library, settings). Open it in a browser; it can be driven with the keyboard or a gamepad.
 
+- [`demos/`](demos/): interactive demos, one per screen or building block, shown to the owner
+  before the code is written (PROJECT_RULES.md section 9). Open them in a browser and drive them
+  with a gamepad or the keyboard:
+  - [`3.3-theme-foundations.html`](demos/3.3-theme-foundations.html): type scale, palette tokens
+    with live contrast check, focus ring, components, text sizes, button prompts (Xbox /
+    PlayStation, drawn for OwneetOS), TV safe area. Start state in the address:
+    `#pal=daylight&glyphs=ps&lang=it&ts=1.2&safe=1`.
+
 Design rules (palettes as tokens, fonts, TV safe area, input map) are in PROJECT_RULES.md section 9.
 
 ## Wordmark

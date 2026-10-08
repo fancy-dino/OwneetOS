@@ -417,7 +417,7 @@ code is written (PROJECT_RULES.md section 9).
   during games and runs them as children: replaced by owneetd launching, UI kept loaded), the
   owneetd client in C++ (QML cannot reach a Unix socket), and the list of C++ changes.
 
-### [~] 3.2 Build and package the frontend (awaiting owner review)
+### [x] 3.2 Build and package the frontend
 
 - **Deliverables:** reproducible build in the builder VM against Qt 5.15, PKGBUILD in `[owneet]`,
   frontend replaces the placeholder in the session.
@@ -458,10 +458,15 @@ code is written (PROJECT_RULES.md section 9).
 - **Open:** (1) In cage, the mouse pointer shows until the first input (drawn by cage).
   (2) Games are still started by the frontend itself; through owneetd in 3.8.
 
-### [ ] 3.3 Theme foundations
+### [~] 3.3 Theme foundations (demo awaiting owner review)
 
 - **Deliverables:** design tokens (palettes from section 9), bundled fonts, 1280×720 scaling grid,
   safe area, focus ring, prompt bar with Xbox / PlayStation glyph sets.
+- **Demo:** `design/demos/3.3-theme-foundations.html` (gamepad or keyboard). Proposals in it:
+  text sizes S/M/L/XL = 90/100/120/140 % (text only; columns scroll, prompt bar and safe area never
+  move); glyphs drawn for OwneetOS (letters in circles for Xbox-style pads, geometric shapes for
+  PlayStation, a generic "home" glyph for Guide: no third-party logos), chosen automatically from
+  the connected controller; live WCAG contrast check of each palette.
 
 ### [ ] 3.4 Internationalisation
 
