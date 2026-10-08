@@ -146,7 +146,7 @@ namespace appsettings {
 
 General::General()
     : DEFAULT_LOCALE(QStringLiteral("en"))
-    , DEFAULT_THEME(QStringLiteral(":/themes/pegasus-theme-grid/"))
+    , DEFAULT_THEME(QStringLiteral(":/themes/owneet-minimal/"))
     , locale() // intentionally blank
     , theme(DEFAULT_THEME)
 {}
