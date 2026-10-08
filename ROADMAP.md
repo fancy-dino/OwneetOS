@@ -439,11 +439,11 @@ code is written (PROJECT_RULES.md section 9).
   game shows, closing it returns to the list and input works again. gamescope (headless):
   interface on screen and tagged, also with owneetd stopped. RAM in the VM (software rendering):
   owneet-frontend ~170 MB, whole live system 566 MiB — to be measured on real hardware (C1).
-- **Open:** (1) the ~4 s dark gap between the boot splash and the interface remains (VM);
-  keeping Plymouth's last frame (`--retain-splash`) does not survive the console handover and
-  risks the 30 s autologin delay of 1.4, so it was dropped. A truly seamless handover needs a small
-  root helper that stops Plymouth only once the compositor is ready: decide after measuring the gap
-  on real hardware. (2) In cage, the mouse pointer shows until the first input (drawn by cage).
+- **Real hardware (2026-10-08, owner's desktop, RTX 4060):** the interface shows after the boot
+  splash; the dark gap between them is about a tenth of a second (the ~4 s in the VM come from
+  software rendering): no helper needed, handover done. Live system RAM "used": 1142 MiB of 48 GB
+  — breakdown per process requested (constraint C1: 500 MB).
+- **Open:** (1) RAM breakdown on real hardware. (2) In cage, the mouse pointer shows until the first input (drawn by cage).
   (3) Games are still started by the frontend itself; through owneetd in 3.8.
 
 ### [ ] 3.3 Theme foundations
