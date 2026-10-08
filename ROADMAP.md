@@ -374,6 +374,13 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   missing program reported; close (SIGTERM), an app ignoring SIGTERM killed after 11 s, force-close
   at once. cage: short press does nothing, holding 2.5 s closes the game. Open: the same on a real
   screen (owner).
+- **Real hardware (2026-10-08, owner's desktop, RTX 4060):** the placeholder shows "console session:
+  gamescope", but flickering black rectangles appear (already before this step; not on the AMD
+  NiPoGi). Test ISO with one variant per boot entry: drawing with the CPU or without `--steam`
+  → rectangles; drawing through Vulkan or gamescope `--force-composition` → none. Cause: direct
+  scanout of the app's buffer with the NVIDIA driver. Fix: `owneet-session` forces composition
+  when the NVIDIA driver is loaded; AMD and Intel keep direct scanout. Test hooks
+  `owneet.debug.placeholder_vo`, `owneet.debug.gamescope_composite`, `owneet.debug.gamescope_steam`.
 
 ---
 

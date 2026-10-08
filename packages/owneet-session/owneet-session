@@ -11,7 +11,9 @@
 # Test hooks (troubleshooting; never needed by users):
 #   owneet.debug.gamescope_backend=headless   gamescope without a screen, for VMs without a
 #                                             hardware Vulkan device (windows and focus still work)
-#   owneet.debug.gamescope_composite=force    gamescope always composites (no direct scanout)
+#   owneet.debug.gamescope_composite=force|off
+#                                             always composite / never force it (default: forced
+#                                             with the NVIDIA driver only, see gamescope_args)
 #   owneet.debug.gamescope_steam=off          gamescope without --steam (no focus control)
 
 set -uo pipefail
@@ -45,12 +47,22 @@ debug_opt() {
     grep -oE "(^| )owneet\.debug\.$1=[a-z]+" /proc/cmdline | tail -1 | cut -d= -f2 || true
 }
 
-# --steam: gamescope shows the windows owneetd tags and lets it choose which one is on screen
-# (home screen or game, Guide button). docs/daemon-design.md, "Apps and games".
-GAMESCOPE_ARGS=(--fullscreen --steam)
-if [[ "$(debug_opt gamescope_steam)" == off ]]; then GAMESCOPE_ARGS=(--fullscreen); fi
-if [[ "$(debug_opt gamescope_backend)" == headless ]]; then GAMESCOPE_ARGS+=(--backend headless); fi
-if [[ "$(debug_opt gamescope_composite)" == force ]]; then GAMESCOPE_ARGS+=(--force-composition); fi
+# gamescope's arguments, in GAMESCOPE_ARGS.
+gamescope_args() {
+    # --steam: gamescope shows the windows owneetd tags and lets it choose which one is on screen
+    # (home screen or game, Guide button). docs/daemon-design.md, "Apps and games".
+    GAMESCOPE_ARGS=(--fullscreen --steam)
+    if [[ "$(debug_opt gamescope_steam)" == off ]]; then GAMESCOPE_ARGS=(--fullscreen); fi
+    if [[ "$(debug_opt gamescope_backend)" == headless ]]; then GAMESCOPE_ARGS+=(--backend headless); fi
+    # With the NVIDIA driver, windows sent straight to the screen (direct scanout) show flickering
+    # black rectangles (owner's RTX 4060, 2026-10-08): always composite there. AMD and Intel keep
+    # direct scanout, which saves GPU work on low-end hardware.
+    case "$(debug_opt gamescope_composite)" in
+        force) GAMESCOPE_ARGS+=(--force-composition) ;;
+        off)   ;;
+        *)     if [[ -d /sys/module/nvidia_drm ]]; then GAMESCOPE_ARGS+=(--force-composition); fi ;;
+    esac
+}
 
 run_compositor() {
     export OWNEET_SESSION_MODE="$1"
@@ -60,7 +72,8 @@ run_compositor() {
     # Stale until the new session publishes its display.
     rm -f "${XDG_RUNTIME_DIR:-/tmp}/owneet/session-env"
     case "$1" in
-        gamescope) log "gamescope ${GAMESCOPE_ARGS[*]}"
+        gamescope) gamescope_args
+                   log "gamescope ${GAMESCOPE_ARGS[*]}"
                    gamescope "${GAMESCOPE_ARGS[@]}" -- "$SESSION_APP" "$APP" ;;
         # The reduced session must work even without GPU acceleration (no driver, or a VM):
         # wlroots then renders in software instead of refusing to start.
