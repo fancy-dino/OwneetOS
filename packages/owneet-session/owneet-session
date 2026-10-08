@@ -94,8 +94,21 @@ case "$mode" in
        if has_hardware_vulkan; then mode=gamescope; fi ;;
 esac
 
+# The compositor can only start while this session is the one on screen (logind "active"): not
+# while another console is shown (e.g. the diagnostics report on tty9). Wait for it instead of
+# counting failed starts.
+wait_until_active() {
+    local id="${XDG_SESSION_ID:-}" said=0
+    [[ -n "$id" ]] || return 0
+    while [[ "$(loginctl show-session "$id" -p Active --value 2>/dev/null)" == no ]]; do
+        if (( ! said )); then log "the console is not on screen: waiting"; said=1; fi
+        sleep 1
+    done
+}
+
 fails=0
 while true; do
+    wait_until_active
     log "starting $mode"
     start=$SECONDS
     # Compositor and app messages go to the journal (journalctl -t owneet-cage / owneet-gamescope),

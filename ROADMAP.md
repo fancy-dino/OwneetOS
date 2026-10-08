@@ -443,8 +443,15 @@ code is written (PROJECT_RULES.md section 9).
   splash; the dark gap between them is about a tenth of a second (the ~4 s in the VM come from
   software rendering): no helper needed, handover done. Live system RAM "used": 1142 MiB of 48 GB
   — breakdown per process requested (constraint C1: 500 MB).
-- **Open:** (1) RAM breakdown on real hardware. (2) In cage, the mouse pointer shows until the first input (drawn by cage).
-  (3) Games are still started by the frontend itself; through owneetd in 3.8.
+- **Desktop diagnostics (cage):** "Timeout waiting session to become active": while the report on
+  tty9 is on screen the console session is not active and cage cannot start (reproduced in the VM;
+  back on tty1 it starts). This also explains the "endless splash" of 1.5. `owneet-session` now
+  waits until the console is on screen instead of counting failed starts (no false fallback, no
+  error screen). RAM on the desktop: programs ~60 MB, kernel ~340 MB, ~800 MB not attributed
+  (typical of GPU drivers: NVIDIA with GSP firmware plus the Intel GPU); the NiPoGi (AMD) used
+  ~235 MiB without the UI in 1.5. C1 is measured on the target low-budget hardware.
+- **Open:** (1) In cage, the mouse pointer shows until the first input (drawn by cage).
+  (2) Games are still started by the frontend itself; through owneetd in 3.8.
 
 ### [ ] 3.3 Theme foundations
 
