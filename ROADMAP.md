@@ -381,6 +381,8 @@ Status: `[x]` done · `[~]` in progress · `[ ]` to do · `[?]` needs a decision
   scanout of the app's buffer with the NVIDIA driver. Fix: `owneet-session` forces composition
   when the NVIDIA driver is loaded; AMD and Intel keep direct scanout. Test hooks
   `owneet.debug.placeholder_vo`, `owneet.debug.gamescope_composite`, `owneet.debug.gamescope_steam`.
+  **Verified by the owner on the desktop:** no rectangles, gamescope session. (The second monitor
+  still shows a frozen splash frame: known issue, step 3.9.)
 
 ---
 
