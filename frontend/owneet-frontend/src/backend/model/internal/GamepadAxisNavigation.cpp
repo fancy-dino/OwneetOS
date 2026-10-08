@@ -42,6 +42,9 @@ AxisZone axis_zone(double axis_value)
 GamepadButton axis_valchange_to_button(GamepadAxis axis, double axis_change)
 {
     const bool is_negative = (axis_change < 0);
+    // OwneetOS: the right stick scrolls long lists fast (section 9.1); its X axis does nothing
+    if (axis == GamepadAxis::RIGHTY)
+        return is_negative ? GamepadButton::RSTICK_UP : GamepadButton::RSTICK_DOWN;
     const bool is_horizontal = (axis == GamepadAxis::LEFTX ||
                                 axis == GamepadAxis::RIGHTX);
     return is_horizontal
@@ -56,6 +59,8 @@ GamepadButton reverse_button(GamepadButton button)
         case GamepadButton::RIGHT: return GamepadButton::LEFT;
         case GamepadButton::UP: return GamepadButton::DOWN;
         case GamepadButton::DOWN: return GamepadButton::UP;
+        case GamepadButton::RSTICK_UP: return GamepadButton::RSTICK_DOWN;
+        case GamepadButton::RSTICK_DOWN: return GamepadButton::RSTICK_UP;
         default: Q_UNREACHABLE();
     }
 }
@@ -77,7 +82,7 @@ GamepadAxisNavigation::GamepadAxisNavigation(QObject* parent)
 
 void GamepadAxisNavigation::onAxisEvent(int deviceId, GamepadAxis axis, double axisValue)
 {
-    if (axis == GamepadAxis::INVALID)
+    if (axis == GamepadAxis::INVALID || axis == GamepadAxis::RIGHTX) // OwneetOS: RIGHTX unused
         return;
 
     // NOTE: the point here is that if the device or axis wasn't

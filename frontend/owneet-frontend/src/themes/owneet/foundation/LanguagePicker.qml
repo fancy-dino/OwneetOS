@@ -11,32 +11,15 @@ Sheet {
     topMargin: 130
     bottomMargin: 130
 
-    property int index: 0
-    property var items: []
+    property var rows: ({})
 
     function openPicker() {
-        const langs = Tr.languages;
-        index = Math.max(0, langs.findIndex(l => l.tag === Tr.language));
-        open();
-        focusCurrent();
+        open(true);
+        focusItem(rows[Tr.language]);
     }
-    function focusCurrent() {
-        const item = items[index];
-        if (item) {
-            item.forceActiveFocus();
-            ensureVisible(item);
-        }
-    }
-
-    Keys.onPressed: {
-        if (event.isAutoRepeat && (api.keys.isAccept(event) || api.keys.isCancel(event)))
-            return;
-        if (api.keys.isAccept(event)) { Tr.setLanguage(Tr.languages[index].tag); close(); }
-        else if (api.keys.isCancel(event)) close();
-        else if (event.key === Qt.Key_Up && index > 0) { index--; focusCurrent(); }
-        else if (event.key === Qt.Key_Down && index < Tr.languages.length - 1) { index++; focusCurrent(); }
-        else return;
-        event.accepted = true;
+    onAccepted: {
+        Tr.setLanguage(item.tag);
+        close(true);
     }
 
     Column {
@@ -46,13 +29,15 @@ Sheet {
             model: Tr.languages
             Rectangle {
                 id: row
+                readonly property string tag: modelData.tag
+                readonly property bool navigable: true
                 width: parent.width
                 height: name.implicitHeight + Theme.px(22)
                 radius: Theme.radiusS + Theme.px(2)
                 color: Theme.surface
                 border.color: Theme.line
                 border.width: Math.max(1, Theme.px(1))
-                Component.onCompleted: { const list = root.items; list[index] = row; root.items = list; }
+                Component.onCompleted: root.rows[modelData.tag] = row
                 Text {
                     id: name
                     anchors { left: parent.left; leftMargin: Theme.px(16); verticalCenter: parent.verticalCenter }

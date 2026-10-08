@@ -10,6 +10,8 @@ Rectangle {
     property bool checked: false
     property string value: ""
     property var swatches: []          // small color strip shown before the value
+    readonly property bool navigable: true
+    readonly property string feedbackKind: kind === "switch" ? (checked ? "toggle-off" : "toggle-on") : "confirm"
     signal activated()
 
     implicitHeight: Math.max(label.implicitHeight, Theme.fs(24)) + Theme.px(22)

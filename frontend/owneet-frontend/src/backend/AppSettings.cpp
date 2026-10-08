@@ -64,15 +64,18 @@ HashMap<KeyEvent, QVector<QKeySequence>, EnumHash> default_keymap()
         { KeyEvent::RIGHT, { Qt::Key_Right }},
         { KeyEvent::UP, { Qt::Key_Up }},
         { KeyEvent::DOWN, { Qt::Key_Down }},
-        { KeyEvent::ACCEPT, { Qt::Key_Return, Qt::Key_Enter, GamepadKeyId::A }},
+        // OwneetOS input map (PROJECT_RULES.md section 9.1), keyboard as an optional fallback
+        { KeyEvent::ACCEPT, { Qt::Key_Return, Qt::Key_Enter, Qt::Key_Space, GamepadKeyId::A }},
         { KeyEvent::CANCEL, { Qt::Key_Escape, Qt::Key_Backspace, GamepadKeyId::B }},
-        { KeyEvent::DETAILS, { Qt::Key_I, GamepadKeyId::X }},
-        { KeyEvent::FILTERS, { Qt::Key_F, GamepadKeyId::Y }},
-        { KeyEvent::NEXT_PAGE, { Qt::Key_E, Qt::Key_D, GamepadKeyId::R1 }},
-        { KeyEvent::PREV_PAGE, { Qt::Key_Q, Qt::Key_A, GamepadKeyId::L1 }},
-        { KeyEvent::PAGE_UP, { Qt::Key_PageUp, GamepadKeyId::L2 }},
-        { KeyEvent::PAGE_DOWN, { Qt::Key_PageDown, GamepadKeyId::R2 }},
-        { KeyEvent::MAIN_MENU, { Qt::Key_F1, GamepadKeyId::START }},
+        { KeyEvent::DETAILS, { Qt::Key_X, GamepadKeyId::X }},              // secondary action
+        { KeyEvent::FILTERS, { Qt::Key_Y, GamepadKeyId::Y }},              // page option
+        { KeyEvent::PREV_PAGE, { Qt::Key_Q, GamepadKeyId::L1 }},           // previous section
+        { KeyEvent::NEXT_PAGE, { Qt::Key_E, GamepadKeyId::R1 }},           // next section
+        { KeyEvent::PAGE_UP, { Qt::Key_Z, GamepadKeyId::L2 }},             // previous filter / tab
+        { KeyEvent::PAGE_DOWN, { Qt::Key_C, GamepadKeyId::R2 }},           // next filter / tab
+        { KeyEvent::MAIN_MENU, { Qt::Key_M, Qt::Key_Menu, GamepadKeyId::START }}, // item options
+        { KeyEvent::SCROLL_UP, { Qt::Key_PageUp, GamepadKeyId::RSTICK_UP }},
+        { KeyEvent::SCROLL_DOWN, { Qt::Key_PageDown, GamepadKeyId::RSTICK_DOWN }},
     };
 }
 

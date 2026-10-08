@@ -16,60 +16,20 @@ Sheet {
         { key: "dark", label: "palette.group.dark" }, { key: "light", label: "palette.group.light" },
         { key: "access", label: "palette.group.access" }
     ]
-    // rows of palette indexes, for moving up and down across groups
-    readonly property var rows: {
-        const out = [];
-        groups.forEach(g => {
-            const idx = [];
-            Theme.palettes.forEach((p, i) => { if (p.group === g.key) idx.push(i); });
-            for (let i = 0; i < idx.length; i += columns)
-                out.push(idx.slice(i, i + columns));
-        });
-        return out;
-    }
-    property int row: 0
-    property int col: 0
-    readonly property int current: rows[row] && col < rows[row].length ? rows[row][col] : 0
     property var cards: ({})
 
     function openPicker() {
-        for (let r = 0; r < rows.length; r++) {
-            const c = rows[r].indexOf(Theme.palettes.findIndex(p => p.key === Theme.paletteKey));
-            if (c >= 0) { row = r; col = c; }
-        }
-        open();
-        Theme.previewKey = Theme.palettes[current].key;
-        focusCurrent();
+        open(true);
+        focusItem(cards[Theme.paletteKey]);
     }
-    function focusCurrent() {
-        const card = cards[current];
-        if (card) {
-            card.forceActiveFocus();
-            ensureVisible(card);
-        }
-        Theme.previewKey = Theme.palettes[current].key;
-    }
-    function finish(apply) {
-        if (apply) {
-            Theme.paletteKey = Theme.palettes[current].key;
-            applied(Theme.paletteKey);
-        }
+    onMoved: Theme.previewKey = item.pal.key
+    onAccepted: {
+        Theme.paletteKey = item.pal.key;
         Theme.previewKey = "";
-        close();
+        applied(Theme.paletteKey);
+        close(true);
     }
-
-    Keys.onPressed: {
-        if (event.isAutoRepeat && (api.keys.isAccept(event) || api.keys.isCancel(event)))
-            return;
-        if (api.keys.isAccept(event)) { finish(true); }
-        else if (api.keys.isCancel(event)) { finish(false); }
-        else if (event.key === Qt.Key_Left && col > 0) { col--; focusCurrent(); }
-        else if (event.key === Qt.Key_Right && col < rows[row].length - 1) { col++; focusCurrent(); }
-        else if (event.key === Qt.Key_Up && row > 0) { row--; col = Math.min(col, rows[row].length - 1); focusCurrent(); }
-        else if (event.key === Qt.Key_Down && row < rows.length - 1) { row++; col = Math.min(col, rows[row].length - 1); focusCurrent(); }
-        else return;
-        event.accepted = true;
-    }
+    onCancelled: Theme.previewKey = ""
 
     Column {
         width: parent.width
@@ -93,13 +53,14 @@ Sheet {
                             id: card
                             readonly property var pal: modelData
                             readonly property bool chosen: pal.key === Theme.paletteKey
+                            readonly property bool navigable: true
                             width: grid.cell
                             height: cardColumn.height + Theme.px(16)
                             radius: Theme.radiusS + Theme.px(2)
                             color: pal.c[1]
                             border.color: chosen ? pal.c[6] : pal.c[3]
                             border.width: Math.max(1, Theme.px(chosen ? 2 : 1))
-                            Component.onCompleted: root.cards[Theme.palettes.findIndex(p => p.key === pal.key)] = card
+                            Component.onCompleted: root.cards[pal.key] = card
                             Column {
                                 id: cardColumn
                                 x: Theme.px(8); y: Theme.px(8)

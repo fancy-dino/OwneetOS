@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Shows the interface without booting an ISO: runs the owneet-frontend package from out/repo on
+# a virtual screen (Xvfb) in a throwaway container inside the builder VM, with test games and a
+# virtual Xbox-style controller, follows a list of steps and saves screenshots in
+# out/frontend-preview/.
+#
+#   tools/build-in-vm tools/build-packages owneet-frontend      (build the package first)
+#   tools/build-in-vm tools/frontend-preview STEPS_FILE [WIDTHxHEIGHT]   (default 1280x720)
+#
+# STEPS_FILE, one step per line (the frontend starts with no saved settings):
+#   key KEY...       keyboard keys, xdotool names (Down, Return, Escape, y, Next = Page Down…)
+#   pad BUTTON...    controller buttons: a b x y lb rb lt rt menu view up down left right
+#   stick STICK MS   hold a stick for MS ms: ls-up ls-down ls-left ls-right rs-up rs-down
+#   shot NAME        screenshot: out/frontend-preview/NAME.png
+#   restart          restart the frontend (its settings are kept)
+#   # …              comment
+# The frontend's log is out/frontend-preview/log.txt.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CHROOT="/var/tmp/owneet-chroot/root"
+BOX="/var/tmp/owneet-preview"
+OUT="$ROOT/out/frontend-preview"
+
+die() { echo "error: $*" >&2; exit 1; }
+
+[[ $# -ge 1 && $# -le 2 ]] || { sed -n '4,22p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+STEPS="$(realpath "$1")"
+SIZE="${2:-1280x720}"
+[[ -f "$STEPS" ]] || die "$1 not found"
+[[ "$SIZE" =~ ^[0-9]+x[0-9]+$ ]] || die "size must be WIDTHxHEIGHT"
+command -v systemd-nspawn >/dev/null && [[ -d "$CHROOT" ]] \
+    || die "run it in the builder VM after a package build: tools/build-in-vm tools/frontend-preview …"
+mapfile -t pkgs < <(ls "$ROOT"/out/repo/x86_64/owneet-frontend-*.pkg.tar.zst "$ROOT"/out/repo/x86_64/owneet-branding-*.pkg.tar.zst 2>/dev/null)
+[[ ${#pkgs[@]} -eq 2 ]] || die "build first: tools/build-in-vm tools/build-packages owneet-frontend"
+
+if [[ ! -d "$BOX" ]]; then
+    echo "==> creating the preview container (once)"
+    sudo cp -a "$CHROOT" "$BOX"
+    sudo systemd-nspawn -q -D "$BOX" pacman -Sy --noconfirm --needed \
+        xorg-server-xvfb imagemagick xdotool python-evdev >/dev/null
+fi
+sudo cp "${pkgs[@]}" "$BOX/var/tmp/"
+sudo systemd-nspawn -q -D "$BOX" sh -c \
+    'pacman -U --noconfirm /var/tmp/owneet-*.pkg.tar.zst >/dev/null 2>&1; rm -f /var/tmp/owneet-*.pkg.tar.zst'
+sudo cp "$STEPS" "$BOX/steps.txt"
+
+# Virtual controller: an "Xbox 360 pad" (SDL maps it with SDL_GameControllerDB), driven
+# through a FIFO.
+sudo tee "$BOX/vpad.py" >/dev/null <<'EOF'
+import sys, time
+from evdev import UInput, AbsInfo, ecodes as e
+
+STICK = AbsInfo(0, -32768, 32767, 16, 128, 0)
+TRIGGER = AbsInfo(0, 0, 255, 0, 0, 0)
+HAT = AbsInfo(0, -1, 1, 0, 0, 0)
+ui = UInput({
+    e.EV_KEY: [e.BTN_SOUTH, e.BTN_EAST, e.BTN_NORTH, e.BTN_WEST, e.BTN_TL, e.BTN_TR,
+               e.BTN_SELECT, e.BTN_START, e.BTN_MODE, e.BTN_THUMBL, e.BTN_THUMBR],
+    e.EV_ABS: [(e.ABS_X, STICK), (e.ABS_Y, STICK), (e.ABS_Z, TRIGGER), (e.ABS_RX, STICK),
+               (e.ABS_RY, STICK), (e.ABS_RZ, TRIGGER), (e.ABS_HAT0X, HAT), (e.ABS_HAT0Y, HAT)],
+}, name="Microsoft X-Box 360 pad", vendor=0x045e, product=0x028e, version=0x110, bustype=e.BUS_USB)
+
+BUTTONS = {"a": e.BTN_SOUTH, "b": e.BTN_EAST, "x": e.BTN_NORTH, "y": e.BTN_WEST,
+           "lb": e.BTN_TL, "rb": e.BTN_TR, "view": e.BTN_SELECT, "menu": e.BTN_START}
+AXES = {"lt": (e.ABS_Z, 255), "rt": (e.ABS_RZ, 255), "up": (e.ABS_HAT0Y, -1), "down": (e.ABS_HAT0Y, 1),
+        "left": (e.ABS_HAT0X, -1), "right": (e.ABS_HAT0X, 1)}
+STICKS = {"ls-up": (e.ABS_Y, -32767), "ls-down": (e.ABS_Y, 32767), "ls-left": (e.ABS_X, -32767),
+          "ls-right": (e.ABS_X, 32767), "rs-up": (e.ABS_RY, -32767), "rs-down": (e.ABS_RY, 32767)}
+
+
+def emit(kind, code, value, hold):
+    ui.write(kind, code, value); ui.syn(); time.sleep(hold)
+    ui.write(kind, code, 0); ui.syn(); time.sleep(0.12)
+
+
+print("ready", flush=True)
+for line in open(sys.argv[1]):
+    words = line.split()
+    if words[0] == "pad":
+        for b in words[1:]:
+            if b in BUTTONS:
+                emit(e.EV_KEY, BUTTONS[b], 1, 0.08)
+            else:
+                emit(e.EV_ABS, AXES[b][0], AXES[b][1], 0.08)
+    elif words[0] == "stick":
+        emit(e.EV_ABS, STICKS[words[1]][0], STICKS[words[1]][1], int(words[2]) / 1000)
+    print("done", flush=True)
+EOF
+
+sudo tee "$BOX/run-preview.sh" >/dev/null <<'EOF'
+#!/bin/sh
+export HOME=/tmp/home QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 SDL_JOYSTICK_DISABLE_UDEV=1
+rm -rf "$HOME"; mkdir -p "$HOME/.config/owneet-frontend" "$HOME/games"
+printf 'collection: Test games\nshortname: test\n\n' > "$HOME/games/metadata.pegasus.txt"
+for g in "Nebula Drift" "Moss Garden" "Ember Run" "Tiny Tactics" "Harbor Lights" "Pixel Quest" \
+         "Starfall" "Velvet Road" "Copper Coast" "Lantern Keep" "Quiet Orbit" "Saltwind"; do
+    f="$HOME/games/$(echo "$g" | tr ' ' _).sh"; touch "$f"
+    printf 'game: %s\nfile: %s\nlaunch: /bin/true\n\n' "$g" "$f" >> "$HOME/games/metadata.pegasus.txt"
+done
+echo "$HOME/games" > "$HOME/.config/owneet-frontend/game_dirs.txt"
+
+mkfifo /tmp/vpad.in
+python3 /vpad.py /tmp/vpad.in > /tmp/vpad.out 2>&1 &
+exec 3>/tmp/vpad.in
+sleep 1
+start() { owneet-frontend >> /out/log.txt 2>&1 & FE=$!; sleep 7; }
+start
+while IFS= read -r line; do
+    set -- $line
+    case "${1:-#}" in
+        \#*) ;;
+        key) shift; for k in "$@"; do xdotool key "$k"; sleep 0.3; done ;;
+        pad|stick) n=$(grep -c done /tmp/vpad.out); echo "$line" >&3
+                   while [ "$(grep -c done /tmp/vpad.out)" -le "$n" ]; do sleep 0.1; done; sleep 0.3 ;;
+        shot) sleep 1; import -window root "/out/$2.png"; echo "$2.png" ;;
+        restart) kill "$FE"; wait "$FE" 2>/dev/null; start ;;
+        *) echo "unknown step: $line" ;;
+    esac
+done < /steps.txt
+kill "$FE" 2>/dev/null
+grep -i "gamepad\|controller" /out/log.txt | head -3
+EOF
+sudo chmod +x "$BOX/run-preview.sh"
+
+rm -rf "$OUT"; mkdir -p "$OUT"
+sudo modprobe uinput
+sudo systemd-nspawn -q -D "$BOX" --bind="$OUT:/out" --bind=/dev/uinput --bind=/dev/input \
+    --property=DeviceAllow='/dev/uinput rw' --property=DeviceAllow='char-input rw' \
+    xvfb-run -a -s "-screen 0 ${SIZE}x24" /run-preview.sh
+echo "==> screenshots in out/frontend-preview/"

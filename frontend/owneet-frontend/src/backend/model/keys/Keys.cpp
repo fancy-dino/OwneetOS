@@ -51,6 +51,8 @@ Keys::Keys(QObject* parent)
         { KeyEvent::PAGE_UP, {} },
         { KeyEvent::PAGE_DOWN, {} },
         { KeyEvent::MAIN_MENU, {} },
+        { KeyEvent::SCROLL_UP, {} },
+        { KeyEvent::SCROLL_DOWN, {} },
     }
 {
     refresh_keys();

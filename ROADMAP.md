@@ -484,7 +484,7 @@ code is written (PROJECT_RULES.md section 9).
   printed labels on Nintendo pads), chosen automatically for Switch controllers. Its hardware test
   (Switch Pro Controller) is deferred to the next hardware test, together with other checks.
 
-### [~] 3.4 Internationalisation (awaiting owner review)
+### [x] 3.4 Internationalisation
 
 - **Deliverables:** JSON message files, loader, **English as the default language** and fallback,
   `en` + `it` complete,
@@ -501,9 +501,22 @@ code is written (PROJECT_RULES.md section 9).
   (switch to Italian, kept after a restart). Limits: no right-to-left; non-Latin scripts need
   extra fonts, added with the first such language.
 
-### [ ] 3.5 Navigation and input map
+### [~] 3.5 Navigation and input map (awaiting owner review)
 
 - **Deliverables:** spatial navigation and the global input map (rules section 9.1) implemented once and shared by every screen.
+- **Outcome:** in C++, the gamepad and keyboard map of section 9.1 (LB/RB = sections, LT/RT =
+  filters, Y = page option, X = secondary, Menu = options; keyboard fallback keys), the right
+  stick as fast scrolling (new `scroll-up/down` keys; it no longer moves the selection like the
+  left stick), repeat timing of demo 3.3 (360 ms, then 140 ms; scrolling 90 ms), and a fixed map
+  (key bindings no longer saved or read from the settings file). In QML (`foundation/`): `Nav`
+  turns key events into actions (held buttons act once; directions and scrolling repeat), finds
+  the nearest item in a direction (spatial navigation, as in the demo) and handles lists;
+  `NavArea` gives any screen or window spatial navigation, A and B; `Nav.feedback(kind)` reports
+  move, edge, confirm, back, section, tab, toggles and windows for the sounds of 3.12. Windows
+  (`Sheet`) and the pickers now use them. Buttons with no use on a screen do nothing (LB/RB/LT/RT
+  report "edge"). New `tools/frontend-preview` runs the frontend in the builder VM with test games
+  and a virtual controller, following a step list (`tools/preview-steps/`), and saves
+  screenshots: checked there with keyboard, D-pad, right stick and buttons.
 
 ### [ ] 3.6 Home screen
 

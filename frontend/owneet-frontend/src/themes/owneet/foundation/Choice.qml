@@ -6,6 +6,7 @@ Rectangle {
     id: root
     property string text: ""
     property bool chosen: false
+    readonly property bool navigable: true
     signal activated()
 
     implicitHeight: label.implicitHeight + Theme.px(16)

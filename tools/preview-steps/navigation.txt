@@ -1,0 +1,28 @@
+# Input map and navigation (step 3.5): keyboard, D-pad, right stick, unused buttons, a window.
+shot 01-start
+key Down Down Down
+shot 02-keyboard-down3
+key Next
+shot 03-pagedown
+pad up
+shot 04-pad-up
+stick rs-down 1500
+shot 05-rstick-down
+pad lb rb lt rt x
+shot 06-noop
+pad y
+shot 07-appearance
+pad down down right right
+shot 08-glyph-row
+pad a
+shot 09-picked
+pad b
+shot 10-closed
+pad down
+shot 11-list-after-close
+pad y a right right a
+shot 12-palette-applied
+pad down down down down down down a
+shot 13-language
+pad down a b
+shot 14-italian

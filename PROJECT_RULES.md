@@ -201,6 +201,11 @@ same screen. New bindings are added here before they are implemented.
 While a game or app is running, the system intercepts **only** the Guide button; every other input
 goes to the game.
 
+Keyboard fallback (optional, same meanings): arrows = D-pad, Enter / Space = A, Esc / Backspace = B,
+X = X, Y = Y, Q / E = LB / RB, Z / C = LT / RT, M = Menu, Page Up / Page Down = right stick.
+The input map is fixed: it is not saved in the frontend's settings, so a change reaches every
+system. A held direction repeats after 360 ms every 140 ms; other buttons act once per press.
+
 ## 10. Roadmap
 
 The step-by-step plan lives in **[ROADMAP.md](ROADMAP.md)**. Work proceeds one step per prompt,
@@ -327,4 +332,5 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-08 | Demo 3.3 feedback: wordmark/logo provisional (final logo before the launch, roadmap 7.6); about twenty palettes (Tide in vivid "minty" cyan; new Ember, Espresso, Harbor and more) in a picker with live preview; language chosen from a list; the Guide prompt reads "Home" (section 9). |
 | 2026-10-08 | Step 3.3 approved. Button prompts also have a Nintendo-style set (chosen automatically for Switch controllers). Small hardware checks are batched with the next larger test instead of a new USB stick each. |
 | 2026-10-08 | English is the default UI language and the fallback for missing labels; Italian is one of the additional languages (section 9). |
+| 2026-10-08 | Step 3.4 approved. Input map implemented once for every screen (step 3.5): keyboard fallback keys, fixed map, repeat timing (section 9.1). |
 | 2026-10-08 | Interface sounds planned (roadmap 3.12, list in `design/sounds.md`): WAV files provided by the owner. |

@@ -150,7 +150,8 @@ void LoadContext::handle_entry(const size_t lineno,
             handle_provider_attrib(lineno, key, vals, sections);
             break;
         case ConfigEntryCategory::KEYS:
-            handle_key_attrib(lineno, key, metafile::merge_lines(vals), sections);
+            // OwneetOS: the input map is fixed (PROJECT_RULES.md section 9.1), so saved key
+            // bindings are ignored and not written; a changed default then reaches every system.
             break;
     }
 }
@@ -294,7 +295,7 @@ void SaveContext::save() const
 
     print_general(stream);
     print_providers(stream);
-    print_keys(stream);
+    // OwneetOS: key bindings are not saved (fixed input map)
 
     Log::info(LOGMSG("Program settings saved"));
 }

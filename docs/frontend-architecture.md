@@ -102,6 +102,12 @@ SDL2 reads the gamepads and turns buttons into key events for QML (A = accept, B
 X = details, Y = filters, L1/R1 = previous/next page, L2/R2 = page up/down, Start = Pegasus's main
 menu). **Guide is also turned into a key** (not bound to anything by default).
 
+OwneetOS (3.2, 3.5): Guide is removed; the keys keep Pegasus's names but follow the OwneetOS
+input map (PROJECT_RULES.md section 9.1): `prevPage/nextPage` = LB/RB (sections),
+`pageUp/pageDown` = LT/RT (filters), `filters` = Y (page option), `details` = X, `menu` = Menu;
+new `scrollUp/scrollDown` = right stick (fast scrolling). The theme never reads them directly: it
+uses `Nav.action(event)`.
+
 ## 4. What OwneetOS changes
 
 ### In C++ (small, targeted changes)
@@ -120,7 +126,7 @@ is used. Still to do: owneetd client, launching and power through owneetd (3.8),
 | **Game launching through owneetd** (`POST /v1/apps/launch`) instead of `QProcess`; **no interface teardown**; play time updated from `app.exited` | Guide toggles home ↔ game; games in their own services | 3.8 / 4.x |
 | Power actions (`Internal.system.reboot/shutdown/suspend`) through owneetd | One place for power, with its events | 3.8 |
 | **Guide removed** from the gamepad → key mapping | Guide belongs to the system (section 9.1) | 3.2 |
-| Gamepad → key mapping changed to the OwneetOS input map (LB/RB = sections, LT/RT = filters, Y = page option, Menu = options) | Section 9.1 | 3.5 |
+| Gamepad → key mapping changed to the OwneetOS input map (LB/RB = sections, LT/RT = filters, Y = page option, Menu = options, right stick = fast scrolling), fixed (not saved in the settings) | Section 9.1 | 3.5 |
 | The window tags itself for gamescope (`STEAM_GAME` with owneetd's home app id) | Shown even if owneetd is not running (daemon-design.md) | 3.2 |
 | Pegasus's own screens (main menu on Start, settings, help, editors) not shown | Replaced by OwneetOS screens | 3.2 / 3.9 |
 
@@ -143,6 +149,7 @@ notifications (3.11). Each screen starts with an interactive demo approved by th
 | `Sheet`, `PalettePicker` | Window over the screen with its own prompt bar; palette picker with live preview |
 | `Label`, `Choice`, `SettingRow` | Section label, segmented choice, settings row (switch or picker) |
 | `Tr` (singleton), `LanguagePicker` | Translated text (3.4), language list |
+| `Nav` (singleton), `NavArea` | Input map as actions, spatial navigation, list keys, feedback for sounds (3.5) |
 
 **Translations (3.4):** `owneet::I18n` (`src/backend/owneet/`, exposed to QML as `i18n`) loads one
 JSON file per language from `/usr/share/owneet-frontend/i18n/` (repository: `frontend/i18n/`) and

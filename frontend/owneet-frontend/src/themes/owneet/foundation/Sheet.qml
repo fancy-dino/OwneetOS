@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A window over the current screen (pickers, options), with its own prompt bar; the screen
-// below is dimmed. Its content scrolls when it is taller than the window: call
-// ensureVisible(item) when the selection moves.
+// below is dimmed. It is a NavArea: the selection moves among its navigable items, B closes it.
+// Its content scrolls to keep the selection visible.
 import QtQuick 2.15
 
-FocusScope {
+NavArea {
     id: root
     property string title: ""
     property var prompts: []
@@ -18,8 +18,23 @@ FocusScope {
 
     anchors.fill: parent
     visible: false
-    function open() { visible = true; forceActiveFocus(); }
-    function close() { visible = false; }
+    // `quiet`: no sound, when one window hands over to another (e.g. Appearance → palettes)
+    function open(quiet) {
+        if (!visible && !quiet)
+            Nav.feedback("sheet-open");
+        visible = true;
+        forceActiveFocus();
+    }
+    function close(quiet) {
+        if (!visible)
+            return;
+        if (!quiet)
+            Nav.feedback("sheet-close");
+        visible = false;
+    }
+    backFeedback: ""            // closing plays "sheet-close"
+    onMoved: ensureVisible(item)
+    onCancelled: close()
 
     function ensureVisible(item) {
         const p = item.mapToItem(body, 0, 0);

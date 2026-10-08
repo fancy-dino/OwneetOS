@@ -27,6 +27,8 @@ enum class KeyEvent : unsigned char {
     PAGE_UP,
     PAGE_DOWN,
     MAIN_MENU,
+    SCROLL_UP,   // OwneetOS: fast scrolling (right stick)
+    SCROLL_DOWN,
     // internal only:
     LEFT = 64,
     RIGHT,

@@ -10,6 +10,8 @@
         <file>owneet/foundation/Glyph.qml</file>
         <file>owneet/foundation/Label.qml</file>
         <file>owneet/foundation/LanguagePicker.qml</file>
+        <file>owneet/foundation/Nav.qml</file>
+        <file>owneet/foundation/NavArea.qml</file>
         <file>owneet/foundation/PalettePicker.qml</file>
         <file>owneet/foundation/Prompt.qml</file>
         <file>owneet/foundation/PromptBar.qml</file>

@@ -68,6 +68,20 @@ FocusScope {
     }
     Component.onDestruction: Theme.previewKey = ""
 
+    // ---- Buttons the screens leave to the whole interface (section 9.1)
+    readonly property bool sheetOpen: appearance.visible || palettes.visible || languages.visible
+    Keys.onPressed: {
+        const a = Nav.action(event);
+        if (a === "page" && !sheetOpen) {
+            appearance.openSheet(true);   // Y: page option (temporary home of Appearance)
+        } else if (a === "section-prev" || a === "section-next" || a === "filter-prev" || a === "filter-next") {
+            Nav.feedback("edge");         // one section and no filters yet (home: 3.6)
+        } else {
+            return;
+        }
+        event.accepted = true;
+    }
+
     Rectangle {
         anchors.fill: parent
         color: Theme.bg
@@ -156,6 +170,7 @@ FocusScope {
         preferredHighlightBegin: Theme.px(16)
         preferredHighlightEnd: height - Theme.px(16)
         highlightMoveDuration: Theme.motionMs
+        keyNavigationEnabled: false             // Nav.listKeys moves the selection
         delegate: Rectangle {
             readonly property var game: modelData
             x: Theme.px(20)                      // room for the lift and the focus ring
@@ -180,14 +195,16 @@ FocusScope {
             FocusFrame { shown: parent.ListView.isCurrentItem && games.activeFocus }
         }
         Keys.onPressed: {
-            if (event.isAutoRepeat)
-                return;
-            if (api.keys.isAccept(event) && currentItem) {
+            const a = Nav.action(event);
+            if (Nav.listKeys(games, a)) {
                 event.accepted = true;
+            } else if (a === "left" || a === "right") {
+                Nav.feedback("edge");
+                event.accepted = true;
+            } else if (a === "accept" && currentItem) {
+                Nav.feedback("confirm");
                 currentItem.game.launch();
-            } else if (api.keys.isFilters(event)) {
                 event.accepted = true;
-                appearance.openSheet(true);
             }
         }
     }
@@ -209,7 +226,7 @@ FocusScope {
             left: parent.left; right: parent.right; bottom: parent.bottom
             leftMargin: Theme.safeX; rightMargin: Theme.safeX; bottomMargin: Theme.safeBottom
         }
-        visible: !appearance.visible && !palettes.visible && !languages.visible
+        visible: !root.sheetOpen
         prompts: games.count > 0
                  ? [{ buttons: ["a"], label: Tr.tr("prompt.play") }, { buttons: ["y"], label: Tr.tr("prompt.appearance") }]
                  : [{ buttons: ["y"], label: Tr.tr("prompt.appearance") }]
@@ -234,18 +251,19 @@ FocusScope {
     AppearanceSheet {
         id: appearance
         z: 100
-        onVisibleChanged: if (!visible && !palettes.visible && !languages.visible) games.forceActiveFocus()
-        onOpenPalettes: { close(); palettes.openPicker(); }
-        onOpenLanguages: { close(); languages.openPicker(); }
+        // after Qt has finished moving the focus away from the closed window
+        onVisibleChanged: if (!visible) Qt.callLater(() => { if (!root.sheetOpen) games.forceActiveFocus(); })
+        onOpenPalettes: { close(true); palettes.openPicker(); }
+        onOpenLanguages: { close(true); languages.openPicker(); }
     }
     PalettePicker {
         id: palettes
         z: 101
-        onVisibleChanged: if (!visible) appearance.openSheet()
+        onVisibleChanged: if (!visible) appearance.openSheet(false, true)
     }
     LanguagePicker {
         id: languages
         z: 101
-        onVisibleChanged: if (!visible) appearance.openSheet()
+        onVisibleChanged: if (!visible) appearance.openSheet(false, true)
     }
 }

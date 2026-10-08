@@ -24,8 +24,11 @@
 
 
 namespace {
-static constexpr int KEYDELAY_FIRST = 500;
-static constexpr int KEYDELAY_REPEAT = 50;
+// OwneetOS: repeat timing of the approved demo 3.3 (a held direction moves once, then after
+// 360 ms every 140 ms; fast scrolling repeats faster)
+static constexpr int KEYDELAY_FIRST = 360;
+static constexpr int KEYDELAY_REPEAT = 140;
+static constexpr int KEYDELAY_REPEAT_SCROLL = 90;
 
 void emit_key(Qt::Key key, QEvent::Type event_type, bool autorep)
 {
@@ -59,6 +62,8 @@ GamepadButtonNavigation::GamepadButtonNavigation(QObject* parent)
         { GamepadButton::R3, new QTimer(this) },
         { GamepadButton::SELECT, new QTimer(this) },
         { GamepadButton::START, new QTimer(this) },
+        { GamepadButton::RSTICK_UP, new QTimer(this) },
+        { GamepadButton::RSTICK_DOWN, new QTimer(this) },
         // OwneetOS: no GUIDE. The Guide button belongs to the system (owneetd): it never
         // reaches the interface (OwneetOS PROJECT_RULES.md section 9.1).
     }
@@ -79,6 +84,8 @@ GamepadButtonNavigation::GamepadButtonNavigation(QObject* parent)
         { GamepadButton::R3, static_cast<Qt::Key>(GamepadKeyId::R3) },
         { GamepadButton::SELECT, static_cast<Qt::Key>(GamepadKeyId::SELECT) },
         { GamepadButton::START, static_cast<Qt::Key>(GamepadKeyId::START) },
+        { GamepadButton::RSTICK_UP, static_cast<Qt::Key>(GamepadKeyId::RSTICK_UP) },
+        { GamepadButton::RSTICK_DOWN, static_cast<Qt::Key>(GamepadKeyId::RSTICK_DOWN) },
     }
 {
     for (const auto& pair : m_timers) {
@@ -121,5 +128,6 @@ void GamepadButtonNavigation::onTimerTimeout()
     const Qt::Key key = m_keys.at(it->first);
         emit_key(key, QEvent::KeyRelease, true);
         emit_key(key, QEvent::KeyPress, true);
-    timer->start(KEYDELAY_REPEAT);
+    const bool scroll = it->first == GamepadButton::RSTICK_UP || it->first == GamepadButton::RSTICK_DOWN;
+    timer->start(scroll ? KEYDELAY_REPEAT_SCROLL : KEYDELAY_REPEAT);
 }

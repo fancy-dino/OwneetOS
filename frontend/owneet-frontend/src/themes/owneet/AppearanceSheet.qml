@@ -14,47 +14,15 @@ Sheet {
     signal openPalettes()
     signal openLanguages()
 
-    readonly property var grid: [[paletteRow], sizes.items, glyphSets.items, [motionRow], [safeRow], [languageRow]]
-    property int row: 0
-    property int col: 0
+    property Item last: null    // selection to come back to after a picker
 
-    function openSheet(fromTop) {
-        if (fromTop) { row = 0; col = 0; flickable.contentY = 0; }
-        open();
-        focusCurrent();
+    function openSheet(fromTop, quiet) {
+        open(quiet);
+        focusItem(fromTop || !last ? paletteRow : last);
+        if (fromTop)
+            flickable.contentY = 0;
     }
-    function focusCurrent() {
-        const item = grid[row][col];
-        item.forceActiveFocus();
-        ensureVisible(item);
-    }
-    function moveRow(step) {
-        const next = row + step;
-        if (next < 0 || next >= grid.length)
-            return;
-        // keep the column whose center is nearest to the current one
-        const from = grid[row][col].mapToItem(root, grid[row][col].width / 2, 0).x;
-        let best = 0, dist = Infinity;
-        grid[next].forEach((it, i) => {
-            const d = Math.abs(it.mapToItem(root, it.width / 2, 0).x - from);
-            if (d < dist) { dist = d; best = i; }
-        });
-        row = next; col = best;
-        focusCurrent();
-    }
-
-    Keys.onPressed: {
-        if (event.isAutoRepeat && (api.keys.isAccept(event) || api.keys.isCancel(event)))
-            return;
-        if (api.keys.isAccept(event)) grid[row][col].activated();
-        else if (api.keys.isCancel(event)) close();
-        else if (event.key === Qt.Key_Up) moveRow(-1);
-        else if (event.key === Qt.Key_Down) moveRow(1);
-        else if (event.key === Qt.Key_Left && col > 0) { col--; focusCurrent(); }
-        else if (event.key === Qt.Key_Right && col < grid[row].length - 1) { col++; focusCurrent(); }
-        else return;
-        event.accepted = true;
-    }
+    onMoved: last = item
 
     Column {
         width: parent.width

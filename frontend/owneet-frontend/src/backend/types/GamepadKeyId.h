@@ -26,6 +26,8 @@ enum GamepadKeyId {
     SELECT,
     START,
     GUIDE,
+    RSTICK_UP,   // OwneetOS: right stick, fast scrolling (section 9.1)
+    RSTICK_DOWN,
 };
 
 
@@ -38,6 +40,8 @@ enum class GamepadButton : unsigned char {
     SELECT,
     START,
     GUIDE,
+    RSTICK_UP,   // OwneetOS: right stick pushed up / down, for fast scrolling
+    RSTICK_DOWN,
 };
 enum class GamepadAxis : unsigned char {
     INVALID,
