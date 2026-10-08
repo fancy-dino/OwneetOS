@@ -27,6 +27,7 @@ add_library(pegasus-backend
 add_subdirectory(imggen)
 add_subdirectory(parsers)
 add_subdirectory(model)
+add_subdirectory(owneet)
 add_subdirectory(platform)
 add_subdirectory(providers)
 add_subdirectory(types)

@@ -27,7 +27,7 @@ jobs:
         with:
           go-version-file: daemon/go.mod
           cache: false
-      - name: Run project checks (shellcheck, SPDX headers, markdownlint, Go)
+      - name: Run project checks (shellcheck, SPDX headers, markdownlint, Go, translations)
         run: tools/lint
 
   iso:

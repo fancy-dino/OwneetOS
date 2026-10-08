@@ -1,0 +1,58 @@
+{
+  "@meta": {
+    "language": "English",
+    "plural": "one-other"
+  },
+
+  "prompt.select": "Select",
+  "prompt.back": "Back",
+  "prompt.apply": "Apply",
+  "prompt.cancel": "Cancel",
+  "prompt.play": "Play",
+  "prompt.appearance": "Appearance",
+  "prompt.home": "Home",
+
+  "controller.none": "No controller",
+
+  "games.title": "Games",
+  "games.empty": "No games yet",
+  "games.count": { "one": "{n} game", "other": "{n} games" },
+
+  "appearance.title": "Appearance",
+  "appearance.palette": "Color palette",
+  "appearance.text_size": "Text size",
+  "appearance.button_prompts": "Button prompts",
+  "appearance.auto": "Auto",
+  "appearance.reduce_motion": "Reduce motion",
+  "appearance.safe_area": "Show TV safe area",
+  "appearance.language": "Language",
+
+  "language.title": "Language",
+
+  "palette.title": "Color palette",
+  "palette.preview_note": "Moving the selection previews the palette",
+  "palette.group.dark": "Dark",
+  "palette.group.light": "Light",
+  "palette.group.access": "Accessibility",
+  "palette.dusk": "Dusk",
+  "palette.tide": "Tide",
+  "palette.bloom": "Bloom",
+  "palette.ember": "Ember",
+  "palette.espresso": "Espresso",
+  "palette.harbor": "Harbor",
+  "palette.forest": "Forest",
+  "palette.lagoon": "Lagoon",
+  "palette.amethyst": "Amethyst",
+  "palette.crimson": "Crimson",
+  "palette.synthwave": "Synthwave",
+  "palette.amber": "Amber",
+  "palette.olive": "Olive",
+  "palette.graphite": "Graphite",
+  "palette.daylight": "Daylight",
+  "palette.arctic": "Arctic",
+  "palette.sand": "Sand",
+  "palette.latte": "Latte",
+  "palette.sakura": "Sakura",
+  "palette.contrast": "High contrast",
+  "palette.contrast-light": "High contrast light"
+}

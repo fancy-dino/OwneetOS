@@ -37,6 +37,7 @@ add_subdirectory(backend/model/gameassets)
 add_subdirectory(backend/model/keyeditor)
 add_subdirectory(backend/model/locales)
 add_subdirectory(backend/model/memory)
+add_subdirectory(backend/owneet) # OwneetOS
 add_subdirectory(backend/model/system)
 add_subdirectory(backend/model/themes)
 add_subdirectory(backend/processlauncher)

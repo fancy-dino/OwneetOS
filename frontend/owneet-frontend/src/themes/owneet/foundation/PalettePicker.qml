@@ -6,14 +6,15 @@ import QtQuick 2.15
 
 Sheet {
     id: root
-    title: "Color palette"
-    prompts: [{ buttons: ["a"], label: "Apply" }, { buttons: ["b"], label: "Cancel" }]
-    note: "Moving the selection previews the palette"
+    title: Tr.tr("palette.title")
+    prompts: [{ buttons: ["a"], label: Tr.tr("prompt.apply") }, { buttons: ["b"], label: Tr.tr("prompt.cancel") }]
+    note: Tr.tr("palette.preview_note")
 
     signal applied(string key)
     readonly property int columns: 7
     readonly property var groups: [
-        { key: "dark", label: "Dark" }, { key: "light", label: "Light" }, { key: "access", label: "Accessibility" }
+        { key: "dark", label: "palette.group.dark" }, { key: "light", label: "palette.group.light" },
+        { key: "access", label: "palette.group.access" }
     ]
     // rows of palette indexes, for moving up and down across groups
     readonly property var rows: {
@@ -79,7 +80,7 @@ Sheet {
                 width: parent.width
                 spacing: Theme.px(10)
                 readonly property string groupKey: modelData.key
-                Label { text: modelData.label }
+                Label { text: Tr.tr(modelData.label) }
                 Grid {
                     id: grid
                     width: parent.width
@@ -115,7 +116,7 @@ Sheet {
                                 Text {
                                     width: parent.width
                                     horizontalAlignment: Text.AlignHCenter
-                                    text: card.pal.name
+                                    text: Tr.tr("palette." + card.pal.key)
                                     color: card.pal.c[4]
                                     font.family: Theme.textFont
                                     font.pixelSize: Theme.fs(12.5)

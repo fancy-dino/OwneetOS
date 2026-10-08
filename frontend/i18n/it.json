@@ -1,0 +1,58 @@
+{
+  "@meta": {
+    "language": "Italiano",
+    "plural": "one-other"
+  },
+
+  "prompt.select": "Seleziona",
+  "prompt.back": "Indietro",
+  "prompt.apply": "Applica",
+  "prompt.cancel": "Annulla",
+  "prompt.play": "Gioca",
+  "prompt.appearance": "Aspetto",
+  "prompt.home": "Home",
+
+  "controller.none": "Nessun controller",
+
+  "games.title": "Giochi",
+  "games.empty": "Ancora nessun gioco",
+  "games.count": { "one": "{n} gioco", "other": "{n} giochi" },
+
+  "appearance.title": "Aspetto",
+  "appearance.palette": "Palette colori",
+  "appearance.text_size": "Dimensione testo",
+  "appearance.button_prompts": "Simboli dei tasti",
+  "appearance.auto": "Automatico",
+  "appearance.reduce_motion": "Riduci animazioni",
+  "appearance.safe_area": "Mostra area sicura TV",
+  "appearance.language": "Lingua",
+
+  "language.title": "Lingua",
+
+  "palette.title": "Palette colori",
+  "palette.preview_note": "Spostando la selezione vedi l’anteprima",
+  "palette.group.dark": "Scure",
+  "palette.group.light": "Chiare",
+  "palette.group.access": "Accessibilità",
+  "palette.dusk": "Crepuscolo",
+  "palette.tide": "Marea",
+  "palette.bloom": "Fioritura",
+  "palette.ember": "Brace",
+  "palette.espresso": "Espresso",
+  "palette.harbor": "Porto",
+  "palette.forest": "Foresta",
+  "palette.lagoon": "Laguna",
+  "palette.amethyst": "Ametista",
+  "palette.crimson": "Cremisi",
+  "palette.synthwave": "Synthwave",
+  "palette.amber": "Ambra",
+  "palette.olive": "Oliva",
+  "palette.graphite": "Grafite",
+  "palette.daylight": "Giorno",
+  "palette.arctic": "Artico",
+  "palette.sand": "Sabbia",
+  "palette.latte": "Caffellatte",
+  "palette.sakura": "Sakura",
+  "palette.contrast": "Alto contrasto",
+  "palette.contrast-light": "Alto contrasto chiaro"
+}

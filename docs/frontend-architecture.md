@@ -142,6 +142,12 @@ notifications (3.11). Each screen starts with an interactive demo approved by th
 | `Glyph`, `Prompt`, `PromptBar` | Button glyphs drawn in QML (Xbox- and Nintendo-style letters, PlayStation-style shapes, chosen from the connected controller's name), the prompt bar |
 | `Sheet`, `PalettePicker` | Window over the screen with its own prompt bar; palette picker with live preview |
 | `Label`, `Choice`, `SettingRow` | Section label, segmented choice, settings row (switch or picker) |
+| `Tr` (singleton), `LanguagePicker` | Translated text (3.4), language list |
+
+**Translations (3.4):** `owneet::I18n` (`src/backend/owneet/`, exposed to QML as `i18n`) loads one
+JSON file per language from `/usr/share/owneet-frontend/i18n/` (repository: `frontend/i18n/`) and
+`~/.config/owneet-frontend/i18n/`; English is the default and the fallback. The theme uses it
+through the `Tr` singleton. How to translate: [translating.md](translating.md).
 
 Appearance choices are saved in the theme's memory (`api.memory`). Until Settings exists (3.9),
 they are opened with Y from the temporary game list (`AppearanceSheet.qml`).

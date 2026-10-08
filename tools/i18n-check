@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Checks the interface translations (frontend/i18n/*.json, docs/translating.md):
+#   - every file is valid JSON with "@meta" (language name, known plural rule);
+#   - every message is a string, or plural forms with at least "other";
+#   - every message the theme uses (Tr.tr / Tr.trn with a literal key, palette names) is in en.json;
+#   - translations use only the {placeholders} of the English message and no unknown keys;
+#   - the complete languages (English and Italian, PROJECT_RULES.md section 9) miss no message.
+# Other languages may be partial (English is shown for missing messages): they are reported only.
+#
+#   tools/i18n-check            (also run by tools/lint)
+
+import json
+import pathlib
+import re
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+I18N = ROOT / "frontend/i18n"
+THEME = ROOT / "frontend/owneet-frontend/src/themes/owneet"
+COMPLETE = {"en", "it"}
+PLURAL_RULES = {  # rule family -> categories it uses (keep in sync with I18n::pluralCategory)
+    "one-other": {"one", "other"},
+    "french": {"one", "other"},
+    "none": {"other"},
+    "east-slavic": {"one", "few", "many"},
+    "polish": {"one", "few", "many"},
+    "czech": {"one", "few", "other"},
+}
+PLACEHOLDER = re.compile(r"\{([A-Za-z0-9_]+)\}")
+
+errors = []
+
+
+def error(msg: str) -> None:
+    errors.append(msg)
+
+
+def placeholders(value) -> set:
+    texts = value.values() if isinstance(value, dict) else [value]
+    return {p for t in texts if isinstance(t, str) for p in PLACEHOLDER.findall(t)}
+
+
+def load(path: pathlib.Path):
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, UnicodeDecodeError) as e:
+        error(f"{path.name}: not valid JSON: {e}")
+        return None
+    if not isinstance(data, dict):
+        error(f"{path.name}: must be a JSON object")
+        return None
+    meta = data.pop("@meta", None)
+    if not isinstance(meta, dict) or not isinstance(meta.get("language"), str):
+        error(f'{path.name}: "@meta" needs "language" (the language\'s own name)')
+        meta = {}
+    rule = meta.get("plural", "one-other")
+    if rule not in PLURAL_RULES:
+        error(f"{path.name}: unknown plural rule '{rule}' (known: {', '.join(sorted(PLURAL_RULES))})")
+        rule = "one-other"
+    for key, value in data.items():
+        if isinstance(value, dict):
+            unknown = set(value) - PLURAL_RULES[rule]
+            if "other" not in value and rule not in ("east-slavic", "polish"):
+                error(f'{path.name}: "{key}": plural forms need "other"')
+            if unknown:
+                error(f'{path.name}: "{key}": forms {sorted(unknown)} not used by plural rule "{rule}"')
+            if not all(isinstance(v, str) for v in value.values()):
+                error(f'{path.name}: "{key}": every plural form must be a string')
+        elif not isinstance(value, str):
+            error(f'{path.name}: "{key}": must be a string or plural forms')
+    return data
+
+
+def used_keys() -> set:
+    keys = set()
+    for qml in THEME.rglob("*.qml"):
+        code = re.sub(r"^\s*//.*$", "", qml.read_text(encoding="utf-8"), flags=re.M)  # not comments
+        keys |= set(re.findall(r'Tr\.trn?\(\s*"([^"]+)"\s*[,)]', code))
+    theme = (THEME / "foundation/Theme.qml").read_text(encoding="utf-8")
+    keys |= {"palette." + k for k in re.findall(r'\{ key: "([a-z-]+)", group:', theme)}
+    keys |= {f"palette.group.{g}" for g in re.findall(r'label: "palette\.group\.([a-z]+)"',
+                                                      (THEME / "foundation/PalettePicker.qml").read_text(encoding="utf-8"))}
+    return keys
+
+
+def main() -> int:
+    files = sorted(I18N.glob("*.json"))
+    langs = {f.stem: load(f) for f in files}
+    en = langs.get("en")
+    if en is None:
+        error("en.json is missing or invalid: English is the default language and the fallback")
+    else:
+        for key in sorted(used_keys() - set(en)):
+            error(f'en.json: "{key}" is used by the theme but missing')
+        for tag, data in sorted(langs.items()):
+            if tag == "en" or data is None:
+                continue
+            for key in sorted(set(data) - set(en)):
+                error(f'{tag}.json: "{key}" is not an English message (renamed or removed?)')
+            for key in sorted(set(data) & set(en)):
+                extra = placeholders(data[key]) - placeholders(en[key])
+                if extra:
+                    error(f'{tag}.json: "{key}": placeholders {sorted(extra)} not in the English message')
+            missing = sorted(set(en) - set(data))
+            if missing and tag in COMPLETE:
+                error(f"{tag}.json: {len(missing)} messages missing: {', '.join(missing)}")
+            elif missing:
+                print(f"note: {tag}.json: {len(missing)} of {len(en)} messages not translated yet")
+
+    for e in errors:
+        print("error: " + e)
+    if not errors:
+        print(f"ok ({len(langs)} languages: {', '.join(sorted(langs))}; {len(en or {})} messages)")
+    return 1 if errors else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

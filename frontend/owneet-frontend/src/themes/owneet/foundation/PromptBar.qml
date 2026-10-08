@@ -7,7 +7,7 @@ import QtQuick 2.15
 Item {
     id: root
     property var prompts: []
-    property var globalPrompts: [{ buttons: ["guide"], label: "Home" }]
+    property var globalPrompts: [{ buttons: ["guide"], label: Tr.tr("prompt.home") }]
     property string note: ""
     implicitHeight: Theme.fs(26)
 

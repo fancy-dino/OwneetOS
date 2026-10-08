@@ -1,8 +1,10 @@
 singleton Theme 1.0 Theme.qml
+singleton Tr 1.0 Tr.qml
 Choice 1.0 Choice.qml
 FocusFrame 1.0 FocusFrame.qml
 Glyph 1.0 Glyph.qml
 Label 1.0 Label.qml
+LanguagePicker 1.0 LanguagePicker.qml
 PalettePicker 1.0 PalettePicker.qml
 Prompt 1.0 Prompt.qml
 PromptBar 1.0 PromptBar.qml

@@ -97,7 +97,7 @@ FocusScope {
             anchors { right: parent.right; verticalCenter: parent.verticalCenter }
             spacing: Theme.px(20)
             Text {
-                text: root.padName !== "" ? root.padName : "No controller"
+                text: root.padName !== "" ? root.padName : Tr.tr("controller.none")
                 color: Theme.muted
                 font.family: Theme.textFont
                 font.pixelSize: Theme.fs(14.5)
@@ -124,11 +124,19 @@ FocusScope {
             left: parent.left; top: top.bottom
             leftMargin: Theme.safeX; topMargin: Theme.px(22)
         }
-        text: "Games"
+        text: Tr.tr("games.title")
         color: Theme.fg
         font.family: Theme.displayFont
         font.weight: Font.Bold
         font.pixelSize: Theme.fs(40)
+    }
+    Text {
+        visible: games.count > 0
+        anchors { left: heading.right; leftMargin: Theme.px(14); baseline: heading.baseline }
+        text: Tr.trn("games.count", games.count)
+        color: Theme.muted
+        font.family: Theme.textFont
+        font.pixelSize: Theme.fs(17)
     }
     ListView {
         id: games
@@ -189,7 +197,7 @@ FocusScope {
         width: games.width * 0.6
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.Wrap
-        text: "No games yet"
+        text: Tr.tr("games.empty")
         color: Theme.muted
         font.family: Theme.textFont
         font.pixelSize: Theme.fs(17)
@@ -201,10 +209,10 @@ FocusScope {
             left: parent.left; right: parent.right; bottom: parent.bottom
             leftMargin: Theme.safeX; rightMargin: Theme.safeX; bottomMargin: Theme.safeBottom
         }
-        visible: !appearance.visible && !palettes.visible
+        visible: !appearance.visible && !palettes.visible && !languages.visible
         prompts: games.count > 0
-                 ? [{ buttons: ["a"], label: "Play" }, { buttons: ["y"], label: "Appearance" }]
-                 : [{ buttons: ["y"], label: "Appearance" }]
+                 ? [{ buttons: ["a"], label: Tr.tr("prompt.play") }, { buttons: ["y"], label: Tr.tr("prompt.appearance") }]
+                 : [{ buttons: ["y"], label: Tr.tr("prompt.appearance") }]
     }
 
     // ---- TV safe area outline (Appearance → Show TV safe area)
@@ -226,11 +234,17 @@ FocusScope {
     AppearanceSheet {
         id: appearance
         z: 100
-        onVisibleChanged: if (!visible && !palettes.visible) games.forceActiveFocus()
+        onVisibleChanged: if (!visible && !palettes.visible && !languages.visible) games.forceActiveFocus()
         onOpenPalettes: { close(); palettes.openPicker(); }
+        onOpenLanguages: { close(); languages.openPicker(); }
     }
     PalettePicker {
         id: palettes
+        z: 101
+        onVisibleChanged: if (!visible) appearance.openSheet()
+    }
+    LanguagePicker {
+        id: languages
         z: 101
         onVisibleChanged: if (!visible) appearance.openSheet()
     }

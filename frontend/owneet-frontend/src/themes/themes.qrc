@@ -9,10 +9,12 @@
         <file>owneet/foundation/FocusFrame.qml</file>
         <file>owneet/foundation/Glyph.qml</file>
         <file>owneet/foundation/Label.qml</file>
+        <file>owneet/foundation/LanguagePicker.qml</file>
         <file>owneet/foundation/PalettePicker.qml</file>
         <file>owneet/foundation/Prompt.qml</file>
         <file>owneet/foundation/PromptBar.qml</file>
         <file>owneet/foundation/SettingRow.qml</file>
         <file>owneet/foundation/Sheet.qml</file>
+        <file>owneet/foundation/Tr.qml</file>
     </qresource>
 </RCC>
