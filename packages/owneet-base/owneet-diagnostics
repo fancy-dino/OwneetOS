@@ -38,7 +38,9 @@ show_report() {
              printf "%s %d  ", $1, $2 / 1024 } END { print "" }' /proc/meminfo
     echo "--- interface";       if pgrep -x owneet-frontend >/dev/null; then echo "running"; else
                                     echo "NOT running"; grep -E '\[(w|e)\]' /home/owneet/.config/owneet-frontend/lastrun.log 2>/dev/null | tail -3
-                                    journalctl -b -t owneet-cage -t owneet-gamescope -p warning -o cat --no-pager | tail -3; fi
+                                    # compositor messages are logged as plain output: search them for errors
+                                    journalctl -b -t owneet-cage -t owneet-gamescope -o cat --no-pager \
+                                        | grep -iE 'error|fail|unable|cannot|abort|denied' | grep -v 'MESA-LOADER' | tail -6; fi
     echo "--- failed units";    systemctl --failed --no-legend --plain --no-pager
     echo "--- last errors";     journalctl -b -p err -o cat --no-pager | tail -6
     echo "--- controllers";     owneetd_get /v1/controllers
