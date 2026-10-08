@@ -476,11 +476,15 @@ code is written (PROJECT_RULES.md section 9).
   screen (3.6) the theme shows a plain game list; **Y opens a temporary Appearance window**
   (palette, text size, button prompts, reduce motion, TV safe area outline), saved in the theme's
   memory, which moves to Settings in 3.9. Language choice comes with 3.4. Checked in the builder VM
-  (frontend under Xvfb, screenshots of every option).
+  (frontend under Xvfb, screenshots of every option) and in the test VM (choice kept when the
+  frontend restarts). Owner test (2026-10-08): everything shown correctly, picker and options work;
+  the choice is lost on reboot because the live USB has no persistent storage (checked again on the
+  installed system, phase 6).
 
 ### [ ] 3.4 Internationalisation
 
-- **Deliverables:** JSON message files, loader, fallback to English, `en` + `it` complete,
+- **Deliverables:** JSON message files, loader, **English as the default language** and fallback,
+  `en` + `it` complete,
   `docs/translating.md` for contributors.
 - **Done when:** a new language works by adding one JSON file, with no code change.
 

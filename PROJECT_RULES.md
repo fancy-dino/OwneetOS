@@ -158,6 +158,8 @@ OwneetOS is a **lightweight, open-source Linux distribution** that turns any x86
 - Open-source fonts only.
 - **i18n via JSON message files** with interchangeable labels; as many languages as possible.
   Wave 1 ships Italian + English; adding a language must require no code changes.
+  **English is the default language** (first boot, and fallback for any missing label); Italian is
+  one of the additional languages.
 - **Mockups are approved by the owner before UI code is written.**
 - **Interactive demo before each screen:** before the code of each screen is written (controller
   pairing, home, library, settings, on-screen keyboard, …), the owner gets an interactive demo of
@@ -323,3 +325,4 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-08 | Legal check before phase 3: the frontend fork is named `owneet-frontend` (Pegasus's trademark terms); Pegasus's CC BY-NC-SA theme, logo, Roboto fonts and button images are not used; its online metadata downloads are disabled. `CREDITS.md` credits every project OwneetOS builds on and ships in the image (section 12). Step 2.9 approved. |
 | 2026-10-08 | Each screen gets an interactive demo approved by the owner before its code is written (section 9). |
 | 2026-10-08 | Demo 3.3 feedback: wordmark/logo provisional (final logo before the launch, roadmap 7.6); about twenty palettes (Tide in vivid "minty" cyan; new Ember, Espresso, Harbor and more) in a picker with live preview; language chosen from a list; the Guide prompt reads "Home" (section 9). |
+| 2026-10-08 | English is the default UI language and the fallback for missing labels; Italian is one of the additional languages (section 9). |
