@@ -24,12 +24,12 @@ failed=()
 section() { printf '\n==> %s\n' "$*"; }
 
 # Files in the repository, without VM images, build output and third-party code (dependencies,
-# vendored Go modules).
+# vendored Go modules, the imported Pegasus Frontend source).
 project_files() {
     find . -type f \
         -not -path './.git/*' -not -path './vm/images/*' -not -path './vm/run/*' \
         -not -path './out/*' -not -path './iso/work/*' -not -path '*/node_modules/*' \
-        -not -path './daemon/vendor/*' \
+        -not -path './daemon/vendor/*' -not -path './frontend/owneet-frontend/*' \
         -print | sed 's|^\./||' | sort
 }
 

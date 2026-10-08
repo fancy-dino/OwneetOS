@@ -19,3 +19,4 @@ ignores:
   - "iso/work/**"
   - "**/node_modules/**"
   - "daemon/vendor/**"
+  - "frontend/owneet-frontend/**"

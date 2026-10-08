@@ -1,0 +1,14 @@
+collection: My Games
+extensions: ext
+ignore-file: buggygame.ext
+ignore-file: duplicategame.ext
+launch: myemulator {file.path}
+
+collection: Favorite games
+files:
+  favgame1.ext
+  favgame2.ext
+  game with spaces.ext
+
+collection: Multi-game ROMs
+regex: \d+.in.1

@@ -1,0 +1,23 @@
+# ignore build dir
+build*/
+
+# ignore all dotfiles
+./.*
+
+# except these
+!.gitignore
+!.qmake.conf
+!.appveyor.yml
+!.circleci/
+!.travis/
+!.github/
+
+# ignore IDE project files
+*.pro.user
+*.kdev4
+*.workspace
+
+# ignore Qt generated files
+*.qmlc
+*.jsc
+*.autosave

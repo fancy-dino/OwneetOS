@@ -1,0 +1,90 @@
+diff --git a/src/backend/ProcessLauncher.cpp b/src/backend/ProcessLauncher.cpp
+index a2d44a79..1e76b401 100644
+--- a/src/backend/ProcessLauncher.cpp
++++ b/src/backend/ProcessLauncher.cpp
+@@ -33,6 +33,14 @@
+ #include <QUrl>
+ #include <QRegularExpression>
+ 
++#define private public
++#include <QGuiApplication>
++#include <private/qeglfsintegration_p.h>
++#undef private
++#include <private/qfbvthandler_p.h>
++#include <private/qguiapplication_p.h>
++#include <qpa/qplatformintegration.h>
++
+ 
+ namespace {
+ static constexpr auto SEPARATOR = "----------------------------------------";
+@@ -208,7 +216,6 @@ void ProcessLauncher::runProcess(const QString& command, const QStringList& args
+     m_process = new QProcess(this);
+ 
+     // set up signals and slots
+-    connect(m_process, &QProcess::started, this, &ProcessLauncher::onProcessStarted);
+     connect(m_process, &QProcess::errorOccurred, this, &ProcessLauncher::onProcessError);
+     connect(m_process, static_cast<void(QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished),
+             this, &ProcessLauncher::onProcessFinished);
+@@ -217,8 +224,9 @@ void ProcessLauncher::runProcess(const QString& command, const QStringList& args
+     m_process->setProcessChannelMode(QProcess::ForwardedChannels);
+     m_process->setInputChannelMode(QProcess::ForwardedInputChannel);
+     m_process->setWorkingDirectory(workdir);
+-    m_process->start(command, args, QProcess::ReadOnly);
+-    m_process->waitForStarted(-1);
++    m_process->setProgram(command);
++    m_process->setArguments(args);
++    onProcessStarted();
+ 
+ #else // Q_OS_ANDROID
+     const QString result = android::run_am_call(args);
+@@ -238,10 +246,20 @@ void ProcessLauncher::runProcess(const QString& command, const QStringList& args
+ 
+ void ProcessLauncher::onTeardownComplete()
+ {
+-#ifndef Q_OS_ANDROID
+     Q_ASSERT(m_process);
++    auto platint = static_cast<QEglFSIntegration* const>(QGuiApplicationPrivate::platformIntegration());
++
++    platint->destroy();
++    platint->m_vtHandler.reset(nullptr);
++
++    m_process->start(QProcess::ReadOnly);
+     m_process->waitForFinished(-1);
+-#endif
++
++    const bool backup = platint->m_disableInputHandlers;
++    platint->m_disableInputHandlers = true;
++    platint->initialize();
++    platint->m_disableInputHandlers = backup;
++
+     emit processFinished();
+ }
+ 
+@@ -295,7 +313,6 @@ void ProcessLauncher::onProcessFinished(int exitcode, QProcess::ExitStatus exits
+ 
+ void ProcessLauncher::beforeRun(const QString& game_path)
+ {
+-    TerminalKbd::enable();
+     ScriptRunner::run(ScriptEvent::PROCESS_STARTED, { game_path });
+ }
+ 
+@@ -308,5 +325,4 @@ void ProcessLauncher::afterRun()
+ #endif
+ 
+     ScriptRunner::run(ScriptEvent::PROCESS_FINISHED);
+-    TerminalKbd::disable();
+ }
+diff --git a/src/backend/backend.pro b/src/backend/backend.pro
+index c5e62d23..60e2a9c7 100644
+--- a/src/backend/backend.pro
++++ b/src/backend/backend.pro
+@@ -12,6 +12,9 @@ isEmpty(USE_SDL_GAMEPAD): QT += gamepad
+ msvc: DEFINES *= _USE_MATH_DEFINES
+ 
+ 
++QT += gui-private eglfsdeviceintegration-private
++
++
+ SOURCES += \
+     Backend.cpp \
+     FrontendLayer.cpp \
