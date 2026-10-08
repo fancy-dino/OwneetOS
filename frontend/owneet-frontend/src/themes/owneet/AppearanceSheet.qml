@@ -85,11 +85,12 @@ Sheet {
             id: glyphSets
             width: parent.width
             spacing: Theme.px(6)
-            readonly property var items: [g0, g1, g2]
-            readonly property real cell: (width - spacing * 2) / 3
+            readonly property var items: [g0, g1, g2, g3]
+            readonly property real cell: (width - spacing * 3) / 4
             Choice { id: g0; width: glyphSets.cell; text: "Auto"; chosen: Theme.glyphSetting === "auto"; onActivated: Theme.glyphSetting = "auto" }
             Choice { id: g1; width: glyphSets.cell; text: "Xbox"; chosen: Theme.glyphSetting === "xbox"; onActivated: Theme.glyphSetting = "xbox" }
             Choice { id: g2; width: glyphSets.cell; text: "PlayStation"; chosen: Theme.glyphSetting === "ps"; onActivated: Theme.glyphSetting = "ps" }
+            Choice { id: g3; width: glyphSets.cell; text: "Nintendo"; chosen: Theme.glyphSetting === "nintendo"; onActivated: Theme.glyphSetting = "nintendo" }
         }
         SettingRow {
             id: motionRow

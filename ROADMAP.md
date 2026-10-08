@@ -458,7 +458,7 @@ code is written (PROJECT_RULES.md section 9).
 - **Open:** (1) In cage, the mouse pointer shows until the first input (drawn by cage).
   (2) Games are still started by the frontend itself; through owneetd in 3.8.
 
-### [~] 3.3 Theme foundations (awaiting owner review)
+### [x] 3.3 Theme foundations
 
 - **Deliverables:** design tokens (palettes from section 9), bundled fonts, 1280×720 scaling grid,
   safe area, focus ring, prompt bar with Xbox / PlayStation glyph sets.
@@ -479,7 +479,10 @@ code is written (PROJECT_RULES.md section 9).
   (frontend under Xvfb, screenshots of every option) and in the test VM (choice kept when the
   frontend restarts). Owner test (2026-10-08): everything shown correctly, picker and options work;
   the choice is lost on reboot because the live USB has no persistent storage (checked again on the
-  installed system, phase 6).
+  installed system, phase 6). Approved by the owner on 2026-10-08, with one addition: a
+  **Nintendo-style** glyph set (L/R, ZL/ZR, "+"; letters as printed, since sdl2-compat follows the
+  printed labels on Nintendo pads), chosen automatically for Switch controllers. Its hardware test
+  (Switch Pro Controller) is deferred to the next hardware test, together with other checks.
 
 ### [ ] 3.4 Internationalisation
 

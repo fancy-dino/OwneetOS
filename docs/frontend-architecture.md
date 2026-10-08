@@ -139,7 +139,7 @@ notifications (3.11). Each screen starts with an interactive demo approved by th
 |---|---|
 | `Theme` (singleton) | Palettes (eight color tokens each), fonts, sizes on the 1280×720 grid (`px()`), text sizes that follow the "Text size" option (`fs()`), TV safe area, reduce motion, button glyph set |
 | `FocusFrame` | Focus ring (background gap + accent ring) and lift of the selected item |
-| `Glyph`, `Prompt`, `PromptBar` | Button glyphs drawn in QML (Xbox-style letters, PlayStation-style shapes, chosen from the connected controller's name), the prompt bar |
+| `Glyph`, `Prompt`, `PromptBar` | Button glyphs drawn in QML (Xbox- and Nintendo-style letters, PlayStation-style shapes, chosen from the connected controller's name), the prompt bar |
 | `Sheet`, `PalettePicker` | Window over the screen with its own prompt bar; palette picker with live preview |
 | `Label`, `Choice`, `SettingRow` | Section label, segmented choice, settings row (switch or picker) |
 

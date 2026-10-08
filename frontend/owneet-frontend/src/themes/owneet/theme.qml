@@ -42,13 +42,21 @@ FocusScope {
     function updatePad() {
         const pad = pads.count > 0 ? pads.get(0) : null;
         padName = pad ? pad.name : "";
-        // PlayStation controllers, by the names SDL and the kernel give them ("PS5 Controller",
-        // "DualSense Wireless Controller", "Sony ... Wireless Controller"); everything else
-        // (Xbox, generic pads) gets the Xbox-style letters.
-        if (pad)
-            Theme.padKind = !/xbox|microsoft/i.test(pad.name)
-                            && /sony|dualsense|dualshock|playstation|wireless controller|\bps[345]\b/i.test(pad.name)
-                            ? "ps" : "xbox";
+        // By the names SDL and the kernel give the controllers: PlayStation ("PS5 Controller",
+        // "DualSense Wireless Controller", "Sony ... Wireless Controller"), Nintendo ("Nintendo
+        // Switch Pro Controller", "Joy-Con"); everything else (Xbox, generic pads) gets the
+        // Xbox-style letters.
+        if (pad) {
+            const n = pad.name;
+            if (/xbox|microsoft/i.test(n))
+                Theme.padKind = "xbox";
+            else if (/nintendo|switch|joy-?con/i.test(n))
+                Theme.padKind = "nintendo";
+            else if (/sony|dualsense|dualshock|playstation|wireless controller|\bps[345]\b/i.test(n))
+                Theme.padKind = "ps";
+            else
+                Theme.padKind = "xbox";
+        }
     }
     Connections {
         target: root.pads

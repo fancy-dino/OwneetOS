@@ -22,7 +22,7 @@ QtObject {
     property bool reduceMotion: false
     property bool showSafeArea: false                    // dashed outline of the TV safe area
     readonly property int motionMs: reduceMotion ? 0 : 160
-    property string glyphSetting: "auto"                 // auto, xbox, ps
+    property string glyphSetting: "auto"                 // auto, xbox, ps, nintendo
     property string padKind: "xbox"                      // from the connected controller
     readonly property string glyphs: glyphSetting === "auto" ? padKind : glyphSetting
 
