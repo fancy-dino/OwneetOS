@@ -159,6 +159,10 @@ OwneetOS is a **lightweight, open-source Linux distribution** that turns any x86
 - **i18n via JSON message files** with interchangeable labels; as many languages as possible.
   Wave 1 ships Italian + English; adding a language must require no code changes.
 - **Mockups are approved by the owner before UI code is written.**
+- **Interactive demo before each screen:** before the code of each screen is written (controller
+  pairing, home, library, settings, on-screen keyboard, …), the owner gets an interactive demo of
+  that screen (HTML, usable with keyboard and gamepad in a browser) to adjust details first. The
+  screen is implemented only after the owner approves its demo.
 - Approved direction (2026-10-03): `design/mockups/wave1-mockups.html` — deep navy ground, coral
   accent, minimal UI, Bricolage Grotesque (titles) + Lexend (UI text), 1280×720 design grid,
   5% horizontal TV safe area. Palettes (Dusk, Tide, Bloom, Daylight, High contrast) are
@@ -310,3 +314,4 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-08 | With the NVIDIA driver, gamescope always composites (direct scanout showed flickering black rectangles on the owner's RTX 4060). |
 | 2026-10-08 | Several screens: the console uses one (choice in Settings, step 3.9); the others are not turned off by default, a use for a second screen may come later. |
 | 2026-10-08 | Legal check before phase 3: the frontend fork is named `owneet-frontend` (Pegasus's trademark terms); Pegasus's CC BY-NC-SA theme, logo, Roboto fonts and button images are not used; its online metadata downloads are disabled. `CREDITS.md` credits every project OwneetOS builds on and ships in the image (section 12). Step 2.9 approved. |
+| 2026-10-08 | Each screen gets an interactive demo approved by the owner before its code is written (section 9). |

@@ -396,6 +396,10 @@ Pegasus's default theme (`pegasus-theme-grid`) is CC BY-NC-SA 4.0 and is never s
 Roboto fonts and button images are not used (own fonts and glyphs). Pegasus's online metadata
 downloads (Steam store, GOG API, Play Store) are disabled: local data only.
 
+Every screen step (home, library, settings, on-screen keyboard, notifications, and the pairing and
+setup screens of phase 6) starts with an **interactive demo** approved by the owner before its
+code is written (PROJECT_RULES.md section 9).
+
 ### [ ] 3.1 Pegasus study and fork
 
 - **Deliverables:** clone `mmatyas/pegasus-frontend` (master, with submodules), fork on GitHub as
