@@ -44,6 +44,8 @@ target_link_libraries(pegasus-fe PUBLIC
     pegasus-qml
 )
 qt_import_qml_plugins(pegasus-fe)
+# OwneetOS: the executable is owneet-frontend (Pegasus's licence: not called Pegasus).
+set_target_properties(pegasus-fe PROPERTIES OUTPUT_NAME owneet-frontend)
 
 include(PegasusCommonProps)
 pegasus_add_common_props_optimized(pegasus-fe)

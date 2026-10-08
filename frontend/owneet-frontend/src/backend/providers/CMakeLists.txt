@@ -52,18 +52,12 @@ function(pegasus_add_provider)
 endfunction()
 
 
-add_subdirectory(android_apps)
-add_subdirectory(es2)
-add_subdirectory(gog)
-add_subdirectory(launchbox)
-add_subdirectory(logiqx)
-add_subdirectory(lutris)
+# OwneetOS: only local game data. Not built: android_apps (Play Store pages), es2, gog (GOG
+# API), launchbox, logiqx, lutris, playnite, skraper (not needed). docs/frontend-architecture.md
 add_subdirectory(pegasus_favorites)
 add_subdirectory(pegasus_media)
 add_subdirectory(pegasus_metadata)
 add_subdirectory(pegasus_playtime)
-add_subdirectory(playnite)
-add_subdirectory(skraper)
 add_subdirectory(steam)
 
 

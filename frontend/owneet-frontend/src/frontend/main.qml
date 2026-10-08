@@ -25,8 +25,8 @@ Window {
     visible: true
     width: 1280
     height: 720
-    title: "Pegasus"
-    color: "#000"
+    title: "OwneetOS"
+    color: "#0E1424"
 
     visibility: Internal.settings.fullscreen
                 ? Window.FullScreen : Window.AutomaticVisibility
@@ -85,22 +85,17 @@ Window {
 
             readonly property url apiThemePath: Internal.settings.themes.currentQmlPath
 
+            // OwneetOS: the theme also handles "no games yet" (no Pegasus message screen).
             function getThemeFile() {
                 if (Internal.scanner.running)
                     return "";
-                if (api.collections.count === 0)
-                    return "messages/NoGamesError.qml";
 
                 return apiThemePath;
             }
             onApiThemePathChanged: source = Qt.binding(getThemeFile)
 
+            // OwneetOS: Pegasus's main menu is not used (OwneetOS screens replace it).
             Keys.onPressed: {
-                if (api.keys.isCancel(event) || api.keys.isMenu(event)) {
-                    event.accepted = true;
-                    mainMenu.focus = true;
-                }
-
                 if (event.key === Qt.Key_F5) {
                     event.accepted = true;
 
@@ -126,6 +121,7 @@ Window {
 
             source: "MenuLayer.qml"
             asynchronous: true
+            active: false // OwneetOS: Pegasus's main menu is not used
 
             onLoaded: item.focus = focus
             onFocusChanged: if (item) item.focus = focus
@@ -154,6 +150,7 @@ Window {
         }
         PegasusUtils.HorizontalSwipeArea {
             id: menuSwipe
+            enabled: false // OwneetOS: Pegasus's main menu is not used
 
             width: vpx(40)
             height: parent.height

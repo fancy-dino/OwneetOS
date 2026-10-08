@@ -15,6 +15,17 @@ if(PEGASUS_ON_ANDROID)
 endif()
 
 
+# OwneetOS: tag the interface's windows for gamescope (X11 only)
+
+if(PEGASUS_ON_X11)
+    find_library(XCB_LIBRARY xcb REQUIRED)
+    target_sources(pegasus-backend PRIVATE GamescopeTag.h GamescopeTag_x11.cpp)
+    target_link_libraries(pegasus-backend PRIVATE "${XCB_LIBRARY}")
+else()
+    target_sources(pegasus-backend PRIVATE GamescopeTag.h GamescopeTag_unimpl.cpp)
+endif()
+
+
 # Select power manager implementation
 
 if(PEGASUS_ON_X11 OR PEGASUS_ON_EGLFS)

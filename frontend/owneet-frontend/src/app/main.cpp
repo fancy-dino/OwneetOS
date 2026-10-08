@@ -60,11 +60,10 @@ int main(int argc, char *argv[])
     QSettings::setDefaultFormat(QSettings::IniFormat);
 
     QGuiApplication app(argc, argv);
-    app.setApplicationName(QStringLiteral("pegasus-frontend"));
+    // OwneetOS: own names (Pegasus's licence: a modified version is not called Pegasus).
+    app.setApplicationName(QStringLiteral("owneet-frontend"));
     app.setApplicationVersion(QStringLiteral(GIT_REVISION));
-    app.setOrganizationName(QStringLiteral("pegasus-frontend"));
-    app.setOrganizationDomain(QStringLiteral("pegasus-frontend.org"));
-    app.setWindowIcon(QIcon(QStringLiteral(":/icon.png")));
+    app.setOrganizationName(QStringLiteral("owneet-frontend"));
 
     if (!request_runtime_permissions())
         return 1;

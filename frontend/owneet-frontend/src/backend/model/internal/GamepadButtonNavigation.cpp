@@ -59,7 +59,8 @@ GamepadButtonNavigation::GamepadButtonNavigation(QObject* parent)
         { GamepadButton::R3, new QTimer(this) },
         { GamepadButton::SELECT, new QTimer(this) },
         { GamepadButton::START, new QTimer(this) },
-        { GamepadButton::GUIDE, new QTimer(this) },
+        // OwneetOS: no GUIDE. The Guide button belongs to the system (owneetd): it never
+        // reaches the interface (OwneetOS PROJECT_RULES.md section 9.1).
     }
     , m_keys {
         { GamepadButton::UP, Qt::Key_Up },
@@ -78,7 +79,6 @@ GamepadButtonNavigation::GamepadButtonNavigation(QObject* parent)
         { GamepadButton::R3, static_cast<Qt::Key>(GamepadKeyId::R3) },
         { GamepadButton::SELECT, static_cast<Qt::Key>(GamepadKeyId::SELECT) },
         { GamepadButton::START, static_cast<Qt::Key>(GamepadKeyId::START) },
-        { GamepadButton::GUIDE, static_cast<Qt::Key>(GamepadKeyId::GUIDE) },
     }
 {
     for (const auto& pair : m_timers) {

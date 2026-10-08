@@ -4,10 +4,6 @@
         <file>MenuLayer.qml</file>
         <file>SplashLayer.qml</file>
         <file>assets/dir-icon.png</file>
-        <file>assets/logo.png</file>
-        <file>assets/pbar-left.png</file>
-        <file>assets/pbar-right.png</file>
-        <file>assets/pbar.png</file>
         <file>assets/qr-docs.png</file>
         <file>assets/qt-logo.png</file>
         <file>assets/gamepad/x360/a.png</file>

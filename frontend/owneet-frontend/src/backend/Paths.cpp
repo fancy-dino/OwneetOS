@@ -39,8 +39,8 @@ using QSP = QStandardPaths;
 
 void remove_orgname(QString& str)
 {
-    const QRegularExpression replace_regex(QStringLiteral("(/pegasus-frontend){2}$"));
-    str.replace(replace_regex, QStringLiteral("/pegasus-frontend"));
+    const QRegularExpression replace_regex(QStringLiteral("(/owneet-frontend){2}$"));
+    str.replace(replace_regex, QStringLiteral("/owneet-frontend"));
 }
 
 void create_dir_if_not_exists(const QString& dir_path)
@@ -53,7 +53,7 @@ QString get_appconfig_dir()
 {
 #ifdef Q_OS_ANDROID
     const QString dir_path = QSP::writableLocation(QSP::GenericDataLocation)
-                           + QStringLiteral("/pegasus-frontend");
+                           + QStringLiteral("/owneet-frontend");
 #else
     QString dir_path = AppSettings::general.portable
         ? paths::app_dir_path() + QStringLiteral("/config")
@@ -126,14 +126,14 @@ const QStringList& configDirs()
             paths << QSP::standardLocations(QSP::AppDataLocation);
 
             // do not add the organization name to the search path
-            const QRegularExpression regex(QStringLiteral("(/pegasus-frontend){2}$"));
-            paths.replaceInStrings(regex, QStringLiteral("/pegasus-frontend"));
+            const QRegularExpression regex(QStringLiteral("(/owneet-frontend){2}$"));
+            paths.replaceInStrings(regex, QStringLiteral("/owneet-frontend"));
         }
 
 #ifdef Q_OS_ANDROID
         const QStringList all_roots = android::storage_paths();
         for (const QString& storage_root : all_roots) {
-            QString path = storage_root + QStringLiteral("/pegasus-frontend");
+            QString path = storage_root + QStringLiteral("/owneet-frontend");
             if (QFileInfo::exists(path))
                 paths << std::move(path);
         }

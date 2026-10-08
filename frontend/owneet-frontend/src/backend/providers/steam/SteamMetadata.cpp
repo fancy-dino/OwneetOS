@@ -171,36 +171,11 @@ bool Metadata::fill_from_cache(const QString& appid, model::Game& game) const
 
 void Metadata::fill_from_network(const QString& appid, model::Game& game, SearchContext& sctx) const
 {
-    const QString url_str = QStringLiteral("https://store.steampowered.com/api/appdetails/?appids=") + appid;
-    const QUrl url(url_str, QUrl::StrictMode);
-    Q_ASSERT(url.isValid());
-    if (Q_UNLIKELY(!url.isValid()))
-        return;
-
-    model::Game* const game_ptr = &game;
-    QString log_tag = m_log_tag;
-    QString json_cache_dir = m_json_cache_dir;
-    sctx.schedule_download(url, [appid, game_ptr, log_tag, json_cache_dir](QNetworkReply* const reply){
-        if (reply->error()) {
-            Log::warning(log_tag, LOGMSG("Downloading metadata for `%1` failed: %2")
-                .arg(game_ptr->title(), reply->errorString()));
-            return;
-        }
-
-        const QByteArray raw_data = reply->readAll();
-        const QJsonDocument json = QJsonDocument::fromJson(raw_data);
-        if (json.isNull()) {
-            Log::warning(log_tag, LOGMSG(
-                   "Failed to parse the response of the server for game '%1', "
-                   "either it's no longer available from the Steam Store or the Steam API has changed"
-               ).arg(game_ptr->title()));
-            return;
-        }
-
-        const bool success = apply_json(*game_ptr, json);
-        if (success)
-            providers::cache_json(log_tag, json_cache_dir, appid, json.toJson(QJsonDocument::Compact));
-    });
+    // OwneetOS: game data comes from local files only (no Steam store download).
+    // OwneetOS PROJECT_RULES.md section 12.
+    Q_UNUSED(appid);
+    Q_UNUSED(game);
+    Q_UNUSED(sctx);
 }
 
 } // namespace steam

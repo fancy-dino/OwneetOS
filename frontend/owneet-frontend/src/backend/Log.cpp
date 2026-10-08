@@ -160,7 +160,7 @@ public:
     }
 
 private:
-    static constexpr auto m_appname = "pegasus-fe";
+    static constexpr auto m_appname = "owneet-frontend";
     static constexpr auto m_marker_info = "[i] ";
     static constexpr auto m_marker_warning = "[w] ";
     static constexpr auto m_marker_error = "[e] ";

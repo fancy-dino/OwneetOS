@@ -19,6 +19,7 @@
 
 #include "Paths.h"
 #include "imggen/BlurhashProvider.h"
+#include "platform/GamescopeTag.h"
 #include "utils/DiskCachedNAM.h"
 
 #ifdef Q_OS_ANDROID
@@ -72,6 +73,7 @@ void FrontendLayer::rebuild()
     m_engine->rootContext()->setContextProperty(QStringLiteral("Api"), m_api_public);
     m_engine->rootContext()->setContextProperty(QStringLiteral("Internal"), m_api_private);
     m_engine->load(QUrl(QStringLiteral("qrc:/frontend/main.qml")));
+    platform::tag_windows_for_gamescope(m_engine->rootObjects()); // OwneetOS
 
     emit rebuildComplete();
 }
