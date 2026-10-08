@@ -4,8 +4,11 @@
 # Fullscreen placeholder shown by owneet-session until the real console UI exists (roadmap 3.2).
 # Shows the OwneetOS background colour and which session mode is running.
 #
-# Test hook (kernel command line): owneet.debug.placeholder_exit=SECONDS makes it quit after
-# SECONDS, to exercise the session's restart and fallback logic.
+# Test hooks (kernel command line):
+#   owneet.debug.placeholder_exit=SECONDS   quit after SECONDS (session restart and fallback logic)
+#   owneet.debug.placeholder_vo=software|vulkan
+#                                           under gamescope, draw with the CPU or with Vulkan
+#                                           instead of OpenGL (graphics driver troubleshooting)
 
 set -euo pipefail
 
@@ -19,9 +22,12 @@ args=(
 )
 # Only the output methods that fit the compositor (mpv crashes when its automatic probing falls
 # through to X11 under cage). The last entry of each list works without GPU acceleration.
-case "$mode" in
-    cage)      args+=('--vo=gpu-next,gpu,wlshm' '--gpu-context=wayland,waylandvk') ;;
-    gamescope) args+=('--vo=gpu-next,gpu,x11' '--gpu-context=x11egl,x11vk') ;;
+vo="$(grep -oE '(^| )owneet\.debug\.placeholder_vo=[a-z]+' /proc/cmdline | tail -1 | cut -d= -f2 || true)"
+case "$mode:$vo" in
+    cage:*)             args+=('--vo=gpu-next,gpu,wlshm' '--gpu-context=wayland,waylandvk') ;;
+    gamescope:software) args+=('--vo=x11') ;;
+    gamescope:vulkan)   args+=('--vo=gpu-next' '--gpu-context=x11vk') ;;
+    gamescope:*)        args+=('--vo=gpu-next,gpu,x11' '--gpu-context=x11egl,x11vk') ;;
 esac
 exit_after="$(grep -oE '(^| )owneet\.debug\.placeholder_exit=[0-9]+' /proc/cmdline | tail -1 | cut -d= -f2 || true)"
 if [[ -n "$exit_after" ]]; then args+=(--length="$exit_after"); args=("${args[@]/--keep-open=yes/--keep-open=no}"); fi
