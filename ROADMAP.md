@@ -573,6 +573,11 @@ code is written (PROJECT_RULES.md section 9).
   screen gets them; Settings → Sound: "Interface sounds" on/off and volume; silent while a game is
   on screen. Priority-2 sounds are wired when their features arrive (notifications, controllers,
   game launch, on-screen keyboard).
+- **Open point from demo 3.6 (2026-10-09):** in the browser some sounds started late or sounded
+  different. Likely cause, besides the browser's own latency: PipeWire suspends an idle audio
+  output after a few seconds, and waking it delays or cuts the start of the next short sound. The
+  interface keeps its audio output awake while it is on screen (e.g. one open stream, or no
+  suspend for it); checked on real hardware with the ISO (sounds on time and identical).
 
 ---
 
