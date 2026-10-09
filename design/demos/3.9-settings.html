@@ -163,7 +163,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 </div></div>
 <p class="help"><b>Gamepad:</b> D-pad / stick move, right stick scrolls the page, A select, B back (panel → list of sections), Menu options (forget a network or device), LB/RB sections.
 Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = Menu, Q/E = LB/RB.<br>
-<b>Demo only:</b> W offline / Wi-Fi, D one or two screens, P palette, L language, N sounds (<span id="snd-state">on</span>; browsers allow sound only after a key or a click). Address: <code>#section=network&amp;offline=1&amp;screens=2&amp;lang=it</code></p>
+<b>Demo only:</b> W offline / Wi-Fi, D one or two screens, B (keyboard) screen with or without brightness control, P palette, L language, N sounds (<span id="snd-state">on</span>; browsers allow sound only after a key or a click). Address: <code>#section=network&amp;offline=1&amp;screens=2&amp;lang=it</code></p>
 
 <script src="sounds.js"></script>
 <script>
@@ -363,7 +363,7 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
     known: [{ name: 'DualSense Wireless Controller' }, { name: 'JBL Tune 510BT' }],
     outputs: [{ id: 'hdmi', name: 'TV (HDMI)' }, { id: 'speakers', name: 'Speakers' }, { id: 'bt', name: 'JBL Tune 510BT' }], output: 'hdmi',
     volume: 60, mute: false, uiSounds: true,
-    screens: 1, screen: 0, brightness: 80, keyboard: 'same', otherScreens: 'logo', res: 'auto', rate: 'auto',
+    screens: 1, screen: 0, brightness: 80, canDim: true, keyboard: 'same', otherScreens: 'logo', res: 'auto', rate: 'auto',
     textSize: 1, prompts: 'auto', motion: false, safe: false,
     disks: [{ name: 'Internal disk', free: 212, total: 512 }, { name: 'USB disk', free: 1100, total: 2000 }, { name: 'Windows disk', free: 310, total: 1000, ro: true }],
   };
@@ -431,7 +431,8 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
         h += `<span class="label t-xs">${tr('disp.screen')}</span>` + seg('screen', [[0, 'LG TV (HDMI-1)'], [1, 'Dell P2419H (DP-2)']], st.screen);
         h += `<span class="label t-xs group-label">${tr('disp.other')}</span>` + seg('otherScreens', [['logo', tr('disp.other.logo')], ['off', tr('disp.other.off')]], st.otherScreens);
       } else h += `<div class="row info"><span class="left">${tr('disp.one')}</span><span class="right">LG TV (HDMI-1)</span></div>`;
-      h += row('data-act="slider" data-key="brightness"', `<span>${tr('disp.brightness')}</span>${sub(tr('disp.brightness.sub'))}`, slider(st.brightness));
+      // only when the screen lets the console change it (laptop panel, monitor with DDC/CI)
+      if (st.canDim) h += row('data-act="slider" data-key="brightness"', `<span>${tr('disp.brightness')}</span>`, slider(st.brightness));
       h += row('data-act="res"', `<span>${tr('disp.res')}</span>`, `<span class="value">${st.res === 'auto' ? tr('disp.auto') : st.res}</span>`);
       h += row('data-act="rate"', `<span>${tr('disp.rate')}</span>`, `<span class="value">${st.rate === 'auto' ? tr('disp.auto') : st.rate}</span>`);
       return h;
@@ -765,6 +766,7 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
   const DEMO = {
     w: () => { st.offline = !st.offline; renderAll(); toast(st.offline ? 'offline' : 'online'); },
     d: () => { st.screens = st.screens === 1 ? 2 : 1; renderAll(); toast(st.screens + ' screen(s)'); },
+    b: () => { st.canDim = !st.canDim; renderAll(); toast(st.canDim ? 'screen with brightness control' : 'screen without brightness control (e.g. a TV)'); },
     p: () => { const i = PALETTES.findIndex(p => p[0] === palKey); palKey = PALETTES[(i + 1) % PALETTES.length][0]; applyPalette(palKey); renderAll(); },
     l: () => { lang = lang === 'en' ? 'it' : 'en'; renderAll(); },
     n: () => { soundOn = !soundOn; $('#snd-state').textContent = soundOn ? 'on' : 'off'; },
@@ -825,6 +827,7 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
   if (SECTIONS.includes(q.get('section'))) st.section = q.get('section');
   if (q.get('offline') === '1') { st.offline = true; st.networks.forEach(n => { n.connected = false; }); }
   if (q.get('screens') === '2') st.screens = 2;
+  if (q.get('dim') === '0') st.canDim = false;
   if (q.get('lang') === 'it') lang = 'it';
   if (q.get('motion') === 'off') document.documentElement.style.setProperty('--motion', 0);
   if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }

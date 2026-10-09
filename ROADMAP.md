@@ -627,7 +627,7 @@ code is written (PROJECT_RULES.md section 9).
   of the Pro Controller, a test game starts on screen, Guide shows the home screen with the game
   running, Resume brings it back, a second game is refused, Close game with confirmation.
 
-### [~] 3.9 Settings *(multi-prompt; demo revised, awaiting owner review)*
+### [~] 3.9 Settings *(multi-prompt; demo approved 2026-10-09)*
 
 - **Deliverables:** Appearance (palette, text size, reduce motion, persisted), Network, Controllers
   and Bluetooth, Audio, Display (resolution, refresh rate via gamescope; with several screens,
@@ -659,8 +659,9 @@ code is written (PROJECT_RULES.md section 9).
   cable port; PS + Create), and no drawing for "other controllers"; (2) connected controllers are
   selectable: Bluetooth ones can be **turned off** (disconnected, they stay known) or
   **forgotten**; wired and adapter ones say how to remove them; (3) Display: **brightness** slider,
-  on screens that allow it — to build: laptop backlight through logind, monitors through DDC/CI
-  (`ddcutil`, a new dependency to check and credit), TVs usually not; (4) Language: the
+  **shown only on screens that allow it** (owner, 2026-10-09) — to build: laptop backlight through
+  logind, monitors through DDC/CI (`ddcutil`, a new dependency to check and credit), TVs usually
+  not; (4) Language: the
   **keyboard layout** is chosen separately (default "same as the language"); owneetd has US and
   Italian tables today, more layouts need their tables (2.4); (5) the **right stick scrolls the
   page** and the content of windows such as Credits and licences.
