@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The OwneetOS theme. Step 3.3 builds its foundations (design tokens and palettes, fonts, the
-// 1280 x 720 grid with the TV safe area, focus ring, button prompts, text sizes, reduce motion)
-// as approved in design/demos/3.3-theme-foundations.html. Until the home screen (3.6) and the
-// library (3.7) exist, the screen lists the games and starts the selected one with A.
+// The OwneetOS theme: the shell around the sections (top bar, sections on LB / RB, prompt bar,
+// windows). Foundations: step 3.3 (design/demos/3.3-theme-foundations.html); home: step 3.6
+// (design/demos/3.6-home.html). Library (3.7) and Settings (3.9) are temporary pages for now.
 import QtQuick 2.15
 import "foundation"
 
@@ -22,6 +21,7 @@ FocusScope {
         prefs.forEach(p => { if (api.memory.has(p[0])) Theme[p[1]] = api.memory.get(p[0]); });
         loaded = true;
         updatePad();
+        refreshGames();
     }
     function save(key, value) {
         if (loaded && api.memory.get(key) !== value)
@@ -68,33 +68,105 @@ FocusScope {
     }
     Component.onDestruction: Theme.previewKey = ""
 
-    // ---- Buttons the screens leave to the whole interface (section 9.1)
-    readonly property bool sheetOpen: appearance.visible || palettes.visible || languages.visible
+    // ---- Games, most recently played first (shared by the sections)
+    property var games: []
+    function refreshGames() { games = GameInfo.recent(api.allGames); }
+    Connections {
+        target: api.allGames
+        function onCountChanged() { root.refreshGames(); }
+    }
+
+    // ---- Sections (LB / RB)
+    readonly property var sections: ["home", "library", "settings"]
+    property string section: "home"
+    readonly property Item page: section === "home" ? home : section === "library" ? library : settings
+    function goSection(name) {
+        if (name === section)
+            return;
+        section = name;
+        Nav.feedback("section");
+        page.focusStart();
+    }
+    readonly property bool modalOpen: appearance.visible || palettes.visible || languages.visible || dialog.visible
+    function backToPage() { Qt.callLater(() => { if (!root.modalOpen) root.page.forceActiveFocus(); }); }
+
+    // ---- Buttons the sections leave to the whole interface (section 9.1)
     Keys.onPressed: {
         const a = Nav.action(event);
-        if (a === "page" && !sheetOpen) {
-            appearance.openSheet(true);   // Y: page option (temporary home of Appearance)
-        } else if (a === "section-prev" || a === "section-next" || a === "filter-prev" || a === "filter-next") {
-            Nav.feedback("edge");         // one section and no filters yet (home: 3.6)
+        if ((a === "section-prev" || a === "section-next") && !modalOpen) {
+            const i = sections.indexOf(section) + (a === "section-next" ? 1 : -1);
+            goSection(sections[(i + sections.length) % sections.length]);
+        } else if (a.startsWith("section-") || a.startsWith("filter-") || a === "page") {
+            Nav.feedback("edge");         // no filters or page options on these pages yet
         } else {
             return;
         }
         event.accepted = true;
     }
 
+    // ---- Games: launch, details, options
+    function launch(game) {
+        Nav.feedback("launch");
+        toast.show(Tr.tr("toast.launch", { title: game.title }));
+        game.launch();                    // through owneetd from step 3.8
+        refreshTimer.restart();           // "last played" changes once the game has started
+    }
+    Timer { id: refreshTimer; interval: 3000; onTriggered: root.refreshGames() }
+    function showDetails(game) {
+        dialog.game = game;
+        dialog.mode = "details";
+        dialog.title = game.title;
+        dialog.text = "";
+        dialog.buttons = [{ text: Tr.tr("home.play"), style: "primary", action: () => { dialog.close(true); root.launch(game); } }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function showOptions(game) {
+        dialog.game = game;
+        dialog.mode = "options";
+        dialog.title = game.title;
+        dialog.text = "";
+        dialog.buttons = [
+            { text: Tr.tr("home.play"), style: "primary", action: () => { dialog.close(true); root.launch(game); } },
+            { text: Tr.tr("home.details"), action: () => { dialog.close(true); root.showDetails(game); } },
+            { text: Tr.tr(game.favorite ? "options.unfavorite" : "options.favorite"), action: () => {
+                game.favorite = !game.favorite;
+                dialog.close();
+                toast.show(Tr.tr(game.favorite ? "toast.favorite" : "toast.unfavorite"));
+            } },
+            { text: Tr.tr("options.library"), action: () => {
+                dialog.close(true);
+                root.goSection("library");
+                library.select(game);
+            } }
+        ];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function showHowToAdd() {
+        dialog.game = null;
+        dialog.mode = "how";
+        dialog.title = Tr.tr("how.title");
+        dialog.text = Tr.tr("how.steam") + "\n\n" + Tr.tr("how.local");
+        dialog.buttons = [{ text: Tr.tr("home.empty.store"), style: "primary", action: () => { dialog.close(); root.notYet(); } }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function notYet() { toast.show(Tr.tr("toast.later")); }
+
     Rectangle {
         anchors.fill: parent
         color: Theme.bg
     }
 
-    // ---- Top bar: wordmark, controller, clock
+    // ---- Top bar: wordmark, sections, controller, clock
     Item {
         id: top
         anchors {
             left: parent.left; right: parent.right; top: parent.top
             leftMargin: Theme.safeX; rightMargin: Theme.safeX; topMargin: Theme.safeTop
         }
-        height: Math.max(mark.height, Theme.fs(30))
+        height: Math.max(mark.height, tabs.height)
 
         Text {
             id: mark
@@ -108,18 +180,56 @@ FocusScope {
             font.letterSpacing: -Theme.px(0.7)
         }
         Row {
+            id: tabs
+            anchors { left: mark.right; leftMargin: Theme.px(36); verticalCenter: parent.verticalCenter }
+            spacing: Theme.px(6)
+            Glyph { button: "lb"; anchors.verticalCenter: parent.verticalCenter; color: Theme.muted }
+            Repeater {
+                model: root.sections
+                Rectangle {
+                    readonly property bool current: modelData === root.section
+                    width: tabText.implicitWidth + Theme.px(36)
+                    height: tabText.implicitHeight + Theme.px(14)
+                    radius: height / 2
+                    color: current ? Theme.fg : "transparent"
+                    Text {
+                        id: tabText
+                        anchors.centerIn: parent
+                        text: Tr.tr("tab." + modelData)
+                        color: parent.current ? Theme.bg : Theme.muted
+                        font.family: Theme.textFont
+                        font.weight: parent.current ? Font.Medium : Font.Normal
+                        font.pixelSize: Theme.fs(14.5)
+                    }
+                }
+            }
+            Glyph { button: "rb"; anchors.verticalCenter: parent.verticalCenter; color: Theme.muted }
+        }
+        Row {
             anchors { right: parent.right; verticalCenter: parent.verticalCenter }
             spacing: Theme.px(20)
-            Text {
-                text: root.padName !== "" ? root.padName : Tr.tr("controller.none")
-                color: Theme.muted
-                font.family: Theme.textFont
-                font.pixelSize: Theme.fs(14.5)
-                elide: Text.ElideRight
-                width: Math.min(implicitWidth, Theme.px(300))
+            Canvas {                       // a controller is connected (battery level: 3.8)
+                id: padIcon
+                visible: root.padName !== ""
+                anchors.verticalCenter: parent.verticalCenter
+                width: Theme.fs(20); height: width
+                property color ink: Theme.muted
+                onInkChanged: requestPaint()
+                onWidthChanged: requestPaint()
+                onPaint: {
+                    const ctx = getContext("2d");
+                    ctx.reset();
+                    ctx.scale(width / 24, height / 24);
+                    ctx.strokeStyle = ink;
+                    ctx.lineWidth = 2;
+                    ctx.lineJoin = "round";
+                    ctx.path = "M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z";
+                    ctx.stroke();
+                }
             }
             Text {
                 id: clock
+                anchors.verticalCenter: parent.verticalCenter
                 color: Theme.fg
                 font.family: Theme.textFont
                 font.weight: Font.Medium
@@ -131,94 +241,46 @@ FocusScope {
         }
     }
 
-    // ---- Games (temporary list until the home screen, step 3.6)
-    Text {
-        id: heading
-        anchors {
-            left: parent.left; top: top.bottom
-            leftMargin: Theme.safeX; topMargin: Theme.px(22)
-        }
-        text: Tr.tr("games.title")
-        color: Theme.fg
-        font.family: Theme.displayFont
-        font.weight: Font.Bold
-        font.pixelSize: Theme.fs(40)
-    }
-    Text {
-        visible: games.count > 0
-        anchors { left: heading.right; leftMargin: Theme.px(14); baseline: heading.baseline }
-        text: Tr.trn("games.count", games.count)
-        color: Theme.muted
-        font.family: Theme.textFont
-        font.pixelSize: Theme.fs(17)
-    }
-    ListView {
-        id: games
-        anchors {
-            left: parent.left; right: parent.right; top: heading.bottom; bottom: prompts.top
-            leftMargin: Theme.safeX - Theme.px(20); rightMargin: Theme.safeX - Theme.px(20)
-            topMargin: Theme.px(10); bottomMargin: Theme.px(14)
-        }
-        model: api.allGames
+    // ---- Sections
+    FocusScope {
+        id: pages
         focus: true
-        clip: true
-        spacing: Theme.px(10)
-        topMargin: Theme.px(8)
-        bottomMargin: Theme.px(8)
-        // the list scrolls to follow the selection; the prompt bar never moves
-        highlightRangeMode: ListView.ApplyRange
-        preferredHighlightBegin: Theme.px(16)
-        preferredHighlightEnd: height - Theme.px(16)
-        highlightMoveDuration: Theme.motionMs
-        keyNavigationEnabled: false             // Nav.listKeys moves the selection
-        delegate: Rectangle {
-            readonly property var game: modelData
-            x: Theme.px(20)                      // room for the lift and the focus ring
-            width: games.width - Theme.px(40)
-            height: title.implicitHeight + Theme.px(28)
-            radius: Theme.radiusS + Theme.px(2)
-            color: Theme.surface
-            border.color: Theme.line
-            border.width: Math.max(1, Theme.px(1))
-            Text {
-                id: title
-                anchors {
-                    left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter
-                    leftMargin: Theme.px(18); rightMargin: Theme.px(18)
-                }
-                text: modelData.title
-                color: Theme.fg
-                font.family: Theme.textFont
-                font.pixelSize: Theme.fs(17)
-                elide: Text.ElideRight
-            }
-            FocusFrame { shown: parent.ListView.isCurrentItem && games.activeFocus }
+        anchors {
+            left: parent.left; right: parent.right; top: top.bottom; bottom: prompts.top
+            leftMargin: Theme.safeX; rightMargin: Theme.safeX; topMargin: Theme.px(22); bottomMargin: Theme.px(20)
         }
-        Keys.onPressed: {
-            const a = Nav.action(event);
-            if (Nav.listKeys(games, a)) {
-                event.accepted = true;
-            } else if (a === "left" || a === "right") {
-                Nav.feedback("edge");
-                event.accepted = true;
-            } else if (a === "accept" && currentItem) {
-                Nav.feedback("confirm");
-                currentItem.game.launch();
-                event.accepted = true;
-            }
+        HomePage {
+            id: home
+            anchors.fill: parent
+            visible: root.section === "home"
+            focus: visible
+            games: root.games
+            onLaunch: root.launch(game)
+            onDetails: root.showDetails(game)
+            onOptions: root.showOptions(game)
+            onOpenLibrary: root.goSection("library")
+            onHowToAdd: root.showHowToAdd()
+            onNotYet: root.notYet()
+        }
+        LibraryPage {
+            id: library
+            anchors.fill: parent
+            visible: root.section === "library"
+            focus: visible
+            games: root.games
+            onLaunch: root.launch(game)
+            onDetails: root.showDetails(game)
+            onOptions: root.showOptions(game)
+        }
+        SettingsPage {
+            id: settings
+            anchors.fill: parent
+            visible: root.section === "settings"
+            focus: visible
+            onOpenAppearance: appearance.openSheet(true)
         }
     }
-    Text {
-        visible: games.count === 0
-        anchors.centerIn: games
-        width: games.width * 0.6
-        horizontalAlignment: Text.AlignHCenter
-        wrapMode: Text.Wrap
-        text: Tr.tr("games.empty")
-        color: Theme.muted
-        font.family: Theme.textFont
-        font.pixelSize: Theme.fs(17)
-    }
+    Timer { interval: 0; running: true; onTriggered: home.focusStart() }   // after the first layout
 
     PromptBar {
         id: prompts
@@ -226,10 +288,9 @@ FocusScope {
             left: parent.left; right: parent.right; bottom: parent.bottom
             leftMargin: Theme.safeX; rightMargin: Theme.safeX; bottomMargin: Theme.safeBottom
         }
-        visible: !root.sheetOpen
-        prompts: games.count > 0
-                 ? [{ buttons: ["a"], label: Tr.tr("prompt.play") }, { buttons: ["y"], label: Tr.tr("prompt.appearance") }]
-                 : [{ buttons: ["y"], label: Tr.tr("prompt.appearance") }]
+        visible: !root.modalOpen
+        prompts: root.page.prompts
+        globalPrompts: [{ buttons: ["lb", "rb"], label: Tr.tr("prompt.sections") }, { buttons: ["guide"], label: Tr.tr("prompt.home") }]
     }
 
     // ---- TV safe area outline (Appearance → Show TV safe area)
@@ -248,11 +309,37 @@ FocusScope {
         z: 50
     }
 
+    // ---- Windows
+    Dialog {
+        id: dialog
+        property var game: null
+        property string mode: ""
+        onVisibleChanged: if (!visible) root.backToPage()
+        Column {                          // details: facts about the game
+            visible: dialog.mode === "details" && dialog.game !== null
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(6)
+            Repeater {
+                model: dialog.game ? [
+                    [Tr.tr("details.source"), GameInfo.source(dialog.game)],
+                    [Tr.tr("details.last"), GameInfo.lastPlayed(dialog.game)],
+                    [Tr.tr("details.time"), GameInfo.played(dialog.game) ? GameInfo.playTime(dialog.game) : "\u2014"]
+                ] : []
+                Row {
+                    spacing: Theme.px(18)
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    Text { text: modelData[0]; color: Theme.muted; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
+                    Text { text: modelData[1]; color: Theme.fg; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
+                }
+            }
+        }
+    }
+    Toast { id: toast }
+
     AppearanceSheet {
         id: appearance
         z: 100
-        // after Qt has finished moving the focus away from the closed window
-        onVisibleChanged: if (!visible) Qt.callLater(() => { if (!root.sheetOpen) games.forceActiveFocus(); })
+        onVisibleChanged: if (!visible && !palettes.visible && !languages.visible) root.backToPage()
         onOpenPalettes: { close(true); palettes.openPicker(); }
         onOpenLanguages: { close(true); languages.openPicker(); }
     }

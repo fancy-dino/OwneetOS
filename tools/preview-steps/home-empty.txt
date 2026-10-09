@@ -1,0 +1,7 @@
+@nogames
+# Home screen on a new system with no games (step 3.6)
+shot 01-empty
+pad right
+shot 02-how-button
+pad a
+shot 03-how-window

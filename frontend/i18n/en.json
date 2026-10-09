@@ -3,21 +3,17 @@
     "language": "English",
     "plural": "one-other"
   },
-
   "prompt.select": "Select",
   "prompt.back": "Back",
   "prompt.apply": "Apply",
   "prompt.cancel": "Cancel",
   "prompt.play": "Play",
-  "prompt.appearance": "Appearance",
   "prompt.home": "Home",
-
-  "controller.none": "No controller",
-
-  "games.title": "Games",
   "games.empty": "No games yet",
-  "games.count": { "one": "{n} game", "other": "{n} games" },
-
+  "games.count": {
+    "one": "{n} game",
+    "other": "{n} games"
+  },
   "appearance.title": "Appearance",
   "appearance.palette": "Color palette",
   "appearance.text_size": "Text size",
@@ -26,9 +22,7 @@
   "appearance.reduce_motion": "Reduce motion",
   "appearance.safe_area": "Show TV safe area",
   "appearance.language": "Language",
-
   "language.title": "Language",
-
   "palette.title": "Color palette",
   "palette.preview_note": "Moving the selection previews the palette",
   "palette.group.dark": "Dark",
@@ -54,5 +48,55 @@
   "palette.latte": "Latte",
   "palette.sakura": "Sakura",
   "palette.contrast": "High contrast",
-  "palette.contrast-light": "High contrast light"
+  "palette.contrast-light": "High contrast light",
+  "prompt.details": "Details",
+  "prompt.options": "Options",
+  "prompt.open": "Open",
+  "prompt.sections": "Sections",
+  "tab.home": "Home",
+  "tab.library": "Library",
+  "tab.settings": "Settings",
+  "home.continue": "Continue playing",
+  "home.ready": "Ready to play",
+  "home.welcome": "Welcome",
+  "home.play": "Play",
+  "home.details": "Details",
+  "home.empty.title": "Let's add some games",
+  "home.empty.text": "Install games from the Steam Store, or plug in a USB disk with games: they appear here by themselves.",
+  "home.empty.store": "Open the Steam Store",
+  "home.empty.how": "How to add games",
+  "home.apps": "Apps",
+  "home.recent": "Recently played",
+  "home.unified": "Steam and local games, together",
+  "home.all": "All games",
+  "app.videos": "Videos",
+  "app.music": "Music",
+  "app.store": "Steam Store",
+  "how.title": "How to add games",
+  "how.steam": "Steam: open the Steam Store, sign in and install your games.",
+  "how.local": "DRM-free games: copy them to a USB or internal disk, in a “Games” folder.",
+  "game.source.local": "Local",
+  "game.played.never": "Not played yet",
+  "game.played.today": "Played today",
+  "game.played.yesterday": "Played yesterday",
+  "game.played.days": {
+    "one": "Played {n} day ago",
+    "other": "Played {n} days ago"
+  },
+  "game.time.minutes": {
+    "one": "{n} min in total",
+    "other": "{n} min in total"
+  },
+  "game.time.hours": "{h} h {m} min in total",
+  "details.source": "Source",
+  "details.last": "Last played",
+  "details.time": "Play time",
+  "options.favorite": "Add to favorites",
+  "options.unfavorite": "Remove from favorites",
+  "options.library": "Show in library",
+  "toast.launch": "Starting {title}…",
+  "toast.favorite": "Added to favorites",
+  "toast.unfavorite": "Removed from favorites",
+  "toast.later": "Coming in a later version",
+  "settings.later": "The other settings arrive in a later version."
 }

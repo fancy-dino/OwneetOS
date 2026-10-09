@@ -8,7 +8,7 @@
 //   Guide never reaches the interface (owned by owneetd).
 //   find(area, from, direction)  spatial navigation: the nearest navigable item that way.
 //   feedback(kind)  what just happened, for the interface sounds (step 3.12): move, edge,
-//     confirm, back, section, tab, toggle-on, toggle-off, sheet-open, sheet-close. The sounds
+//     confirm, back, section, tab, toggle-on, toggle-off, sheet-open, sheet-close, launch. The sounds
 //     listen to `played`: one per button press, the most specific one ("confirm" only when the
 //     action that follows, e.g. opening a window, reports nothing of its own).
 pragma Singleton
@@ -75,23 +75,87 @@ QtObject {
         return out;
     }
 
-    // The nearest navigable item in `direction` from `from`, or null at the edge. Distance along
-    // the direction counts once, distance across it 2.5 times (as in the approved demo 3.3).
+    // Spatial navigation. Without groups: the nearest navigable item in `direction` from `from`
+    // (distance along the direction counts once, across it 2.5 times, as in demo 3.3).
+    // With groups (NavGroup, approved in demo 3.6): the selection first moves inside its group,
+    // only along its row or column; at the group's edge it enters the next group in that
+    // direction (the one overlapping the selection most). Entering sideways returns to the item
+    // selected there last time (the first item the first time); entering up or down goes to the
+    // nearest item. Returns null at the edge.
     function find(root, from, direction) {
-        const items = navigables(root);
         if (!from)
-            return items.length ? items[0] : null;
-        const a = from.mapToItem(root, from.width / 2, from.height / 2);
-        const horizontal = direction === "left" || direction === "right";
+            return navigables(root)[0] || null;
+        const group = groupOf(root, from);
+        const inside = nearest(root, navigables(group || root), from, direction, group !== null);
+        if (inside || !group)
+            return inside;
+
+        const f = rect(root, from), g = rect(root, group);
+        let target = null, targetOverlap = 0;
+        for (const other of groups(root)) {
+            if (other === group || navigables(other).length === 0)
+                continue;
+            const o = rect(root, other);
+            const beyond = direction === "left" ? o.right <= g.left + 4 : direction === "right" ? o.left >= g.right - 4
+                         : direction === "up" ? o.bottom <= g.top + 4 : o.top >= g.bottom - 4;
+            if (!beyond)
+                continue;
+            const ov = direction === "left" || direction === "right"
+                ? (overlap(f.top, f.bottom, o.top, o.bottom) || overlap(g.top, g.bottom, o.top, o.bottom))
+                : overlap(f.left, f.right, o.left, o.right);
+            if (ov > targetOverlap) { targetOverlap = ov; target = other; }
+        }
+        if (!target)
+            return null;
+        if (direction === "left" || direction === "right") {
+            const r = target.remembered;
+            return r && r.visible && navigables(target).indexOf(r) >= 0 ? r : navigables(target)[0];
+        }
+        return nearest(root, navigables(target), from, "", false);
+    }
+
+    function rect(root, item) {
+        const p = item.mapToItem(root, 0, 0);
+        return { left: p.x, top: p.y, right: p.x + item.width, bottom: p.y + item.height };
+    }
+    function overlap(a0, a1, b0, b1) { return Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)); }
+    function groupOf(root, item) {
+        for (let p = item.parent; p && p !== root; p = p.parent)
+            if (p.navGroup === true)
+                return p;
+        return null;
+    }
+    function groups(root) {
+        const out = [];
+        const walk = item => {
+            for (let i = 0; i < item.children.length; i++) {
+                const c = item.children[i];
+                if (!c.visible)
+                    continue;
+                if (c.navGroup === true)
+                    out.push(c);
+                else
+                    walk(c);
+            }
+        };
+        walk(root);
+        return out;
+    }
+    // `aligned`: only items on the same row (left/right) or column (up/down) as `from`;
+    // `direction` "": any direction (entering a group)
+    function nearest(root, items, from, direction, aligned) {
+        const a = rect(root, from), ax = (a.left + a.right) / 2, ay = (a.top + a.bottom) / 2;
+        const horizontal = direction === "" || direction === "left" || direction === "right";
         let best = null, bestScore = Infinity;
         for (const it of items) {
             if (it === from)
                 continue;
-            const b = it.mapToItem(root, it.width / 2, it.height / 2);
-            const dx = b.x - a.x, dy = b.y - a.y;
-            const ok = direction === "left" ? dx < -4 : direction === "right" ? dx > 4
-                     : direction === "up" ? dy < -4 : dy > 4;
+            const b = rect(root, it), dx = (b.left + b.right) / 2 - ax, dy = (b.top + b.bottom) / 2 - ay;
+            const ok = direction === "" || (direction === "left" ? dx < -4 : direction === "right" ? dx > 4
+                     : direction === "up" ? dy < -4 : dy > 4);
             if (!ok)
+                continue;
+            if (aligned && (horizontal ? overlap(a.top, a.bottom, b.top, b.bottom) : overlap(a.left, a.right, b.left, b.right)) < 4)
                 continue;
             const score = horizontal ? Math.abs(dx) + 2.5 * Math.abs(dy) : Math.abs(dy) + 2.5 * Math.abs(dx);
             if (score < bestScore) { bestScore = score; best = it; }

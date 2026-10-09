@@ -149,7 +149,9 @@ notifications (3.11). Each screen starts with an interactive demo approved by th
 | `Sheet`, `PalettePicker` | Window over the screen with its own prompt bar; palette picker with live preview |
 | `Label`, `Choice`, `SettingRow` | Section label, segmented choice, settings row (switch or picker) |
 | `Tr` (singleton), `LanguagePicker` | Translated text (3.4), language list |
-| `Nav` (singleton), `NavArea` | Input map as actions, spatial navigation, list keys, feedback for sounds (3.5) |
+| `Nav` (singleton), `NavArea`, `NavGroup` | Input map as actions, spatial navigation (with groups that remember their selection, 3.6), list keys, feedback for sounds (3.5) |
+| `Button`, `Dialog`, `Toast` | Round buttons, compact centred windows with a row of buttons, short messages (3.6) |
+| `GameInfo` (singleton), `Cover`, `GameArt` | Texts about a game, covers, art generated from the title (3.6) |
 
 **Translations (3.4):** `owneet::I18n` (`src/backend/owneet/`, exposed to QML as `i18n`) loads one
 JSON file per language from `/usr/share/owneet-frontend/i18n/` (repository: `frontend/i18n/`) and
@@ -157,7 +159,16 @@ JSON file per language from `/usr/share/owneet-frontend/i18n/` (repository: `fro
 through the `Tr` singleton. How to translate: [translating.md](translating.md).
 
 Appearance choices are saved in the theme's memory (`api.memory`). Until Settings exists (3.9),
-they are opened with Y from the temporary game list (`AppearanceSheet.qml`).
+they are opened from the temporary Settings section (`SettingsPage.qml` → `AppearanceSheet.qml`).
+
+**Shell and sections (3.6):** `theme.qml` is the shell: top bar (wordmark, sections with the LB / RB
+glyphs, controller, clock), the sections on LB / RB, the prompt bar (each section gives its
+prompts, following the selected item), the windows (`Dialog`: details, options, confirmations;
+`Sheet`: pickers) and short messages (`Toast`). Sections: `HomePage.qml` (hero, apps, notices,
+recently played, in three `NavGroup`s), `LibraryPage.qml` (a plain list until 3.7),
+`SettingsPage.qml` (Appearance only until 3.9). `GameInfo` gives the texts about a game (source,
+last played, play time) and the order "most recently played first"; `Cover` and `GameArt` draw a
+game's own image from local files or, without one, art generated from its title.
 
 ### Not changed / not needed
 

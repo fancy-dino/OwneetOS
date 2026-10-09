@@ -518,7 +518,7 @@ code is written (PROJECT_RULES.md section 9).
   and a virtual controller, following a step list (`tools/preview-steps/`), and saves
   screenshots: checked there with keyboard, D-pad, right stick and buttons.
 
-### [~] 3.6 Home screen
+### [~] 3.6 Home screen (awaiting owner review)
 
 - **Deliverables:** home as in the approved mockup (continue playing, apps, jump back in, notices).
 - **Demo:** `design/demos/3.6-home.html`. Proposals in it: the hero shows the last game played
@@ -536,6 +536,20 @@ code is written (PROJECT_RULES.md section 9).
   centred row, navigated left/right; more space between the hero buttons. With **more than six
   apps**, the sixth tile becomes "All apps", which opens the Apps page (step 5.7).
 - **Demo approved** on 2026-10-09 (the sound timing in the browser stays an open point of 3.12).
+- **Outcome:** the theme is now a shell with three sections on LB / RB (Home, Library, Settings)
+  and the LB / RB glyphs beside the tabs. **Home** as in the demo: hero with the last game played
+  (Continue playing / Ready to play, source, last played, play time; Play, Details) or the welcome
+  on a system with no games (Open the Steam Store, How to add games); Apps grid; notice slot;
+  Recently played (six covers and All games). X = details and Menu = options (Play, Details,
+  favorites, Show in library) in compact windows with round buttons. Navigation groups with
+  memory and one sound per press built into `Nav` / `NavArea`. Covers: the game's own image from
+  local files, otherwise art generated from its title (Steam's local images in 4.1). Library is a
+  plain list until 3.7; Settings holds Appearance until 3.9 (Y no longer opens it). Checked in
+  the builder VM with `tools/frontend-preview` (`tools/preview-steps/home.txt`,
+  `home-empty.txt`). **Still to come:** the running game in the hero (Resume / Close game) and
+  launching through owneetd (3.8); notices (3.11); the apps (phase 5: until then their tiles and
+  "Open the Steam Store" show "Coming in a later version"); "How to add games" describes disk
+  scanning, which arrives in phase 6.
 
 ### [ ] 3.7 Library screen
 

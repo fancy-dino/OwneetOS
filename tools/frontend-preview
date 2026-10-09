@@ -14,7 +14,9 @@
 #   pad BUTTON...    controller buttons: a b x y lb rb lt rt menu view up down left right
 #   stick STICK MS   hold a stick for MS ms: ls-up ls-down ls-left ls-right rs-up rs-down
 #   shot NAME        screenshot: out/frontend-preview/NAME.png
+#   wait SECONDS     pause
 #   restart          restart the frontend (its settings are kept)
+#   @nogames         (first line) start with no games, as on a new system
 #   # …              comment
 # The frontend's log is out/frontend-preview/log.txt.
 
@@ -96,11 +98,13 @@ sudo tee "$BOX/run-preview.sh" >/dev/null <<'EOF'
 export HOME=/tmp/home QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 SDL_JOYSTICK_DISABLE_UDEV=1
 rm -rf "$HOME"; mkdir -p "$HOME/.config/owneet-frontend" "$HOME/games"
 printf 'collection: Test games\nshortname: test\n\n' > "$HOME/games/metadata.pegasus.txt"
-for g in "Nebula Drift" "Moss Garden" "Ember Run" "Tiny Tactics" "Harbor Lights" "Pixel Quest" \
-         "Starfall" "Velvet Road" "Copper Coast" "Lantern Keep" "Quiet Orbit" "Saltwind"; do
-    f="$HOME/games/$(echo "$g" | tr ' ' _).sh"; touch "$f"
-    printf 'game: %s\nfile: %s\nlaunch: /bin/true\n\n' "$g" "$f" >> "$HOME/games/metadata.pegasus.txt"
-done
+if ! grep -q '^@nogames' /steps.txt; then
+    for g in "Nebula Drift" "Moss Garden" "Ember Run" "Tiny Tactics" "Harbor Lights" "Pixel Quest" \
+             "Starfall" "Velvet Road" "Copper Coast" "Lantern Keep" "Quiet Orbit" "Saltwind"; do
+        f="$HOME/games/$(echo "$g" | tr ' ' _).sh"; touch "$f"
+        printf 'game: %s\nfile: %s\nlaunch: /bin/true\n\n' "$g" "$f" >> "$HOME/games/metadata.pegasus.txt"
+    done
+fi
 echo "$HOME/games" > "$HOME/.config/owneet-frontend/game_dirs.txt"
 
 mkfifo /tmp/vpad.in
@@ -112,11 +116,12 @@ start
 while IFS= read -r line; do
     set -- $line
     case "${1:-#}" in
-        \#*) ;;
+        \#*|@*) ;;
         key) shift; for k in "$@"; do xdotool key "$k"; sleep 0.3; done ;;
         pad|stick) n=$(grep -c done /tmp/vpad.out); echo "$line" >&3
                    while [ "$(grep -c done /tmp/vpad.out)" -le "$n" ]; do sleep 0.1; done; sleep 0.3 ;;
         shot) sleep 1; import -window root "/out/$2.png"; echo "$2.png" ;;
+        wait) sleep "$2" ;;
         restart) kill "$FE"; wait "$FE" 2>/dev/null; start ;;
         *) echo "unknown step: $line" ;;
     esac

@@ -1,14 +1,21 @@
+singleton GameInfo 1.0 GameInfo.qml
 singleton Nav 1.0 Nav.qml
 singleton Theme 1.0 Theme.qml
 singleton Tr 1.0 Tr.qml
+Button 1.0 Button.qml
 Choice 1.0 Choice.qml
+Cover 1.0 Cover.qml
+Dialog 1.0 Dialog.qml
 FocusFrame 1.0 FocusFrame.qml
+GameArt 1.0 GameArt.qml
 Glyph 1.0 Glyph.qml
 Label 1.0 Label.qml
 NavArea 1.0 NavArea.qml
+NavGroup 1.0 NavGroup.qml
 LanguagePicker 1.0 LanguagePicker.qml
 PalettePicker 1.0 PalettePicker.qml
 Prompt 1.0 Prompt.qml
 PromptBar 1.0 PromptBar.qml
 SettingRow 1.0 SettingRow.qml
 Sheet 1.0 Sheet.qml
+Toast 1.0 Toast.qml

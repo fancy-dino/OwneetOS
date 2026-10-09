@@ -1,0 +1,25 @@
+# Home screen (step 3.6): groups, details and options windows, sections, launching a game.
+shot 01-home
+pad right right
+shot 02-apps
+pad down left
+shot 03-back-to-hero
+pad down
+shot 04-row
+pad x
+shot 05-details
+pad b menu
+shot 06-options
+pad right right a
+shot 07-favorite
+pad rb
+shot 08-library
+pad rb
+shot 09-settings
+pad a
+shot 10-appearance
+pad b lb lb
+shot 11-home-again
+pad down a
+wait 4
+shot 12-launched

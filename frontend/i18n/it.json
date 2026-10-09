@@ -3,21 +3,17 @@
     "language": "Italiano",
     "plural": "one-other"
   },
-
   "prompt.select": "Seleziona",
   "prompt.back": "Indietro",
   "prompt.apply": "Applica",
   "prompt.cancel": "Annulla",
   "prompt.play": "Gioca",
-  "prompt.appearance": "Aspetto",
   "prompt.home": "Home",
-
-  "controller.none": "Nessun controller",
-
-  "games.title": "Giochi",
   "games.empty": "Ancora nessun gioco",
-  "games.count": { "one": "{n} gioco", "other": "{n} giochi" },
-
+  "games.count": {
+    "one": "{n} gioco",
+    "other": "{n} giochi"
+  },
   "appearance.title": "Aspetto",
   "appearance.palette": "Palette colori",
   "appearance.text_size": "Dimensione testo",
@@ -26,9 +22,7 @@
   "appearance.reduce_motion": "Riduci animazioni",
   "appearance.safe_area": "Mostra area sicura TV",
   "appearance.language": "Lingua",
-
   "language.title": "Lingua",
-
   "palette.title": "Palette colori",
   "palette.preview_note": "Spostando la selezione vedi l’anteprima",
   "palette.group.dark": "Scure",
@@ -54,5 +48,55 @@
   "palette.latte": "Caffellatte",
   "palette.sakura": "Sakura",
   "palette.contrast": "Alto contrasto",
-  "palette.contrast-light": "Alto contrasto chiaro"
+  "palette.contrast-light": "Alto contrasto chiaro",
+  "prompt.details": "Dettagli",
+  "prompt.options": "Opzioni",
+  "prompt.open": "Apri",
+  "prompt.sections": "Sezioni",
+  "tab.home": "Home",
+  "tab.library": "Libreria",
+  "tab.settings": "Impostazioni",
+  "home.continue": "Continua a giocare",
+  "home.ready": "Pronto per giocare",
+  "home.welcome": "Benvenuto",
+  "home.play": "Gioca",
+  "home.details": "Dettagli",
+  "home.empty.title": "Aggiungiamo dei giochi",
+  "home.empty.text": "Installa i giochi dallo Steam Store, oppure collega un disco USB con dei giochi: compaiono qui da soli.",
+  "home.empty.store": "Apri lo Steam Store",
+  "home.empty.how": "Come aggiungere giochi",
+  "home.apps": "App",
+  "home.recent": "Giocati di recente",
+  "home.unified": "Giochi Steam e locali, insieme",
+  "home.all": "Tutti i giochi",
+  "app.videos": "Video",
+  "app.music": "Musica",
+  "app.store": "Steam Store",
+  "how.title": "Come aggiungere giochi",
+  "how.steam": "Steam: apri lo Steam Store, accedi e installa i tuoi giochi.",
+  "how.local": "Giochi senza DRM: copiali su un disco USB o interno, in una cartella “Games”.",
+  "game.source.local": "Locale",
+  "game.played.never": "Mai giocato",
+  "game.played.today": "Giocato oggi",
+  "game.played.yesterday": "Giocato ieri",
+  "game.played.days": {
+    "one": "Giocato {n} giorno fa",
+    "other": "Giocato {n} giorni fa"
+  },
+  "game.time.minutes": {
+    "one": "{n} min in totale",
+    "other": "{n} min in totale"
+  },
+  "game.time.hours": "{h} h {m} min in totale",
+  "details.source": "Origine",
+  "details.last": "Ultima partita",
+  "details.time": "Tempo di gioco",
+  "options.favorite": "Aggiungi ai preferiti",
+  "options.unfavorite": "Togli dai preferiti",
+  "options.library": "Mostra nella libreria",
+  "toast.launch": "Avvio di {title}…",
+  "toast.favorite": "Aggiunto ai preferiti",
+  "toast.unfavorite": "Tolto dai preferiti",
+  "toast.later": "Arriva in una versione successiva",
+  "settings.later": "Le altre impostazioni arrivano in una versione successiva."
 }
