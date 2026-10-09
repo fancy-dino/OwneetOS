@@ -73,7 +73,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .hero .meta .src { padding: 2px 10px; border-radius: 999px; background: rgba(0,0,0,.35); }
 .hero.plain .meta .src { background: var(--raised); }
 .hero p { margin: 0; max-width: 560px; opacity: .9; }
-.hero .actions { display: flex; gap: 12px; margin-top: 4px; }
+.hero .actions { display: flex; gap: 20px; margin-top: 4px; }
 .btn { padding: 11px 26px; border-radius: 999px; font-weight: 500; }
 .btn.primary { background: #fff; color: #10131C; }
 .btn.ghost { background: rgba(255,255,255,.16); color: #fff; }
@@ -116,11 +116,13 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 /* ---------- Windows (details, options, confirmation) ---------- */
 .overlay { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 85%, transparent); display: none; z-index: 10; }
 .overlay.open { display: block; }
-.sheet { position: absolute; left: 340px; right: 340px; top: 110px; background: var(--bg); border: 1px solid var(--line); border-radius: 18px;
+.sheet { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -58%); width: max-content; min-width: 520px; max-width: 900px;
+         text-align: center; justify-items: center; background: var(--bg); border: 1px solid var(--line); border-radius: 18px;
          padding: 20px 24px 24px; display: grid; gap: 14px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.7); }
-.sheet .list { display: grid; gap: 10px; }
-.sheet .item { display: flex; justify-content: space-between; padding: 12px 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); width: 100%; }
-.sheet .facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; }
+.sheet .list { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 20px; margin-top: 6px; }
+.sheet .item { padding: 11px 26px; border-radius: 999px; font-weight: 500; background: var(--raised); color: var(--fg); }
+.sheet .item.primary { background: var(--accent); color: var(--on-accent); }
+.sheet .facts { display: grid; grid-template-columns: auto auto; gap: 6px 18px; text-align: left; }
 .sheet .facts span:nth-child(odd) { color: var(--muted); }
 .sheet-prompts { position: absolute; left: 64px; right: 64px; bottom: 28px; }
 .has-sheet > .prompts { visibility: hidden; }
@@ -155,14 +157,14 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   <main style="min-height:0; display:grid">
     <section class="page home on" id="page-home">
       <div class="home-top">
-        <div class="hero" id="hero"></div>
-        <aside class="side">
+        <div class="hero" id="hero" data-group="hero"></div>
+        <aside class="side" data-group="side">
           <span class="label t-xs" data-i18n="home.apps">Apps</span>
           <div class="apps t-s" id="apps"></div>
           <div id="notice-slot"></div>
         </aside>
       </div>
-      <div id="row-block">
+      <div id="row-block" data-group="row">
         <div class="row-head"><span class="label t-xs" data-i18n="home.jump">Jump back in</span><span class="muted t-xs" data-i18n="home.unified">Steam and local games, together</span></div>
         <div class="row t-s" id="row"></div>
       </div>
@@ -299,11 +301,21 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   let soundOn = true;
   const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', back: 'nav-back', section: 'nav-section',
     tab: 'nav-tab', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', launch: 'game-launch', notify: 'notify' };
-  const audio = {};
-  for (const [k, f] of Object.entries(SOUNDS)) { audio[k] = new Audio(`../../frontend/sounds/${f}.wav`); audio[k].preload = 'auto'; audio[k].volume = 0.7; }
+  // Each sound has a few players loaded in advance, used in turn: a new copy per press would
+  // load the file again and sometimes stay silent.
+  const POOL = 4, audio = {};
+  for (const [k, f] of Object.entries(SOUNDS)) {
+    audio[k] = { next: 0, players: Array.from({ length: POOL }, () => {
+      const a = new Audio(`../../frontend/sounds/${f}.wav`); a.preload = 'auto'; a.load(); return a; }) };
+  }
   function feedback(kind) {
     if (!soundOn || !audio[kind]) return;
-    const a = audio[kind].cloneNode(); a.volume = 0.7; a.play().catch(() => {});
+    const s = audio[kind], a = s.players[s.next];
+    s.next = (s.next + 1) % POOL;
+    a.pause();
+    try { a.currentTime = 0; } catch (e) { /* not loaded yet */ }
+    a.volume = 1;
+    a.play().catch(() => {});
   }
 
   /* ---------- Data (invented games; covers generated) ---------- */
@@ -397,26 +409,60 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     if (!el) return;
     if (focused) focused.classList.remove('focus');
     focused = el; el.classList.add('focus');
+    const group = el.closest('[data-group]');
+    if (group) memory.set(group, el);
     el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     if (!silent) feedback('move');
     if (!sheetOpen) renderPrompts();
   }
-  function move(dir) {
-    const scope = sheetOpen ? $('#sheet') : $(`#page-${section}`);
-    const items = $$('[data-f]', scope);
-    if (!focused || !items.includes(focused)) { if (items[0]) focus(items[0]); return; }
-    const a = focused.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
-    let best = null, bestScore = Infinity;
+  // Spatial navigation in groups (hero, apps column, row of games): the selection first moves
+  // inside its group; at the group's edge it enters the next group in that direction, so left
+  // and right always go straight between the hero and the apps. Moving sideways into a group
+  // returns to the item selected there last time (the first one the first time); moving up or
+  // down enters it at the nearest item.
+  const memory = new Map();
+  // `aligned`: only items on the same row (left/right) or column (up/down) as `from`
+  function best(items, from, dir, aligned) {
+    const a = from.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    let pick = null, pickScore = Infinity;
     for (const el of items) {
-      if (el === focused) continue;
+      if (el === from) continue;
       const b = el.getBoundingClientRect(), dx = b.left + b.width / 2 - ax, dy = b.top + b.height / 2 - ay;
-      const ok = dir === 'left' ? dx < -4 : dir === 'right' ? dx > 4 : dir === 'up' ? dy < -4 : dy > 4;
+      const ok = !dir || (dir === 'left' ? dx < -4 : dir === 'right' ? dx > 4 : dir === 'up' ? dy < -4 : dy > 4);
       if (!ok) continue;
-      const horiz = dir === 'left' || dir === 'right';
+      if (aligned && (dir === 'left' || dir === 'right' ? overlap(a.top, a.bottom, b.top, b.bottom) : overlap(a.left, a.right, b.left, b.right)) < 4) continue;
+      const horiz = !dir || dir === 'left' || dir === 'right';
       const score = (horiz ? Math.abs(dx) : Math.abs(dy)) + (horiz ? Math.abs(dy) : Math.abs(dx)) * 2.5;
-      if (score < bestScore) { bestScore = score; best = el; }
+      if (score < pickScore) { pickScore = score; pick = el; }
     }
-    if (best) focus(best); else feedback('edge');
+    return pick;
+  }
+  const overlap = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+  function move(dir) {
+    if (sheetOpen) { const next = best($$('#sheet [data-f]'), focused, dir); next ? focus(next) : feedback('edge'); return; }
+    const page = $(`#page-${section}`);
+    if (!focused || !page.contains(focused)) { const first = $('[data-f]', page); first ? focus(first) : feedback('edge'); return; }
+    const group = focused.closest('[data-group]');
+    const inside = best($$('[data-f]', group), focused, dir, true);
+    if (inside) { focus(inside); return; }
+    // the next group in that direction, overlapping the selected item the most
+    const f = focused.getBoundingClientRect(), g = group.getBoundingClientRect();
+    let target = null, targetOverlap = 0;
+    for (const other of $$('[data-group]', page)) {
+      if (other === group || !$('[data-f]', other) || other.offsetParent === null) continue;
+      const o = other.getBoundingClientRect();
+      const beyond = dir === 'left' ? o.right <= g.left + 4 : dir === 'right' ? o.left >= g.right - 4
+                   : dir === 'up' ? o.bottom <= g.top + 4 : o.top >= g.bottom - 4;
+      if (!beyond) continue;
+      const ov = dir === 'left' || dir === 'right' ? overlap(f.top, f.bottom, o.top, o.bottom) || overlap(g.top, g.bottom, o.top, o.bottom)
+                                                   : overlap(f.left, f.right, o.left, o.right);
+      if (ov > targetOverlap) { targetOverlap = ov; target = other; }
+    }
+    if (!target) { feedback('edge'); return; }
+    const remembered = memory.get(target);
+    const sideways = dir === 'left' || dir === 'right';
+    if (sideways) focus(remembered && target.contains(remembered) ? remembered : $('[data-f]', target));
+    else focus(best($$('[data-f]', target), focused, null));
   }
 
   /* ---------- Windows ---------- */
@@ -427,7 +473,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     $('#sheet-prompts').innerHTML = `<div class="set">${prompts.join('')}</div><div class="set">${P(['guide'], 'p.home')}</div>`;
     $('#overlay').classList.add('open'); stage.classList.add('has-sheet');
     feedback('sheet-open');
-    focus($('#sheet [data-f]'), true);
+    focus($('#sheet [data-default]') || $('#sheet [data-f]'), true);
   }
   function closeSheet(sound = true) {
     if (!sheetOpen) return;
@@ -440,12 +486,12 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     openSheet(`<span class="disp t-l">${g.title}</span>
       <div class="facts t-s"><span>${tr('det.source')}</span><span>${srcName(g)}</span><span>${tr('det.last')}</span><span>${lastPlayed(g)}</span>
       <span>${tr('det.time')}</span><span>${totalTime(g)}</span><span>${tr('det.disk')}</span><span>${tr('det.disk.' + g.disk)}</span></div>
-      <div class="list t-m"><button class="item" data-f data-sheet="play">${tr('opt.play')}</button></div>`,
+      <div class="list t-m"><button class="item primary" data-f data-sheet="play">${tr('opt.play')}</button></div>`,
       [P(['a'], 'p.play'), P(['b'], 'p.back')], el => { closeSheet(false); launch(g); });
   }
   function optionsSheet(g) {
     openSheet(`<span class="disp t-l">${g.title}</span><div class="list t-m">
-      <button class="item" data-f data-sheet="play">${tr('opt.play')}</button>
+      <button class="item primary" data-f data-sheet="play">${tr('opt.play')}</button>
       <button class="item" data-f data-sheet="details">${tr('opt.details')}</button>
       <button class="item" data-f data-sheet="fav">${tr(favorites.has(g.id) ? 'opt.unfav' : 'opt.fav')}</button>
       <button class="item" data-f data-sheet="library">${tr('opt.library')}</button></div>`,
@@ -459,7 +505,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   }
   function closeGameSheet(g) {
     openSheet(`<span class="disp t-l">${tr('close.title', { title: g.title })}</span><span class="t-m muted">${tr('close.text')}</span>
-      <div class="list t-m"><button class="item" data-f data-sheet="close">${tr('home.close')}</button><button class="item" data-f data-sheet="cancel">${tr('p.cancel')}</button></div>`,
+      <div class="list t-m"><button class="item" data-f data-sheet="close">${tr('home.close')}</button><button class="item primary" data-f data-sheet="cancel" data-default>${tr('p.cancel')}</button></div>`,
       [P(['a'], 'p.select'), P(['b'], 'p.cancel')], el => {
         if (el.dataset.sheet === 'cancel') { closeSheet(); return; }
         closeSheet(false); toast(tr('toast.closed', { title: g.title })); setState('normal');
@@ -467,7 +513,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   }
   function howSheet() {
     openSheet(`<span class="disp t-l">${tr('how.title')}</span><span class="t-m">${tr('how.steam')}</span><span class="t-m">${tr('how.usb')}</span>
-      <div class="list t-m"><button class="item" data-f data-sheet="ok">${tr('home.empty.store')}</button></div>`,
+      <div class="list t-m"><button class="item primary" data-f data-sheet="ok">${tr('home.empty.store')}</button></div>`,
       [P(['a'], 'p.open'), P(['b'], 'p.back')], () => { closeSheet(false); toast(tr('toast.app', { app: 'Steam Store' })); });
   }
 
@@ -600,12 +646,16 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   const pi = PALETTES.findIndex(p => p[0] === q.get('pal'));
   setPalette(pi >= 0 ? pi : 0);
   if (q.get('ts')) document.documentElement.style.setProperty('--ts', q.get('ts'));
+  if (q.get('motion') === 'off') document.documentElement.style.setProperty('--motion', 0);
   if (['xbox', 'ps', 'nintendo'].includes(q.get('glyphs'))) glyphSetting = q.get('glyphs');
   if (q.get('lang') === 'it') lang = 'it';
   if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
   setState(['running', 'empty'].includes(q.get('state')) ? q.get('state') : 'normal');
   if (q.get('focus') === 'row') focus($('#row [data-f]'), true);
   if (q.get('open') === 'options') optionsSheet(GAMES[1]);
+  // Replays a sequence of buttons (for checking the demo): #keys=right,right,down,a
+  if (q.get('keys')) q.get('keys').split(',').forEach((k, i) => setTimeout(() =>
+    ['left', 'right', 'up', 'down'].includes(k) ? move(k) : press[k] && press[k](), 300 * (i + 1)));
 })();
 </script>
 </body>

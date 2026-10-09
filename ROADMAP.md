@@ -529,6 +529,12 @@ code is written (PROJECT_RULES.md section 9).
   others); the prompt bar follows the selected item; the LB/RB glyphs beside the section tabs; no
   profile avatar (profiles come in a later wave); invented game names and generated covers (real
   covers come from local files).
+- **Review 1 (2026-10-09):** sounds now play reliably (preloaded players); navigation in groups
+  (hero, apps column, row of games): left/right go straight between the hero and the apps and come
+  back to the item selected last, inside a group the selection stays on its row or column (to be
+  built into `Nav` / `NavArea` as navigation groups with memory); windows have round buttons in a
+  centred row, navigated left/right; more space between the hero buttons. With **more than six
+  apps**, the sixth tile becomes "All apps", which opens the Apps page (step 5.7).
 
 ### [ ] 3.7 Library screen
 
@@ -626,6 +632,13 @@ code is written (PROJECT_RULES.md section 9).
 ### [ ] 5.6 Local videos and music
 
 - **Deliverables:** mpv with gamepad bindings, Videos and Music browsing in the frontend from mounted disks.
+
+### [ ] 5.7 Apps page
+
+- **Deliverables:** a page with every app (streaming services, Videos, Music, stores, and the
+  ones added later), reached from the home screen: when there are more than six apps, the sixth
+  tile of the home's Apps grid becomes "All apps" (like "All games" for games). Its own
+  interactive demo first.
 
 ---
 
