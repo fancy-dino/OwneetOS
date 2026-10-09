@@ -56,6 +56,7 @@ must be tested again.
 | `plymouth.ignore-serial-consoles` | Without it Plymouth falls back to its text splash because of the serial console below. |
 | Boot menu hidden (`timeout 0`) | Tapping Space repeatedly right after choosing the USB stick shows the systemd-boot menu. The menu editor (`e`) always uses the **US keyboard layout** (firmware limitation). |
 | Boot entry **"OwneetOS (diagnostics)"** | Starts the cage session and writes a report (GPUs, NVIDIA choice, drivers, Vulkan, session, RAM, failed units, errors) on **tty9**: press Ctrl+Alt+F9, take a photo, Ctrl+Alt+F1 to go back. Leaves a root shell on tty9: acceptable on the live medium (physical access only); not for installed systems as is. |
+| Boot entry **"OwneetOS (test games)"** | The normal session with two test games (mpv test patterns, `owneet.debug.test_games=on`), to test launching, Guide and Resume on a live system, which keeps nothing between boots. For testers; leaves the user ISO before the release (roadmap 7.4). |
 | Initramfs hooks `base udev microcode plymouth modconf archiso block filesystems` | CPU microcode early; the splash runs on the firmware framebuffer. No `kms` hook: it would load nouveau before `owneet-gpu-select` can choose the NVIDIA driver. |
 | `console=ttyS0,115200 console=tty0` | Kernel and login prompt also on the serial port, so the test VM can check the boot automatically. The screen stays the main console. |
 | root locked | No password login for root. The system runs as the console user `owneet` (autologin on tty1, from `owneet-session`). |

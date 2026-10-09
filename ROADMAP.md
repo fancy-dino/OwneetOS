@@ -603,6 +603,17 @@ code is written (PROJECT_RULES.md section 9).
   (headless) with the virtual controller — A starts the game and it comes to the front, Guide
   brings back the home screen with the game running, A on Resume shows it again, Close game ends
   it. Power actions through owneetd come with Settings (3.9).
+- **Owner test (2026-10-09, NiPoGi, "diagnostics" entry = cage):** Home, Library (grid, filters,
+  sort, Disks window), Appearance and language, Pro Controller (Nintendo prompts, A confirms) all
+  work; holding Home 2 s closes a game in cage. Found: (1) the Pro Controller's battery was not
+  shown: its driver gives only a level (full/high/normal/low/critical), not a percentage — the
+  top bar now draws a battery icon filled by the level (the percentage next to it when known);
+  (2) the network icon is hidden when not connected ("disconnected", as expected); (3) Guide and
+  Resume cannot be tested in the diagnostics entry (cage) and the live system keeps nothing, so
+  a new boot entry **"OwneetOS (test games)"** (`owneet.debug.test_games=on`, owneet-session
+  0.0.12) starts the normal session with two test games (mpv test patterns). Checked in the test
+  VM (gamescope, virtual controller). (4) A second controller cannot be paired while one is
+  connected (automatic pairing only when none is): pairing from Settings → Controllers (3.9).
 
 ### [ ] 3.9 Settings *(multi-prompt)*
 
@@ -768,6 +779,8 @@ code is written (PROJECT_RULES.md section 9).
 
 - **Deliverables:** test matrix (Intel / AMD / NVIDIA, old iGPU fallback, 4 GB RAM machine), bug
   fixing, RAM and boot-time measurements against the targets, release **v0.1.0**.
+  Before the release: the testers' boot entries ("diagnostics", "test games") leave the user ISO
+  (or move to a separate test ISO).
 
 ### [ ] 7.5 Legal review before the public launch
 

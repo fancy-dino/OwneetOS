@@ -326,10 +326,16 @@ FocusScope {
                 visible: root.padName !== ""
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: Theme.px(6)
+                // A percentage when the driver gives one, otherwise a level (e.g. Nintendo pads)
                 readonly property var battery: {
-                    for (let i = 0; i < root.controllers.length; i++)
-                        if (root.controllers[i].battery !== undefined)
-                            return root.controllers[i].battery;
+                    const levels = { full: 1, high: 0.75, normal: 0.5, low: 0.2, critical: 0.08 };
+                    for (let i = 0; i < root.controllers.length; i++) {
+                        const c = root.controllers[i];
+                        if (c.battery !== undefined)
+                            return { fill: c.battery / 100, percent: c.battery, low: c.battery <= 15 };
+                        if (c.battery_level && levels[c.battery_level] !== undefined)
+                            return { fill: levels[c.battery_level], percent: -1, low: c.battery_level === "low" || c.battery_level === "critical" };
+                    }
                     return null;
                 }
                 Icon {
@@ -338,11 +344,19 @@ FocusScope {
                     width: Theme.fs(20); height: width
                     anchors.verticalCenter: parent.verticalCenter
                 }
-                Text {
+                Icon {
                     visible: parent.battery !== null
+                    name: "battery"
+                    fill: parent.battery ? parent.battery.fill : 1
+                    color: parent.battery && parent.battery.low ? Theme.accent : Theme.muted
+                    width: Theme.fs(20); height: width
                     anchors.verticalCenter: parent.verticalCenter
-                    text: parent.battery + "%"
-                    color: parent.battery !== null && parent.battery <= 15 ? Theme.accent : Theme.muted
+                }
+                Text {
+                    visible: parent.battery !== null && parent.battery.percent >= 0
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: parent.battery ? parent.battery.percent + "%" : ""
+                    color: parent.battery && parent.battery.low ? Theme.accent : Theme.muted
                     font.family: Theme.textFont
                     font.pixelSize: Theme.fs(14.5)
                 }

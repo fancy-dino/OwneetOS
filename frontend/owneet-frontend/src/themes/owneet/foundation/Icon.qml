@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A small icon drawn for OwneetOS from an SVG path on a 24 x 24 grid (no icon fonts or images).
 // Named icons: "heart", "download", "controller", "wifi" (with `level` 0-3: arcs above it are
-// dimmed), "ethernet".
+// dimmed), "ethernet", "battery" (filled by `fill`, 0-1).
 import QtQuick 2.15
 
 Canvas {
@@ -10,6 +10,8 @@ Canvas {
     property color color: Theme.fg
     property bool filled: name === "heart"
     property int level: 3
+    property real fill: 1
+    onFillChanged: requestPaint()
     readonly property var paths: ({
         heart: "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z",
         download: "M12 4v11M7 10l5 5 5-5M5 20h14",
@@ -28,6 +30,17 @@ Canvas {
         const ctx = getContext("2d");
         ctx.reset();
         ctx.scale(width / 24, height / 24);
+        if (name === "battery") {
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            ctx.roundedRect(2.5, 7, 17, 10, 2, 2);
+            ctx.stroke();
+            ctx.fillRect(20.5, 10, 2, 4);                       // terminal
+            ctx.fillRect(4.5, 9, 13 * Math.max(0.08, Math.min(1, fill)), 6);
+            return;
+        }
         if (name === "wifi") {
             ctx.lineWidth = 2.2;
             ctx.lineCap = "round";

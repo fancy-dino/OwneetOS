@@ -15,6 +15,8 @@
 #                                             always composite / never force it (default: forced
 #                                             with the NVIDIA driver only, see gamescope_args)
 #   owneet.debug.gamescope_steam=off          gamescope without --steam (no focus control)
+#   owneet.debug.test_games=on                two test "games" (mpv test patterns), for testing
+#                                             launching, Guide and Resume on a live system
 
 set -uo pipefail
 
@@ -82,6 +84,20 @@ run_compositor() {
         cage)      WLR_RENDERER_ALLOW_SOFTWARE=1 cage -s -- "$SESSION_APP" "$APP" ;;
     esac
 }
+
+# Test games: mpv test patterns that open a window and run until closed (boot menu entry
+# "OwneetOS (test games)"; the live system keeps nothing, so they are created at every boot).
+add_test_games() {
+    local dir="$HOME/owneet-test-games" cfg="$HOME/.config/owneet-frontend"
+    local mpv="mpv --no-config --loop --vo=gpu-next,gpu,x11"
+    mkdir -p "$dir" "$cfg"
+    printf 'collection: Test games\n\n' > "$dir/metadata.pegasus.txt"
+    printf 'game: Test Uno\nfile: /etc/hostname\nlaunch: %s av://lavfi:testsrc2\n\n' "$mpv" >> "$dir/metadata.pegasus.txt"
+    printf 'game: Test Due\nfile: /etc/os-release\nlaunch: %s av://lavfi:smptebars\n\n' "$mpv" >> "$dir/metadata.pegasus.txt"
+    grep -qxF "$dir" "$cfg/game_dirs.txt" 2>/dev/null || echo "$dir" >> "$cfg/game_dirs.txt"
+    log "test games added in $dir"
+}
+if [[ "$(debug_opt test_games)" == on ]]; then add_test_games; fi
 
 mode="$(cmdline_mode)"
 case "$mode" in
