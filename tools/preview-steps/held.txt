@@ -1,0 +1,7 @@
+# Held sections and filters repeat like the directions: at once, after 360 ms, then every 140 ms.
+pad rb
+hold rt 550
+shot 01-rt-held-550ms-three-steps-steam
+pad lt lt lt
+hold rb 430
+shot 02-rb-held-430ms-two-steps-home

@@ -13,6 +13,7 @@
 #   key KEY...       keyboard keys, xdotool names (Down, Return, Escape, y, Next = Page Down…)
 #   pad BUTTON...    controller buttons: a b x y lb rb lt rt menu view up down left right
 #   stick STICK MS   hold a stick for MS ms: ls-up ls-down ls-left ls-right rs-up rs-down
+#   hold BUTTON MS   hold a button or trigger for MS ms (e.g. hold rt 1600)
 #   shot NAME        screenshot: out/frontend-preview/NAME.png
 #   wait SECONDS     pause
 #   restart          restart the frontend (its settings are kept)
@@ -97,6 +98,12 @@ for line in open(sys.argv[1]):
                 pull_trigger(AXES[b][0])
             else:
                 emit(e.EV_ABS, AXES[b][0], AXES[b][1], 0.08)
+    elif words[0] == "hold":
+        b, ms = words[1], int(words[2]) / 1000
+        if b in BUTTONS:
+            emit(e.EV_KEY, BUTTONS[b], 1, ms)
+        else:
+            emit(e.EV_ABS, AXES[b][0], AXES[b][1], ms)
     elif words[0] == "stick":
         emit(e.EV_ABS, STICKS[words[1]][0], STICKS[words[1]][1], int(words[2]) / 1000)
     print("done", flush=True)
@@ -127,7 +134,7 @@ while IFS= read -r line; do
     case "${1:-#}" in
         \#*|@*) ;;
         key) shift; for k in "$@"; do xdotool key "$k"; sleep 0.3; done ;;
-        pad|stick) n=$(grep -c done /tmp/vpad.out); echo "$line" >&3
+        pad|stick|hold) n=$(grep -c done /tmp/vpad.out); echo "$line" >&3
                    while [ "$(grep -c done /tmp/vpad.out)" -le "$n" ]; do sleep 0.1; done; sleep 0.3 ;;
         shot) sleep 1; import -window root "/out/$2.png"; echo "$2.png" ;;
         wait) sleep "$2" ;;

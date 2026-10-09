@@ -157,7 +157,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     <div class="prompts t-s sheet-prompts" id="sheet-prompts"></div>
   </div>
 </div></div>
-<p class="help"><b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A play, B back, X details, Y sort, Menu options, LT/RT filters, LB/RB sections.
+<p class="help"><b>Held LB / RB / LT / RT</b> (or Q / E / Z / C) repeat like the D-pad: once, then after 0.36 s every 0.14 s.<br><b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A play, B back, X details, Y sort, Menu options, LT/RT filters, LB/RB sections.
 <b>Keyboard:</b> arrows, Page Up/Down = right stick, Enter = A, Esc = B, X, Y, M = Menu, Z/C = LT/RT, Q/E = LB/RB.<br>
 <b>Demo only:</b> D number of disks (1, 2, 4), P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>; browsers allow sound only after a key or a click on the page). Address: <code>#disks=4&amp;filter=steam&amp;sort=name&amp;pal=ember&amp;ts=1.2&amp;lang=it&amp;keys=down,down,y</code></p>
 
@@ -168,7 +168,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const stage = $('#stage');
   function fit() {
-    const s = Math.min(innerWidth / 1280, (innerHeight - 70) / 720);
+    const s = Math.min(innerWidth / 1280, (innerHeight - 90) / 720);
     stage.style.transform = `scale(${s})`;
     $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
   }
@@ -530,7 +530,22 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     l: () => { lang = lang === 'en' ? 'it' : 'en'; renderAll(); },
     n: () => { soundOn = !soundOn; $('#snd-state').textContent = soundOn ? 'on' : 'off'; },
   };
+  // Held sections (LB / RB) and filters (LT / RT) repeat with the same timing as the directions:
+  // the first step at once, the next after 0.36 s, then every 0.14 s.
+  const REPEAT_FIRST = 360, REPEAT_NEXT = 140;
+  const heldKeys = {};
+  function holdStart(name) {
+    if (heldKeys[name]) return;
+    press[name]();
+    const step = () => { press[name](); heldKeys[name] = setTimeout(step, REPEAT_NEXT); };
+    heldKeys[name] = setTimeout(step, REPEAT_FIRST);
+  }
+  function holdEnd(name) { clearTimeout(heldKeys[name]); delete heldKeys[name]; }
+  const REPEATING = { q: 'lb', e: 'rb', z: 'lt', c: 'rt' };
+  document.addEventListener('keyup', e => { const n = REPEATING[e.key.toLowerCase()]; if (n) holdEnd(n); });
   document.addEventListener('keydown', e => {
+    const rep = e.key.length === 1 && REPEATING[e.key.toLowerCase()];
+    if (rep) { e.preventDefault(); if (!e.repeat) holdStart(rep); return; }
     const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
     const keys = { Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b', x: 'x', y: 'y', m: 'menu', q: 'lb', e: 'rb', z: 'lt', c: 'rt', PageUp: 'rs-up', PageDown: 'rs-down' };
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
@@ -546,6 +561,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   /* ---------- Gamepad ---------- */
   const prev = {};
   let repeatAt = 0, lastDir = null, scrollAt = 0;
+  const padRepeat = {};
   const kindOf = id => /xbox|microsoft|045e/i.test(id) ? 'xbox' : /nintendo|switch|joy-?con|057e/i.test(id) ? 'nintendo'
     : /054c|sony|dualsense|dualshock|playstation|wireless controller|\bps[345]\b/i.test(id) ? 'ps' : 'xbox';
   function poll(ts) {
@@ -561,7 +577,14 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       lastDir = dir; if (!dir) repeatAt = 0;
       if (Math.abs(ry) > 0.5 && ts > scrollAt) { press[ry < 0 ? 'rs-up' : 'rs-down'](); scrollAt = ts + (scrollAt ? 90 : 360); }
       if (Math.abs(ry) <= 0.5) scrollAt = 0;
-      [['a', 0], ['b', 1], ['x', 2], ['y', 3], ['lb', 4], ['rb', 5], ['lt', 6], ['rt', 7], ['menu', 9]].forEach(([name, i]) => { if (edge(i)) press[name](); });
+      [['a', 0], ['b', 1], ['x', 2], ['y', 3], ['menu', 9]].forEach(([name, i]) => { if (edge(i)) press[name](); });
+      // LB / RB / LT / RT: once, then repeated while held (same timing as the directions)
+      [['lb', 4], ['rb', 5], ['lt', 6], ['rt', 7]].forEach(([name, i]) => {
+        const p = on(i);
+        if (p && !prev[i]) { press[name](); padRepeat[name] = ts + REPEAT_FIRST; }
+        else if (p && ts > padRepeat[name]) { press[name](); padRepeat[name] = ts + REPEAT_NEXT; }
+        prev[i] = p;
+      });
     }
     requestAnimationFrame(poll);
   }
