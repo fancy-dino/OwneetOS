@@ -99,7 +99,7 @@ hardware), blank virtual disks.
 ```text
 vm/test.sh fetch-arch-iso        stock Arch ISO, verified (used until OwneetOS has its own ISO)
 vm/test.sh create [single|multi] single: one 32G disk; multi: 32G + 64G data disk
-vm/test.sh boot [ISO] [options]  --headless, --gamepad auto|none|PATH, --gl, --audio, --ssh, --kargs, --journal, --debug-shell
+vm/test.sh boot [ISO] [options]  --headless, --gamepad auto|none|PATH, --gl, --audio, --ssh, --kargs, --journal, --debug-shell, --tools DIR
 vm/test.sh run 'CMD'             run a command in the debug shell and print its output
 vm/test.sh keys COMBO            press keys in the VM, e.g. ctrl-alt-f9
 vm/test.sh gamepads              gamepads connected to this computer
@@ -124,6 +124,12 @@ vm/test.sh stop | reset | destroy
   checked on real hardware (roadmap step 7.4).
 - **Screenshots:** `vm/test.sh screenshot` saves the VM screen as PNG; not available with `--gl`
   in headless mode (QEMU keeps no copy of a 3D screen).
+- **Test tools in the VM:** `--tools DIR` gives the VM a host folder as a small read-only FAT disk
+  (QEMU's virtual FAT, no image). Example: the virtual controller `owneet-testpad`
+  (`daemon/cmd/owneet-testpad`, not shipped in the image), built with
+  `tools/build-in-vm 'cd daemon && CGO_ENABLED=0 go build -o ../out/vm-tools/owneet-testpad ./cmd/owneet-testpad'`,
+  then in the VM: mount the vfat disk (`mount -o ro /dev/vdc1 /mnt`) and run
+  `/mnt/owneet-testpad -wait 4s a guide` (buttons a b x y lb rb view menu guide up down left right).
 - **Extra kernel arguments:** `--kargs "..."` is passed through SMBIOS and appended by systemd-boot
   (e.g. `owneet.session=cage`); `--journal` sends the system journal to the serial log.
 - **Debug shell:** `--debug-shell` starts a root shell on a virtio console (`hvc0`, kernel argument

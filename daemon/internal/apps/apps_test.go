@@ -16,21 +16,23 @@ import (
 
 // fakeUnits records calls; every started unit gets a window whose pid is 1000 + start order.
 type fakeUnits struct {
-	mu      sync.Mutex
-	started []string
-	stopped []string
-	killed  []string
-	exits   chan Exit
-	failAt  string
+	mu       sync.Mutex
+	started  []string
+	stopped  []string
+	killed   []string
+	exits    chan Exit
+	failAt   string
+	workdirs []string
 }
 
-func (f *fakeUnits) Start(unit, desc string, argv, env []string) error {
+func (f *fakeUnits) Start(unit, desc string, argv, env []string, workdir string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if unit == f.failAt {
 		return errors.New("exec failed")
 	}
 	f.started = append(f.started, unit)
+	f.workdirs = append(f.workdirs, workdir)
 	return nil
 }
 func (f *fakeUnits) Stop(unit string) error {
@@ -185,6 +187,8 @@ func TestLaunchRules(t *testing.T) {
 		{ID: "a", Command: nil},
 		{ID: "a", Kind: "toy", Command: []string{"x"}},
 		{ID: strings.Repeat("x", 101), Command: []string{"x"}},
+		{ID: "a", Command: []string{"x"}, Workdir: "relative/dir"},
+		{ID: "a", Command: []string{"x"}, Workdir: "/no/such/folder"},
 	}
 	for _, r := range bad {
 		if _, err := m.Launch(r); !errors.Is(err, ErrInvalid) {
@@ -194,9 +198,10 @@ func TestLaunchRules(t *testing.T) {
 	if _, err := m.Launch(LaunchRequest{ID: "a", Command: []string{"missing-program"}}); !errors.Is(err, ErrNotFound) {
 		t.Errorf("missing program: %v", err)
 	}
-	app, err := m.Launch(LaunchRequest{ID: "game:1", Name: "One", Kind: KindGame, Command: []string{"one"}})
-	if err != nil || app.Name != "One" || len(units.started) != 1 {
-		t.Fatalf("launch: %+v %v", app, err)
+	dir := t.TempDir()
+	app, err := m.Launch(LaunchRequest{ID: "game:1", Name: "One", Kind: KindGame, Command: []string{"one"}, Workdir: dir})
+	if err != nil || app.Name != "One" || len(units.started) != 1 || units.workdirs[0] != dir {
+		t.Fatalf("launch: %+v %v (workdirs %v)", app, err, units.workdirs)
 	}
 	if _, err := m.Launch(LaunchRequest{ID: "game:1", Command: []string{"one"}}); !errors.Is(err, ErrAlreadyRunning) {
 		t.Errorf("same id: %v", err)

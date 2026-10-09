@@ -25,6 +25,7 @@ FocusScope {
         loaded = true;
         updatePad();
         refreshGames();
+        refreshDaemon();          // owneetd may have connected before the theme was loaded
     }
     function save(key, value) {
         if (loaded && api.memory.get(key) !== value)
@@ -107,8 +108,90 @@ FocusScope {
         event.accepted = true;
     }
 
+    // ---- owneetd (3.8): running apps, what is on screen, controllers, network
+    property var apps: []                 // running games and apps: { id, name, kind, started }
+    property string focusedApp: ""        // "home", an app id, or "" (cage)
+    property string sessionMode: ""       // "gamescope" or "cage"
+    property var controllers: []
+    property var network: null
+    readonly property var runningGame: {
+        for (let i = 0; i < apps.length; i++)
+            if (apps[i].kind === "game")
+                return apps[i];
+        return null;
+    }
+    function refreshApps() {
+        owneetd.get("/v1/apps", (status, data) => {
+            if (status === 200) { apps = data.apps || []; focusedApp = data.focus || ""; }
+        });
+    }
+    function refreshControllers() {
+        owneetd.get("/v1/controllers", (status, data) => { if (status === 200) controllers = data.controllers || []; });
+    }
+    function refreshDaemon() {
+        owneetd.get("/v1/status", (status, data) => { if (status === 200) sessionMode = data.session_mode || ""; });
+        owneetd.get("/v1/network", (status, data) => { if (status === 200) network = data; });
+        refreshApps();
+        refreshControllers();
+    }
+    Connections {
+        target: owneetd
+        function onConnectedChanged() { if (owneetd.connected) root.refreshDaemon(); }
+        function onEvent(type, data) {
+            if (type === "app.started" || type === "app.exited") {
+                root.refreshApps();
+                if (type === "app.exited")
+                    refreshTimer.restart();       // play time and "last played" have changed
+            } else if (type === "focus.changed") {
+                root.focusedApp = data.focus;
+            } else if (type.startsWith("controller.")) {
+                root.refreshControllers();
+            } else if (type === "network.changed") {
+                root.network = data;
+            }
+        }
+    }
+    // Errors from owneetd come as "owneetd:CODE" and are translated (error.CODE)
+    Connections {
+        target: api
+        function onEventLaunchError(msg) {
+            const code = msg.startsWith("owneetd:") ? msg.slice(8) : "";
+            const key = "error." + code;
+            toast.show(code && Tr.tr(key) !== key ? Tr.tr(key) : Tr.tr("error.launch"));
+        }
+    }
+    function resume(app) {
+        owneetd.post("/v1/apps/" + encodeURIComponent(app.id) + "/focus", {}, (status, data) => {
+            if (status !== 200 && status !== 204)
+                toast.show(Tr.tr("error.resume"));
+        });
+    }
+    function confirmClose(app) {
+        dialog.game = null;
+        dialog.mode = "close";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("close.title", { title: app.name });
+        dialog.text = Tr.tr("close.text");
+        dialog.buttons = [
+            { text: Tr.tr("home.close"), action: () => {
+                dialog.close();
+                owneetd.post("/v1/apps/" + encodeURIComponent(app.id) + "/close", {}, (status) => {
+                    if (status >= 300 || status === 0) toast.show(Tr.tr("error.close"));
+                });
+            } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }
+        ];
+        dialog.defaultIndex = 1;             // Cancel first: no game closed by accident
+        dialog.open();
+    }
+
     // ---- Games: launch, details, options
     function launch(game) {
+        if (runningGame && owneetd.connected) {     // one game at a time
+            toast.show(Tr.tr("error.apps.game_running"));
+            Nav.feedback("edge");
+            return;
+        }
         Nav.feedback("launch");
         toast.show(Tr.tr("toast.launch", { title: game.title }));
         game.launch();                    // through owneetd from step 3.8
@@ -239,24 +322,41 @@ FocusScope {
         Row {
             anchors { right: parent.right; verticalCenter: parent.verticalCenter }
             spacing: Theme.px(20)
-            Canvas {                       // a controller is connected (battery level: 3.8)
-                id: padIcon
+            Row {                          // controller and its battery, when known
                 visible: root.padName !== ""
                 anchors.verticalCenter: parent.verticalCenter
-                width: Theme.fs(20); height: width
-                property color ink: Theme.muted
-                onInkChanged: requestPaint()
-                onWidthChanged: requestPaint()
-                onPaint: {
-                    const ctx = getContext("2d");
-                    ctx.reset();
-                    ctx.scale(width / 24, height / 24);
-                    ctx.strokeStyle = ink;
-                    ctx.lineWidth = 2;
-                    ctx.lineJoin = "round";
-                    ctx.path = "M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z";
-                    ctx.stroke();
+                spacing: Theme.px(6)
+                readonly property var battery: {
+                    for (let i = 0; i < root.controllers.length; i++)
+                        if (root.controllers[i].battery !== undefined)
+                            return root.controllers[i].battery;
+                    return null;
                 }
+                Icon {
+                    name: "controller"
+                    color: Theme.muted
+                    width: Theme.fs(20); height: width
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                Text {
+                    visible: parent.battery !== null
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: parent.battery + "%"
+                    color: parent.battery !== null && parent.battery <= 15 ? Theme.accent : Theme.muted
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(14.5)
+                }
+            }
+            Icon {                         // network: Wi-Fi with its signal, or cable
+                readonly property var net: root.network
+                readonly property bool wired: net !== null && net.ethernet && net.ethernet.connected
+                readonly property bool wifi: net !== null && net.wifi && net.wifi.state === "connected"
+                visible: wired || wifi
+                name: wired ? "ethernet" : "wifi"
+                level: wifi && net.wifi.strength !== undefined ? (net.wifi.strength >= 67 ? 3 : net.wifi.strength >= 34 ? 2 : 1) : 3
+                color: Theme.muted
+                width: Theme.fs(20); height: width
+                anchors.verticalCenter: parent.verticalCenter
             }
             Text {
                 id: clock
@@ -291,6 +391,10 @@ FocusScope {
             onOptions: root.showOptions(game)
             onOpenLibrary: root.goSection("library")
             onHowToAdd: root.showHowToAdd()
+            running: root.runningGame
+            canResume: root.sessionMode === "gamescope"
+            onResume: root.resume(app)
+            onCloseApp: root.confirmClose(app)
             onNotYet: root.notYet()
         }
         LibraryPage {

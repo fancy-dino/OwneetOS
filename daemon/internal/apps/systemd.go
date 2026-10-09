@@ -151,15 +151,17 @@ type execCommand struct {
 }
 
 // Start starts a transient service and waits until the program has been executed.
-func (s *Systemd) Start(unit, description string, argv, env []string) error {
-	home, _ := os.UserHomeDir()
+func (s *Systemd) Start(unit, description string, argv, env []string, workdir string) error {
+	if workdir == "" {
+		workdir, _ = os.UserHomeDir()
+	}
 	props := []property{
 		{"Description", dbus.MakeVariant(description)},
 		// exec: the start fails if the program cannot be executed.
 		{"Type", dbus.MakeVariant("exec")},
 		{"ExecStart", dbus.MakeVariant([]execCommand{{Path: argv[0], Args: argv}})},
 		{"Environment", dbus.MakeVariant(env)},
-		{"WorkingDirectory", dbus.MakeVariant(home)},
+		{"WorkingDirectory", dbus.MakeVariant(workdir)},
 		// Closing stops every process of the app; after 10 s they are killed.
 		{"KillMode", dbus.MakeVariant("control-group")},
 		{"TimeoutStopUSec", dbus.MakeVariant(uint64(10 * time.Second / time.Microsecond))},

@@ -16,7 +16,9 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log/slog"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -63,6 +65,8 @@ type LaunchRequest struct {
 	Name    string   `json:"name"`
 	Kind    string   `json:"kind"`
 	Command []string `json:"command"`
+	// Workdir is the folder the program starts in (absolute; the user's home when empty).
+	Workdir string `json:"workdir,omitempty"`
 }
 
 // Errors returned to the API.
@@ -79,7 +83,7 @@ var (
 
 // Units runs apps as systemd user services.
 type Units interface {
-	Start(unit, description string, argv, env []string) error
+	Start(unit, description string, argv, env []string, workdir string) error
 	Stop(unit string) error
 	Kill(unit string) error
 	// Running lists the app units already running (owneetd restarted): unit and description.
@@ -311,6 +315,11 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 	if req.Name == "" {
 		req.Name = req.ID
 	}
+	if req.Workdir != "" {
+		if st, err := os.Stat(req.Workdir); !filepath.IsAbs(req.Workdir) || err != nil || !st.IsDir() {
+			return App{}, fmt.Errorf("%w: workdir must be an existing absolute folder", ErrInvalid)
+		}
+	}
 	sess, err := m.Session()
 	if err != nil {
 		return App{}, ErrNoSession
@@ -347,7 +356,7 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 			m.Log.Debug("cannot choose what gamescope shows", "err", err)
 		}
 	}
-	if err := m.Units.Start(app.unit, description(app.Kind, app.Name), argv, sess.Env); err != nil {
+	if err := m.Units.Start(app.unit, description(app.Kind, app.Name), argv, sess.Env, req.Workdir); err != nil {
 		m.forget(app.ID)
 		return App{}, err
 	}

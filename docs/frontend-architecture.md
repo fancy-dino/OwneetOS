@@ -115,16 +115,18 @@ uses `Nav.action(event)`.
 Done in step 3.2: names, providers and Steam download, Guide removed, window tag, Pegasus's
 screens hidden, and also: the interface stays loaded during games (no teardown, no blocking wait), button
 repeat stopped when input pauses, SDL's SIGTERM handler disabled, pointer hidden until the mouse
-is used. Still to do: owneetd client, launching and power through owneetd (3.8), input map (3.5).
+is used. Done in 3.5: input map. Done in 3.8: owneetd client and launching through owneetd; power
+actions through owneetd come with the screens that offer them (3.9).
 
 | Change | Why | Step |
 |---|---|---|
 | Names: window title, application and organisation name, executable `owneet-frontend`, config folder `~/.config/owneet-frontend`; Pegasus logo and icons not installed | Pegasus's trademark terms (PROJECT_RULES.md section 12) | 3.2 |
 | Build only the providers listed above; remove the Steam store download | Local data only, offline (section 12, C9) | 3.2 |
 | Pegasus's Roboto fonts and button images removed; Bricolage Grotesque and Lexend bundled (OFL-1.1, static instances from `tools/branding/make-fonts`) | Own fonts and glyphs (section 12) | 3.3 |
-| **owneetd client**: a small C++ object exposed to QML (`owneetd.get/post/put/delete` and an event stream) | QML's `XMLHttpRequest` cannot reach a Unix socket; owneetd listens only there (no TCP port, by design) | 3.8 |
-| **Game launching through owneetd** (`POST /v1/apps/launch`) instead of `QProcess`; **no interface teardown**; play time updated from `app.exited` | Guide toggles home ↔ game; games in their own services | 3.8 / 4.x |
-| Power actions (`Internal.system.reboot/shutdown/suspend`) through owneetd | One place for power, with its events | 3.8 |
+| **owneetd client** `owneet::Daemon` (`src/backend/owneet/`, `owneetd` in QML): `get/post/put/remove(path, body, callback)` over the Unix socket (`QLocalSocket`, HTTP/1.0 + JSON) and the event stream (`event(type, data)`, reconnects by itself, `connected`) | QML's `XMLHttpRequest` cannot reach a Unix socket; owneetd listens only there (no TCP port, by design) | 3.8 |
+| **Game launching through owneetd** (`POST /v1/apps/launch` with id `game-<title>-<hash of the file>`, the command and its working folder) when its socket exists, otherwise `QProcess` as before (tests); **no interface teardown**; the game ends with owneetd's `app.exited`, which also updates the play time; errors carry owneetd's code, translated by the theme | Guide toggles home ↔ game; games in their own services | 3.8 |
+| Gamepad input follows `focus.changed`: the interface reads the controllers only while the home screen is on screen (gamescope) | A game on screen gets every button | 3.8 |
+| Power actions (`Internal.system.reboot/shutdown/suspend`) through owneetd | One place for power, with its events | 3.9 |
 | **Guide removed** from the gamepad → key mapping | Guide belongs to the system (section 9.1) | 3.2 |
 | Gamepad → key mapping changed to the OwneetOS input map (LB/RB = sections, LT/RT = filters, Y = page option, Menu = options, right stick = fast scrolling), fixed (not saved in the settings) | Section 9.1 | 3.5 |
 | The window tags itself for gamescope (`STEAM_GAME` with owneetd's home app id) | Shown even if owneetd is not running (daemon-design.md) | 3.2 |
@@ -157,6 +159,11 @@ notifications (3.11). Each screen starts with an interactive demo approved by th
 JSON file per language from `/usr/share/owneet-frontend/i18n/` (repository: `frontend/i18n/`) and
 `~/.config/owneet-frontend/i18n/`; English is the default and the fallback. The theme uses it
 through the `Tr` singleton. How to translate: [translating.md](translating.md).
+
+**owneetd (3.8):** the shell (`theme.qml`) follows the running apps, what is on screen, the
+controllers (battery) and the network through `owneetd`; the home screen shows the running game
+(Resume in gamescope, Close game with a confirmation), the top bar the controller's battery and
+the network (Wi-Fi signal or cable).
 
 **Disks (3.7):** `owneet::Storage` (`src/backend/owneet/`, `storage` in QML) lists the system disk
 and the mounted disks with their free space (Qt's `QStorageInfo`), for the library.

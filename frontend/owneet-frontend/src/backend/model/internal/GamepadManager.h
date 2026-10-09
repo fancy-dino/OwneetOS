@@ -99,6 +99,7 @@ private:
 
     GamepadListModel* const m_devices;
     GamepadManagerBackend* const m_backend;
+    bool m_running = false; // OwneetOS: start() and stop() may be called more than once
 
 #ifndef Q_OS_ANDROID
     GamepadButtonNavigation padbuttonnav;

@@ -206,11 +206,8 @@ Window {
             multifileSelector.setSource("dialogs/MultifileSelector.qml", {"game": game})
             multifileSelector.focus = true;
         }
-        function onEventLaunchError(msg) {
-            genericMessage.setSource("dialogs/GenericOkDialog.qml",
-                { "title": qsTr("Error"), "message": msg });
-            genericMessage.focus = true;
-        }
+        // OwneetOS: the theme shows launch errors itself, translated (no Pegasus dialog)
+        function onEventLaunchError(msg) {}
     }
     Connections {
         target: Internal.scanner

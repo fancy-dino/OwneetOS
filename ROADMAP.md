@@ -583,10 +583,26 @@ code is written (PROJECT_RULES.md section 9).
   **Still to come:** owned-but-not-installed Steam games (dimmed, "Install") with the Steam
   integration (4.1–4.2); the Windows-disk notices and disk names with automatic mounting (6.5).
 
-### [ ] 3.8 Frontend ↔ daemon bridge
+### [~] 3.8 Frontend ↔ daemon bridge (awaiting owner review)
 
 - **Deliverables:** QML client for the `owneetd` API and event stream (XMLHttpRequest or a small
   C++ plugin in the fork, decided in 3.1).
+- **Outcome:** `owneet::Daemon` in the frontend (C++, `QLocalSocket`, `owneetd` in QML): requests
+  with JSON and callbacks, the event stream with automatic reconnection. **Games start through
+  owneetd** (each in its own systemd service, with its working folder: new optional `workdir` in
+  `POST /v1/apps/launch`, owneetd 0.9.0) and end with `app.exited` (play time counted); without
+  owneetd's socket the frontend still starts them itself (tests). The interface reads the
+  controllers only while the home screen is on screen (`focus.changed`). **Home:** the running
+  game takes the hero ("Now playing", time played; **Resume** in gamescope, **Close game** with a
+  confirmation where Cancel is selected first), its cover says "Running"; a second game is refused
+  with a translated message, and owneetd's error codes are translated (`error.*`). **Top bar:**
+  controller battery and network (Wi-Fi with signal, or cable). Launch errors no longer use
+  Pegasus's dialog. New test tool `owneet-testpad` (virtual controller, not in the image) and
+  `vm/test.sh boot --tools DIR`. **Test VM:** cage — launch from the home screen, running game
+  shown, Close game with confirmation, back to "Continue playing", cable icon; gamescope
+  (headless) with the virtual controller — A starts the game and it comes to the front, Guide
+  brings back the home screen with the game running, A on Resume shows it again, Close game ends
+  it. Power actions through owneetd come with Settings (3.9).
 
 ### [ ] 3.9 Settings *(multi-prompt)*
 

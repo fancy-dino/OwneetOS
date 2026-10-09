@@ -46,6 +46,7 @@ OwneetOS test VM (${MEM_MB} MB RAM, ${CPUS} CPUs, UEFI, Secure Boot off)
         --audio                      two virtual sound cards (built-in + USB), silent on the host
         --ssh                        live Arch ISO only: allow root SSH with the project test key
         --kargs "ARGS"               extra kernel command line (e.g. owneet.session=cage)
+        --tools DIR                  test tools for the VM (a read-only disk, e.g. out/vm-tools)
         --journal                    send the system journal to the serial log (vm/test.sh log)
         --debug-shell                root shell on the serial console, for vm/test.sh run (tests only)
   vm/test.sh gamepads              List gamepads connected to this computer
@@ -96,7 +97,7 @@ cmd_create() {
 }
 
 cmd_boot() {
-    local iso="" headless=0 gamepad="auto" gl=0 audio=0 ssh=0 kargs=""
+    local iso="" headless=0 gamepad="auto" gl=0 audio=0 ssh=0 kargs="" tools=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --headless) headless=1; shift ;;
@@ -105,6 +106,7 @@ cmd_boot() {
             --audio)    audio=1; shift ;;
             --ssh)      ssh=1; shift ;;
             --kargs)    kargs+=" ${2:-}"; shift 2 ;;
+            --tools)    tools="${2:-}"; shift 2 ;;
             --debug-shell) kargs+=" systemd.debug_shell=hvc0 systemd.mask=serial-getty@hvc0.service"; shift ;;
             --journal)  kargs+=" console=ttyS0,115200 systemd.journald.forward_to_console=1 systemd.journald.max_level_console=info"; shift ;;
             -*) die "unknown option '$1' (see: vm/test.sh help)" ;;
@@ -118,6 +120,7 @@ cmd_boot() {
     if (( headless )); then args+=(--headless); fi
     if (( gl )); then args+=(--gl); fi
     if (( audio )); then args+=(--audio); fi
+    if [[ -n "$tools" ]]; then args+=(--tools "$tools"); fi
     if [[ -n "${kargs# }" ]]; then args+=(--kernel-args "${kargs# }"); info "extra kernel arguments:${kargs}"; fi
 
     case "$gamepad" in

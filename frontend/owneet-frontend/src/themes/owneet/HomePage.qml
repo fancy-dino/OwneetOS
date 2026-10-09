@@ -2,8 +2,9 @@
 // The home screen (roadmap 3.6, approved demo design/demos/3.6-home.html): the last game played
 // (or a welcome on a system with no games), the apps, notices, and the recently played games.
 // Three navigation groups: hero, apps column, row of games.
-// Still to come: the running game in the hero (Resume / Close game) with owneetd (3.8), notices
-// (3.11), apps (phase 5), real covers from Steam's local files (4.1).
+// A game running behind the home screen (owneetd, 3.8) takes the hero: Resume (gamescope only:
+// in cage the home screen is not shown over a game) and Close game.
+// Still to come: notices (3.11), apps (phase 5), real covers from Steam's local files (4.1).
 import QtQuick 2.15
 import "foundation"
 
@@ -11,8 +12,24 @@ NavArea {
     id: page
     property var games: []                     // all games, most recently played first
     readonly property var hero: games.length > 0 ? games[0] : null
-    readonly property var recent: games.slice(1, 7)
+    // with a game running, the hero shows it and the row starts from the most recent game
+    readonly property var recent: running ? games.slice(0, 6) : games.slice(1, 7)
     property var notices: []                   // [{ text }], from owneetd later (3.11)
+    property var running: null                 // the running game: { id, name, started }
+    property bool canResume: true
+    // The Pegasus game of the running one (same title), for its art and source
+    readonly property var runningGame: {
+        if (!running) return null;
+        for (let i = 0; i < games.length; i++)
+            if (games[i].title === running.name) return games[i];
+        return null;
+    }
+    property real now: Date.now()
+    Timer { interval: 30000; running: page.running !== null; repeat: true; onTriggered: page.now = Date.now() }
+    readonly property int playingMinutes: running && running.started
+        ? Math.max(0, Math.floor((now - new Date(running.started).getTime()) / 60000)) : 0
+    signal resume(var app)
+    signal closeApp(var app)
 
     signal launch(var game)
     signal details(var game)
@@ -25,6 +42,10 @@ NavArea {
     readonly property var prompts: {
         const k = current ? current.kind : "";
         const P = (b, l) => ({ buttons: [b], label: Tr.tr(l) });
+        if (k === "resume")
+            return [P("a", "prompt.resume")];
+        if (k === "close")
+            return [P("a", "prompt.close")];
         if (k === "game" || k === "play")
             return [P("a", "prompt.play"), P("x", "prompt.details"), P("menu", "prompt.options")];
         if (k === "details")
@@ -39,6 +60,7 @@ NavArea {
     // The games arrive after the page: keep a visible item selected (e.g. Play instead of the
     // welcome buttons)
     onHeroChanged: Qt.callLater(() => { if (!current || !current.visible) focusStart(); })
+    onRunningChanged: Qt.callLater(() => { if (visible) focusStart(); })
     // While the boot splash is shown the page is disabled and nothing can be selected yet
     onActiveFocusChanged: if (activeFocus && (!current || !current.visible)) focusStart()
 
@@ -48,6 +70,8 @@ NavArea {
         else if (k === "details") details(gameOf(item));
         else if (k === "all") openLibrary();
         else if (k === "how") howToAdd();
+        else if (k === "resume") resume(running);
+        else if (k === "close") closeApp(running);
         else notYet();                         // apps, notices, Steam Store
     }
     onOtherAction: {
@@ -68,15 +92,16 @@ NavArea {
 
             GameArt {
                 anchors.fill: parent
-                visible: page.hero !== null
+                readonly property var game: page.running ? page.runningGame : page.hero
+                visible: page.hero !== null || page.running !== null
                 radius: Theme.radiusL
-                seed: page.hero ? page.hero.title : ""
-                image: page.hero ? (page.hero.assets.background || page.hero.assets.screenshot || page.hero.assets.banner || "") : ""
+                seed: page.running ? page.running.name : (page.hero ? page.hero.title : "")
+                image: game ? (game.assets.background || game.assets.screenshot || game.assets.banner || "") : ""
                 scrim: true
             }
             Rectangle {                         // welcome card, when there are no games
                 anchors.fill: parent
-                visible: page.hero === null
+                visible: page.hero === null && page.running === null
                 radius: Theme.radiusL
                 color: Theme.surface
                 border.color: Theme.line
@@ -86,23 +111,34 @@ NavArea {
                 // at the bottom over the art, in the middle of the welcome card
                 x: Theme.px(34)
                 width: parent.width - Theme.px(68)
-                y: page.hero ? parent.height - height - Theme.px(30) : (parent.height - height) / 2
+                readonly property bool art: page.hero !== null || page.running !== null
+                y: art ? parent.height - height - Theme.px(30) : (parent.height - height) / 2
                 spacing: Theme.px(12)
-                readonly property color ink: page.hero ? "#FFFFFF" : Theme.fg
+                readonly property color ink: art ? "#FFFFFF" : Theme.fg
 
-                Text {
-                    text: page.hero ? Tr.tr(GameInfo.played(page.hero) ? "home.continue" : "home.ready") : Tr.tr("home.welcome")
-                    color: parent.ink
-                    opacity: 0.85
-                    font.family: Theme.textFont
-                    font.weight: Font.Medium
-                    font.pixelSize: Theme.fs(12.5)
-                    font.capitalization: Font.AllUppercase
-                    font.letterSpacing: Theme.fs(12.5) * 0.12
+                Row {
+                    spacing: Theme.px(8)
+                    Rectangle {                 // a game is running
+                        visible: page.running !== null
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Theme.px(9); height: width; radius: width / 2
+                        color: "#4ADE80"
+                    }
+                    Text {
+                        text: page.running ? Tr.tr("home.playing")
+                            : page.hero ? Tr.tr(GameInfo.played(page.hero) ? "home.continue" : "home.ready") : Tr.tr("home.welcome")
+                        color: parent.parent.ink
+                        opacity: 0.85
+                        font.family: Theme.textFont
+                        font.weight: Font.Medium
+                        font.pixelSize: Theme.fs(12.5)
+                        font.capitalization: Font.AllUppercase
+                        font.letterSpacing: Theme.fs(12.5) * 0.12
+                    }
                 }
                 Text {
                     width: parent.width
-                    text: page.hero ? page.hero.title : Tr.tr("home.empty.title")
+                    text: page.running ? page.running.name : page.hero ? page.hero.title : Tr.tr("home.empty.title")
                     color: parent.ink
                     font.family: Theme.displayFont
                     font.weight: Font.Bold
@@ -112,7 +148,7 @@ NavArea {
                     elide: Text.ElideRight
                 }
                 Text {
-                    visible: page.hero === null
+                    visible: page.hero === null && page.running === null
                     width: Math.min(parent.width, Theme.px(560))
                     text: Tr.tr("home.empty.text")
                     color: Theme.fg
@@ -122,9 +158,11 @@ NavArea {
                     wrapMode: Text.Wrap
                 }
                 Row {
-                    visible: page.hero !== null
+                    visible: page.hero !== null || page.running !== null
+                    readonly property var game: page.running ? page.runningGame : page.hero
                     spacing: Theme.px(18)
                     Rectangle {
+                        visible: parent.game !== null
                         width: sourceText.implicitWidth + Theme.px(20); height: sourceText.implicitHeight + Theme.px(4)
                         radius: height / 2
                         color: "#59000000"
@@ -132,22 +170,22 @@ NavArea {
                         Text {
                             id: sourceText
                             anchors.centerIn: parent
-                            text: GameInfo.source(page.hero)
+                            text: GameInfo.source(parent.parent.game)
                             color: "#FFFFFF"
                             font.family: Theme.textFont
                             font.pixelSize: Theme.fs(14.5)
                         }
                     }
                     Text {
-                        text: GameInfo.lastPlayed(page.hero)
+                        text: page.running ? Tr.trn("home.session", page.playingMinutes) : GameInfo.lastPlayed(page.hero)
                         color: "#E6FFFFFF"
                         font.family: Theme.textFont
                         font.pixelSize: Theme.fs(14.5)
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     Text {
-                        visible: GameInfo.played(page.hero)
-                        text: GameInfo.playTime(page.hero)
+                        visible: parent.game !== null && GameInfo.played(parent.game)
+                        text: GameInfo.playTime(parent.game)
                         color: "#E6FFFFFF"
                         font.family: Theme.textFont
                         font.pixelSize: Theme.fs(14.5)
@@ -158,27 +196,39 @@ NavArea {
                     spacing: Theme.px(20)
                     topPadding: Theme.px(4)
                     Button {
-                        visible: page.hero !== null
+                        visible: page.running !== null && page.canResume
+                        readonly property string kind: "resume"
+                        text: Tr.tr("home.resume")
+                        style: "light"
+                    }
+                    Button {
+                        visible: page.running !== null
+                        readonly property string kind: "close"
+                        text: Tr.tr("home.close")
+                        style: page.canResume ? "glass" : "light"
+                    }
+                    Button {
+                        visible: page.hero !== null && page.running === null
                         readonly property string kind: "play"
                         readonly property var game: page.hero
                         text: Tr.tr("home.play")
                         style: "light"
                     }
                     Button {
-                        visible: page.hero !== null
+                        visible: page.hero !== null && page.running === null
                         readonly property string kind: "details"
                         readonly property var game: page.hero
                         text: Tr.tr("home.details")
                         style: "glass"
                     }
                     Button {
-                        visible: page.hero === null
+                        visible: page.hero === null && page.running === null
                         readonly property string kind: "store"
                         text: Tr.tr("home.empty.store")
                         style: "primary"
                     }
                     Button {
-                        visible: page.hero === null
+                        visible: page.hero === null && page.running === null
                         readonly property string kind: "how"
                         text: Tr.tr("home.empty.how")
                     }
@@ -305,6 +355,7 @@ NavArea {
                     width: row.cell
                     height: row.cell * 1.25
                     game: modelData
+                    running: page.running !== null && page.running.name === modelData.title
                 }
             }
             Rectangle {                         // "All games": the library

@@ -36,6 +36,7 @@ OwneetOS VM manager
         --gl            3D-accelerated virtual GPU (virgl), needed for gamescope
         --audio         two virtual sound cards (built-in HDA + USB), silent on the host
         --kernel-args S extra kernel command line, appended by systemd-boot (SMBIOS type 11)
+        --tools DIR     a host folder seen by the guest as a small read-only FAT disk (test tools)
   vm/vm.sh stop    NAME [--force]     Shut a VM down (ACPI, then forced after 60 s; --force: at once)
   vm/vm.sh destroy NAME               Stop a VM and delete all of its files
   vm/vm.sh add-disk NAME SIZE         Attach an extra blank disk (data-N.qcow2) to a VM
@@ -194,7 +195,7 @@ cmd_start() {
     local name="${1:-}"; shift || true
     check_name "$name"
     local iso="" headless=0 mem="$DEFAULT_MEM_MB" cpus="$DEFAULT_CPUS" net=1 ssh_port="" seed_url="" gl=0 audio=0
-    local evdevs=() kargs=""
+    local evdevs=() kargs="" tools=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --iso)      iso="${2:-}"; shift 2 ;;
@@ -208,6 +209,7 @@ cmd_start() {
             --gl)       gl=1; shift ;;
             --audio)    audio=1; shift ;;
             --kernel-args) kargs="${2:-}"; shift 2 ;;
+            --tools)    tools="${2:-}"; shift 2 ;;
             *) die "unknown option '$1' (see: vm/vm.sh help)" ;;
         esac
     done
@@ -252,6 +254,11 @@ cmd_start() {
         # systemd-boot appends this to the kernel command line (only with Secure Boot off).
         # QEMU needs commas doubled inside option values.
         args+=(-smbios "type=11,value=io.systemd.boot.kernel-cmdline-extra=${kargs//,/,,}")
+    fi
+    if [[ -n "$tools" ]]; then
+        [[ -d "$tools" ]] || die "--tools: $tools is not a folder"
+        # QEMU's virtual FAT: the folder, read-only, without creating an image
+        args+=(-drive "file=fat:ro:$(realpath "$tools"),if=virtio,format=raw,readonly=on")
     fi
     local dev
     for dev in "${evdevs[@]}"; do

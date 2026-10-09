@@ -21,6 +21,7 @@
 #include "Log.h"
 #include "FrontendLayer.h"
 #include "ProcessLauncher.h"
+#include "owneet/Daemon.h"
 #include "ScriptRunner.h"
 #include "Paths.h"
 #include "platform/PowerCommands.h"
@@ -168,6 +169,7 @@ Backend::Backend(const CliArgs& args)
     m_api_private = new model::Internal(args);
     m_frontend = new FrontendLayer(m_api_public, m_api_private);
     m_launcher = new ProcessLauncher();
+    m_launcher->setDaemon(m_frontend->daemon()); // OwneetOS: games start through owneetd
     m_providerman = new ProviderManager();
 
     // the following communication is required because process handling
@@ -203,6 +205,17 @@ Backend::Backend(const CliArgs& args)
 
     QObject::connect(m_launcher, &ProcessLauncher::processFinished,
                      [this](){ onProcessFinished(); });
+
+    // OwneetOS: in gamescope, Guide shows the home screen over a running game (owneetd switches
+    // between them): the interface reads the gamepads only while it is on screen.
+    QObject::connect(m_frontend->daemon(), &owneet::Daemon::event, [this](const QString& type, const QVariant& data) {
+        if (type != QLatin1String("focus.changed"))
+            return;
+        if (data.toMap().value(QStringLiteral("focus")).toString() == QLatin1String("home"))
+            m_api_private->gamepad().start(m_args);
+        else
+            m_api_private->gamepad().stop();
+    });
 
     // Setting changes
     QObject::connect(m_api_private->settings().localesPtr(), &model::Locales::localeChanged,

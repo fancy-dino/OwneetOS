@@ -39,6 +39,7 @@ target_include_directories(pegasus-backend PUBLIC
 )
 
 pegasus_require_qt(COMPONENTS
+    Network
     Qml
     Quick
     Multimedia
@@ -46,6 +47,7 @@ pegasus_require_qt(COMPONENTS
     Svg
 )
 target_link_libraries(pegasus-backend PUBLIC
+    Qt::Network
     Qt::Qml
     Qt::Quick
     Qt::Multimedia

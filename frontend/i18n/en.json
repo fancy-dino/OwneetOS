@@ -121,5 +121,26 @@
   "disk.internal": "Internal disk",
   "disk.free": "{name} · {free} free",
   "disk.of": "{free} free of {total}",
-  "disk.note.readonly": "Read only: games cannot be added to this disk."
+  "disk.note.readonly": "Read only: games cannot be added to this disk.",
+  "prompt.resume": "Resume",
+  "home.playing": "Now playing",
+  "home.resume": "Resume",
+  "home.close": "Close game",
+  "home.session": {
+    "one": "Playing for {n} min",
+    "other": "Playing for {n} min"
+  },
+  "game.running": "Running",
+  "close.title": "Close {title}?",
+  "close.text": "Unsaved progress may be lost.",
+  "error.launch": "The game could not start.",
+  "error.resume": "The game cannot be shown right now.",
+  "error.close": "The game could not be closed.",
+  "error.apps.game_running": "Another game is running: close it first.",
+  "error.apps.program_not_found": "The game's program was not found.",
+  "error.apps.no_session": "The console session is not ready yet.",
+  "error.apps.unavailable": "Games cannot be started right now.",
+  "error.apps.failed": "The game could not start.",
+  "error.apps.invalid": "The game's launch settings are not valid.",
+  "error.daemon.unavailable": "The system service is not running."
 }

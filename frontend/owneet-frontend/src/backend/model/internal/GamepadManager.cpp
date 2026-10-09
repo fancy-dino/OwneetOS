@@ -86,11 +86,17 @@ GamepadManager::GamepadManager(QObject* parent)
 
 void GamepadManager::start(const backend::CliArgs& args)
 {
+    if (m_running) // OwneetOS: started and stopped as the home screen comes and goes
+        return;
+    m_running = true;
     m_backend->start(args);
 }
 
 void GamepadManager::stop()
 {
+    if (!m_running)
+        return;
+    m_running = false;
     m_backend->stop();
 #ifndef Q_OS_ANDROID
     padbuttonnav.releaseAll(); // OwneetOS: no endless repeat of a button held when input stops

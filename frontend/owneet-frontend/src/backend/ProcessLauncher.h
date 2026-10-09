@@ -21,6 +21,7 @@
 #include <QProcess>
 
 namespace model { class GameFile; }
+namespace owneet { class Daemon; }
 
 
 namespace helpers {
@@ -37,6 +38,9 @@ class ProcessLauncher : public QObject {
 
 public:
     explicit ProcessLauncher(QObject* parent = nullptr);
+
+    /// OwneetOS: start games through owneetd, each in its own systemd service, when it runs
+    void setDaemon(owneet::Daemon* daemon);
 
 signals:
     void processLaunchOk();
@@ -55,6 +59,14 @@ private slots:
 
 private:
     QProcess* m_process;
+
+    // OwneetOS: the game started through owneetd, until its app.exited event
+    owneet::Daemon* m_daemon = nullptr;
+    QString m_daemon_app;
+    QString m_title;
+    QString m_game_path;
+    void runWithDaemon(const QString&, const QStringList&, const QString&);
+    void onDaemonEvent(const QString& type, const QVariant& data);
 
     void runProcess(const QString&, const QStringList&, const QString&);
 

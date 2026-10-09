@@ -10,6 +10,7 @@ Item {
     readonly property bool navigable: true
     readonly property string kind: "game"
     property real radius: Theme.radiusM
+    property bool running: false                // this game runs now
     signal activated()
 
     readonly property bool installed: GameInfo.installed(game)
@@ -50,8 +51,25 @@ Item {
             font.pixelSize: Theme.fs(12.5)
         }
     }
+    Rectangle {          // running now
+        visible: root.running
+        anchors { right: parent.right; top: parent.top; margins: Theme.px(8) }
+        width: runningText.implicitWidth + Theme.px(18)
+        height: runningText.implicitHeight + Theme.px(4)
+        radius: height / 2
+        color: "#4ADE80"
+        Text {
+            id: runningText
+            anchors.centerIn: parent
+            text: Tr.tr("game.running")
+            color: "#062010"
+            font.family: Theme.textFont
+            font.weight: Font.DemiBold
+            font.pixelSize: Theme.fs(12.5)
+        }
+    }
     Rectangle {          // favourite, or "not installed"
-        visible: !root.installed || (root.game && root.game.favorite)
+        visible: !root.running && (!root.installed || (root.game && root.game.favorite))
         anchors { right: parent.right; top: parent.top; margins: Theme.px(8) }
         width: Theme.px(24); height: width; radius: width / 2
         color: "#80000000"

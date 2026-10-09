@@ -21,6 +21,7 @@
 #include "ScriptRunner.h"
 #include "model/gaming/Game.h"
 #include "model/gaming/GameFile.h"
+#include "owneet/Daemon.h"
 #include "platform/TerminalKbd.h"
 #include "utils/CommandTokenizer.h"
 #include "utils/PathTools.h"
@@ -29,6 +30,7 @@
 #include "platform/AndroidHelpers.h"
 #endif
 
+#include <QCryptographicHash>
 #include <QDir>
 #include <QUrl>
 #include <QRegularExpression>
@@ -156,6 +158,13 @@ ProcessLauncher::ProcessLauncher(QObject* parent)
     , m_process(nullptr)
 {}
 
+void ProcessLauncher::setDaemon(owneet::Daemon* daemon)
+{
+    m_daemon = daemon;
+    if (m_daemon)
+        connect(m_daemon, &owneet::Daemon::event, this, &ProcessLauncher::onDaemonEvent);
+}
+
 void ProcessLauncher::onLaunchRequested(const model::GameFile* q_gamefile)
 {
     Q_ASSERT(q_gamefile);
@@ -220,7 +229,12 @@ void ProcessLauncher::onLaunchRequested(const model::GameFile* q_gamefile)
 
 
     beforeRun(gamefile.fileinfo().absoluteFilePath());
-    runProcess(command, args, workdir);
+    m_title = game.title();
+    m_game_path = gamefile.fileinfo().absoluteFilePath();
+    if (m_daemon && m_daemon->available())  // OwneetOS: the console session
+        runWithDaemon(command, args, workdir);
+    else
+        runProcess(command, args, workdir);
 }
 
 void ProcessLauncher::runProcess(const QString& command, const QStringList& args, const QString& workdir)
@@ -259,6 +273,56 @@ void ProcessLauncher::runProcess(const QString& command, const QStringList& args
     }
 
 #endif // Q_OS_ANDROID
+}
+
+// OwneetOS: the game runs in its own systemd service started by owneetd (closing it stops every
+// process it started; Guide switches between it and the home screen). Its end is the app.exited
+// event; errors carry owneetd's stable code ("owneetd:apps.game_running"), translated by the theme.
+void ProcessLauncher::runWithDaemon(const QString& command, const QStringList& args, const QString& workdir)
+{
+    // A stable id per game file: a readable part and a short hash of its path
+    QString slug = m_title.toLower();
+    slug.replace(QRegularExpression(QStringLiteral("[^a-z0-9]+")), QStringLiteral("-"));
+    slug = slug.left(40).remove(QRegularExpression(QStringLiteral("^-+|-+$")));
+    const QString hash = QString::fromLatin1(QCryptographicHash::hash(m_game_path.toUtf8(), QCryptographicHash::Sha1).toHex().left(8));
+    const QString id = QStringLiteral("game-") + (slug.isEmpty() ? QString() : slug + QChar('-')) + hash;
+
+    Log::info(LOGMSG("Starting through owneetd as `%1`: [`%2`]").arg(id, serialize_command(command, args)));
+    const QVariantMap body {
+        {QStringLiteral("id"), id},
+        {QStringLiteral("name"), m_title},
+        {QStringLiteral("kind"), QStringLiteral("game")},
+        {QStringLiteral("command"), QStringList(command) + args},
+        {QStringLiteral("workdir"), workdir},
+    };
+    m_daemon->request(QStringLiteral("POST"), QStringLiteral("/v1/apps/launch"), body, [this, id](int status, const QVariant& data) {
+        if (status == 201) {
+            m_daemon_app = id;
+            emit processLaunchOk();
+            return;
+        }
+        const QVariantMap error = data.toMap().value(QStringLiteral("error")).toMap();
+        const QString code = error.value(QStringLiteral("code")).toString();
+        Log::warning(LOGMSG("owneetd could not start the game: %1 (%2)")
+            .arg(code, error.value(QStringLiteral("message")).toString()));
+        emit processLaunchError(QStringLiteral("owneetd:") + (code.isEmpty() ? QStringLiteral("apps.failed") : code));
+        ScriptRunner::run(ScriptEvent::PROCESS_FINISHED);
+        TerminalKbd::disable();
+    });
+}
+
+void ProcessLauncher::onDaemonEvent(const QString& type, const QVariant& data)
+{
+    if (type != QLatin1String("app.exited") || m_daemon_app.isEmpty())
+        return;
+    const QVariantMap ev = data.toMap();
+    if (ev.value(QStringLiteral("id")).toString() != m_daemon_app)
+        return;
+    Log::info(LOGMSG("The game `%1` has ended (%2)").arg(m_daemon_app, ev.value(QStringLiteral("result")).toString()));
+    m_daemon_app.clear();
+    ScriptRunner::run(ScriptEvent::PROCESS_FINISHED);
+    TerminalKbd::disable();
+    emit processFinished();     // play time is counted up to here
 }
 
 void ProcessLauncher::onTeardownComplete()

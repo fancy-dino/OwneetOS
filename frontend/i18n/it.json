@@ -121,5 +121,26 @@
   "disk.internal": "Disco interno",
   "disk.free": "{name} · {free} liberi",
   "disk.of": "{free} liberi su {total}",
-  "disk.note.readonly": "Sola lettura: non si possono aggiungere giochi su questo disco."
+  "disk.note.readonly": "Sola lettura: non si possono aggiungere giochi su questo disco.",
+  "prompt.resume": "Riprendi",
+  "home.playing": "In gioco",
+  "home.resume": "Riprendi",
+  "home.close": "Chiudi il gioco",
+  "home.session": {
+    "one": "In gioco da {n} min",
+    "other": "In gioco da {n} min"
+  },
+  "game.running": "In corso",
+  "close.title": "Chiudere {title}?",
+  "close.text": "I progressi non salvati potrebbero andare persi.",
+  "error.launch": "Il gioco non si è avviato.",
+  "error.resume": "Il gioco non si può mostrare in questo momento.",
+  "error.close": "Il gioco non si è chiuso.",
+  "error.apps.game_running": "C'è già un gioco aperto: chiudilo prima.",
+  "error.apps.program_not_found": "Il programma del gioco non è stato trovato.",
+  "error.apps.no_session": "La sessione della console non è ancora pronta.",
+  "error.apps.unavailable": "In questo momento non si possono avviare giochi.",
+  "error.apps.failed": "Il gioco non si è avviato.",
+  "error.apps.invalid": "Le impostazioni di avvio del gioco non sono valide.",
+  "error.daemon.unavailable": "Il servizio di sistema non è attivo."
 }
