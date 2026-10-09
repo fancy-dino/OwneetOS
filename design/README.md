@@ -18,7 +18,7 @@ Mockups and design assets.
     game) and "no games yet", the options and details windows, and the placeholder sounds.
     Demo keys and start state are listed under the frame.
   - [`3.7-library.html`](demos/3.7-library.html): library (grid, filters on LT/RT, sort on Y, games
-    to install, favourites, disks with free space).
+    to install, favourites, disks with free space and the Disks window).
 
 - [`sounds.md`](sounds.md): the interface sounds (list, length, file format), provided by the
   owner (roadmap 3.12).

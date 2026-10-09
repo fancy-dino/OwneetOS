@@ -565,6 +565,11 @@ code is written (PROJECT_RULES.md section 9).
 - **Review 1 (2026-10-09):** the prompt bar cut the focus ring of the last row: scrolling lists
   and grids keep room for the ring and the lift at both ends (in QML: the view's margins and the
   range the selection is kept in).
+- **Review 2 (2026-10-09):** several disks. Up to two are shown in the header; with three or more,
+  one summary ("4 disks · 2.3 TB free"). The disks are selectable (up from the first row of games,
+  down to come back) and A opens the **Disks** window: every disk with its free space and the
+  notices of PROJECT_RULES.md section 6 (read-only NTFS left by Windows; Windows games on NTFS).
+  Demo key D and `#disks=1|2|4` try 1, 2 or 4 disks.
 
 ### [ ] 3.8 Frontend ↔ daemon bridge
 
@@ -706,6 +711,8 @@ code is written (PROJECT_RULES.md section 9).
 
 - **Deliverables:** udisks2 policy + daemon logic for internal and removable disks (ext4, btrfs,
   NTFS, exFAT), read-only NTFS when Windows left it hibernated, with an explanation to the user.
+  Free space and notices of every disk reach the library's disks summary and Disks window
+  (approved in demo 3.7); later actions there, e.g. "Safely remove" for USB disks.
 
 ---
 

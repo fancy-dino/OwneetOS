@@ -54,10 +54,18 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .lib { grid-template-rows: auto auto minmax(0, 1fr); gap: 16px; }
 .lib-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
 .lib-title { display: flex; align-items: baseline; gap: 14px; }
-.disks { display: flex; gap: 22px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.disks { display: flex; gap: 22px; color: var(--muted); font-variant-numeric: tabular-nums; padding: 8px 12px; margin: -8px -12px; border-radius: 14px; }
+.disks .summary { display: grid; gap: 5px; min-width: 190px; }
+.disk-list { display: grid; gap: 14px; width: 560px; text-align: left; }
+.disk-row { display: grid; gap: 6px; padding: 12px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.disk-row .name { display: flex; justify-content: space-between; gap: 16px; }
+.disk-row .bar { height: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.disk-row .bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.disk-row .note { color: var(--muted); display: flex; gap: 8px; align-items: flex-start; }
+.disk-row .note::before { content: "!"; flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
 .disk { display: grid; gap: 5px; min-width: 150px; }
-.disk .bar { height: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
-.disk .bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.disks .bar { height: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.disks .bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
 .filters { display: flex; align-items: center; gap: 8px; }
 .chip { padding: 6px 15px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; }
 .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 500; }
@@ -133,7 +141,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     <section class="page lib on" id="page-library">
       <div class="lib-head">
         <div class="lib-title"><span class="disp t-xl" data-i18n="tab.library">Library</span><span class="muted t-m" id="count"></span></div>
-        <div class="disks t-xs" id="disks"></div>
+        <button class="disks t-xs" id="disks" data-f data-disks></button>
       </div>
       <div class="filters t-s" id="filters"></div>
       <div class="grid-wrap" id="grid-wrap"><div class="grid t-s" id="grid" data-group="grid"></div></div>
@@ -151,7 +159,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 </div></div>
 <p class="help"><b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A play, B back, X details, Y sort, Menu options, LT/RT filters, LB/RB sections.
 <b>Keyboard:</b> arrows, Page Up/Down = right stick, Enter = A, Esc = B, X, Y, M = Menu, Z/C = LT/RT, Q/E = LB/RB.<br>
-<b>Demo only:</b> P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>; browsers allow sound only after a key or a click on the page). Address: <code>#filter=steam&amp;sort=name&amp;pal=ember&amp;ts=1.2&amp;lang=it&amp;keys=down,down,y</code></p>
+<b>Demo only:</b> D number of disks (1, 2, 4), P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>; browsers allow sound only after a key or a click on the page). Address: <code>#disks=4&amp;filter=steam&amp;sort=name&amp;pal=ember&amp;ts=1.2&amp;lang=it&amp;keys=down,down,y</code></p>
 
 <script src="sounds.js"></script>
 <script>
@@ -205,6 +213,10 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'f.all': 'All', 'f.installed': 'Installed', 'f.favorites': 'Favorites', 'f.steam': 'Steam', 'f.local': 'Local',
     'sort.recent': 'Recently played', 'sort.name': 'Name', 'sort.time': 'Most played', 'sort.title': 'Sort by',
     'disk.internal': 'Internal disk', 'disk.usb': 'USB disk', 'disk.free': '{n} free',
+    'disk.windows': 'Windows disk', 'disk.games': 'Games SSD', 'disk.of': '{free} free of {total}',
+    'disks.title': 'Disks', 'disks.summary': '{n} disks · {free} free', 'p.disks': 'Disks', 'p.close': 'Close',
+    'disk.note.readonly': 'Read only: Windows was not shut down completely. Shut it down from Windows (or turn off Fast Startup) to add games here.',
+    'disk.note.ntfs': 'Windows games on this disk may not work well: move them to a Linux disk.',
     'src.local': 'Local', 'not-installed': 'Not installed',
     'empty.favorites': 'No favorites yet', 'empty.favorites.hint': 'Press Menu on a game and choose “Add to favorites”.',
     'empty.filter': 'No games here',
@@ -223,6 +235,10 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'f.all': 'Tutti', 'f.installed': 'Installati', 'f.favorites': 'Preferiti', 'f.steam': 'Steam', 'f.local': 'Locali',
     'sort.recent': 'Giocati di recente', 'sort.name': 'Nome', 'sort.time': 'Più giocati', 'sort.title': 'Ordina per',
     'disk.internal': 'Disco interno', 'disk.usb': 'Disco USB', 'disk.free': '{n} liberi',
+    'disk.windows': 'Disco di Windows', 'disk.games': 'SSD giochi', 'disk.of': '{free} liberi su {total}',
+    'disks.title': 'Dischi', 'disks.summary': '{n} dischi · {free} liberi', 'p.disks': 'Dischi', 'p.close': 'Chiudi',
+    'disk.note.readonly': 'Sola lettura: Windows non è stato spento del tutto. Spegnilo da Windows (o disattiva l’avvio rapido) per aggiungere giochi qui.',
+    'disk.note.ntfs': 'I giochi Windows su questo disco potrebbero non funzionare bene: spostali su un disco Linux.',
     'src.local': 'Locale', 'not-installed': 'Non installato',
     'empty.favorites': 'Ancora nessun preferito', 'empty.favorites.hint': 'Premi Menu su un gioco e scegli “Aggiungi ai preferiti”.',
     'empty.filter': 'Nessun gioco qui',
@@ -299,6 +315,16 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     return { id: 'g' + i, title, h: h % 360, src: local ? 'local' : 'Steam', installed, fav: i % 7 === 0,
              last: played ? (i % 11) : -1, total: played ? (i * 97) % 2400 : 0, disk: local && i % 2 ? 'usb' : 'internal', size: 2 + (i * 7) % 60 };
   });
+  // Disks found by auto-mount (phase 6): free / total in GB
+  const ALL_DISKS = [
+    { key: 'internal', free: 212, total: 512 },
+    { key: 'usb', free: 1100, total: 2000 },
+    { key: 'games', free: 640, total: 1000 },
+    { key: 'windows', free: 310, total: 1000, notes: ['disk.note.readonly', 'disk.note.ntfs'] },
+  ];
+  let diskCount = 2;
+  const disks = () => ALL_DISKS.slice(0, diskCount);
+  const gb = n => n >= 1000 ? (n / 1000).toLocaleString(lang, { maximumFractionDigits: 1 }) + ' TB' : n + ' GB';
   const FILTERS = ['all', 'installed', 'favorites', 'steam', 'local'];
   const SORTS = ['recent', 'name', 'time'];
   let filter = 'all', sort = 'recent', section = 'library';
@@ -322,8 +348,15 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     $('#count').textContent = list.length === 1 ? tr('count.one') : tr('count', { n: list.length });
     $('#filters').innerHTML = glyphHTML('lt') + FILTERS.map(f => `<span class="chip" aria-pressed="${f === filter}">${tr('f.' + f)} ${GAMES.filter(g => matches(g, f)).length}</span>`).join('') + glyphHTML('rt') +
       `<span class="sortnote">${glyphHTML('y')}<span>${tr('sort.' + sort)}</span></span>`;
-    $('#disks').innerHTML = [['internal', '212 GB', 58], ['usb', '1.1 TB', 31]].map(([d, free, used]) =>
-      `<div class="disk"><span>${tr('disk.' + d)} · ${tr('disk.free', { n: free })}</span><span class="bar"><i style="width:${used}%"></i></span></div>`).join('');
+    // Up to two disks are shown; with more, one summary. Either way it opens the list of disks.
+    const found = disks();
+    const bar = d => `<span class="bar"><i style="width:${Math.round(100 - d.free / d.total * 100)}%"></i></span>`;
+    if (found.length <= 2) {
+      $('#disks').innerHTML = found.map(d => `<div class="disk"><span>${tr('disk.' + d.key)} · ${tr('disk.free', { n: gb(d.free) })}</span>${bar(d)}</div>`).join('');
+    } else {
+      const free = found.reduce((s, d) => s + d.free, 0), total = found.reduce((s, d) => s + d.total, 0);
+      $('#disks').innerHTML = `<div class="summary"><span>${tr('disks.summary', { n: found.length, free: gb(free) })}</span>${bar({ free, total })}</div>`;
+    }
   }
   function renderGrid(keepId) {
     const list = shown();
@@ -331,6 +364,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
         <span class="src t-xs">${srcName(g)}</span>${!g.installed ? `<span class="dl">${DL}</span>` : g.fav ? `<span class="fav">${HEART}</span>` : ''}
         <span class="ttl t-m">${g.title}</span></button>`).join('')
       : `<div class="empty" style="grid-column: 1 / -1; padding-top: 120px"><span class="disp t-l">${tr(filter === 'favorites' ? 'empty.favorites' : 'empty.filter')}</span>${filter === 'favorites' ? `<span class="t-m">${tr('empty.favorites.hint')}</span>` : ''}</div>`;
+    if (focused && focused.hasAttribute('data-disks')) return;   // the selection stays on the disks
     const keep = keepId && $(`#grid [data-game="${keepId}"]`);
     focus(keep || $('#grid [data-f]'), true);
     if (!keep) $('#grid-wrap').scrollTop = 0;
@@ -343,7 +377,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   const game = id => GAMES.find(g => g.id === id);
   function renderPrompts() {
     const g = focused && game(focused.dataset.game);
-    const left = section !== 'library' ? [] : [
+    const left = section !== 'library' ? [] : focused && focused.hasAttribute('data-disks') ? [P(['a'], tr('p.disks')), P(['y'], tr('p.sort')), P(['lt', 'rt'], tr('p.filter'))] : [
       ...(g ? [P(['a'], tr(g.installed ? 'p.play' : 'p.install')), P(['x'], tr('p.details')), P(['menu'], tr('p.options'))] : []),
       P(['y'], tr('p.sort')), P(['lt', 'rt'], tr('p.filter'))];
     $('#prompts').innerHTML = `<div class="set">${left.join('')}</div><div class="set">${P(['lb', 'rb'], tr('p.sections'))}${P(['guide'], tr('p.home'))}</div>`;
@@ -379,9 +413,18 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   function move(dir) {
     if (sheetOpen) { const n = best($$('#sheet [data-f]'), focused, dir); n ? focus(n) : feedback('edge'); return; }
     if (section !== 'library' || !focused) { feedback('edge'); return; }
+    if (focused.hasAttribute('data-disks')) {
+      if (dir !== 'down') { feedback('edge'); return; }
+      const back = lastInGrid && document.contains(lastInGrid) ? lastInGrid : $('#grid [data-f]');
+      back ? focus(back) : feedback('edge');
+      return;
+    }
     const n = best($$('#grid [data-f]'), focused, dir, true);
-    n ? focus(n) : feedback('edge');
+    if (n) focus(n);
+    else if (dir === 'up') { lastInGrid = focused; focus($('#disks')); }   // from the first row
+    else feedback('edge');
   }
+  let lastInGrid = null;
   // Right stick: about three rows at a time
   function scroll(step) {
     if (sheetOpen || section !== 'library' || !focused) { feedback('edge'); return; }
@@ -425,6 +468,14 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
         else { g.fav = !g.fav; closeSheet(); toast(tr(g.fav ? 'toast.fav' : 'toast.unfav')); renderHead(); renderGrid(g.id); }
       });
   }
+  function disksSheet() {
+    openSheet(`<span class="disp t-l">${tr('disks.title')}</span><div class="disk-list">${disks().map(d => `<div class="disk-row">
+        <div class="name t-m"><span>${tr('disk.' + d.key)}</span><span class="muted t-s">${tr('disk.of', { free: gb(d.free), total: gb(d.total) })}</span></div>
+        <span class="bar"><i style="width:${Math.round(100 - d.free / d.total * 100)}%"></i></span>
+        ${(d.notes || []).map(n => `<span class="note t-xs">${tr(n)}</span>`).join('')}</div>`).join('')}</div>
+      <div class="list t-m"><button class="item primary" data-f>${tr('p.close')}</button></div>`,
+      [P(['a'], tr('p.close')), P(['b'], tr('p.back'))], () => closeSheet());
+  }
   function sortSheet() {
     openSheet(`<span class="disp t-l">${tr('sort.title')}</span><div class="list t-m">${SORTS.map(s =>
       `<button class="item${s === sort ? ' primary' : ''}" data-f data-sort="${s}">${tr('sort.' + s)}</button>`).join('')}</div>`,
@@ -444,7 +495,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   function accept() {
     if (sheetOpen) { feedback('confirm'); sheetAccept && sheetAccept(focused); return; }
     if (section !== 'library' || !focused) return;
-    feedback('confirm'); start(game(focused.dataset.game));
+    feedback('confirm');
+    if (focused.hasAttribute('data-disks')) disksSheet(); else start(game(focused.dataset.game));
   }
   function cycleFilter(step) {
     if (sheetOpen || section !== 'library') { feedback('edge'); return; }
@@ -461,15 +513,16 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   const press = {
     a: accept,
     b: () => { if (sheetOpen) closeSheet(); else feedback('back'); },
-    x: () => { if (!sheetOpen && focused && section === 'library') { feedback('confirm'); detailsSheet(game(focused.dataset.game)); } else feedback('edge'); },
+    x: () => { if (!sheetOpen && focused && focused.dataset.game && section === 'library') { feedback('confirm'); detailsSheet(game(focused.dataset.game)); } else feedback('edge'); },
     y: () => { if (!sheetOpen && section === 'library') sortSheet(); else feedback('edge'); },
-    menu: () => { if (!sheetOpen && focused && section === 'library') optionsSheet(game(focused.dataset.game)); else feedback('edge'); },
+    menu: () => { if (!sheetOpen && focused && focused.dataset.game && section === 'library') optionsSheet(game(focused.dataset.game)); else feedback('edge'); },
     lb: () => sheetOpen ? feedback('edge') : goSection(['home', 'library', 'settings'][(['home', 'library', 'settings'].indexOf(section) + 2) % 3]),
     rb: () => sheetOpen ? feedback('edge') : goSection(['home', 'library', 'settings'][(['home', 'library', 'settings'].indexOf(section) + 1) % 3]),
     lt: () => cycleFilter(-1), rt: () => cycleFilter(1),
     'rs-up': () => scroll(-1), 'rs-down': () => scroll(1),
   };
   const DEMO = {
+    d: () => { diskCount = { 1: 2, 2: 4, 4: 1 }[diskCount]; renderHead(); toast(diskCount + ' disk' + (diskCount > 1 ? 's' : '')); },
     p: () => { setPalette(palIndex + 1); toast(PALETTES[palIndex][0]); },
     t: () => { const sizes = [0.9, 1, 1.2, 1.4]; const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts')) || 1;
                const next = sizes[(sizes.indexOf(cur) + 1) % sizes.length]; document.documentElement.style.setProperty('--ts', next); toast('Text ' + next); },
@@ -527,6 +580,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
   if (FILTERS.includes(q.get('filter'))) filter = q.get('filter');
   if (SORTS.includes(q.get('sort'))) sort = q.get('sort');
+  if (['1', '2', '4'].includes(q.get('disks'))) diskCount = +q.get('disks');
   renderAll();
   if (q.get('keys')) q.get('keys').split(',').forEach((k, i) => setTimeout(() =>
     ['left', 'right', 'up', 'down'].includes(k) ? move(k) : press[k] && press[k](), 300 * (i + 1)));
