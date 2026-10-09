@@ -1,0 +1,534 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS — interactive demo for roadmap step 3.7 (library). Open in a browser; drive it with a
+     gamepad or the keyboard. Fonts come from Google Fonts for the demo only (the console bundles
+     them); sounds come from sounds.js (frontend/sounds/). Game names, covers and disks are
+     invented: real covers come from local files, disks from the system (phase 6). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS — Library (demo 3.7)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1; --motion: 1; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+.frame { position: relative; flex: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+
+/* ---------- 1280 × 720 grid, 5% horizontal safe area ---------- */
+.stage {
+  width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px;
+  display: grid; grid-template-rows: auto 1fr auto; gap: 20px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350;
+}
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); } .t-xl { font-size: calc(40px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+
+/* ---------- Focus ring ---------- */
+[data-f] { outline: none; position: relative; transition: transform calc(.16s * var(--motion)) ease, box-shadow calc(.16s * var(--motion)) ease; }
+[data-f].focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); transform: scale(calc(1 + .035 * var(--motion))); z-index: 2; }
+
+/* ---------- Top bar ---------- */
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 36px; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.status { display: flex; align-items: center; gap: 20px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status svg { width: calc(19px * var(--ts)); height: calc(19px * var(--ts)); }
+.status .clock { color: var(--fg); font-weight: 500; }
+
+/* ---------- Library ---------- */
+.page { min-height: 0; display: none; }
+.page.on { display: grid; }
+.lib { grid-template-rows: auto auto minmax(0, 1fr); gap: 16px; }
+.lib-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
+.lib-title { display: flex; align-items: baseline; gap: 14px; }
+.disks { display: flex; gap: 22px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.disk { display: grid; gap: 5px; min-width: 150px; }
+.disk .bar { height: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.disk .bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.filters { display: flex; align-items: center; gap: 8px; }
+.chip { padding: 6px 15px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 500; }
+.filters .sortnote { margin-left: auto; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
+.grid-wrap { min-height: 0; overflow-y: auto; scrollbar-width: none; padding: 10px; margin: -10px; }
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 16px 14px; align-content: start; }
+.cover {
+  position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 4 / 5; color: #fff;
+  display: flex; flex-direction: column; justify-content: flex-end; padding: 10px;
+  background:
+    radial-gradient(120% 80% at 80% 10%, hsl(var(--h) 85% 62% / .95), transparent 60%),
+    radial-gradient(90% 70% at 0% 100%, hsl(calc(var(--h) + 40) 70% 35%), transparent 70%),
+    linear-gradient(160deg, hsl(var(--h) 45% 26%), hsl(calc(var(--h) + 25) 50% 12%));
+}
+.cover .ttl { font-family: var(--display); font-weight: 750; font-variation-settings: "wdth" 80; line-height: 1.05; text-shadow: 0 2px 10px rgba(0,0,0,.4); }
+.cover .src { position: absolute; top: 8px; left: 8px; padding: 2px 9px; border-radius: 999px; background: rgba(0,0,0,.45); }
+.cover .fav { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,.45); display: grid; place-items: center; }
+.cover.not-installed { filter: saturate(.3) brightness(.72); }
+.cover.not-installed.focus { filter: saturate(.55) brightness(.9); }
+.cover .dl { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; background: rgba(0,0,0,.6); display: grid; place-items: center; }
+.cover svg { width: 15px; height: 15px; }
+.empty { display: grid; place-items: center; align-content: center; gap: 8px; text-align: center; color: var(--muted); height: 100%; }
+.later { place-items: center; text-align: center; color: var(--muted); align-content: center; gap: 10px; }
+
+/* ---------- Prompt bar and glyphs ---------- */
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 24px; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+
+/* ---------- Windows ---------- */
+.overlay { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 85%, transparent); display: none; z-index: 10; }
+.overlay.open { display: block; }
+.sheet { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -58%); width: max-content; min-width: 520px; max-width: 1000px;
+         text-align: center; justify-items: center; background: var(--bg); border: 1px solid var(--line); border-radius: 18px;
+         padding: 20px 24px 24px; display: grid; gap: 14px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.7); }
+.sheet .list { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 20px; margin-top: 6px; }
+.sheet .item { padding: 11px 26px; border-radius: 999px; font-weight: 500; background: var(--raised); color: var(--fg); }
+.sheet .item.primary { background: var(--accent); color: var(--on-accent); }
+.sheet .facts { display: grid; grid-template-columns: auto auto; gap: 6px 18px; text-align: left; }
+.sheet .facts span:nth-child(odd) { color: var(--muted); }
+.sheet-prompts { position: absolute; left: 64px; right: 64px; bottom: 28px; }
+.has-sheet > .prompts { visibility: hidden; }
+.toast { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); padding: 9px 18px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; white-space: nowrap; }
+.toast.show { opacity: 1; }
+
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <header class="top">
+    <div class="top-left">
+      <span class="mark">Owneet<i>OS</i></span>
+      <nav class="tabs t-s">
+        <span data-glyph="lb"></span>
+        <span class="tab" data-tab="home" data-i18n="tab.home">Home</span>
+        <span class="tab" data-tab="library" aria-current="page" data-i18n="tab.library">Library</span>
+        <span class="tab" data-tab="settings" data-i18n="tab.settings">Settings</span>
+        <span data-glyph="rb"></span>
+      </nav>
+    </div>
+    <div class="status t-s">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z"/></svg>
+      <span class="clock" id="clock">21:40</span>
+    </div>
+  </header>
+
+  <main style="min-height:0; display:grid">
+    <section class="page lib on" id="page-library">
+      <div class="lib-head">
+        <div class="lib-title"><span class="disp t-xl" data-i18n="tab.library">Library</span><span class="muted t-m" id="count"></span></div>
+        <div class="disks t-xs" id="disks"></div>
+      </div>
+      <div class="filters t-s" id="filters"></div>
+      <div class="grid-wrap" id="grid-wrap"><div class="grid t-s" id="grid" data-group="grid"></div></div>
+    </section>
+    <section class="page later" id="page-home"><span class="disp t-l" data-i18n="tab.home">Home</span><span class="t-m" data-i18n="later.home">The home screen was approved in demo 3.6.</span></section>
+    <section class="page later" id="page-settings"><span class="disp t-l" data-i18n="tab.settings">Settings</span><span class="t-m" data-i18n="later.settings">Settings have their own demo (step 3.9).</span></section>
+  </main>
+
+  <footer class="prompts t-s" id="prompts"></footer>
+  <div class="toast t-s" id="toast"></div>
+  <div class="overlay" id="overlay">
+    <div class="sheet" id="sheet"></div>
+    <div class="prompts t-s sheet-prompts" id="sheet-prompts"></div>
+  </div>
+</div></div>
+<p class="help"><b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A play, B back, X details, Y sort, Menu options, LT/RT filters, LB/RB sections.
+<b>Keyboard:</b> arrows, Page Up/Down = right stick, Enter = A, Esc = B, X, Y, M = Menu, Z/C = LT/RT, Q/E = LB/RB.<br>
+<b>Demo only:</b> P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>; browsers allow sound only after a key or a click on the page). Address: <code>#filter=steam&amp;sort=name&amp;pal=ember&amp;ts=1.2&amp;lang=it&amp;keys=down,down,y</code></p>
+
+<script src="sounds.js"></script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 70) / 720);
+    stage.style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+
+  /* ---------- Palettes ---------- */
+  const PALETTES = [
+    ['dusk', '#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+    ['tide', '#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+    ['bloom', '#1A1020', '#25182D', '#33223D', '#45304F', '#F7EEF6', '#AE93AE', '#FF7AA8', '#2A0614'],
+    ['ember', '#1C0F0C', '#2A1713', '#3A201A', '#4E2C24', '#FBEDE9', '#C49C93', '#FF6B47', '#2A0A03'],
+    ['espresso', '#1A1310', '#261C17', '#33261F', '#47362C', '#F5ECE4', '#BBA693', '#D9A066', '#2A1707'],
+    ['harbor', '#0D1B2E', '#14263D', '#1D3350', '#2A4566', '#F3EAD8', '#B7AE99', '#E8D3A8', '#142033'],
+    ['forest', '#0E1A14', '#15261D', '#1E3428', '#2B4636', '#ECF5EE', '#95B2A0', '#7BD88F', '#072012'],
+    ['lagoon', '#0A1426', '#101E38', '#182A4B', '#23395F', '#EAF1FF', '#90A4C9', '#4DA3FF', '#03162E'],
+    ['amethyst', '#15121F', '#1F1A2E', '#2A2340', '#3A3155', '#F1EDFA', '#A99FC4', '#B69CFF', '#1B0E3A'],
+    ['crimson', '#170A0E', '#241018', '#321722', '#47202F', '#FCECEF', '#C597A1', '#FF4D6D', '#2B0510'],
+    ['synthwave', '#140B24', '#1F1236', '#2B1A4A', '#3D2563', '#FBEFFF', '#B99DD8', '#FF4FD8', '#2B0326'],
+    ['amber', '#0F0B05', '#1A1409', '#251C0D', '#3A2C14', '#FFE8C2', '#C9AA78', '#FFB000', '#241700'],
+    ['olive', '#14160E', '#1E2116', '#292D1F', '#3A402B', '#F1F3E6', '#ABB092', '#C5D86D', '#1C2306'],
+    ['graphite', '#121212', '#1C1C1C', '#262626', '#383838', '#F2F2F2', '#A6A6A6', '#DADADA', '#121212'],
+    ['daylight', '#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+    ['arctic', '#EEF5FA', '#FFFFFF', '#DCE9F3', '#C3D5E4', '#0F1E2B', '#4E6577', '#0A78B8', '#FFFFFF'],
+    ['sand', '#F4EEE3', '#FFFBF4', '#E8DFD0', '#D3C6B1', '#2A2117', '#6A5C49', '#B04A28', '#FFFFFF'],
+    ['latte', '#F3ECE4', '#FFFAF5', '#E6DACD', '#D2C1AF', '#2B1E14', '#6B5746', '#8B5A2B', '#FFFFFF'],
+    ['sakura', '#FBEFF3', '#FFFFFF', '#F3DDE5', '#E3C3CF', '#2A1420', '#76505F', '#C92A62', '#FFFFFF'],
+    ['contrast', '#000000', '#000000', '#161616', '#FFFFFF', '#FFFFFF', '#E0E0E0', '#FFE14D', '#000000'],
+    ['contrast-light', '#FFFFFF', '#FFFFFF', '#EDEDED', '#000000', '#000000', '#262626', '#0038B8', '#FFFFFF'],
+  ];
+  const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
+  let palIndex = 0;
+  function setPalette(i) {
+    palIndex = (i + PALETTES.length) % PALETTES.length;
+    TOKENS.forEach((t, k) => stage.style.setProperty('--' + t, PALETTES[palIndex][1 + k]));
+  }
+
+  /* ---------- i18n ---------- */
+  const EN = {
+    'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings',
+    'later.home': 'The home screen was approved in demo 3.6.', 'later.settings': 'Settings have their own demo (step 3.9).',
+    'count': '{n} games', 'count.one': '1 game',
+    'f.all': 'All', 'f.installed': 'Installed', 'f.favorites': 'Favorites', 'f.steam': 'Steam', 'f.local': 'Local',
+    'sort.recent': 'Recently played', 'sort.name': 'Name', 'sort.time': 'Most played', 'sort.title': 'Sort by',
+    'disk.internal': 'Internal disk', 'disk.usb': 'USB disk', 'disk.free': '{n} free',
+    'src.local': 'Local', 'not-installed': 'Not installed',
+    'empty.favorites': 'No favorites yet', 'empty.favorites.hint': 'Press Menu on a game and choose “Add to favorites”.',
+    'empty.filter': 'No games here',
+    'played.never': 'Not played yet', 'played.today': 'Played today', 'played.yesterday': 'Played yesterday', 'played.days': 'Played {n} days ago',
+    'time.total': '{h} h {m} min in total', 'time.min': '{m} min in total',
+    'det.source': 'Source', 'det.last': 'Last played', 'det.time': 'Play time', 'det.disk': 'Installed on', 'det.size': 'Size',
+    'p.play': 'Play', 'p.install': 'Install', 'p.details': 'Details', 'p.options': 'Options', 'p.sort': 'Sort', 'p.filter': 'Filter',
+    'p.sections': 'Sections', 'p.home': 'Home', 'p.select': 'Select', 'p.back': 'Back',
+    'opt.play': 'Play', 'opt.install': 'Install', 'opt.details': 'Details', 'opt.fav': 'Add to favorites', 'opt.unfav': 'Remove from favorites',
+    'toast.launch': 'Starting {title}…', 'toast.install': 'Opening Steam to install {title}…', 'toast.fav': 'Added to favorites', 'toast.unfav': 'Removed from favorites',
+  };
+  const IT = {
+    'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni',
+    'later.home': 'La schermata Home è stata approvata nella demo 3.6.', 'later.settings': 'Le impostazioni hanno la loro demo (step 3.9).',
+    'count': '{n} giochi', 'count.one': '1 gioco',
+    'f.all': 'Tutti', 'f.installed': 'Installati', 'f.favorites': 'Preferiti', 'f.steam': 'Steam', 'f.local': 'Locali',
+    'sort.recent': 'Giocati di recente', 'sort.name': 'Nome', 'sort.time': 'Più giocati', 'sort.title': 'Ordina per',
+    'disk.internal': 'Disco interno', 'disk.usb': 'Disco USB', 'disk.free': '{n} liberi',
+    'src.local': 'Locale', 'not-installed': 'Non installato',
+    'empty.favorites': 'Ancora nessun preferito', 'empty.favorites.hint': 'Premi Menu su un gioco e scegli “Aggiungi ai preferiti”.',
+    'empty.filter': 'Nessun gioco qui',
+    'played.never': 'Mai giocato', 'played.today': 'Giocato oggi', 'played.yesterday': 'Giocato ieri', 'played.days': 'Giocato {n} giorni fa',
+    'time.total': '{h} h {m} min in totale', 'time.min': '{m} min in totale',
+    'det.source': 'Origine', 'det.last': 'Ultima partita', 'det.time': 'Tempo di gioco', 'det.disk': 'Installato su', 'det.size': 'Dimensione',
+    'p.play': 'Gioca', 'p.install': 'Installa', 'p.details': 'Dettagli', 'p.options': 'Opzioni', 'p.sort': 'Ordina', 'p.filter': 'Filtro',
+    'p.sections': 'Sezioni', 'p.home': 'Home', 'p.select': 'Seleziona', 'p.back': 'Indietro',
+    'opt.play': 'Gioca', 'opt.install': 'Installa', 'opt.details': 'Dettagli', 'opt.fav': 'Aggiungi ai preferiti', 'opt.unfav': 'Togli dai preferiti',
+    'toast.launch': 'Avvio di {title}…', 'toast.install': 'Apertura di Steam per installare {title}…', 'toast.fav': 'Aggiunto ai preferiti', 'toast.unfav': 'Tolto dai preferiti',
+  };
+  let lang = 'en';
+  const tr = (k, args = {}) => ((lang === 'it' ? IT[k] : null) || EN[k] || k).replace(/\{(\w+)\}/g, (_, a) => args[a] ?? '');
+
+  /* ---------- Glyphs ---------- */
+  let glyphSetting = 'auto', padKind = 'xbox';
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const home = circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`);
+  const GLYPHS = {
+    xbox: { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lb: pill('LB', 34), rb: pill('RB', 34), lt: pill('LT', 32), rt: pill('RT', 32),
+            menu: circle(`<path d="M8.5 10h9M8.5 13h9M8.5 16h9" ${S}/>`), guide: home },
+    ps: { a: circle(`<path d="M9.2 9.2l7.6 7.6M16.8 9.2l-7.6 7.6" ${S}/>`), b: circle(`<circle cx="13" cy="13" r="4.6" ${S}/>`),
+          x: circle(`<rect x="8.8" y="8.8" width="8.4" height="8.4" rx="1" ${S}/>`), y: circle(`<path d="M13 8.4l4.8 8.2H8.2z" ${S}/>`),
+          lb: pill('L1', 30), rb: pill('R1', 30), lt: pill('L2', 30), rt: pill('R2', 30), menu: pill('OPTIONS', 62), guide: home },
+    nintendo: { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lb: pill('L', 28), rb: pill('R', 28), lt: pill('ZL', 32), rt: pill('ZR', 32),
+                menu: circle(`<path d="M13 8.5v9M8.5 13h9" ${S}/>`), guide: home },
+  };
+  const glyphHTML = b => GLYPHS[glyphSetting === 'auto' ? padKind : glyphSetting][b];
+  const P = (btns, label) => `<span class="prompt">${btns.map(glyphHTML).join('')}<span>${label}</span></span>`;
+  const DL = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
+  const HEART = '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg>';
+
+  /* ---------- Sounds (Web Audio, one per press) ---------- */
+  let soundOn = true, ctx = null;
+  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', back: 'nav-confirm', section: 'nav-section',
+    tab: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', launch: 'game-launch' };
+  const buffers = {};
+  function startAudio() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    if (!window.OWNEET_SOUNDS) return;
+    ctx = new AudioContext();
+    for (const [kind, file] of Object.entries(SOUNDS)) {
+      const url = window.OWNEET_SOUNDS[file];
+      if (!url) continue;
+      const bytes = Uint8Array.from(atob(url.split(',')[1]), c => c.charCodeAt(0));
+      ctx.decodeAudioData(bytes.buffer).then(b => { buffers[kind] = b; });
+    }
+  }
+  addEventListener('keydown', startAudio, true);
+  addEventListener('pointerdown', startAudio, true);
+  function play(kind) {
+    if (!soundOn || !ctx || !buffers[kind]) return;
+    const src = ctx.createBufferSource(); src.buffer = buffers[kind]; src.connect(ctx.destination); src.start();
+  }
+  let pendingConfirm = false;
+  function feedback(kind) {
+    if (kind === 'confirm') { pendingConfirm = true; queueMicrotask(() => { if (pendingConfirm) { pendingConfirm = false; play('confirm'); } }); return; }
+    pendingConfirm = false; play(kind);
+  }
+
+  /* ---------- Data (invented) ---------- */
+  const N = ['Nebula Drift', 'Moss Garden', 'SuperTuxKart', 'Ember Run', 'Harbor Lights', '0 A.D.', 'Velvet Road', 'Copper Coast',
+    'Lantern Keep', 'Quiet Orbit', 'Saltwind', 'Pixel Quest', 'Starfall', 'Tiny Tactics', 'Glass Canyon', 'Paper Comets',
+    'Northbound', 'Rust & Rain', 'Hollow Pines', 'Signal Lost', 'Bright Harbour', 'Clockwork Bay', 'Lumen', 'Oak & Iron',
+    'Sky Ferry', 'Tidebreak', 'Wildflower', 'Zephyr Run', 'Night Market', 'Coral Line'];
+  const GAMES = N.map((title, i) => {
+    let h = 2166136261; for (const ch of title) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+    const local = ['SuperTuxKart', '0 A.D.', 'Pixel Quest', 'Lumen', 'Wildflower', 'Glass Canyon', 'Night Market'].includes(title);
+    const installed = local || i % 5 !== 4;
+    const played = installed && i % 3 !== 2;
+    return { id: 'g' + i, title, h: h % 360, src: local ? 'local' : 'Steam', installed, fav: i % 7 === 0,
+             last: played ? (i % 11) : -1, total: played ? (i * 97) % 2400 : 0, disk: local && i % 2 ? 'usb' : 'internal', size: 2 + (i * 7) % 60 };
+  });
+  const FILTERS = ['all', 'installed', 'favorites', 'steam', 'local'];
+  const SORTS = ['recent', 'name', 'time'];
+  let filter = 'all', sort = 'recent', section = 'library';
+
+  const srcName = g => g.src === 'local' ? tr('src.local') : g.src;
+  const lastPlayed = g => g.last < 0 ? tr('played.never') : g.last === 0 ? tr('played.today') : g.last === 1 ? tr('played.yesterday') : tr('played.days', { n: g.last });
+  const totalTime = g => g.total < 60 ? tr('time.min', { m: g.total }) : tr('time.total', { h: Math.floor(g.total / 60), m: g.total % 60 });
+  const matches = (g, f) => f === 'all' || (f === 'installed' && g.installed) || (f === 'favorites' && g.fav) || (f === 'steam' && g.src === 'Steam') || (f === 'local' && g.src === 'local');
+  function shown() {
+    const list = GAMES.filter(g => matches(g, filter));
+    const byName = (a, b) => a.title.localeCompare(b.title);
+    if (sort === 'name') list.sort(byName);
+    else if (sort === 'time') list.sort((a, b) => b.total - a.total || byName(a, b));
+    else list.sort((a, b) => (a.last < 0) - (b.last < 0) || a.last - b.last || byName(a, b));
+    return list;
+  }
+
+  /* ---------- Rendering ---------- */
+  function renderHead() {
+    const list = shown();
+    $('#count').textContent = list.length === 1 ? tr('count.one') : tr('count', { n: list.length });
+    $('#filters').innerHTML = glyphHTML('lt') + FILTERS.map(f => `<span class="chip" aria-pressed="${f === filter}">${tr('f.' + f)} ${GAMES.filter(g => matches(g, f)).length}</span>`).join('') + glyphHTML('rt') +
+      `<span class="sortnote">${glyphHTML('y')}<span>${tr('sort.' + sort)}</span></span>`;
+    $('#disks').innerHTML = [['internal', '212 GB', 58], ['usb', '1.1 TB', 31]].map(([d, free, used]) =>
+      `<div class="disk"><span>${tr('disk.' + d)} · ${tr('disk.free', { n: free })}</span><span class="bar"><i style="width:${used}%"></i></span></div>`).join('');
+  }
+  function renderGrid(keepId) {
+    const list = shown();
+    $('#grid').innerHTML = list.length ? list.map(g => `<button class="cover${g.installed ? '' : ' not-installed'}" data-f data-game="${g.id}" style="--h:${g.h}">
+        <span class="src t-xs">${srcName(g)}</span>${!g.installed ? `<span class="dl">${DL}</span>` : g.fav ? `<span class="fav">${HEART}</span>` : ''}
+        <span class="ttl t-m">${g.title}</span></button>`).join('')
+      : `<div class="empty" style="grid-column: 1 / -1; padding-top: 120px"><span class="disp t-l">${tr(filter === 'favorites' ? 'empty.favorites' : 'empty.filter')}</span>${filter === 'favorites' ? `<span class="t-m">${tr('empty.favorites.hint')}</span>` : ''}</div>`;
+    const keep = keepId && $(`#grid [data-game="${keepId}"]`);
+    focus(keep || $('#grid [data-f]'), true);
+    if (!keep) $('#grid-wrap').scrollTop = 0;
+  }
+  function renderAll() {
+    $$('[data-i18n]').forEach(el => { el.textContent = tr(el.dataset.i18n); });
+    $$('[data-glyph]').forEach(el => { el.innerHTML = glyphHTML(el.dataset.glyph); });
+    renderHead(); renderGrid(focused && focused.dataset.game); renderPrompts();
+  }
+  const game = id => GAMES.find(g => g.id === id);
+  function renderPrompts() {
+    const g = focused && game(focused.dataset.game);
+    const left = section !== 'library' ? [] : [
+      ...(g ? [P(['a'], tr(g.installed ? 'p.play' : 'p.install')), P(['x'], tr('p.details')), P(['menu'], tr('p.options'))] : []),
+      P(['y'], tr('p.sort')), P(['lt', 'rt'], tr('p.filter'))];
+    $('#prompts').innerHTML = `<div class="set">${left.join('')}</div><div class="set">${P(['lb', 'rb'], tr('p.sections'))}${P(['guide'], tr('p.home'))}</div>`;
+  }
+
+  /* ---------- Focus and navigation (one group: the grid; rows and columns) ---------- */
+  let focused = null;
+  function focus(el, silent) {
+    if (focused) focused.classList.remove('focus');
+    focused = el || null;
+    if (!el) { renderPrompts(); return; }
+    el.classList.add('focus');
+    // the grid scrolls to follow the selection (at once with "Reduce motion")
+    el.scrollIntoView({ block: 'nearest', behavior: getComputedStyle(document.documentElement).getPropertyValue('--motion').trim() === '0' ? 'auto' : 'smooth' });
+    if (!silent) feedback('move');
+    if (!sheetOpen) renderPrompts();
+  }
+  const overlap = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+  function best(items, from, dir, aligned) {
+    const a = from.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    let pick = null, score = Infinity;
+    for (const el of items) {
+      if (el === from) continue;
+      const b = el.getBoundingClientRect(), dx = b.left + b.width / 2 - ax, dy = b.top + b.height / 2 - ay;
+      if (!(dir === 'left' ? dx < -4 : dir === 'right' ? dx > 4 : dir === 'up' ? dy < -4 : dy > 4)) continue;
+      const horiz = dir === 'left' || dir === 'right';
+      if (aligned && (horiz ? overlap(a.top, a.bottom, b.top, b.bottom) : overlap(a.left, a.right, b.left, b.right)) < 4) continue;
+      const s = horiz ? Math.abs(dx) + 2.5 * Math.abs(dy) : Math.abs(dy) + 2.5 * Math.abs(dx);
+      if (s < score) { score = s; pick = el; }
+    }
+    return pick;
+  }
+  function move(dir) {
+    if (sheetOpen) { const n = best($$('#sheet [data-f]'), focused, dir); n ? focus(n) : feedback('edge'); return; }
+    if (section !== 'library' || !focused) { feedback('edge'); return; }
+    const n = best($$('#grid [data-f]'), focused, dir, true);
+    n ? focus(n) : feedback('edge');
+  }
+  // Right stick: about three rows at a time
+  function scroll(step) {
+    if (sheetOpen || section !== 'library' || !focused) { feedback('edge'); return; }
+    const items = $$('#grid [data-f]'), i = items.indexOf(focused);
+    const target = Math.max(0, Math.min(items.length - 1, i + step * 7 * 3));
+    target === i ? feedback('edge') : focus(items[target]);
+  }
+
+  /* ---------- Windows ---------- */
+  let sheetOpen = false, sheetReturn = null, sheetAccept = null;
+  function openSheet(html, prompts, onAccept, defaultSel) {
+    sheetReturn = focused; sheetOpen = true; sheetAccept = onAccept;
+    $('#sheet').innerHTML = html;
+    $('#sheet-prompts').innerHTML = `<div class="set">${prompts.join('')}</div><div class="set">${P(['guide'], tr('p.home'))}</div>`;
+    $('#overlay').classList.add('open'); stage.classList.add('has-sheet');
+    feedback('sheet-open');
+    focus((defaultSel && $(defaultSel)) || $('#sheet [data-default]') || $('#sheet [data-f]'), true);
+  }
+  function closeSheet(sound = true) {
+    if (!sheetOpen) return;
+    sheetOpen = false; $('#overlay').classList.remove('open'); stage.classList.remove('has-sheet');
+    if (sound) feedback('sheet-close');
+    focus(sheetReturn && document.contains(sheetReturn) ? sheetReturn : $('#grid [data-f]'), true);
+  }
+  function detailsSheet(g) {
+    const facts = [['det.source', srcName(g)], ['det.last', lastPlayed(g)], ['det.time', g.last < 0 ? '—' : totalTime(g)],
+      ...(g.installed ? [['det.disk', tr('disk.' + g.disk)], ['det.size', g.size + ' GB']] : [['det.disk', tr('not-installed')]])];
+    openSheet(`<span class="disp t-l">${g.title}</span><div class="facts t-s">${facts.map(([k, v]) => `<span>${tr(k)}</span><span>${v}</span>`).join('')}</div>
+      <div class="list t-m"><button class="item primary" data-f>${tr(g.installed ? 'opt.play' : 'opt.install')}</button></div>`,
+      [P(['a'], tr(g.installed ? 'p.play' : 'p.install')), P(['b'], tr('p.back'))], () => { closeSheet(false); start(g); });
+  }
+  function optionsSheet(g) {
+    openSheet(`<span class="disp t-l">${g.title}</span><div class="list t-m">
+      <button class="item primary" data-f data-sheet="play">${tr(g.installed ? 'opt.play' : 'opt.install')}</button>
+      <button class="item" data-f data-sheet="details">${tr('opt.details')}</button>
+      <button class="item" data-f data-sheet="fav">${tr(g.fav ? 'opt.unfav' : 'opt.fav')}</button></div>`,
+      [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
+        const what = el.dataset.sheet;
+        if (what === 'play') { closeSheet(false); start(g); }
+        else if (what === 'details') { closeSheet(false); detailsSheet(g); }
+        else { g.fav = !g.fav; closeSheet(); toast(tr(g.fav ? 'toast.fav' : 'toast.unfav')); renderHead(); renderGrid(g.id); }
+      });
+  }
+  function sortSheet() {
+    openSheet(`<span class="disp t-l">${tr('sort.title')}</span><div class="list t-m">${SORTS.map(s =>
+      `<button class="item${s === sort ? ' primary' : ''}" data-f data-sort="${s}">${tr('sort.' + s)}</button>`).join('')}</div>`,
+      [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
+        sort = el.dataset.sort; const keep = sheetReturn && sheetReturn.dataset.game;
+        closeSheet(); renderHead(); renderGrid(keep);
+      }, `#sheet [data-sort="${sort}"]`);
+  }
+
+  /* ---------- Actions ---------- */
+  let toastTimer;
+  function toast(text) { const t = $('#toast'); t.textContent = text; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1600); }
+  function start(g) {
+    if (g.installed) { feedback('launch'); toast(tr('toast.launch', { title: g.title })); g.last = 0; }
+    else toast(tr('toast.install', { title: g.title }));
+  }
+  function accept() {
+    if (sheetOpen) { feedback('confirm'); sheetAccept && sheetAccept(focused); return; }
+    if (section !== 'library' || !focused) return;
+    feedback('confirm'); start(game(focused.dataset.game));
+  }
+  function cycleFilter(step) {
+    if (sheetOpen || section !== 'library') { feedback('edge'); return; }
+    filter = FILTERS[(FILTERS.indexOf(filter) + step + FILTERS.length) % FILTERS.length];
+    feedback('tab'); renderHead(); renderGrid(focused && focused.dataset.game);
+  }
+  function goSection(name) {
+    section = name;
+    $$('[data-tab]').forEach(t => t.dataset.tab === name ? t.setAttribute('aria-current', 'page') : t.removeAttribute('aria-current'));
+    $$('.page').forEach(p => p.classList.toggle('on', p.id === 'page-' + name));
+    feedback('section');
+    if (name === 'library') focus($('#grid [data-f]'), true); else focus(null);
+  }
+  const press = {
+    a: accept,
+    b: () => { if (sheetOpen) closeSheet(); else feedback('back'); },
+    x: () => { if (!sheetOpen && focused && section === 'library') { feedback('confirm'); detailsSheet(game(focused.dataset.game)); } else feedback('edge'); },
+    y: () => { if (!sheetOpen && section === 'library') sortSheet(); else feedback('edge'); },
+    menu: () => { if (!sheetOpen && focused && section === 'library') optionsSheet(game(focused.dataset.game)); else feedback('edge'); },
+    lb: () => sheetOpen ? feedback('edge') : goSection(['home', 'library', 'settings'][(['home', 'library', 'settings'].indexOf(section) + 2) % 3]),
+    rb: () => sheetOpen ? feedback('edge') : goSection(['home', 'library', 'settings'][(['home', 'library', 'settings'].indexOf(section) + 1) % 3]),
+    lt: () => cycleFilter(-1), rt: () => cycleFilter(1),
+    'rs-up': () => scroll(-1), 'rs-down': () => scroll(1),
+  };
+  const DEMO = {
+    p: () => { setPalette(palIndex + 1); toast(PALETTES[palIndex][0]); },
+    t: () => { const sizes = [0.9, 1, 1.2, 1.4]; const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts')) || 1;
+               const next = sizes[(sizes.indexOf(cur) + 1) % sizes.length]; document.documentElement.style.setProperty('--ts', next); toast('Text ' + next); },
+    g: () => { glyphSetting = { auto: 'xbox', xbox: 'ps', ps: 'nintendo', nintendo: 'auto' }[glyphSetting]; renderAll(); },
+    l: () => { lang = lang === 'en' ? 'it' : 'en'; renderAll(); },
+    n: () => { soundOn = !soundOn; $('#snd-state').textContent = soundOn ? 'on' : 'off'; },
+  };
+  document.addEventListener('keydown', e => {
+    const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    const keys = { Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b', x: 'x', y: 'y', m: 'menu', q: 'lb', e: 'rb', z: 'lt', c: 'rt', PageUp: 'rs-up', PageDown: 'rs-down' };
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (dirs[e.key]) { e.preventDefault(); move(dirs[e.key]); }
+    else if (keys[k]) { e.preventDefault(); if (!e.repeat || k.startsWith('Page')) press[keys[k]](); }
+    else if (DEMO[k]) { e.preventDefault(); DEMO[k](); }
+  });
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-f]');
+    if (el) { focus(el, true); accept(); } else if (sheetOpen && e.target === $('#overlay')) closeSheet();
+  });
+
+  /* ---------- Gamepad ---------- */
+  const prev = {};
+  let repeatAt = 0, lastDir = null, scrollAt = 0;
+  const kindOf = id => /xbox|microsoft|045e/i.test(id) ? 'xbox' : /nintendo|switch|joy-?con|057e/i.test(id) ? 'nintendo'
+    : /054c|sony|dualsense|dualshock|playstation|wireless controller|\bps[345]\b/i.test(id) ? 'ps' : 'xbox';
+  function poll(ts) {
+    const pad = (navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [])[0];
+    if (pad) {
+      const k = kindOf(pad.id);
+      if (k !== padKind) { padKind = k; renderAll(); }
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const edge = i => { const p = on(i), was = prev[i]; prev[i] = p; return p && !was; };
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0, ry = pad.axes[3] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+      if (Math.abs(ry) > 0.5 && ts > scrollAt) { press[ry < 0 ? 'rs-up' : 'rs-down'](); scrollAt = ts + (scrollAt ? 90 : 360); }
+      if (Math.abs(ry) <= 0.5) scrollAt = 0;
+      [['a', 0], ['b', 1], ['x', 2], ['y', 3], ['lb', 4], ['rb', 5], ['lt', 6], ['rt', 7], ['menu', 9]].forEach(([name, i]) => { if (edge(i)) press[name](); });
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+  const tick = () => { $('#clock').textContent = new Date().toTimeString().slice(0, 5); };
+  tick(); setInterval(tick, 10000);
+
+  /* ---------- Start state from the address ---------- */
+  const q = new URLSearchParams(location.hash.slice(1));
+  const pi = PALETTES.findIndex(p => p[0] === q.get('pal'));
+  setPalette(pi >= 0 ? pi : 0);
+  if (q.get('ts')) document.documentElement.style.setProperty('--ts', q.get('ts'));
+  if (q.get('motion') === 'off') document.documentElement.style.setProperty('--motion', 0);
+  if (['xbox', 'ps', 'nintendo'].includes(q.get('glyphs'))) glyphSetting = q.get('glyphs');
+  if (q.get('lang') === 'it') lang = 'it';
+  if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
+  if (FILTERS.includes(q.get('filter'))) filter = q.get('filter');
+  if (SORTS.includes(q.get('sort'))) sort = q.get('sort');
+  renderAll();
+  if (q.get('keys')) q.get('keys').split(',').forEach((k, i) => setTimeout(() =>
+    ['left', 'right', 'up', 'down'].includes(k) ? move(k) : press[k] && press[k](), 300 * (i + 1)));
+})();
+</script>
+</body>
+</html>

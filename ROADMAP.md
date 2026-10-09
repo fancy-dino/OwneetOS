@@ -501,7 +501,7 @@ code is written (PROJECT_RULES.md section 9).
   (switch to Italian, kept after a restart). Limits: no right-to-left; non-Latin scripts need
   extra fonts, added with the first such language.
 
-### [~] 3.5 Navigation and input map (awaiting owner review)
+### [x] 3.5 Navigation and input map
 
 - **Deliverables:** spatial navigation and the global input map (rules section 9.1) implemented once and shared by every screen.
 - **Outcome:** in C++, the gamepad and keyboard map of section 9.1 (LB/RB = sections, LT/RT =
@@ -518,7 +518,7 @@ code is written (PROJECT_RULES.md section 9).
   and a virtual controller, following a step list (`tools/preview-steps/`), and saves
   screenshots: checked there with keyboard, D-pad, right stick and buttons.
 
-### [~] 3.6 Home screen (awaiting owner review)
+### [x] 3.6 Home screen
 
 - **Deliverables:** home as in the approved mockup (continue playing, apps, jump back in, notices).
 - **Demo:** `design/demos/3.6-home.html`. Proposals in it: the hero shows the last game played
@@ -551,9 +551,17 @@ code is written (PROJECT_RULES.md section 9).
   "Open the Steam Store" show "Coming in a later version"); "How to add games" describes disk
   scanning, which arrives in phase 6.
 
-### [ ] 3.7 Library screen
+### [~] 3.7 Library screen (demo awaiting owner review)
 
 - **Deliverables:** unified grid, filters on LT/RT, sort on Y, disks with free space.
+- **Demo:** `design/demos/3.7-library.html`. Proposals in it: a grid of seven covers per row that
+  scrolls with the selection (right stick: three rows at a time); filters All / Installed /
+  Favorites / Steam / Local with their counts, switched only with LT / RT (the chips are not
+  selectable); Y opens "Sort by" (Recently played, Name, Most played) and the current sort is
+  shown beside the filters; games owned but not installed (Steam) are dimmed with a download mark
+  and A reads "Install" (opens Steam: phase 4); favourites have a heart; X details (with the disk
+  and size) and Menu options as on the home screen; disks with their free space in the header
+  (from the system: phase 6); "No favorites yet" explains how to add one.
 
 ### [ ] 3.8 Frontend ↔ daemon bridge
 

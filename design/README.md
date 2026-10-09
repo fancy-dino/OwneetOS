@@ -17,6 +17,8 @@ Mockups and design assets.
     played, sections on LB/RB), with the states "game running" (home opened with Guide over a
     game) and "no games yet", the options and details windows, and the placeholder sounds.
     Demo keys and start state are listed under the frame.
+  - [`3.7-library.html`](demos/3.7-library.html): library (grid, filters on LT/RT, sort on Y, games
+    to install, favourites, disks with free space).
 
 - [`sounds.md`](sounds.md): the interface sounds (list, length, file format), provided by the
   owner (roadmap 3.12).
