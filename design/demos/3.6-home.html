@@ -183,8 +183,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 </div></div>
 <p class="help"><b>Gamepad:</b> D-pad / stick move, A select, B back, X secondary, Menu options, LB/RB sections, LT/RT filters (none here).
 <b>Keyboard:</b> arrows, Enter = A, Esc = B, X, Y, M = Menu, Q/E = LB/RB, Z/C = LT/RT.<br>
-<b>Demo only:</b> S screen (normal · game running · no games yet), P palette, T text size, G button prompts, L language, N sounds on/off (<span id="snd-state">on</span>; the browser plays them after the first key or click). Address: <code>#state=running&amp;pal=ember&amp;ts=1.2&amp;glyphs=ps&amp;lang=it</code></p>
+<b>Demo only:</b> S screen (normal · game running · no games yet), P palette, T text size, G button prompts, L language, N sounds on/off (<span id="snd-state">on</span>; browsers allow sound only after a key or a click on the page, not after gamepad buttons). Address: <code>#state=running&amp;pal=ember&amp;ts=1.2&amp;glyphs=ps&amp;lang=it</code></p>
 
+<script src="sounds.js"></script>
 <script>
 (() => {
   const $ = (s, r = document) => r.querySelector(s);
@@ -301,21 +302,41 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   let soundOn = true;
   const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', back: 'nav-back', section: 'nav-section',
     tab: 'nav-tab', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', launch: 'game-launch', notify: 'notify' };
-  // Each sound has a few players loaded in advance, used in turn: a new copy per press would
-  // load the file again and sometimes stay silent.
-  const POOL = 4, audio = {};
-  for (const [k, f] of Object.entries(SOUNDS)) {
-    audio[k] = { next: 0, players: Array.from({ length: POOL }, () => {
-      const a = new Audio(`../../frontend/sounds/${f}.wav`); a.preload = 'auto'; a.load(); return a; }) };
+  // Web Audio: every sound is decoded once and plays at once, even overlapping (sounds.js holds
+  // them as data URLs, because a page opened from disk cannot fetch audio files). Browsers start
+  // audio only after a key press or a click on the page: gamepad buttons do not count.
+  let ctx = null;
+  const buffers = {};
+  function startAudio() {
+    if (ctx || !window.OWNEET_SOUNDS) { if (ctx && ctx.state === 'suspended') ctx.resume(); return; }
+    ctx = new AudioContext();
+    for (const [kind, file] of Object.entries(SOUNDS)) {
+      const url = window.OWNEET_SOUNDS[file];
+      if (!url) continue;
+      const bytes = Uint8Array.from(atob(url.split(',')[1]), c => c.charCodeAt(0));
+      ctx.decodeAudioData(bytes.buffer).then(b => { buffers[kind] = b; });
+    }
   }
+  addEventListener('keydown', startAudio, true);
+  addEventListener('pointerdown', startAudio, true);
+  function play(kind) {
+    if (!soundOn || !ctx || !buffers[kind]) return;
+    const src = ctx.createBufferSource();
+    src.buffer = buffers[kind];
+    src.connect(ctx.destination);
+    src.start();
+  }
+  // One sound per button press, the most specific one: "confirm" only plays when the action that
+  // follows (opening a window, starting a game…) has no sound of its own.
+  let pendingConfirm = false;
   function feedback(kind) {
-    if (!soundOn || !audio[kind]) return;
-    const s = audio[kind], a = s.players[s.next];
-    s.next = (s.next + 1) % POOL;
-    a.pause();
-    try { a.currentTime = 0; } catch (e) { /* not loaded yet */ }
-    a.volume = 1;
-    a.play().catch(() => {});
+    if (kind === 'confirm') {
+      pendingConfirm = true;
+      queueMicrotask(() => { if (pendingConfirm) { pendingConfirm = false; play('confirm'); } });
+      return;
+    }
+    pendingConfirm = false;
+    play(kind);
   }
 
   /* ---------- Data (invented games; covers generated) ---------- */

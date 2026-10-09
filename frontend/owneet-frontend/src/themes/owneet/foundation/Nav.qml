@@ -8,12 +8,31 @@
 //   Guide never reaches the interface (owned by owneetd).
 //   find(area, from, direction)  spatial navigation: the nearest navigable item that way.
 //   feedback(kind)  what just happened, for the interface sounds (step 3.12): move, edge,
-//     confirm, back, section, tab, toggle-on, toggle-off, sheet-open, sheet-close.
+//     confirm, back, section, tab, toggle-on, toggle-off, sheet-open, sheet-close. The sounds
+//     listen to `played`: one per button press, the most specific one ("confirm" only when the
+//     action that follows, e.g. opening a window, reports nothing of its own).
 pragma Singleton
 import QtQuick 2.15
 
 QtObject {
-    signal feedback(string kind)
+    signal played(string kind)
+
+    property bool confirmPending: false
+    function feedback(kind) {
+        if (kind === "confirm") {
+            confirmPending = true;
+            Qt.callLater(flushConfirm);
+            return;
+        }
+        confirmPending = false;
+        played(kind);
+    }
+    function flushConfirm() {
+        if (confirmPending) {
+            confirmPending = false;
+            played("confirm");
+        }
+    }
 
     function action(event) {
         const k = api.keys;
