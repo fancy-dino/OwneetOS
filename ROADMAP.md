@@ -517,6 +517,12 @@ code is written (PROJECT_RULES.md section 9).
   report "edge"). New `tools/frontend-preview` runs the frontend in the builder VM with test games
   and a virtual controller, following a step list (`tools/preview-steps/`), and saves
   screenshots: checked there with keyboard, D-pad, right stick and buttons.
+- **Fix (2026-10-09, found by the owner on the ISO with an Xbox controller):** LT / RT switched
+  filters without end. Analog triggers send a stream of values and every value above 0 counted as
+  a new press. Now a trigger is pressed above half its travel and released below a quarter, and
+  only changes are reported (owneet-frontend 0.7.2). The preview's virtual controller now pulls
+  triggers like real ones (`tools/preview-steps/triggers.txt`). Hardware check batched with the
+  next test.
 
 ### [x] 3.6 Home screen
 

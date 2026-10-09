@@ -52,6 +52,8 @@ private:
     using device_ptr = std::unique_ptr<SDL_GameController, device_deleter>;
     HashMap<int, const device_ptr> m_idx_to_device;
     HashMap<SDL_JoystickID, const int> m_iid_to_idx;
+    // OwneetOS: which analog triggers count as pressed, per device (bit 0 = L2, bit 1 = R2)
+    HashMap<int, unsigned char> m_triggers_down;
 
     void add_controller_by_idx(int);
     void remove_pad_by_iid(SDL_JoystickID);

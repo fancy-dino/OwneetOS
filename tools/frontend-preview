@@ -79,6 +79,13 @@ def emit(kind, code, value, hold):
     ui.write(kind, code, 0); ui.syn(); time.sleep(0.12)
 
 
+def pull_trigger(code):
+    """Like a real analog trigger: a stream of values in and out, with a tremble half-way."""
+    for v in (20, 60, 100, 130, 125, 135, 128, 180, 230, 255, 250, 255, 200, 140, 120, 135, 90, 40, 0):
+        ui.write(e.EV_ABS, code, v); ui.syn(); time.sleep(0.015)
+    time.sleep(0.12)
+
+
 print("ready", flush=True)
 for line in open(sys.argv[1]):
     words = line.split()
@@ -86,6 +93,8 @@ for line in open(sys.argv[1]):
         for b in words[1:]:
             if b in BUTTONS:
                 emit(e.EV_KEY, BUTTONS[b], 1, 0.08)
+            elif b in ("lt", "rt"):
+                pull_trigger(AXES[b][0])
             else:
                 emit(e.EV_ABS, AXES[b][0], AXES[b][1], 0.08)
     elif words[0] == "stick":

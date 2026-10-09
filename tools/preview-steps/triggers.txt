@@ -1,0 +1,8 @@
+# Analog triggers (LT / RT): one pull, one filter change, even when the trigger trembles.
+pad rb
+pad rt
+shot 01-one-rt-installed
+pad rt
+shot 02-two-rt-favorites
+pad lt lt
+shot 03-back-to-all

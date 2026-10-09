@@ -365,6 +365,7 @@ void GamepadManagerSDL2::stop()
     m_poll_timer.stop();
     m_iid_to_idx.clear();
     m_idx_to_device.clear();
+    m_triggers_down.clear();
 
     SDL_QuitSubSystem(SDL_INIT_GAMECONTROLLER);
     SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
@@ -537,6 +538,7 @@ void GamepadManagerSDL2::remove_pad_by_iid(SDL_JoystickID instance_id)
     const int device_idx = m_iid_to_idx.at(instance_id);
     m_idx_to_device.erase(device_idx);
     m_iid_to_idx.erase(instance_id);
+    m_triggers_down.erase(device_idx);
 
     if (m_recording.device == device_idx)
         cancel_recording();
@@ -556,7 +558,19 @@ void GamepadManagerSDL2::fwd_axis_event(SDL_JoystickID instance_id, Uint8 axis, 
 
     const GamepadButton button = detect_trigger_axis(axis);
     if (button != GamepadButton::INVALID) {
-        emit buttonChanged(device_idx, button, value != 0);
+        // OwneetOS: an analog trigger sends a stream of values while it moves. It counts as pressed
+        // above half of its travel and as released below a quarter (the gap keeps a trigger resting
+        // near a threshold from flickering), and only a change of state is reported: before, every
+        // value above 0 was a new press, so LT / RT switched filters without end.
+        constexpr Sint16 PRESS = 16384, RELEASE = 8192;
+        const unsigned char bit = button == GamepadButton::L2 ? 1 : 2;
+        unsigned char& down = m_triggers_down[device_idx];
+        const bool was = down & bit;
+        const bool now = was ? value > RELEASE : value > PRESS;
+        if (now != was) {
+            down = now ? (down | bit) : (down & ~bit);
+            emit buttonChanged(device_idx, button, now);
+        }
         return;
     }
 
