@@ -192,7 +192,7 @@ same screen. New bindings are added here before they are implemented.
 | X / □                       | Secondary action on the selected item (e.g. Details, Install)                                                            |
 | Y / △                       | Page-level option (e.g. Sort, Search)                                                                                    |
 | LB / RB (L1 / R1)           | Switch top-level section (Home, Library, Settings, …) — **reserved, never used for anything else**                       |
-| LT / RT (L2 / R2)           | Switch filter / sub-tab inside the current page                                                                          |
+| LT / RT (L2 / R2)           | Switch filter inside the current page (e.g. Library: All / Installed / Favorites). There are no sub-tabs: tabs are only the sections on LB / RB |
 | Menu / Options              | Options menu for the selected item                                                                                       |
 | View / Create               | Reserved (screenshot in a later wave)                                                                                    |
 | Guide / PS                  | **Owned by the system daemon**: home / quick menu from anywhere, including in games. Apps and themes must never bind it. Prompt label: "Home". |
@@ -334,4 +334,5 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-08 | English is the default UI language and the fallback for missing labels; Italian is one of the additional languages (section 9). |
 | 2026-10-08 | Step 3.4 approved. Input map implemented once for every screen (step 3.5): keyboard fallback keys, fixed map, repeat timing (section 9.1). |
 | 2026-10-08 | Interface sounds planned (roadmap 3.12, list in `design/sounds.md`): WAV files provided by the owner. |
+| 2026-10-09 | Interface sounds reduced to ten (`design/sounds.md`): one "click" (`nav-confirm`) for A, B, filters, switches, volume and on-screen keyboard; one sound for notices and successes, one for errors and warnings; game launch and Guide over a game share one; `startup` required. LT/RT switch filters only: no sub-tabs inside pages (section 9.1). |
 | 2026-10-09 | The owner's final sounds are delivered before the public launch, after the legal review (roadmap 7.7); until then the interface uses CC0 placeholders by Kenney (`frontend/sounds/`). |

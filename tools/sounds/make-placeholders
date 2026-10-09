@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Generates the placeholder interface sounds (design/sounds.md) until the owner delivers the final
-# ones (roadmap 7.7). Source: three sound packs by Kenney (kenney.nl), Creative Commons CC0 1.0
+# ones (roadmap 7.7). Source: two sound packs by Kenney (kenney.nl), Creative Commons CC0 1.0
 # (public domain), pinned by URL and SHA-256. Each sound is converted to the required format:
 # WAV, PCM 16-bit, 48 kHz, mono, silence at the start removed, peak level normalised (frequent
 # sounds quieter). Runs in the builder VM (needs ffmpeg and network access):
@@ -25,9 +25,6 @@ PACKS = {
     "interface": (f"{BASE}/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip",
                   "f2193d072726d6758a5f7871b2dcc54dcce0d5c35c6f0a62f92549b327c81232",
                   "Interface Sounds (1.0)"),
-    "ui": (f"{BASE}/ui-audio/490d233f68-1677590494/kenney_ui-audio.zip",
-           "946fc23a63d535d693eb31b2eabb80c8c28d6351e2186b344ceb71b2cb1d5eb6",
-           "UI Audio"),
     "jingles": (f"{BASE}/music-jingles/f37e530b9e-1677590399/kenney_music-jingles.zip",
                 "b729ba57959bd58793d2c5cafa348aaf2655d354f3da35ec4729e03ec77197b8",
                 "Music Jingles"),
@@ -38,24 +35,12 @@ SOUNDS = {
     "nav-move": ("interface", "Audio/tick_002.ogg", -14),
     "nav-edge": ("interface", "Audio/error_004.ogg", -10),
     "nav-confirm": ("interface", "Audio/click_001.ogg", -8),
-    "nav-back": ("interface", "Audio/back_001.ogg", -8),
     "nav-section": ("interface", "Audio/maximize_007.ogg", -8),
-    "nav-tab": ("interface", "Audio/pluck_001.ogg", -10),
-    "toggle-on": ("interface", "Audio/toggle_001.ogg", -8),
-    "toggle-off": ("interface", "Audio/toggle_002.ogg", -8),
     "sheet-open": ("interface", "Audio/open_001.ogg", -8),
     "sheet-close": ("interface", "Audio/close_001.ogg", -8),
-    "volume-tick": ("interface", "Audio/glass_005.ogg", -8),
     "notify": ("interface", "Audio/glass_001.ogg", -6),
-    "success": ("interface", "Audio/confirmation_001.ogg", -6),
-    "warning": ("interface", "Audio/question_001.ogg", -6),
     "error": ("interface", "Audio/error_005.ogg", -6),
-    "pad-connected": ("interface", "Audio/maximize_004.ogg", -6),
-    "pad-disconnected": ("interface", "Audio/minimize_004.ogg", -6),
     "game-launch": ("jingles", "Audio/Steel jingles/jingles_STEEL00.ogg", -6),
-    "home-open": ("interface", "Audio/maximize_008.ogg", -8),
-    "key-press": ("ui", "Audio/click4.ogg", -14),
-    "key-delete": ("interface", "Audio/back_002.ogg", -12),
     "startup": ("jingles", "Audio/Steel jingles/jingles_STEEL07.ogg", -6),
 }
 

@@ -300,8 +300,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 
   /* ---------- Sounds: the placeholders of frontend/sounds/ ---------- */
   let soundOn = true;
-  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', back: 'nav-back', section: 'nav-section',
-    tab: 'nav-tab', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', launch: 'game-launch', notify: 'notify' };
+  // What happened -> sound file (design/sounds.md: ten sounds; A, B and filters share the "click")
+  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', back: 'nav-confirm', section: 'nav-section',
+    tab: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', launch: 'game-launch', notify: 'notify' };
   // Web Audio: every sound is decoded once and plays at once, even overlapping (sounds.js holds
   // them as data URLs, because a page opened from disk cannot fetch audio files). Browsers start
   // audio only after a key press or a click on the page: gamepad buttons do not count.
