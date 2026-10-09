@@ -78,7 +78,7 @@ OwneetOS's interface is a modified version of Pegasus Frontend. As its licence r
 not use the names "Pegasus Frontend", "Pegasus Launcher" or "Pegasus" as its title, nor Pegasus's
 logos; Pegasus's copyright notices are kept in its source code.
 
-## Fonts and design
+## Fonts, sounds and design
 
 | Project | Who | Licence | Use |
 |---|---|---|---|
@@ -88,6 +88,10 @@ logos; Pegasus's copyright notices are kept in its source code.
 Both fonts are bundled in `owneet-frontend` as static instances generated from the variable fonts
 by `tools/branding/make-fonts` (Qt 5 cannot select variation axes); their licence texts are
 installed in `/usr/share/licenses/owneet-frontend/`.
+
+Placeholder interface sounds (until the final ones, roadmap 7.7): [Kenney](https://kenney.nl)
+(Kenney Vleugels), "Interface Sounds", "UI Audio" and "Music Jingles" packs, CC0 1.0 (public
+domain); sources listed in `frontend/sounds/SOURCES.md`.
 
 ## Inspiration
 

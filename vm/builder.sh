@@ -79,7 +79,7 @@ cmd_setup() {
     info "waiting for SSH"
     wait_for_ssh 300 || die "the VM did not answer on SSH within 5 minutes; see vm/run/$NAME/serial.log"
 
-    info "installing build tools in the VM (archiso, base-devel, devtools, git, rsync, shellcheck, nodejs); this takes a few minutes"
+    info "installing build tools in the VM (archiso, base-devel, devtools, git, rsync, shellcheck, nodejs, go, fontTools, ffmpeg); this takes a few minutes"
     local waited=0
     while (( waited < PROVISION_TIMEOUT_S )); do
         if vm_ssh test -f /var/lib/owneet/provisioned 2>/dev/null; then break; fi

@@ -1,7 +1,12 @@
 # Interface sounds
 
-Sounds the OwneetOS interface plays (roadmap step 3.12). The owner provides the files; this page
-is the list and the technical requirements.
+Sounds the OwneetOS interface plays (roadmap step 3.12). The owner provides the final files
+(roadmap 7.7, before the public launch); this page is the list and the technical requirements.
+
+**Placeholders** are used until then: `frontend/sounds/`, taken from Kenney's sound packs
+(Creative Commons CC0, public domain) and converted by `tools/sounds/make-placeholders`; the
+source of each file is in `frontend/sounds/SOURCES.md`. Every sound of this list has one, except
+`screenshot.wav` (later wave). Final files simply replace them with the same names.
 
 ## File requirements
 
