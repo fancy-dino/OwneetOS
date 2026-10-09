@@ -199,7 +199,7 @@ same screen. New bindings are added here before they are implemented.
 | Menu / Options              | Options menu for the selected item                                                                                       |
 | View / Create               | Reserved (screenshot in a later wave)                                                                                    |
 | Guide / PS                  | **Owned by the system daemon**: home / quick menu from anywhere, including in games. Apps and themes must never bind it. Prompt label: "Home". |
-| Right stick                 | Fast scroll in long lists                                                                                                |
+| Right stick                 | Scrolls the page: fast scroll in long lists and grids, and the content of windows (e.g. Credits and licences)         |
 
 While a game or app is running, the system intercepts **only** the Guide button; every other input
 goes to the game.
@@ -344,4 +344,5 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-09 | Steps 3.7 (library) and 3.8 (frontend ↔ owneetd: games through owneetd, Guide / Resume) approved after the owner's test on the NiPoGi. Testers' boot entries ("diagnostics", "test games") leave the user ISO before the release (roadmap 7.4). |
 | 2026-10-09 | Offline is shown in the top bar with a crossed network icon (Wi-Fi, or cable on machines without Wi-Fi), not by hiding it. |
 | 2026-10-09 | Offline icon approved; next: demo 3.9 (Settings). |
+| 2026-10-09 | Demo 3.9 review: pairing drawings mark the real buttons (no drawing for "other controllers"); connected Bluetooth controllers can be turned off or forgotten; Display gets a brightness setting (where the screen allows it); the keyboard layout is chosen separately from the language; the right stick scrolls the page and windows (section 9.1). |
 | 2026-10-09 | The owner's final sounds are delivered before the public launch, after the legal review (roadmap 7.7); until then the interface uses CC0 placeholders by Kenney (`frontend/sounds/`). |

@@ -624,7 +624,7 @@ code is written (PROJECT_RULES.md section 9).
   of the Pro Controller, a test game starts on screen, Guide shows the home screen with the game
   running, Resume brings it back, a second game is refused, Close game with confirmation.
 
-### [~] 3.9 Settings *(multi-prompt; demo awaiting owner review)*
+### [~] 3.9 Settings *(multi-prompt; demo revised, awaiting owner review)*
 
 - **Deliverables:** Appearance (palette, text size, reduce motion, persisted), Network, Controllers
   and Bluetooth, Audio, Display (resolution, refresh rate via gamescope; with several screens,
@@ -651,6 +651,16 @@ code is written (PROJECT_RULES.md section 9).
   disks with free space and notices. **System:** version, check for updates (7.1), Sleep /
   Restart / Shut down with confirmation (Cancel first), **About → Credits and licences** (the
   projects of CREDITS.md, then every installed package with its licence).
+- **Review 1 (2026-10-09):** (1) the pairing window draws generic controller outlines with the
+  buttons to hold marked where they really are (pairing / sync button on the top edge next to the
+  cable port; PS + Create), and no drawing for "other controllers"; (2) connected controllers are
+  selectable: Bluetooth ones can be **turned off** (disconnected, they stay known) or
+  **forgotten**; wired and adapter ones say how to remove them; (3) Display: **brightness** slider,
+  on screens that allow it — to build: laptop backlight through logind, monitors through DDC/CI
+  (`ddcutil`, a new dependency to check and credit), TVs usually not; (4) Language: the
+  **keyboard layout** is chosen separately (default "same as the language"); owneetd has US and
+  Italian tables today, more layouts need their tables (2.4); (5) the **right stick scrolls the
+  page** and the content of windows such as Credits and licences.
 
 ### [ ] 3.10 On-screen keyboard
 

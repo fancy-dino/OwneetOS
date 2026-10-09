@@ -108,9 +108,11 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .credit { display: grid; grid-template-columns: 230px 1fr 190px; gap: 16px; padding: 8px 12px; border-radius: 10px; background: var(--surface); }
 .brands { display: grid; grid-template-columns: repeat(4, 220px); gap: 14px; text-align: left; }
 .brand { display: grid; gap: 10px; padding: 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); align-content: start; }
-.brand .pad { height: 74px; border-radius: 12px; background: var(--raised); position: relative; display: grid; place-items: center; }
-.brand .pad .dot { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s infinite; }
-@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); } 50% { box-shadow: 0 0 0 12px transparent; } }
+.brand .pad { height: 104px; border-radius: 12px; background: var(--raised); display: grid; place-items: center; }
+.brand .pad svg { width: 170px; height: 100px; }
+.brand .pad .press { fill: var(--accent); }
+.brand .pad .ring { fill: none; stroke: var(--accent); stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: ring 1.2s infinite; }
+@keyframes ring { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(2.6); opacity: 0; } }
 .searching { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); }
 .spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -159,7 +161,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     <div class="prompts t-s sheet-prompts" id="sheet-prompts"></div>
   </div>
 </div></div>
-<p class="help"><b>Gamepad:</b> D-pad / stick move, A select, B back (panel → list of sections), Menu options (forget a network or device), LB/RB sections.
+<p class="help"><b>Gamepad:</b> D-pad / stick move, right stick scrolls the page, A select, B back (panel → list of sections), Menu options (forget a network or device), LB/RB sections.
 Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = Menu, Q/E = LB/RB.<br>
 <b>Demo only:</b> W offline / Wi-Fi, D one or two screens, P palette, L language, N sounds (<span id="snd-state">on</span>; browsers allow sound only after a key or a click). Address: <code>#section=network&amp;offline=1&amp;screens=2&amp;lang=it</code></p>
 
@@ -216,7 +218,11 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
     'net.connect': 'Connect', 'net.connecting': 'Connecting…', 'net.wrong': 'Wrong password. Try again.', 'net.ok': 'Connected to {ssid}', 'net.forget': 'Forget this network',
     'net.forgot': '{ssid} forgotten', 'net.disconnect': 'Disconnect',
     'pad.connected': 'Connected controllers', 'pad.none': 'No controller connected', 'pad.pair': 'Pair a new controller', 'pad.pair.sub': 'Bluetooth controllers: Xbox, PlayStation, Nintendo and more',
-    'pad.known': 'Known devices', 'pad.forget': 'Forget this device', 'pad.forgot': '{name} forgotten', 'pad.bt': 'Bluetooth',
+    'pad.known': 'Known devices', 'pad.forget': 'Forget this device',
+    'pad.off': 'Turn off', 'pad.remove.text': 'Turn it off to save its battery, or forget it to pair it again from the start.',
+    'pad.turnedoff': '{name} turned off', 'pad.unplug': 'Connected by cable: unplug it to remove it.', 'pad.dongle': 'Connected by a wireless adapter: turn it off with its own button.',
+    'disp.brightness': 'Brightness', 'disp.brightness.sub': 'On screens that allow it (laptops, many monitors)',
+    'lang.keyboard.sub': 'For typing with a keyboard plugged in, and the on-screen keyboard', 'pad.forgot': '{name} forgotten', 'pad.bt': 'Bluetooth',
     'pair.title': 'Pair a new controller', 'pair.searching': 'Searching… put your controller in pairing mode', 'pair.found': '{name} paired',
     'pair.xbox': 'Xbox', 'pair.xbox.how': 'Turn it on, then hold the pairing button (top, next to the cable port) until the Xbox button flashes fast.',
     'pair.ps': 'PlayStation', 'pair.ps.how': 'Hold the PS button and the Create (or Share) button together until the light bar flashes.',
@@ -229,7 +235,7 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
     'disp.res': 'Resolution', 'disp.rate': 'Refresh rate', 'disp.auto': 'Automatic (recommended)', 'disp.one': 'One screen connected',
     'app.palette': 'Color palette', 'app.text': 'Text size', 'app.prompts': 'Button prompts', 'app.auto': 'Auto', 'app.motion': 'Reduce motion', 'app.motion.sub': 'Turns off zoom and slide animations',
     'app.safe': 'Show TV safe area',
-    'lang.language': 'Language', 'lang.keyboard': 'On-screen keyboard layout', 'lang.same': 'Same as the language',
+    'lang.language': 'Language', 'lang.keyboard': 'Keyboard layout', 'lang.same': 'Same as the language',
     'sto.title': 'Disks', 'sto.free': '{free} free of {total}', 'sto.readonly': 'Read only: Windows was not shut down completely.',
     'sys.version': 'OwneetOS version', 'sys.updates': 'Updates', 'sys.updates.check': 'Check for updates', 'sys.updates.later': 'arrives with step 7.1',
     'sys.power': 'Power', 'sys.restart': 'Restart', 'sys.shutdown': 'Shut down', 'sys.suspend': 'Sleep', 'sys.about': 'About',
@@ -252,7 +258,11 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
     'net.connect': 'Connetti', 'net.connecting': 'Connessione…', 'net.wrong': 'Password sbagliata. Riprova.', 'net.ok': 'Connesso a {ssid}', 'net.forget': 'Dimentica questa rete',
     'net.forgot': '{ssid} dimenticata', 'net.disconnect': 'Disconnetti',
     'pad.connected': 'Controller collegati', 'pad.none': 'Nessun controller collegato', 'pad.pair': 'Abbina un nuovo controller', 'pad.pair.sub': 'Controller Bluetooth: Xbox, PlayStation, Nintendo e altri',
-    'pad.known': 'Dispositivi conosciuti', 'pad.forget': 'Dimentica questo dispositivo', 'pad.forgot': '{name} dimenticato', 'pad.bt': 'Bluetooth',
+    'pad.known': 'Dispositivi conosciuti', 'pad.forget': 'Dimentica questo dispositivo',
+    'pad.off': 'Spegni', 'pad.remove.text': 'Spegnilo per risparmiare la batteria, oppure dimenticalo per abbinarlo di nuovo da capo.',
+    'pad.turnedoff': '{name} spento', 'pad.unplug': 'Collegato via cavo: scollegalo per rimuoverlo.', 'pad.dongle': 'Collegato con un adattatore wireless: spegnilo con il suo tasto.',
+    'disp.brightness': 'Luminosità', 'disp.brightness.sub': 'Sugli schermi che lo permettono (portatili, molti monitor)',
+    'lang.keyboard.sub': 'Per scrivere con una tastiera collegata e con la tastiera a schermo', 'pad.forgot': '{name} dimenticato', 'pad.bt': 'Bluetooth',
     'pair.title': 'Abbina un nuovo controller', 'pair.searching': 'Ricerca… metti il controller in modalità abbinamento', 'pair.found': '{name} abbinato',
     'pair.xbox': 'Xbox', 'pair.xbox.how': 'Accendilo, poi tieni premuto il tasto di abbinamento (in alto, accanto alla porta del cavo) finché il tasto Xbox lampeggia veloce.',
     'pair.ps': 'PlayStation', 'pair.ps.how': 'Tieni premuti insieme il tasto PS e il tasto Create (o Share) finché la barra luminosa lampeggia.',
@@ -265,7 +275,7 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
     'disp.res': 'Risoluzione', 'disp.rate': 'Frequenza di aggiornamento', 'disp.auto': 'Automatica (consigliata)', 'disp.one': 'Un solo schermo collegato',
     'app.palette': 'Palette colori', 'app.text': 'Dimensione testo', 'app.prompts': 'Simboli dei tasti', 'app.auto': 'Automatico', 'app.motion': 'Riduci animazioni', 'app.motion.sub': 'Toglie ingrandimenti e scorrimenti animati',
     'app.safe': 'Mostra area sicura TV',
-    'lang.language': 'Lingua', 'lang.keyboard': 'Tastiera a schermo', 'lang.same': 'Come la lingua',
+    'lang.language': 'Lingua', 'lang.keyboard': 'Layout della tastiera', 'lang.same': 'Come la lingua',
     'sto.title': 'Dischi', 'sto.free': '{free} liberi su {total}', 'sto.readonly': 'Sola lettura: Windows non è stato spento del tutto.',
     'sys.version': 'Versione di OwneetOS', 'sys.updates': 'Aggiornamenti', 'sys.updates.check': 'Cerca aggiornamenti', 'sys.updates.later': 'arriva con lo step 7.1',
     'sys.power': 'Alimentazione', 'sys.restart': 'Riavvia', 'sys.shutdown': 'Spegni', 'sys.suspend': 'Sospendi', 'sys.about': 'Informazioni',
@@ -288,6 +298,8 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
   const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
   const G = { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lb: pill('LB', 34), rb: pill('RB', 34), lt: pill('LT', 32), rt: pill('RT', 32),
     menu: circle(`<path d="M8.5 10h9M8.5 13h9M8.5 16h9" ${S}/>`), guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`),
+    // right stick: a stick with arrows up and down
+    rs: `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="13" cy="13" r="4" fill="currentColor"/><path d="M13 3.8v2.4M10.8 5.6 13 3.4l2.2 2.2M13 19.8v2.4M10.8 20.4l2.2 2.2 2.2-2.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     lr: `<svg class="g" viewBox="0 0 44 26"><rect x="1" y="1" width="42" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15 8l-5 5 5 5M29 8l5 5-5 5" ${S}/></svg>` };
   const P = (b, l) => `<span class="prompt">${b.map(x => G[x]).join('')}<span>${tr(l)}</span></span>`;
   const ICON = {
@@ -346,17 +358,20 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
       { ssid: 'Biblioteca', strength: 30, security: 'open' },
       { ssid: 'TIM-38211', strength: 21, security: 'wpa' },
     ],
-    pads: [{ name: 'Xbox Wireless Controller', conn: 'bluetooth', battery: 78 }, { name: 'Pro Controller', conn: 'bluetooth', level: 0.5 }],
+    pads: [{ name: 'Xbox Wireless Controller', conn: 'bluetooth', battery: 78 }, { name: 'Pro Controller', conn: 'bluetooth', level: 0.5 },
+           { name: '8BitDo Ultimate', conn: 'usb' }],
     known: [{ name: 'DualSense Wireless Controller' }, { name: 'JBL Tune 510BT' }],
     outputs: [{ id: 'hdmi', name: 'TV (HDMI)' }, { id: 'speakers', name: 'Speakers' }, { id: 'bt', name: 'JBL Tune 510BT' }], output: 'hdmi',
     volume: 60, mute: false, uiSounds: true,
-    screens: 1, screen: 0, otherScreens: 'logo', res: 'auto', rate: 'auto',
+    screens: 1, screen: 0, brightness: 80, keyboard: 'same', otherScreens: 'logo', res: 'auto', rate: 'auto',
     textSize: 1, prompts: 'auto', motion: false, safe: false,
     disks: [{ name: 'Internal disk', free: 212, total: 512 }, { name: 'USB disk', free: 1100, total: 2000 }, { name: 'Windows disk', free: 310, total: 1000, ro: true }],
   };
   const SECTIONS = ['network', 'controllers', 'audio', 'display', 'appearance', 'language', 'storage', 'system'];
   const gb = n => n >= 1000 ? (n / 1000).toLocaleString(lang, { maximumFractionDigits: 1 }) + ' TB' : n + ' GB';
   const connected = () => st.networks.find(n => n.connected);
+  const KEYBOARDS = [['same', null], ['us', 'English (US)'], ['gb', 'English (UK)'], ['it', 'Italiano'], ['de', 'Deutsch'], ['fr', 'Français'], ['es', 'Español']];
+  const kbdName = k => k === 'same' ? `${tr('lang.same')} (${lang === 'it' ? 'Italiano' : 'English (US)'})` : KEYBOARDS.find(x => x[0] === k)[1];
   const isOffline = () => st.offline || (!st.cable && !(st.wifiOn && connected()));
 
   /* ---------- Rendering ---------- */
@@ -392,8 +407,8 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
     controllers() {
       let h = `<h2 class="disp t-l">${tr('s.controllers')}</h2>`;
       h += `<span class="label t-xs">${tr('pad.connected')}</span>`;
-      h += st.pads.length ? st.pads.map(p => `<div class="row info"><span class="left"><span style="display:flex;gap:10px;align-items:center">${icon('controllers')}${p.name}</span>${sub(tr('conn.' + p.conn))}</span>
-          <span class="right">${icon('battery', `<rect x="4.5" y="9" width="${13 * (p.battery !== undefined ? p.battery / 100 : p.level)}" height="6" fill="currentColor" stroke="none"/>`)}${p.battery !== undefined ? p.battery + '%' : ''}</span></div>`).join('')
+      h += st.pads.length ? st.pads.map((p, i) => `<button class="row" data-f data-act="pad" data-i="${i}"><span class="left"><span style="display:flex;gap:10px;align-items:center">${icon('controllers')}${p.name}</span>${sub(tr('conn.' + p.conn))}</span>
+          <span class="right">${p.conn === 'usb' ? '' : icon('battery', `<rect x="4.5" y="9" width="${13 * (p.battery !== undefined ? p.battery / 100 : p.level)}" height="6" fill="currentColor" stroke="none"/>`)}${p.battery !== undefined ? p.battery + '%' : ''}</span></button>`).join('')
         : `<div class="row info">${tr('pad.none')}</div>`;
       h += row('data-act="pair"', `<span>${tr('pad.pair')}</span>${sub(tr('pad.pair.sub'))}`, '<span class="value"></span>');
       h += `<span class="label t-xs group-label">${tr('pad.known')}</span>`;
@@ -416,6 +431,7 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
         h += `<span class="label t-xs">${tr('disp.screen')}</span>` + seg('screen', [[0, 'LG TV (HDMI-1)'], [1, 'Dell P2419H (DP-2)']], st.screen);
         h += `<span class="label t-xs group-label">${tr('disp.other')}</span>` + seg('otherScreens', [['logo', tr('disp.other.logo')], ['off', tr('disp.other.off')]], st.otherScreens);
       } else h += `<div class="row info"><span class="left">${tr('disp.one')}</span><span class="right">LG TV (HDMI-1)</span></div>`;
+      h += row('data-act="slider" data-key="brightness"', `<span>${tr('disp.brightness')}</span>${sub(tr('disp.brightness.sub'))}`, slider(st.brightness));
       h += row('data-act="res"', `<span>${tr('disp.res')}</span>`, `<span class="value">${st.res === 'auto' ? tr('disp.auto') : st.res}</span>`);
       h += row('data-act="rate"', `<span>${tr('disp.rate')}</span>`, `<span class="value">${st.rate === 'auto' ? tr('disp.auto') : st.rate}</span>`);
       return h;
@@ -433,7 +449,7 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
     language() {
       let h = `<h2 class="disp t-l">${tr('s.language')}</h2>`;
       h += row('data-act="lang"', `<span>${tr('lang.language')}</span>`, `<span class="value">${lang === 'it' ? 'Italiano' : 'English'}</span>`);
-      h += `<div class="row info"><span class="left"><span>${tr('lang.keyboard')}</span></span><span class="right">${tr('lang.same')} (${lang === 'it' ? 'IT' : 'US'})</span></div>`;
+      h += row('data-act="kbd"', `<span>${tr('lang.keyboard')}</span>${sub(tr('lang.keyboard.sub'))}`, `<span class="value">${kbdName(st.keyboard)}</span>`);
       return h;
     },
     storage() {
@@ -481,6 +497,7 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
       else if (el.getAttribute('role') === 'switch') left = [P(['a'], 'p.toggle'), P(['b'], 'p.back')];
       else if (act === 'net') left = [P(['a'], connected() === st.networks[+el.dataset.i] ? 'p.select' : 'p.connect'), ...(st.networks[+el.dataset.i].saved ? [P(['menu'], 'p.options')] : []), P(['b'], 'p.back')];
       else if (act === 'known') left = [P(['menu'], 'p.options'), P(['b'], 'p.back')];
+      else if (act === 'pad') left = [P(['a'], 'p.options'), P(['b'], 'p.back')];
       else left = [P(['a'], el.dataset.set ? 'p.select' : 'p.open'), P(['b'], 'p.back')];
     }
     $('#prompts').innerHTML = `<div class="set">${left.join('')}</div><div class="set">${P(['lb', 'rb'], 'p.sections')}${P(['guide'], 'p.home')}</div>`;
@@ -557,6 +574,7 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
     if (next === cur) { feedback('edge'); return; }
     if (key === 'uiVolume') uiVolume = next; else st[key] = next;
     play('confirm', key === 'volume' ? next / 100 : uiVolume / 100);   // the click at the new volume
+    if (key === 'brightness') stage.style.filter = `brightness(${0.4 + 0.6 * next / 100})`;   // (demo) preview
     renderPanel(focused);
   }
 
@@ -599,10 +617,24 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
         }, 1300);
       }, { quiet: !!error });
   }
+  // Generic controller outlines drawn for OwneetOS (no third-party drawings or logos), seen from
+  // the front, with the buttons to hold marked where they really are; buttons on the top edge
+  // are marked on the outline's top edge, next to the cable port.
+  const BODY = 'M22 16Q60 5 98 16Q114 20 115 42Q118 70 104 74Q94 77 86 62L34 62Q26 77 16 74Q2 70 5 42Q6 20 22 16Z';
+  function padDrawing(kind) {
+    const port = '<rect x="56" y="7" width="8" height="4" rx="1" fill="currentColor" opacity=".5"/>';
+    const sticks = kind === 'ps'
+      ? '<circle cx="44" cy="52" r="6"/><circle cx="76" cy="52" r="6"/><rect x="40" y="18" width="40" height="20" rx="4"/>'
+      : '<circle cx="34" cy="34" r="6"/><circle cx="74" cy="50" r="6"/><circle cx="90" cy="34" r="3"/><circle cx="46" cy="50" r="3"/>';
+    const press = { xbox: [[50, 10]], ps: [[60, 46], [35, 22]], nintendo: [[50, 10]] }[kind];
+    const marks = press.map(([x, y]) => `<circle class="ring" cx="${x}" cy="${y}" r="4"/><circle class="press" cx="${x}" cy="${y}" r="4"/>`).join('');
+    return `<svg viewBox="0 0 120 80" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" style="color:var(--muted)">
+      <path d="${BODY}"/>${port}<g stroke-width="1.6">${sticks}</g>${kind === 'xbox' ? '<circle cx="60" cy="24" r="4.5" stroke-width="1.6"/>' : ''}${marks}</svg>`;
+  }
   function pairSheet() {
-    const brand = (k, x, y) => `<div class="brand"><span class="t-m" style="font-weight:500">${tr('pair.' + k)}</span><span class="pad"><span class="dot" style="left:${x}%;top:${y}%"></span>${icon('controllers').replace('<svg', '<svg style="width:46px;height:46px;opacity:.6"')}</span><span class="t-s muted">${tr('pair.' + k + '.how')}</span></div>`;
+    const brand = k => `<div class="brand"><span class="t-m" style="font-weight:500">${tr('pair.' + k)}</span>${k === 'other' ? '' : `<span class="pad">${padDrawing(k)}</span>`}<span class="t-s muted">${tr('pair.' + k + '.how')}</span></div>`;
     openSheet(`<span class="disp t-l">${tr('pair.title')}</span><span class="searching t-m"><span class="spinner"></span>${tr('pair.searching')}</span>
-      <div class="brands">${brand('xbox', 50, 12)}${brand('ps', 50, 52)}${brand('nintendo', 64, 12)}${brand('other', 50, 50)}</div>
+      <div class="brands">${brand('xbox')}${brand('ps')}${brand('nintendo')}${brand('other')}</div>
       <span class="t-s muted">${tr('pair.wired')}</span>${buttons([['cancel', tr('cancel'), true]])}`,
       [P(['a'], 'p.cancel'), P(['b'], 'p.back')], () => { clearTimeout(pairTimer); closeSheet(); }, { onBack: () => clearTimeout(pairTimer) });
     pairTimer = setTimeout(() => {   // (demo) a controller shows up
@@ -637,7 +669,7 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
       <div class="scroll t-s">${C.map(([n, w, l]) => `<div class="credit"><span style="font-weight:500">${n}</span><span class="muted">${w}</span><span>${l}</span></div>`).join('')}
       <div class="credit"><span style="font-weight:500">${tr('cred.all')}</span><span class="muted">${tr('cred.all.sub')}</span><span>…</span></div></div>
       ${buttons([['close', tr('close'), true]])}`, [P(['a'], 'close'), P(['b'], 'p.back')], () => closeSheet());
-    $('#sheet-prompts .set').insertAdjacentHTML('beforeend', `<span class="prompt">${G.lr.replace('M15 8l-5 5 5 5M29 8l5 5-5 5', 'M22 6v14M17 11l5-5 5 5M17 15l5 5 5-5')}<span>${tr('p.scroll')}</span></span>`);
+    $('#sheet-prompts .set').insertAdjacentHTML('beforeend', P(['rs'], 'p.scroll'));
   }
 
   /* ---------- Actions ---------- */
@@ -666,18 +698,38 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
     if (act === 'net') { const n = st.networks[+el.dataset.i]; if (!n.connected || st.offline) connectSheet(n); }
     else if (act === 'scan') toast('…');
     else if (act === 'pair') pairSheet();
+    else if (act === 'pad') padSheet(+el.dataset.i);
     else if (act === 'output') choose(tr('audio.output'), st.outputs.map(o => [o.id, o.name]), st.output, v => { st.output = v; });
     else if (act === 'res') choose(tr('disp.res'), [['auto', tr('disp.auto')], ['3840 × 2160', '3840 × 2160'], ['1920 × 1080', '1920 × 1080'], ['1280 × 720', '1280 × 720']], st.res, v => { st.res = v; });
     else if (act === 'rate') choose(tr('disp.rate'), [['auto', tr('disp.auto')], ['120 Hz', '120 Hz'], ['60 Hz', '60 Hz']], st.rate, v => { st.rate = v; });
     else if (act === 'palette') paletteSheet();
+    else if (act === 'kbd') choose(tr('lang.keyboard'), KEYBOARDS.map(([k]) => [k, kbdName(k)]), st.keyboard, v => { st.keyboard = v; });
     else if (act === 'lang') choose(tr('lang.language'), [['en', 'English'], ['it', 'Italiano']], lang, v => { lang = v; renderAll(); });
     else if (act === 'power') confirmPower(el.dataset.what);
     else if (act === 'credits') creditsSheet();
     else if (act === 'updates') toast(tr('sys.updates.later'));
   }
+  // A controller: Bluetooth ones can be turned off (disconnected) or forgotten (paired again
+  // with "Pair a new controller"); wired ones are removed by unplugging them.
+  function padSheet(i) {
+    const p = st.pads[i];
+    if (p.conn === 'usb' || p.conn === 'dongle') {
+      openSheet(`<span class="disp t-l">${p.name}</span><span class="t-m muted">${tr(p.conn === 'usb' ? 'pad.unplug' : 'pad.dongle')}</span>${buttons([['ok', tr('ok'), true]])}`,
+        [P(['a'], 'ok'), P(['b'], 'p.back')], () => closeSheet());
+      return;
+    }
+    openSheet(`<span class="disp t-l">${p.name}</span><span class="t-m muted">${tr('pad.remove.text')}</span>${buttons([['off', tr('pad.off')], ['forget', tr('pad.forget')], ['cancel', tr('cancel'), true, 'data-default']])}`,
+      [P(['a'], 'p.select'), P(['b'], 'p.back')], el => {
+        if (el.dataset.k === 'cancel') { closeSheet(); return; }
+        st.pads.splice(i, 1);
+        if (el.dataset.k === 'off') st.known.unshift({ name: p.name });
+        closeSheet(); toast(tr(el.dataset.k === 'off' ? 'pad.turnedoff' : 'pad.forgot', { name: p.name }));
+      });
+  }
   function options() {
     if (sheetOpen || focusArea !== 'panel' || !focused) { feedback('edge'); return; }
     const act = focused.dataset.act;
+    if (act === 'pad') { feedback('confirm'); padSheet(+focused.dataset.i); return; }
     if (act === 'net' && st.networks[+focused.dataset.i].saved) {
       const n = st.networks[+focused.dataset.i];
       openSheet(`<span class="disp t-l">${n.ssid}</span>${buttons([...(n.connected ? [['disc', tr('net.disconnect')]] : []), ['forget', tr('net.forget')], ['cancel', tr('cancel'), true, 'data-default']])}`,
@@ -706,7 +758,7 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
   const press = {
     a: accept,
     b: () => { if (sheetOpen) closeSheet(); else if (section === 'settings' && focusArea === 'panel') { feedback('back'); backToNav(); } else feedback('back'); },
-    menu: options, x: () => feedback('edge'), y: () => feedback('edge'), lt: () => feedback('edge'), rt: () => feedback('edge'),
+    menu: options, 'rs-up': () => scrollPage(-1), 'rs-down': () => scrollPage(1), x: () => feedback('edge'), y: () => feedback('edge'), lt: () => feedback('edge'), rt: () => feedback('edge'),
     lb: () => sheetOpen ? feedback('edge') : goSection(SECT[(SECT.indexOf(section) + 2) % 3]),
     rb: () => sheetOpen ? feedback('edge') : goSection(SECT[(SECT.indexOf(section) + 1) % 3]),
   };
@@ -721,6 +773,7 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
     const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
     const keys = { Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b', x: 'x', y: 'y', m: 'menu', q: 'lb', e: 'rb', z: 'lt', c: 'rt' };
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (e.key === 'PageUp' || e.key === 'PageDown') { e.preventDefault(); scrollPage(e.key === 'PageUp' ? -1 : 1); return; }
     if (dirs[e.key]) { e.preventDefault(); move(dirs[e.key]); }
     else if (keys[k]) { e.preventDefault(); if (!e.repeat) press[keys[k]](); }
     else if (DEMO[k]) { e.preventDefault(); DEMO[k](); }
@@ -737,7 +790,15 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
   focus = function (el, silent) { _focus(el, silent); if (sheetOpen && el && el.dataset.pal) applyPalette(el.dataset.pal); };
 
   /* ---------- Gamepad ---------- */
-  const prev = {}; let repeatAt = 0, lastDir = null;
+  // Right stick: scrolls the page or the list in a window (PROJECT_RULES.md section 9.1)
+  function scrollPage(dir) {
+    const box = sheetOpen ? $('#sheet .scroll') : section === 'settings' ? $('#panel') : null;
+    if (!box) { feedback('edge'); return; }
+    const before = box.scrollTop;
+    box.scrollTop += dir * 90;
+    if (box.scrollTop === before) feedback('edge'); else feedback('move');
+  }
+  const prev = {}; let repeatAt = 0, lastDir = null, scrollAt = 0;
   function poll(ts) {
     const pad = (navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [])[0];
     if (pad) {
@@ -747,6 +808,9 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
       const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
       if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
       lastDir = dir; if (!dir) repeatAt = 0;
+      const ry = pad.axes[3] || 0;
+      if (Math.abs(ry) > 0.5 && ts > scrollAt) { scrollPage(ry < 0 ? -1 : 1); scrollAt = ts + (scrollAt ? 90 : 360); }
+      if (Math.abs(ry) <= 0.5) scrollAt = 0;
       [['a', 0], ['b', 1], ['x', 2], ['y', 3], ['lb', 4], ['rb', 5], ['lt', 6], ['rt', 7], ['menu', 9]].forEach(([n, i]) => { if (edge(i)) press[n](); });
     }
     requestAnimationFrame(poll);
