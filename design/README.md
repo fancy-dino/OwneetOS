@@ -19,6 +19,9 @@ Mockups and design assets.
     Demo keys and start state are listed under the frame.
   - [`3.7-library.html`](demos/3.7-library.html): library (grid, filters on LT/RT, sort on Y, games
     to install, favourites, disks with free space and the Disks window).
+  - [`3.9-settings.html`](demos/3.9-settings.html): settings (network and Wi-Fi password, controllers
+    and pairing, sound with sliders, display with several screens, appearance, language, disks,
+    system with power and credits).
 
 - [`sounds.md`](sounds.md): the interface sounds (list, length, file format), provided by the
   owner (roadmap 3.12).

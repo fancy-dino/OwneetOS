@@ -618,7 +618,7 @@ code is written (PROJECT_RULES.md section 9).
   of the Pro Controller, a test game starts on screen, Guide shows the home screen with the game
   running, Resume brings it back, a second game is refused, Close game with confirmation.
 
-### [ ] 3.9 Settings *(multi-prompt)*
+### [~] 3.9 Settings *(multi-prompt; demo awaiting owner review)*
 
 - **Deliverables:** Appearance (palette, text size, reduce motion, persisted), Network, Controllers
   and Bluetooth, Audio, Display (resolution, refresh rate via gamescope; with several screens,
@@ -628,6 +628,23 @@ code is written (PROJECT_RULES.md section 9).
   Other screens are **not** turned off by default (owner's decision): they must show something
   sensible instead of the frozen splash. Using a second screen for something (e.g. chat, guides)
   is a possible later feature.
+- **Demo:** `design/demos/3.9-settings.html`. Proposals in it: the sections in a list on the left
+  and the panel on the right, which follows the selection; right or A enters the panel, B (or left
+  at its edge) goes back to the list; sliders change with left / right (the click plays at the new
+  volume); up / down go to the nearest row first, so a row of buttons is never skipped.
+  **Network:** offline notice, Wi-Fi switch, cable status, networks nearby (connected, saved,
+  signal, open or protected), password window (typed with the on-screen keyboard, 3.10), wrong
+  password, Menu on a saved network: disconnect / forget. **Controllers and Bluetooth:** connected
+  controllers with connection and battery, **"Pair a new controller"** (also with a controller
+  already connected: owneetd's auto-pair for a while) with per-brand instructions (Xbox,
+  PlayStation, Nintendo, others; wired ones need nothing), known devices with Menu → forget.
+  **Sound:** output picker, volume, mute, interface sounds on/off and their volume. **Display:**
+  with several screens, the one the console uses and "Other screens: show the OwneetOS logo / turn
+  off" (logo by default); resolution and refresh rate (Automatic recommended). **Appearance:** as
+  in demo 3.3. **Language:** picker; on-screen keyboard layout follows the language. **Storage:**
+  disks with free space and notices. **System:** version, check for updates (7.1), Sleep /
+  Restart / Shut down with confirmation (Cancel first), **About → Credits and licences** (the
+  projects of CREDITS.md, then every installed package with its licence).
 
 ### [ ] 3.10 On-screen keyboard
 
