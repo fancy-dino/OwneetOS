@@ -13,6 +13,10 @@ Mockups and design assets.
     PlayStation, drawn for OwneetOS), TV safe area, 21 palettes in a picker with live preview,
     language list. Start state in the address: `#pal=ember&glyphs=ps&lang=it&ts=1.2&safe=1`
     (add `&open=palette` or `&open=language` to open a picker).
+  - [`3.6-home.html`](demos/3.6-home.html): home screen (continue playing, apps, notices, recently
+    played, sections on LB/RB), with the states "game running" (home opened with Guide over a
+    game) and "no games yet", the options and details windows, and the placeholder sounds.
+    Demo keys and start state are listed under the frame.
 
 - [`sounds.md`](sounds.md): the interface sounds (list, length, file format), provided by the
   owner (roadmap 3.12).

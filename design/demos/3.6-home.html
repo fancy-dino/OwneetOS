@@ -1,0 +1,612 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS — interactive demo for roadmap step 3.6 (home screen). Open in a browser; drive it
+     with a gamepad or the keyboard. Fonts come from Google Fonts for the demo only (the console
+     bundles them); sounds are the placeholders in frontend/sounds/ (Kenney, CC0). Game names and
+     cover art are invented: real covers come from local files (Steam's cache, game folders). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS — Home (demo 3.6)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1; --motion: 1; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+.frame { position: relative; flex: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+
+/* ---------- 1280 × 720 grid, 5% horizontal safe area ---------- */
+.stage {
+  width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px;
+  display: grid; grid-template-rows: auto 1fr auto; gap: 20px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350;
+}
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); } .t-xl { font-size: calc(40px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+.label { text-transform: uppercase; letter-spacing: .09em; font-weight: 500; color: var(--muted); }
+
+/* ---------- Focus ring: background gap + accent ring + small lift ---------- */
+[data-f] { outline: none; position: relative; transition: transform calc(.16s * var(--motion)) ease, box-shadow calc(.16s * var(--motion)) ease; }
+[data-f].focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); transform: scale(calc(1 + .035 * var(--motion))); z-index: 2; }
+
+/* ---------- Top bar ---------- */
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 36px; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.tabs .g { opacity: .8; }
+.status { display: flex; align-items: center; gap: 20px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status .item { display: inline-flex; align-items: center; gap: 6px; }
+.status svg { width: calc(19px * var(--ts)); height: calc(19px * var(--ts)); }
+.status .clock { color: var(--fg); font-weight: 500; }
+
+/* ---------- Home ---------- */
+.page { min-height: 0; display: none; }
+.page.on { display: grid; }
+.home { grid-template-rows: minmax(0, 1fr) auto; gap: 20px; }
+.home-top { display: grid; grid-template-columns: 1.65fr 1fr; gap: 20px; min-height: 0; }
+.hero {
+  position: relative; border-radius: 18px; overflow: hidden; padding: 30px 34px;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 12px; color: #fff; min-height: 0;
+  background:
+    radial-gradient(70% 90% at 85% 15%, hsl(var(--h) 85% 62% / .85), transparent 60%),
+    radial-gradient(60% 80% at 60% 110%, hsl(calc(var(--h) + 40) 70% 42%), transparent 70%),
+    linear-gradient(135deg, hsl(var(--h) 45% 22%), hsl(calc(var(--h) + 30) 55% 10%));
+}
+.hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.55), rgba(0,0,0,0) 70%); pointer-events: none; }
+.hero > * { position: relative; }
+.hero.plain { background: var(--surface); color: var(--fg); border: 1px solid var(--line); justify-content: center; }
+.hero.plain::before { display: none; }
+.hero .kicker { text-transform: uppercase; letter-spacing: .12em; opacity: .85; font-weight: 500; }
+.hero .meta { display: flex; gap: 18px; opacity: .9; flex-wrap: wrap; }
+.hero .meta .src { padding: 2px 10px; border-radius: 999px; background: rgba(0,0,0,.35); }
+.hero.plain .meta .src { background: var(--raised); }
+.hero p { margin: 0; max-width: 560px; opacity: .9; }
+.hero .actions { display: flex; gap: 12px; margin-top: 4px; }
+.btn { padding: 11px 26px; border-radius: 999px; font-weight: 500; }
+.btn.primary { background: #fff; color: #10131C; }
+.btn.ghost { background: rgba(255,255,255,.16); color: #fff; }
+.hero.plain .btn.primary { background: var(--accent); color: var(--on-accent); }
+.hero.plain .btn.ghost { background: var(--raised); color: var(--fg); }
+.running-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #4ADE80; margin-right: 8px; box-shadow: 0 0 0 4px rgba(74,222,128,.25); }
+
+.side { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; min-height: 0; overflow-y: auto; scrollbar-width: none; padding: 8px; margin: -8px; }
+.apps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.app { min-height: 78px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; justify-content: space-between; gap: 8px; padding: 10px 12px; }
+.app .ico { width: calc(30px * var(--ts)); height: calc(30px * var(--ts)); border-radius: 9px; display: grid; place-items: center; font-weight: 700; font-family: var(--display); background: var(--raised); color: var(--accent); }
+.notice { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 11px 14px; background: var(--surface); border-radius: 14px; border: 1px solid var(--line); width: 100%; }
+.notice .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+.notice .more { color: var(--muted); white-space: nowrap; }
+
+.row-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+.row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 14px; }
+.cover {
+  position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 4 / 5; color: #fff;
+  display: flex; flex-direction: column; justify-content: flex-end; padding: 10px;
+  background:
+    radial-gradient(120% 80% at 80% 10%, hsl(var(--h) 85% 62% / .95), transparent 60%),
+    radial-gradient(90% 70% at 0% 100%, hsl(calc(var(--h) + 40) 70% 35%), transparent 70%),
+    linear-gradient(160deg, hsl(var(--h) 45% 26%), hsl(calc(var(--h) + 25) 50% 12%));
+}
+.cover .ttl { font-family: var(--display); font-weight: 750; font-variation-settings: "wdth" 80; line-height: 1.05; text-shadow: 0 2px 10px rgba(0,0,0,.4); }
+.cover .src { position: absolute; top: 8px; left: 8px; padding: 2px 9px; border-radius: 999px; background: rgba(0,0,0,.45); }
+.cover .run { position: absolute; top: 8px; right: 8px; padding: 2px 9px; border-radius: 999px; background: #4ADE80; color: #062010; font-weight: 600; }
+.all { border-radius: 14px; border: 2px dashed var(--line); display: grid; place-items: center; text-align: center; color: var(--muted); aspect-ratio: 4 / 5; padding: 10px; }
+
+/* Library and Settings: placeholders in this demo */
+.later { place-items: center; text-align: center; color: var(--muted); align-content: center; gap: 10px; }
+
+/* ---------- Prompt bar and glyphs ---------- */
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 26px; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+
+/* ---------- Windows (details, options, confirmation) ---------- */
+.overlay { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 85%, transparent); display: none; z-index: 10; }
+.overlay.open { display: block; }
+.sheet { position: absolute; left: 340px; right: 340px; top: 110px; background: var(--bg); border: 1px solid var(--line); border-radius: 18px;
+         padding: 20px 24px 24px; display: grid; gap: 14px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.7); }
+.sheet .list { display: grid; gap: 10px; }
+.sheet .item { display: flex; justify-content: space-between; padding: 12px 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); width: 100%; }
+.sheet .facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; }
+.sheet .facts span:nth-child(odd) { color: var(--muted); }
+.sheet-prompts { position: absolute; left: 64px; right: 64px; bottom: 28px; }
+.has-sheet > .prompts { visibility: hidden; }
+.toast { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); padding: 9px 18px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; white-space: nowrap; }
+.toast.show { opacity: 1; }
+
+/* ---------- Help outside the console frame ---------- */
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <header class="top">
+    <div class="top-left">
+      <span class="mark">Owneet<i>OS</i></span>
+      <nav class="tabs t-s" id="tabs">
+        <span data-glyph="lb"></span>
+        <span class="tab" data-tab="home" aria-current="page" data-i18n="tab.home">Home</span>
+        <span class="tab" data-tab="library" data-i18n="tab.library">Library</span>
+        <span class="tab" data-tab="settings" data-i18n="tab.settings">Settings</span>
+        <span data-glyph="rb"></span>
+      </nav>
+    </div>
+    <div class="status t-s">
+      <span class="item" id="pad-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z"/></svg><span id="pad-battery">78%</span></span>
+      <span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/></svg></span>
+      <span class="clock" id="clock">21:40</span>
+    </div>
+  </header>
+
+  <main style="min-height:0; display:grid">
+    <section class="page home on" id="page-home">
+      <div class="home-top">
+        <div class="hero" id="hero"></div>
+        <aside class="side">
+          <span class="label t-xs" data-i18n="home.apps">Apps</span>
+          <div class="apps t-s" id="apps"></div>
+          <div id="notice-slot"></div>
+        </aside>
+      </div>
+      <div id="row-block">
+        <div class="row-head"><span class="label t-xs" data-i18n="home.jump">Jump back in</span><span class="muted t-xs" data-i18n="home.unified">Steam and local games, together</span></div>
+        <div class="row t-s" id="row"></div>
+      </div>
+    </section>
+    <section class="page later" id="page-library"><span class="disp t-l" data-i18n="tab.library">Library</span><span class="t-m" data-i18n="later.library">The library has its own demo (step 3.7).</span></section>
+    <section class="page later" id="page-settings"><span class="disp t-l" data-i18n="tab.settings">Settings</span><span class="t-m" data-i18n="later.settings">Settings have their own demo (step 3.9).</span></section>
+  </main>
+
+  <footer class="prompts t-s" id="prompts"></footer>
+  <div class="toast t-s" id="toast"></div>
+
+  <div class="overlay" id="overlay">
+    <div class="sheet" id="sheet"></div>
+    <div class="prompts t-s sheet-prompts" id="sheet-prompts"></div>
+  </div>
+</div></div>
+<p class="help"><b>Gamepad:</b> D-pad / stick move, A select, B back, X secondary, Menu options, LB/RB sections, LT/RT filters (none here).
+<b>Keyboard:</b> arrows, Enter = A, Esc = B, X, Y, M = Menu, Q/E = LB/RB, Z/C = LT/RT.<br>
+<b>Demo only:</b> S screen (normal · game running · no games yet), P palette, T text size, G button prompts, L language, N sounds on/off (<span id="snd-state">on</span>; the browser plays them after the first key or click). Address: <code>#state=running&amp;pal=ember&amp;ts=1.2&amp;glyphs=ps&amp;lang=it</code></p>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 70) / 720);
+    stage.style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+
+  /* ---------- Palettes (the 21 approved ones) ---------- */
+  const PALETTES = [
+    ['dusk', '#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+    ['tide', '#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+    ['bloom', '#1A1020', '#25182D', '#33223D', '#45304F', '#F7EEF6', '#AE93AE', '#FF7AA8', '#2A0614'],
+    ['ember', '#1C0F0C', '#2A1713', '#3A201A', '#4E2C24', '#FBEDE9', '#C49C93', '#FF6B47', '#2A0A03'],
+    ['espresso', '#1A1310', '#261C17', '#33261F', '#47362C', '#F5ECE4', '#BBA693', '#D9A066', '#2A1707'],
+    ['harbor', '#0D1B2E', '#14263D', '#1D3350', '#2A4566', '#F3EAD8', '#B7AE99', '#E8D3A8', '#142033'],
+    ['forest', '#0E1A14', '#15261D', '#1E3428', '#2B4636', '#ECF5EE', '#95B2A0', '#7BD88F', '#072012'],
+    ['lagoon', '#0A1426', '#101E38', '#182A4B', '#23395F', '#EAF1FF', '#90A4C9', '#4DA3FF', '#03162E'],
+    ['amethyst', '#15121F', '#1F1A2E', '#2A2340', '#3A3155', '#F1EDFA', '#A99FC4', '#B69CFF', '#1B0E3A'],
+    ['crimson', '#170A0E', '#241018', '#321722', '#47202F', '#FCECEF', '#C597A1', '#FF4D6D', '#2B0510'],
+    ['synthwave', '#140B24', '#1F1236', '#2B1A4A', '#3D2563', '#FBEFFF', '#B99DD8', '#FF4FD8', '#2B0326'],
+    ['amber', '#0F0B05', '#1A1409', '#251C0D', '#3A2C14', '#FFE8C2', '#C9AA78', '#FFB000', '#241700'],
+    ['olive', '#14160E', '#1E2116', '#292D1F', '#3A402B', '#F1F3E6', '#ABB092', '#C5D86D', '#1C2306'],
+    ['graphite', '#121212', '#1C1C1C', '#262626', '#383838', '#F2F2F2', '#A6A6A6', '#DADADA', '#121212'],
+    ['daylight', '#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+    ['arctic', '#EEF5FA', '#FFFFFF', '#DCE9F3', '#C3D5E4', '#0F1E2B', '#4E6577', '#0A78B8', '#FFFFFF'],
+    ['sand', '#F4EEE3', '#FFFBF4', '#E8DFD0', '#D3C6B1', '#2A2117', '#6A5C49', '#B04A28', '#FFFFFF'],
+    ['latte', '#F3ECE4', '#FFFAF5', '#E6DACD', '#D2C1AF', '#2B1E14', '#6B5746', '#8B5A2B', '#FFFFFF'],
+    ['sakura', '#FBEFF3', '#FFFFFF', '#F3DDE5', '#E3C3CF', '#2A1420', '#76505F', '#C92A62', '#FFFFFF'],
+    ['contrast', '#000000', '#000000', '#161616', '#FFFFFF', '#FFFFFF', '#E0E0E0', '#FFE14D', '#000000'],
+    ['contrast-light', '#FFFFFF', '#FFFFFF', '#EDEDED', '#000000', '#000000', '#262626', '#0038B8', '#FFFFFF'],
+  ];
+  const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
+  let palIndex = 0;
+  function setPalette(i) {
+    palIndex = (i + PALETTES.length) % PALETTES.length;
+    TOKENS.forEach((t, k) => stage.style.setProperty('--' + t, PALETTES[palIndex][1 + k]));
+  }
+
+  /* ---------- i18n (the console uses frontend/i18n/*.json) ---------- */
+  const IT = {
+    'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni',
+    'home.apps': 'App', 'home.jump': 'Giocati di recente', 'home.unified': 'Giochi Steam e locali, insieme', 'home.all': 'Tutti i giochi',
+    'home.continue': 'Continua a giocare', 'home.playing': 'In gioco', 'home.welcome': 'Benvenuto',
+    'home.play': 'Gioca', 'home.details': 'Dettagli', 'home.resume': 'Riprendi', 'home.close': 'Chiudi il gioco',
+    'home.empty.title': 'Aggiungiamo dei giochi', 'home.empty.text': 'Installa i giochi dallo Steam Store, oppure collega un disco USB con dei giochi: compaiono qui da soli.',
+    'home.empty.store': 'Apri lo Steam Store', 'home.empty.how': 'Come aggiungere giochi',
+    'app.videos': 'Video', 'app.music': 'Musica', 'app.store': 'Steam Store',
+    'played.yesterday': 'Giocato ieri', 'played.today': 'Giocato oggi', 'played.days': 'Giocato {n} giorni fa',
+    'time.total': '{h} h {m} min in totale', 'time.session': 'In gioco da {m} min',
+    'src.local': 'Locale', 'game.running': 'In corso',
+    'notice.usb': 'Disco USB collegato: 3 giochi trovati e aggiunti alla libreria.',
+    'notice.update': 'Aggiornamento pronto: si installa al prossimo riavvio.',
+    'notice.more': '+{n}',
+    'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.play': 'Gioca', 'p.details': 'Dettagli', 'p.options': 'Opzioni', 'p.open': 'Apri',
+    'p.dismiss': 'Ignora', 'p.sections': 'Sezioni', 'p.home': 'Home', 'p.resume': 'Riprendi', 'p.close': 'Chiudi', 'p.cancel': 'Annulla',
+    'opt.title': 'Opzioni', 'opt.play': 'Gioca', 'opt.details': 'Dettagli', 'opt.fav': 'Aggiungi ai preferiti', 'opt.unfav': 'Togli dai preferiti', 'opt.library': 'Mostra nella libreria',
+    'det.source': 'Origine', 'det.last': 'Ultima partita', 'det.time': 'Tempo di gioco', 'det.disk': 'Installato su', 'det.disk.internal': 'Disco interno', 'det.disk.usb': 'Disco USB',
+    'close.title': 'Chiudere {title}?', 'close.text': 'I progressi non salvati potrebbero andare persi.',
+    'how.title': 'Come aggiungere giochi', 'how.steam': 'Steam: apri lo Steam Store, accedi e installa i tuoi giochi.', 'how.usb': 'Giochi senza DRM: copiali su un disco USB o interno, in una cartella “Games”.',
+    'later.library': 'La libreria ha la sua demo (step 3.7).', 'later.settings': 'Le impostazioni hanno la loro demo (step 3.9).',
+    'toast.launch': 'Avvio di {title}…', 'toast.resume': 'Ritorno a {title}…', 'toast.closed': '{title} chiuso', 'toast.app': 'Apertura di {app}…',
+    'toast.notices': 'Le notifiche hanno il loro step (3.11)', 'toast.fav': 'Aggiunto ai preferiti', 'toast.unfav': 'Tolto dai preferiti', 'toast.nofilter': '',
+  };
+  const EN = {
+    'home.all': 'All games', 'home.continue': 'Continue playing', 'home.playing': 'Now playing', 'home.welcome': 'Welcome',
+    'home.play': 'Play', 'home.details': 'Details', 'home.resume': 'Resume', 'home.close': 'Close game',
+    'home.empty.title': "Let's add some games", 'home.empty.text': 'Install games from the Steam Store, or plug in a USB disk with games: they appear here by themselves.',
+    'home.empty.store': 'Open the Steam Store', 'home.empty.how': 'How to add games',
+    'app.videos': 'Videos', 'app.music': 'Music', 'app.store': 'Steam Store',
+    'played.yesterday': 'Played yesterday', 'played.today': 'Played today', 'played.days': 'Played {n} days ago',
+    'time.total': '{h} h {m} min in total', 'time.session': 'Playing for {m} min',
+    'src.local': 'Local', 'game.running': 'Running',
+    'notice.usb': 'USB disk connected: 3 games found and added to your library.',
+    'notice.update': 'Update ready: it installs at the next restart.',
+    'notice.more': '+{n}',
+    'p.select': 'Select', 'p.back': 'Back', 'p.play': 'Play', 'p.details': 'Details', 'p.options': 'Options', 'p.open': 'Open',
+    'p.dismiss': 'Dismiss', 'p.sections': 'Sections', 'p.home': 'Home', 'p.resume': 'Resume', 'p.close': 'Close', 'p.cancel': 'Cancel',
+    'opt.title': 'Options', 'opt.play': 'Play', 'opt.details': 'Details', 'opt.fav': 'Add to favorites', 'opt.unfav': 'Remove from favorites', 'opt.library': 'Show in library',
+    'det.source': 'Source', 'det.last': 'Last played', 'det.time': 'Play time', 'det.disk': 'Installed on', 'det.disk.internal': 'Internal disk', 'det.disk.usb': 'USB disk',
+    'close.title': 'Close {title}?', 'close.text': 'Unsaved progress may be lost.',
+    'how.title': 'How to add games', 'how.steam': 'Steam: open the Steam Store, sign in and install your games.', 'how.usb': 'DRM-free games: copy them to a USB or internal disk, in a “Games” folder.',
+    'toast.launch': 'Starting {title}…', 'toast.resume': 'Back to {title}…', 'toast.closed': '{title} closed', 'toast.app': 'Opening {app}…',
+    'toast.notices': 'Notifications have their own step (3.11)', 'toast.fav': 'Added to favorites', 'toast.unfav': 'Removed from favorites',
+  };
+  let lang = 'en';
+  $$('[data-i18n]').forEach(el => { if (!EN[el.dataset.i18n]) EN[el.dataset.i18n] = el.textContent; });
+  const tr = (k, args = {}) => ((lang === 'it' ? IT[k] : null) || EN[k] || k).replace(/\{(\w+)\}/g, (_, a) => args[a] ?? '');
+
+  /* ---------- Button glyphs (drawn for OwneetOS, no logos) ---------- */
+  let glyphSetting = 'auto', padKind = 'xbox';
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const home = circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`);
+  const GLYPHS = {
+    xbox: { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lb: pill('LB', 34), rb: pill('RB', 34), lt: pill('LT', 32), rt: pill('RT', 32),
+            menu: circle(`<path d="M8.5 10h9M8.5 13h9M8.5 16h9" ${S}/>`), guide: home },
+    ps: { a: circle(`<path d="M9.2 9.2l7.6 7.6M16.8 9.2l-7.6 7.6" ${S}/>`), b: circle(`<circle cx="13" cy="13" r="4.6" ${S}/>`),
+          x: circle(`<rect x="8.8" y="8.8" width="8.4" height="8.4" rx="1" ${S}/>`), y: circle(`<path d="M13 8.4l4.8 8.2H8.2z" ${S}/>`),
+          lb: pill('L1', 30), rb: pill('R1', 30), lt: pill('L2', 30), rt: pill('R2', 30), menu: pill('OPTIONS', 62), guide: home },
+    nintendo: { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lb: pill('L', 28), rb: pill('R', 28), lt: pill('ZL', 32), rt: pill('ZR', 32),
+                menu: circle(`<path d="M13 8.5v9M8.5 13h9" ${S}/>`), guide: home },
+  };
+  const glyphs = () => GLYPHS[glyphSetting === 'auto' ? padKind : glyphSetting];
+  const glyphHTML = b => glyphs()[b];
+
+  /* ---------- Sounds: the placeholders of frontend/sounds/ ---------- */
+  let soundOn = true;
+  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', back: 'nav-back', section: 'nav-section',
+    tab: 'nav-tab', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', launch: 'game-launch', notify: 'notify' };
+  const audio = {};
+  for (const [k, f] of Object.entries(SOUNDS)) { audio[k] = new Audio(`../../frontend/sounds/${f}.wav`); audio[k].preload = 'auto'; audio[k].volume = 0.7; }
+  function feedback(kind) {
+    if (!soundOn || !audio[kind]) return;
+    const a = audio[kind].cloneNode(); a.volume = 0.7; a.play().catch(() => {});
+  }
+
+  /* ---------- Data (invented games; covers generated) ---------- */
+  const GAMES = [
+    { id: 'nebula', title: 'Nebula Drift', src: 'Steam', h: 255, last: 1, total: 760, disk: 'internal' },
+    { id: 'moss', title: 'Moss Garden', src: 'Steam', h: 150, last: 2, total: 1420, disk: 'internal' },
+    { id: 'tux', title: 'SuperTuxKart', src: 'local', h: 200, last: 3, total: 95, disk: 'usb' },
+    { id: 'ember', title: 'Ember Run', src: 'Steam', h: 20, last: 4, total: 310, disk: 'internal' },
+    { id: 'harbor', title: 'Harbor Lights', src: 'Steam', h: 45, last: 6, total: 40, disk: 'internal' },
+    { id: 'zero', title: '0 A.D.', src: 'local', h: 80, last: 9, total: 600, disk: 'usb' },
+    { id: 'velvet', title: 'Velvet Road', src: 'Steam', h: 300, last: 12, total: 1200, disk: 'internal' },
+  ];
+  const APPS = [
+    { key: 'netflix', name: 'Netflix', ico: 'N' }, { key: 'youtube', name: 'YouTube', ico: 'Y' }, { key: 'spotify', name: 'Spotify', ico: 'S' },
+    { key: 'videos', i18n: 'app.videos', ico: '▶' }, { key: 'music', i18n: 'app.music', ico: '♪' }, { key: 'store', i18n: 'app.store', ico: '$' },
+  ];
+  let notices = ['notice.usb', 'notice.update'];
+  const favorites = new Set();
+  let state = 'normal';            // normal, running, empty
+  let running = null;              // game running behind the home screen
+  let section = 'home';
+
+  const srcName = g => g.src === 'local' ? tr('src.local') : g.src;
+  const lastPlayed = g => g.last === 0 ? tr('played.today') : g.last === 1 ? tr('played.yesterday') : tr('played.days', { n: g.last });
+  const totalTime = g => tr('time.total', { h: Math.floor(g.total / 60), m: g.total % 60 });
+
+  /* ---------- Rendering ---------- */
+  function renderHero() {
+    const hero = $('#hero');
+    if (state === 'empty') {
+      hero.className = 'hero plain';
+      hero.innerHTML = `<span class="kicker t-xs">${tr('home.welcome')}</span>
+        <span class="disp t-xl">${tr('home.empty.title')}</span>
+        <p class="t-s">${tr('home.empty.text')}</p>
+        <div class="actions t-m"><button class="btn primary" data-f data-act="store">${tr('home.empty.store')}</button>
+        <button class="btn ghost" data-f data-act="how">${tr('home.empty.how')}</button></div>`;
+      return;
+    }
+    const g = state === 'running' ? running : GAMES[0];
+    hero.className = 'hero';
+    hero.style.setProperty('--h', g.h);
+    const running_ = state === 'running';
+    hero.innerHTML = `<span class="kicker t-xs">${running_ ? '<span class="running-dot"></span>' + tr('home.playing') : tr('home.continue')}</span>
+      <span class="disp t-xl">${g.title}</span>
+      <span class="meta t-s"><span class="src">${srcName(g)}</span><span>${running_ ? tr('time.session', { m: 25 }) : lastPlayed(g)}</span><span>${totalTime(g)}</span></span>
+      <div class="actions t-m">${running_
+        ? `<button class="btn primary" data-f data-act="resume" data-game="${g.id}">${tr('home.resume')}</button><button class="btn ghost" data-f data-act="close" data-game="${g.id}">${tr('home.close')}</button>`
+        : `<button class="btn primary" data-f data-act="play" data-game="${g.id}">${tr('home.play')}</button><button class="btn ghost" data-f data-act="details" data-game="${g.id}">${tr('home.details')}</button>`}</div>`;
+  }
+  function renderApps() {
+    $('#apps').innerHTML = APPS.map(a => `<button class="app" data-f data-act="app" data-app="${a.key}"><span class="ico">${a.ico}</span><span>${a.i18n ? tr(a.i18n) : a.name}</span></button>`).join('');
+  }
+  function renderNotice() {
+    $('#notice-slot').innerHTML = notices.length ? `<button class="notice t-xs" data-f data-act="notice"><span class="dot"></span><span>${tr(notices[0])}</span>${notices.length > 1 ? `<span class="more">${tr('notice.more', { n: notices.length - 1 })}</span>` : '<span></span>'}</button>` : '';
+  }
+  function renderRow() {
+    $('#row-block').style.display = state === 'empty' ? 'none' : '';
+    const list = state === 'running' ? GAMES.slice(0, 6) : GAMES.slice(1, 7);
+    $('#row').innerHTML = list.map(g => `<button class="cover" data-f data-act="game" data-game="${g.id}" style="--h:${g.h}">
+        <span class="src t-xs">${srcName(g)}</span>${running && running.id === g.id && state === 'running' ? `<span class="run t-xs">${tr('game.running')}</span>` : ''}
+        <span class="ttl t-m">${g.title}</span></button>`).join('') +
+      `<button class="all" data-f data-act="all"><span class="t-s">${tr('home.all')}</span></button>`;
+  }
+  function renderAll(keepFocusSel) {
+    $$('[data-i18n]').forEach(el => { el.textContent = tr(el.dataset.i18n); });
+    $$('[data-glyph]').forEach(el => { el.innerHTML = glyphHTML(el.dataset.glyph); });
+    renderHero(); renderApps(); renderNotice(); renderRow();
+    const target = (keepFocusSel && $(keepFocusSel)) || $('#hero [data-f]');
+    if (!sheetOpen) focus(target, true);
+    renderPrompts();
+  }
+
+  /* ---------- Prompt bar: follows the selected item ---------- */
+  const P = (btns, label) => `<span class="prompt">${btns.map(glyphHTML).join('')}<span>${tr(label)}</span></span>`;
+  function renderPrompts() {
+    const right = P(['guide'], 'p.home');
+    let left = [];
+    const act = focused && focused.dataset.act;
+    if (section !== 'home') left = [];
+    else if (act === 'game' || act === 'play' || act === 'details') left = [P(['a'], act === 'details' ? 'p.details' : 'p.play'), P(['x'], 'p.details'), P(['menu'], 'p.options')];
+    else if (act === 'resume' || act === 'close') left = [P(['a'], act === 'close' ? 'p.close' : 'p.resume')];
+    else if (act === 'notice') left = [P(['a'], 'p.open'), P(['x'], 'p.dismiss')];
+    else if (act) left = [P(['a'], act === 'app' || act === 'store' ? 'p.open' : 'p.select')];
+    if (act === 'details') left = [P(['a'], 'p.details'), P(['menu'], 'p.options')];
+    $('#prompts').innerHTML = `<div class="set">${left.join('')}</div><div class="set">${P(['lb', 'rb'], 'p.sections')}${right}</div>`;
+  }
+
+  /* ---------- Focus and spatial navigation (as in demo 3.3) ---------- */
+  let focused = null;
+  function focus(el, silent) {
+    if (!el) return;
+    if (focused) focused.classList.remove('focus');
+    focused = el; el.classList.add('focus');
+    el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (!silent) feedback('move');
+    if (!sheetOpen) renderPrompts();
+  }
+  function move(dir) {
+    const scope = sheetOpen ? $('#sheet') : $(`#page-${section}`);
+    const items = $$('[data-f]', scope);
+    if (!focused || !items.includes(focused)) { if (items[0]) focus(items[0]); return; }
+    const a = focused.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    let best = null, bestScore = Infinity;
+    for (const el of items) {
+      if (el === focused) continue;
+      const b = el.getBoundingClientRect(), dx = b.left + b.width / 2 - ax, dy = b.top + b.height / 2 - ay;
+      const ok = dir === 'left' ? dx < -4 : dir === 'right' ? dx > 4 : dir === 'up' ? dy < -4 : dy > 4;
+      if (!ok) continue;
+      const horiz = dir === 'left' || dir === 'right';
+      const score = (horiz ? Math.abs(dx) : Math.abs(dy)) + (horiz ? Math.abs(dy) : Math.abs(dx)) * 2.5;
+      if (score < bestScore) { bestScore = score; best = el; }
+    }
+    if (best) focus(best); else feedback('edge');
+  }
+
+  /* ---------- Windows ---------- */
+  let sheetOpen = false, sheetReturn = null, sheetAccept = null;
+  function openSheet(html, prompts, onAccept) {
+    sheetReturn = focused; sheetOpen = true; sheetAccept = onAccept;
+    $('#sheet').innerHTML = html;
+    $('#sheet-prompts').innerHTML = `<div class="set">${prompts.join('')}</div><div class="set">${P(['guide'], 'p.home')}</div>`;
+    $('#overlay').classList.add('open'); stage.classList.add('has-sheet');
+    feedback('sheet-open');
+    focus($('#sheet [data-f]'), true);
+  }
+  function closeSheet(sound = true) {
+    if (!sheetOpen) return;
+    sheetOpen = false; $('#overlay').classList.remove('open'); stage.classList.remove('has-sheet');
+    if (sound) feedback('sheet-close');
+    focus(sheetReturn && document.contains(sheetReturn) ? sheetReturn : $('#hero [data-f]'), true);
+  }
+  const game = id => GAMES.find(g => g.id === id);
+  function detailsSheet(g) {
+    openSheet(`<span class="disp t-l">${g.title}</span>
+      <div class="facts t-s"><span>${tr('det.source')}</span><span>${srcName(g)}</span><span>${tr('det.last')}</span><span>${lastPlayed(g)}</span>
+      <span>${tr('det.time')}</span><span>${totalTime(g)}</span><span>${tr('det.disk')}</span><span>${tr('det.disk.' + g.disk)}</span></div>
+      <div class="list t-m"><button class="item" data-f data-sheet="play">${tr('opt.play')}</button></div>`,
+      [P(['a'], 'p.play'), P(['b'], 'p.back')], el => { closeSheet(false); launch(g); });
+  }
+  function optionsSheet(g) {
+    openSheet(`<span class="disp t-l">${g.title}</span><div class="list t-m">
+      <button class="item" data-f data-sheet="play">${tr('opt.play')}</button>
+      <button class="item" data-f data-sheet="details">${tr('opt.details')}</button>
+      <button class="item" data-f data-sheet="fav">${tr(favorites.has(g.id) ? 'opt.unfav' : 'opt.fav')}</button>
+      <button class="item" data-f data-sheet="library">${tr('opt.library')}</button></div>`,
+      [P(['a'], 'p.select'), P(['b'], 'p.back')], el => {
+        const what = el.dataset.sheet;
+        if (what === 'play') { closeSheet(false); launch(g); }
+        else if (what === 'details') { closeSheet(false); detailsSheet(g); }
+        else if (what === 'fav') { const on = !favorites.has(g.id); on ? favorites.add(g.id) : favorites.delete(g.id); closeSheet(); toast(tr(on ? 'toast.fav' : 'toast.unfav')); }
+        else { closeSheet(false); goSection('library'); }
+      });
+  }
+  function closeGameSheet(g) {
+    openSheet(`<span class="disp t-l">${tr('close.title', { title: g.title })}</span><span class="t-m muted">${tr('close.text')}</span>
+      <div class="list t-m"><button class="item" data-f data-sheet="close">${tr('home.close')}</button><button class="item" data-f data-sheet="cancel">${tr('p.cancel')}</button></div>`,
+      [P(['a'], 'p.select'), P(['b'], 'p.cancel')], el => {
+        if (el.dataset.sheet === 'cancel') { closeSheet(); return; }
+        closeSheet(false); toast(tr('toast.closed', { title: g.title })); setState('normal');
+      });
+  }
+  function howSheet() {
+    openSheet(`<span class="disp t-l">${tr('how.title')}</span><span class="t-m">${tr('how.steam')}</span><span class="t-m">${tr('how.usb')}</span>
+      <div class="list t-m"><button class="item" data-f data-sheet="ok">${tr('home.empty.store')}</button></div>`,
+      [P(['a'], 'p.open'), P(['b'], 'p.back')], () => { closeSheet(false); toast(tr('toast.app', { app: 'Steam Store' })); });
+  }
+
+  /* ---------- Actions ---------- */
+  let toastTimer;
+  function toast(text) {
+    if (!text) return;
+    const t = $('#toast'); t.textContent = text; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1600);
+  }
+  function launch(g) {
+    feedback('launch'); toast(tr('toast.launch', { title: g.title }));
+    running = g; GAMES.splice(GAMES.indexOf(g), 1); GAMES.unshift(g); g.last = 0;
+    setTimeout(() => setState('running'), 900);  // as if Guide were pressed during the game
+  }
+  function accept() {
+    if (sheetOpen) { feedback('confirm'); sheetAccept && sheetAccept(focused); return; }
+    if (!focused) return;
+    feedback('confirm');
+    const act = focused.dataset.act, g = game(focused.dataset.game);
+    if (act === 'play' || act === 'game') launch(g);
+    else if (act === 'details') detailsSheet(g);
+    else if (act === 'resume') toast(tr('toast.resume', { title: g.title }));
+    else if (act === 'close') closeGameSheet(g);
+    else if (act === 'app') { const a = APPS.find(x => x.key === focused.dataset.app); toast(tr('toast.app', { app: a.i18n ? tr(a.i18n) : a.name })); }
+    else if (act === 'store') toast(tr('toast.app', { app: 'Steam Store' }));
+    else if (act === 'how') howSheet();
+    else if (act === 'notice') toast(tr('toast.notices'));
+    else if (act === 'all') goSection('library');
+  }
+  function secondary() {
+    if (sheetOpen || !focused) return;
+    const act = focused.dataset.act;
+    if (act === 'game' || act === 'play') { feedback('confirm'); detailsSheet(game(focused.dataset.game)); }
+    else if (act === 'notice') { feedback('back'); notices.shift(); renderNotice(); focus($('#notice-slot [data-f]') || $('#apps [data-f]:last-child'), true); }
+    else feedback('edge');
+  }
+  function options() {
+    if (sheetOpen || !focused) return;
+    const act = focused.dataset.act;
+    if (act === 'game' || act === 'play' || act === 'details') optionsSheet(game(focused.dataset.game));
+    else feedback('edge');
+  }
+  function goSection(name) {
+    section = name;
+    $$('[data-tab]').forEach(t => t.toggleAttribute('aria-current', t.dataset.tab === name));
+    $$('[data-tab]').forEach(t => { if (t.dataset.tab === name) t.setAttribute('aria-current', 'page'); });
+    $$('.page').forEach(p => p.classList.toggle('on', p.id === 'page-' + name));
+    feedback('section');
+    if (name === 'home') focus($('#hero [data-f]'), true); else { if (focused) focused.classList.remove('focus'); focused = null; }
+    renderPrompts();
+  }
+  function cycleSection(step) {
+    if (sheetOpen) { feedback('edge'); return; }
+    const names = ['home', 'library', 'settings'];
+    goSection(names[(names.indexOf(section) + step + names.length) % names.length]);
+  }
+  function back() {
+    if (sheetOpen) { closeSheet(); return; }
+    feedback('back');
+    if (section !== 'home') goSection('home');
+  }
+  function setState(s) {
+    state = s;
+    if (s === 'running' && !running) running = GAMES[0];
+    if (s !== 'running') running = null;
+    if (s === 'empty') notices = [];
+    else if (!notices.length) notices = ['notice.usb', 'notice.update'];
+    renderAll();
+  }
+
+  /* ---------- Input ---------- */
+  const press = {
+    a: accept, b: back, x: secondary, y: () => feedback('edge'), menu: options,
+    lb: () => cycleSection(-1), rb: () => cycleSection(1), lt: () => feedback('edge'), rt: () => feedback('edge'),
+  };
+  const DEMO = {
+    s: () => setState({ normal: 'running', running: 'empty', empty: 'normal' }[state]),
+    p: () => { setPalette(palIndex + 1); toast(PALETTES[palIndex][0]); },
+    t: () => { const sizes = [0.9, 1, 1.2, 1.4]; const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts')) || 1;
+               const next = sizes[(sizes.indexOf(cur) + 1) % sizes.length]; document.documentElement.style.setProperty('--ts', next); toast('Text ' + next); },
+    g: () => { glyphSetting = { auto: 'xbox', xbox: 'ps', ps: 'nintendo', nintendo: 'auto' }[glyphSetting]; renderAll(); toast('Prompts: ' + glyphSetting); },
+    l: () => { lang = lang === 'en' ? 'it' : 'en'; renderAll(); },
+    n: () => { soundOn = !soundOn; $('#snd-state').textContent = soundOn ? 'on' : 'off'; },
+  };
+  document.addEventListener('keydown', e => {
+    const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    const keys = { Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b', x: 'x', y: 'y', m: 'menu', q: 'lb', e: 'rb', z: 'lt', c: 'rt' };
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (dirs[e.key]) { e.preventDefault(); move(dirs[e.key]); }
+    else if (keys[k]) { e.preventDefault(); if (!e.repeat) press[keys[k]](); }
+    else if (DEMO[k]) { e.preventDefault(); DEMO[k](); }
+  });
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-f]');
+    if (el) { focus(el, true); accept(); }
+    else if (sheetOpen && e.target === $('#overlay')) closeSheet();
+  });
+
+  /* ---------- Gamepad (standard mapping) ---------- */
+  const prev = {};
+  let repeatAt = 0, lastDir = null;
+  const kindOf = id => /xbox|microsoft|045e/i.test(id) ? 'xbox' : /nintendo|switch|joy-?con|057e/i.test(id) ? 'nintendo'
+    : /054c|sony|dualsense|dualshock|playstation|wireless controller|\bps[345]\b/i.test(id) ? 'ps' : 'xbox';
+  function poll(ts) {
+    const pads = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
+    const pad = pads[0];
+    if (pad) {
+      const k = kindOf(pad.id);
+      if (k !== padKind) { padKind = k; renderAll(focused && focused.id ? '#' + focused.id : null); }
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const edge = i => { const p = on(i), was = prev[i]; prev[i] = p; return p && !was; };
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+      [['a', 0], ['b', 1], ['x', 2], ['y', 3], ['lb', 4], ['rb', 5], ['lt', 6], ['rt', 7], ['menu', 9]]
+        .forEach(([name, i]) => { if (edge(i)) press[name](); });
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+
+  /* ---------- Clock ---------- */
+  const tick = () => { $('#clock').textContent = new Date().toTimeString().slice(0, 5); };
+  tick(); setInterval(tick, 10000);
+
+  /* ---------- Start state from the address ---------- */
+  const q = new URLSearchParams(location.hash.slice(1));
+  const pi = PALETTES.findIndex(p => p[0] === q.get('pal'));
+  setPalette(pi >= 0 ? pi : 0);
+  if (q.get('ts')) document.documentElement.style.setProperty('--ts', q.get('ts'));
+  if (['xbox', 'ps', 'nintendo'].includes(q.get('glyphs'))) glyphSetting = q.get('glyphs');
+  if (q.get('lang') === 'it') lang = 'it';
+  if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
+  setState(['running', 'empty'].includes(q.get('state')) ? q.get('state') : 'normal');
+  if (q.get('focus') === 'row') focus($('#row [data-f]'), true);
+  if (q.get('open') === 'options') optionsSheet(GAMES[1]);
+})();
+</script>
+</body>
+</html>

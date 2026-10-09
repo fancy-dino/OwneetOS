@@ -518,9 +518,17 @@ code is written (PROJECT_RULES.md section 9).
   and a virtual controller, following a step list (`tools/preview-steps/`), and saves
   screenshots: checked there with keyboard, D-pad, right stick and buttons.
 
-### [ ] 3.6 Home screen
+### [~] 3.6 Home screen (demo awaiting owner review)
 
 - **Deliverables:** home as in the approved mockup (continue playing, apps, jump back in, notices).
+- **Demo:** `design/demos/3.6-home.html`. Proposals in it: the hero shows the last game played
+  (Play, Details), or the running game when the home is opened with Guide (Resume, Close game
+  with a confirmation), or a "no games yet" welcome on a new system (open the Steam Store, how to
+  add games); X = details and Menu = options (play, details, favorites, show in library) on any
+  game; one notice at a time in the side column (A opens it, X dismisses it, "+N" for the
+  others); the prompt bar follows the selected item; the LB/RB glyphs beside the section tabs; no
+  profile avatar (profiles come in a later wave); invented game names and generated covers (real
+  covers come from local files).
 
 ### [ ] 3.7 Library screen
 
