@@ -157,7 +157,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     <div class="prompts t-s sheet-prompts" id="sheet-prompts"></div>
   </div>
 </div></div>
-<p class="help"><b>Held LB / RB / LT / RT</b> (or Q / E / Z / C) repeat like the D-pad: once, then after 0.36 s every 0.14 s.<br><b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A play, B back, X details, Y sort, Menu options, LT/RT filters, LB/RB sections.
+<p class="help"><b>Held LB / RB / LT / RT</b> (or Q / E / Z / C) repeat: once, then after 0.72 s every 0.36 s (the D-pad: after 0.36 s every 0.14 s).<br><b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A play, B back, X details, Y sort, Menu options, LT/RT filters, LB/RB sections.
 <b>Keyboard:</b> arrows, Page Up/Down = right stick, Enter = A, Esc = B, X, Y, M = Menu, Z/C = LT/RT, Q/E = LB/RB.<br>
 <b>Demo only:</b> D number of disks (1, 2, 4), P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>; browsers allow sound only after a key or a click on the page). Address: <code>#disks=4&amp;filter=steam&amp;sort=name&amp;pal=ember&amp;ts=1.2&amp;lang=it&amp;keys=down,down,y</code></p>
 
@@ -530,9 +530,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     l: () => { lang = lang === 'en' ? 'it' : 'en'; renderAll(); },
     n: () => { soundOn = !soundOn; $('#snd-state').textContent = soundOn ? 'on' : 'off'; },
   };
-  // Held sections (LB / RB) and filters (LT / RT) repeat with the same timing as the directions:
-  // the first step at once, the next after 0.36 s, then every 0.14 s.
-  const REPEAT_FIRST = 360, REPEAT_NEXT = 140;
+  // Held sections (LB / RB) and filters (LT / RT) repeat at half the speed of the directions:
+  // the first step at once, the next after 0.72 s, then every 0.36 s.
+  const REPEAT_FIRST = 720, REPEAT_NEXT = 360;
   const heldKeys = {};
   function holdStart(name) {
     if (heldKeys[name]) return;
