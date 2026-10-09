@@ -16,6 +16,8 @@ import QtQuick 2.15
 
 QtObject {
     signal played(string kind)
+    property real lastPageStep: 0
+    property string lastPage: ""
 
     property bool confirmPending: false
     function feedback(kind) {
@@ -42,17 +44,28 @@ QtObject {
         if (k.isRight(event)) return "right";
         if (k.isScrollUp(event)) return "scroll-up";
         if (k.isScrollDown(event)) return "scroll-down";
-        if (event.isAutoRepeat) // a held button acts once (no repeated launches or closes)
+        // Sections and filters repeat while held, at half the speed of the directions (the
+        // controller: after 720 ms every 360 ms; a keyboard's own repeat is held to 360 ms);
+        // every other button acts once per press (no repeated launches or closes).
+        const page = k.isPrevPage(event) ? "section-prev" : k.isNextPage(event) ? "section-next"
+                   : k.isPageUp(event) ? "filter-prev" : k.isPageDown(event) ? "filter-next" : "";
+        if (page !== "") {
+            const now = Date.now();
+            if (event.isAutoRepeat && now - lastPageStep < 350) {
+                // the same event read again by a parent handler keeps its answer
+                return page === lastPage && now - lastPageStep < 20 ? page : "";
+            }
+            lastPageStep = now;
+            lastPage = page;
+            return page;
+        }
+        if (event.isAutoRepeat)
             return "";
         if (k.isAccept(event)) return "accept";
         if (k.isCancel(event)) return "back";
         if (k.isDetails(event)) return "secondary";
         if (k.isFilters(event)) return "page";
         if (k.isMenu(event)) return "options";
-        if (k.isPrevPage(event)) return "section-prev";
-        if (k.isNextPage(event)) return "section-next";
-        if (k.isPageUp(event)) return "filter-prev";
-        if (k.isPageDown(event)) return "filter-next";
         return "";
     }
     function isDirection(a) { return a === "up" || a === "down" || a === "left" || a === "right"; }

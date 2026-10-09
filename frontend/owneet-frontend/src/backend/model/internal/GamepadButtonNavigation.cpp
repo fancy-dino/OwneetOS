@@ -29,6 +29,14 @@ namespace {
 static constexpr int KEYDELAY_FIRST = 360;
 static constexpr int KEYDELAY_REPEAT = 140;
 static constexpr int KEYDELAY_REPEAT_SCROLL = 90;
+// Sections (LB / RB) and filters (LT / RT) held down repeat at half that speed
+static constexpr int KEYDELAY_FIRST_PAGES = 720;
+static constexpr int KEYDELAY_REPEAT_PAGES = 360;
+
+bool is_page_button(GamepadButton b)
+{
+    return b == GamepadButton::L1 || b == GamepadButton::R1 || b == GamepadButton::L2 || b == GamepadButton::R2;
+}
 
 void emit_key(Qt::Key key, QEvent::Type event_type, bool autorep)
 {
@@ -104,7 +112,7 @@ void GamepadButtonNavigation::onButtonChanged(int, GamepadButton button, bool pr
     emit_key(m_keys.at(it->first), event_type, false);
 
     if (pressed)
-        it->second->start(KEYDELAY_FIRST);
+        it->second->start(is_page_button(button) ? KEYDELAY_FIRST_PAGES : KEYDELAY_FIRST);
     else
         it->second->stop();
 }
@@ -129,5 +137,5 @@ void GamepadButtonNavigation::onTimerTimeout()
         emit_key(key, QEvent::KeyRelease, true);
         emit_key(key, QEvent::KeyPress, true);
     const bool scroll = it->first == GamepadButton::RSTICK_UP || it->first == GamepadButton::RSTICK_DOWN;
-    timer->start(scroll ? KEYDELAY_REPEAT_SCROLL : KEYDELAY_REPEAT);
+    timer->start(scroll ? KEYDELAY_REPEAT_SCROLL : is_page_button(it->first) ? KEYDELAY_REPEAT_PAGES : KEYDELAY_REPEAT);
 }

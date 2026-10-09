@@ -207,7 +207,9 @@ goes to the game.
 Keyboard fallback (optional, same meanings): arrows = D-pad, Enter / Space = A, Esc / Backspace = B,
 X = X, Y = Y, Q / E = LB / RB, Z / C = LT / RT, M = Menu, Page Up / Page Down = right stick.
 The input map is fixed: it is not saved in the frontend's settings, so a change reaches every
-system. A held direction repeats after 360 ms every 140 ms; other buttons act once per press.
+system. Held buttons: a direction repeats after 360 ms, then every 140 ms; LB / RB and LT / RT
+repeat after 720 ms, then every 360 ms; analog triggers count as pressed above half their travel;
+every other button acts once per press.
 
 ## 10. Roadmap
 
@@ -345,4 +347,5 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-09 | Offline is shown in the top bar with a crossed network icon (Wi-Fi, or cable on machines without Wi-Fi), not by hiding it. |
 | 2026-10-09 | Offline icon approved; next: demo 3.9 (Settings). |
 | 2026-10-09 | Demo 3.9 review: pairing drawings mark the real buttons (no drawing for "other controllers"); connected Bluetooth controllers can be turned off or forgotten; Display gets a brightness setting (where the screen allows it); the keyboard layout is chosen separately from the language; the right stick scrolls the page and windows (section 9.1). |
+| 2026-10-09 | Held LB / RB / LT / RT repeat after 0.72 s, then every 0.36 s (directions: 0.36 s, then 0.14 s) (section 9.1). Demo 3.9 approved; the brightness setting is shown only on screens that allow it. |
 | 2026-10-09 | The owner's final sounds are delivered before the public launch, after the legal review (roadmap 7.7); until then the interface uses CC0 placeholders by Kenney (`frontend/sounds/`). |

@@ -523,6 +523,9 @@ code is written (PROJECT_RULES.md section 9).
   only changes are reported (owneet-frontend 0.7.2). The preview's virtual controller now pulls
   triggers like real ones (`tools/preview-steps/triggers.txt`). Hardware check batched with the
   next test.
+- **Held buttons (2026-10-09, owner's choice after demo 3.7):** LB / RB and LT / RT repeat while
+  held, after 0.72 s then every 0.36 s (directions: 0.36 s then 0.14 s); a keyboard's own repeat
+  is held to the same pace. Checked with the virtual controller (`tools/preview-steps/held.txt`).
 
 ### [x] 3.6 Home screen
 
