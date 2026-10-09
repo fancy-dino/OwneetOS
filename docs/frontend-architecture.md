@@ -158,6 +158,9 @@ JSON file per language from `/usr/share/owneet-frontend/i18n/` (repository: `fro
 `~/.config/owneet-frontend/i18n/`; English is the default and the fallback. The theme uses it
 through the `Tr` singleton. How to translate: [translating.md](translating.md).
 
+**Disks (3.7):** `owneet::Storage` (`src/backend/owneet/`, `storage` in QML) lists the system disk
+and the mounted disks with their free space (Qt's `QStorageInfo`), for the library.
+
 Appearance choices are saved in the theme's memory (`api.memory`). Until Settings exists (3.9),
 they are opened from the temporary Settings section (`SettingsPage.qml` → `AppearanceSheet.qml`).
 
@@ -165,7 +168,7 @@ they are opened from the temporary Settings section (`SettingsPage.qml` → `App
 glyphs, controller, clock), the sections on LB / RB, the prompt bar (each section gives its
 prompts, following the selected item), the windows (`Dialog`: details, options, confirmations;
 `Sheet`: pickers) and short messages (`Toast`). Sections: `HomePage.qml` (hero, apps, notices,
-recently played, in three `NavGroup`s), `LibraryPage.qml` (a plain list until 3.7),
+recently played, in three `NavGroup`s), `LibraryPage.qml` (grid, filters, sort, disks: 3.7),
 `SettingsPage.qml` (Appearance only until 3.9). `GameInfo` gives the texts about a game (source,
 last played, play time) and the order "most recently played first"; `Cover` and `GameArt` draw a
 game's own image from local files or, without one, art generated from its title.

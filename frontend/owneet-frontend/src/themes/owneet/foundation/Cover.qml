@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A game's cover: its own image from local files when there is one, otherwise generated art with
-// the title. A badge shows where the game comes from (Steam, Local).
+// the title. A badge shows where the game comes from (Steam, Local); a heart marks a favourite;
+// a game owned but not installed is dimmed, with a download mark.
 import QtQuick 2.15
 
 Item {
@@ -11,6 +12,7 @@ Item {
     property real radius: Theme.radiusM
     signal activated()
 
+    readonly property bool installed: GameInfo.installed(game)
     readonly property string image: game ? (game.assets.poster || game.assets.boxFront || game.assets.tile || "") : ""
 
     GameArt {
@@ -19,6 +21,7 @@ Item {
         seed: root.game ? root.game.title : ""
         image: root.image
         shade: true
+        opacity: root.installed ? 1 : (root.activeFocus ? 0.8 : 0.55)
     }
     Text {
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: Theme.px(10) }
@@ -45,6 +48,18 @@ Item {
             color: "#FFFFFF"
             font.family: Theme.textFont
             font.pixelSize: Theme.fs(12.5)
+        }
+    }
+    Rectangle {          // favourite, or "not installed"
+        visible: !root.installed || (root.game && root.game.favorite)
+        anchors { right: parent.right; top: parent.top; margins: Theme.px(8) }
+        width: Theme.px(24); height: width; radius: width / 2
+        color: "#80000000"
+        Icon {
+            anchors.centerIn: parent
+            width: Theme.px(14); height: width
+            name: root.installed ? "heart" : "download"
+            color: "#FFFFFF"
         }
     }
     FocusFrame { radius: root.radius }

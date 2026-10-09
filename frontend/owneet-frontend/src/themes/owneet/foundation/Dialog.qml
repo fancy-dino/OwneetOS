@@ -11,8 +11,9 @@ NavArea {
     property string text: ""
     property var buttons: []
     property int defaultIndex: 0
+    property real contentWidth: 0          // width the window's own content needs, if any
     property var prompts: [{ buttons: ["a"], label: Tr.tr("prompt.select") }, { buttons: ["b"], label: Tr.tr("prompt.back") }]
-    default property alias content: extra.data
+    default property alias content: column.data
     backFeedback: ""            // closing plays "sheet-close"
 
     anchors.fill: parent
@@ -51,15 +52,16 @@ NavArea {
         id: box
         anchors.centerIn: parent
         anchors.verticalCenterOffset: -Theme.px(30)
-        width: Math.max(Theme.px(520), Math.min(Theme.px(1000), row.implicitRowWidth + Theme.px(64)))
-        height: column.implicitHeight + Theme.px(44)
+        width: Math.max(Theme.px(520), Math.min(Theme.px(1000), Math.max(row.implicitRowWidth, contentWidth) + Theme.px(64)))
+        height: column.height + row.height + Theme.px(20) + Theme.px(44)
         radius: Theme.radiusL
         color: Theme.bg
         border.color: Theme.line
         border.width: Math.max(1, Theme.px(1))
+        // Title, text and the window's own content (hidden items take no room), then the buttons
         Column {
             id: column
-            anchors.centerIn: parent
+            anchors { top: parent.top; topMargin: Theme.px(22); horizontalCenter: parent.horizontalCenter }
             width: box.width - Theme.px(48)
             spacing: Theme.px(14)
             Text {
@@ -82,37 +84,24 @@ NavArea {
                 font.pixelSize: Theme.fs(17)
                 wrapMode: Text.Wrap
             }
-            Item {
-                id: extra
-                width: parent.width
-                // only the visible content counts (one window shows different content)
-                height: {
-                    let h = 0;
-                    for (let i = 0; i < children.length; i++)
-                        if (children[i].visible) h = Math.max(h, children[i].y + children[i].height);
-                    return h;
-                }
-                visible: height > 0
+        }
+        Flow {
+            id: row
+            anchors { top: column.bottom; topMargin: Theme.px(20); horizontalCenter: parent.horizontalCenter }
+            width: Math.min(column.width, implicitRowWidth)
+            readonly property real implicitRowWidth: {
+                const buttons = Nav.navigables(row);
+                let w = 0;
+                for (let i = 0; i < buttons.length; i++) w += buttons[i].width + spacing;
+                return Math.max(0, w - spacing);
             }
-            Flow {
-                id: row
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: Math.min(parent.width, implicitRowWidth)
-                readonly property real implicitRowWidth: {
-                    const buttons = Nav.navigables(row);
-                    let w = 0;
-                    for (let i = 0; i < buttons.length; i++) w += buttons[i].width + spacing;
-                    return Math.max(0, w - spacing);
-                }
-                spacing: Theme.px(20)
-                topPadding: Theme.px(6)
-                Repeater {
-                    model: root.buttons
-                    Button {
-                        text: modelData.text
-                        style: modelData.style || "secondary"
-                        readonly property int buttonIndex: index
-                    }
+            spacing: Theme.px(20)
+            Repeater {
+                model: root.buttons
+                Button {
+                    text: modelData.text
+                    style: modelData.style || "secondary"
+                    readonly property int buttonIndex: index
                 }
             }
         }

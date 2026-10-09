@@ -35,13 +35,30 @@ QtObject {
         return Tr.tr("game.time.hours", { h: Math.floor(minutes / 60), m: minutes % 60 });
     }
 
-    // Games by last played (most recent first), then by title
-    function recent(model) {
-        const list = model.toVarArray();
-        list.sort((a, b) => {
-            const pa = played(a) ? a.lastPlayed.getTime() : 0, pb = played(b) ? b.lastPlayed.getTime() : 0;
-            return pb - pa || a.sortBy.localeCompare(b.sortBy);
-        });
-        return list;
+    // Owned but not installed games (Steam) arrive with the Steam integration (4.x): until then
+    // every game in the list is installed.
+    function installed(game) { return game !== null && game !== undefined; }
+
+    // Sorting: "recent" (last played, most recent first), "name", "time" (most played)
+    function sorted(list, by) {
+        const out = list.slice();
+        const byName = (a, b) => a.sortBy.localeCompare(b.sortBy);
+        const last = g => played(g) ? g.lastPlayed.getTime() : 0;
+        if (by === "name")
+            out.sort(byName);
+        else if (by === "time")
+            out.sort((a, b) => b.playTime - a.playTime || byName(a, b));
+        else
+            out.sort((a, b) => last(b) - last(a) || byName(a, b));
+        return out;
+    }
+    function recent(model) { return sorted(model.toVarArray(), "recent"); }
+
+    // Sizes for people: "212 GB", "1.1 TB" (decimal units, as disks are sold)
+    function size(bytes) {
+        const gb = bytes / 1e9;
+        if (gb >= 1000)
+            return Number(gb / 1000).toLocaleString(Qt.locale(), "f", 1) + " TB";
+        return Number(Math.round(gb)).toLocaleString(Qt.locale(), "f", 0) + " GB";
     }
 }

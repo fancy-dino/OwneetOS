@@ -20,7 +20,7 @@
 #include <QObject>
 
 class QQmlApplicationEngine;
-namespace owneet { class I18n; }
+namespace owneet { class I18n; class Storage; }
 
 
 /// Manages the dynamic reload of the frontend layer
@@ -52,4 +52,5 @@ private:
     QObject* const m_api_private;
     QQmlApplicationEngine* m_engine;
     owneet::I18n* const m_i18n; // OwneetOS: interface translations, `i18n` in QML
+    owneet::Storage* const m_storage; // OwneetOS: disks and free space, `storage` in QML
 };

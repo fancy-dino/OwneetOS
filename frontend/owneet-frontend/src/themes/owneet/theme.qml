@@ -16,9 +16,12 @@ FocusScope {
         ["palette", "paletteKey"], ["textScale", "textScale"], ["glyphs", "glyphSetting"],
         ["reduceMotion", "reduceMotion"], ["showSafeArea", "showSafeArea"]
     ]
+    property string librarySort: "recent"
+    onLibrarySortChanged: save("librarySort", librarySort)
     property bool loaded: false
     Component.onCompleted: {
         prefs.forEach(p => { if (api.memory.has(p[0])) Theme[p[1]] = api.memory.get(p[0]); });
+        if (api.memory.has("librarySort")) librarySort = api.memory.get("librarySort");
         loaded = true;
         updatePad();
         refreshGames();
@@ -115,6 +118,7 @@ FocusScope {
     function showDetails(game) {
         dialog.game = game;
         dialog.mode = "details";
+        dialog.contentWidth = 0;
         dialog.title = game.title;
         dialog.text = "";
         dialog.buttons = [{ text: Tr.tr("home.play"), style: "primary", action: () => { dialog.close(true); root.launch(game); } }];
@@ -124,6 +128,7 @@ FocusScope {
     function showOptions(game) {
         dialog.game = game;
         dialog.mode = "options";
+        dialog.contentWidth = 0;
         dialog.title = game.title;
         dialog.text = "";
         dialog.buttons = [
@@ -131,21 +136,24 @@ FocusScope {
             { text: Tr.tr("home.details"), action: () => { dialog.close(true); root.showDetails(game); } },
             { text: Tr.tr(game.favorite ? "options.unfavorite" : "options.favorite"), action: () => {
                 game.favorite = !game.favorite;
+                library.favoritesRevision++;
                 dialog.close();
                 toast.show(Tr.tr(game.favorite ? "toast.favorite" : "toast.unfavorite"));
-            } },
-            { text: Tr.tr("options.library"), action: () => {
+            } }
+        ];
+        if (section !== "library")
+            dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.library"), action: () => {
                 dialog.close(true);
                 root.goSection("library");
                 library.select(game);
-            } }
-        ];
+            } }]);
         dialog.defaultIndex = 0;
         dialog.open();
     }
     function showHowToAdd() {
         dialog.game = null;
         dialog.mode = "how";
+        dialog.contentWidth = 0;
         dialog.title = Tr.tr("how.title");
         dialog.text = Tr.tr("how.steam") + "\n\n" + Tr.tr("how.local");
         dialog.buttons = [{ text: Tr.tr("home.empty.store"), style: "primary", action: () => { dialog.close(); root.notYet(); } }];
@@ -153,6 +161,29 @@ FocusScope {
         dialog.open();
     }
     function notYet() { toast.show(Tr.tr("toast.later")); }
+    function showSort() {
+        const sorts = ["recent", "name", "time"];
+        dialog.game = null;
+        dialog.mode = "sort";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("library.sort.title");
+        dialog.text = "";
+        dialog.buttons = sorts.map(s => ({ text: Tr.tr("library.sort." + s), style: s === librarySort ? "primary" : "secondary",
+                                           action: () => { root.librarySort = s; dialog.close(); } }));
+        dialog.defaultIndex = sorts.indexOf(librarySort);
+        dialog.open();
+    }
+    function showDisks(volumes) {
+        dialog.game = null;
+        dialog.mode = "disks";
+        dialog.volumes = volumes;
+        dialog.contentWidth = Theme.px(560);
+        dialog.title = Tr.tr("disks.title");
+        dialog.text = "";
+        dialog.buttons = [{ text: Tr.tr("prompt.close"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -268,9 +299,12 @@ FocusScope {
             visible: root.section === "library"
             focus: visible
             games: root.games
+            sort: root.librarySort
             onLaunch: root.launch(game)
             onDetails: root.showDetails(game)
             onOptions: root.showOptions(game)
+            onChooseSort: root.showSort()
+            onOpenDisks: root.showDisks(volumes)
         }
         SettingsPage {
             id: settings
@@ -314,6 +348,7 @@ FocusScope {
         id: dialog
         property var game: null
         property string mode: ""
+        property var volumes: []
         onVisibleChanged: if (!visible) root.backToPage()
         Column {                          // details: facts about the game
             visible: dialog.mode === "details" && dialog.game !== null
@@ -330,6 +365,66 @@ FocusScope {
                     anchors.horizontalCenter: parent.horizontalCenter
                     Text { text: modelData[0]; color: Theme.muted; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
                     Text { text: modelData[1]; color: Theme.fg; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
+                }
+            }
+        }
+        Column {                          // disks: free space of every disk
+            visible: dialog.mode === "disks"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(560)
+            spacing: Theme.px(12)
+            Repeater {
+                model: dialog.mode === "disks" ? dialog.volumes : []
+                Rectangle {
+                    width: parent.width
+                    height: diskColumn.height + Theme.px(24)
+                    radius: Theme.radiusM
+                    color: Theme.surface
+                    border.color: Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                    Column {
+                        id: diskColumn
+                        x: Theme.px(16); y: Theme.px(12)
+                        width: parent.width - Theme.px(32)
+                        spacing: Theme.px(6)
+                        Item {
+                            width: parent.width
+                            height: Math.max(diskName.height, diskFree.height)
+                            Text {
+                                id: diskName
+                                text: modelData.name || Tr.tr("disk.internal")
+                                color: Theme.fg
+                                font.family: Theme.textFont
+                                font.pixelSize: Theme.fs(17)
+                            }
+                            Text {
+                                id: diskFree
+                                anchors { right: parent.right; baseline: diskName.baseline }
+                                text: Tr.tr("disk.of", { free: GameInfo.size(modelData.free), total: GameInfo.size(modelData.total) })
+                                color: Theme.muted
+                                font.family: Theme.textFont
+                                font.pixelSize: Theme.fs(14.5)
+                            }
+                        }
+                        Rectangle {
+                            width: parent.width; height: Theme.px(6); radius: height / 2
+                            color: Theme.raised
+                            Rectangle {
+                                width: parent.width * Math.min(1, 1 - modelData.free / modelData.total)
+                                height: parent.height; radius: height / 2
+                                color: Theme.accent
+                            }
+                        }
+                        Text {
+                            visible: modelData.readOnly
+                            width: parent.width
+                            text: Tr.tr("disk.note.readonly")
+                            color: Theme.muted
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(12.5)
+                            wrapMode: Text.Wrap
+                        }
+                    }
                 }
             }
         }

@@ -1,0 +1,26 @@
+# Library (step 3.7): grid, filters, sort, details, options, disks, fast scrolling.
+pad rb
+shot 01-library
+pad down down right
+shot 02-moved
+pad rt
+shot 03-filter-installed
+pad rt
+shot 04-favorites-empty
+pad lt lt
+pad menu right right a
+shot 05-favorite-added
+pad rt rt
+shot 06-favorites
+pad lt lt lt
+pad y
+shot 07-sort
+pad right a
+shot 08-sorted-by-name
+pad up up up
+shot 09-disks
+pad a
+shot 10-disks-window
+pad b down
+stick rs-down 300
+shot 11-scrolled

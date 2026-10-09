@@ -3,4 +3,6 @@
 target_sources(pegasus-backend PRIVATE
     I18n.cpp
     I18n.h
+    Storage.cpp
+    Storage.h
 )

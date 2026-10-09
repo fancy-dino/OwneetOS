@@ -8,6 +8,7 @@ Cover 1.0 Cover.qml
 Dialog 1.0 Dialog.qml
 FocusFrame 1.0 FocusFrame.qml
 GameArt 1.0 GameArt.qml
+Icon 1.0 Icon.qml
 Glyph 1.0 Glyph.qml
 Label 1.0 Label.qml
 NavArea 1.0 NavArea.qml

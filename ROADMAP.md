@@ -551,7 +551,7 @@ code is written (PROJECT_RULES.md section 9).
   "Open the Steam Store" show "Coming in a later version"); "How to add games" describes disk
   scanning, which arrives in phase 6.
 
-### [~] 3.7 Library screen (demo awaiting owner review)
+### [~] 3.7 Library screen (awaiting owner review)
 
 - **Deliverables:** unified grid, filters on LT/RT, sort on Y, disks with free space.
 - **Demo:** `design/demos/3.7-library.html`. Proposals in it: a grid of seven covers per row that
@@ -570,6 +570,18 @@ code is written (PROJECT_RULES.md section 9).
   down to come back) and A opens the **Disks** window: every disk with its free space and the
   notices of PROJECT_RULES.md section 6 (read-only NTFS left by Windows; Windows games on NTFS).
   Demo key D and `#disks=1|2|4` try 1, 2 or 4 disks.
+- **Demo approved** on 2026-10-09.
+- **Outcome:** `LibraryPage.qml` as in the demo: a grid of seven covers per row (room for the focus
+  ring at both ends, right stick three rows at a time), filters All / Installed / Favorites /
+  Steam / Local with counts on LT / RT, "Sort by" on Y (Recently played, Name, Most played; the
+  choice is saved), favourites with a heart, X details and Menu options (without "Show in
+  library" here), "No favorites yet". Disks: a new `owneet::Storage` (C++, `storage` in QML) lists
+  the system disk and the disks mounted under /run/media, /media and /mnt with their free space;
+  up to two in the header, a summary with more; up from the first row, A opens the **Disks**
+  window (read-only disks say so). `Dialog` reworked: its own content sits between the text and
+  the buttons. Checked with `tools/frontend-preview` (`tools/preview-steps/library.txt`).
+  **Still to come:** owned-but-not-installed Steam games (dimmed, "Install") with the Steam
+  integration (4.1–4.2); the Windows-disk notices and disk names with automatic mounting (6.5).
 
 ### [ ] 3.8 Frontend ↔ daemon bridge
 

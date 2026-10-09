@@ -20,6 +20,7 @@
 #include "AppSettings.h"
 #include "Paths.h"
 #include "owneet/I18n.h"
+#include "owneet/Storage.h"
 #include "imggen/BlurhashProvider.h"
 #include "platform/GamescopeTag.h"
 #include "utils/DiskCachedNAM.h"
@@ -54,6 +55,7 @@ FrontendLayer::FrontendLayer(QObject* const api_public, QObject* const api_priva
     , m_api_private(api_private)
     , m_engine(nullptr)
     , m_i18n(new owneet::I18n(owneet::I18n::defaultDirs(), AppSettings::general.locale, this))
+    , m_storage(new owneet::Storage(this))
 {
     // Note: the pointer to the Api is non-owning and constant during the runtime
 
@@ -83,6 +85,7 @@ void FrontendLayer::rebuild()
     m_engine->rootContext()->setContextProperty(QStringLiteral("Api"), m_api_public);
     m_engine->rootContext()->setContextProperty(QStringLiteral("Internal"), m_api_private);
     m_engine->rootContext()->setContextProperty(QStringLiteral("i18n"), m_i18n); // OwneetOS
+    m_engine->rootContext()->setContextProperty(QStringLiteral("storage"), m_storage); // OwneetOS
     m_engine->load(QUrl(QStringLiteral("qrc:/frontend/main.qml")));
     platform::tag_windows_for_gamescope(m_engine->rootObjects()); // OwneetOS
 
