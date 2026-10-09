@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A small icon drawn for OwneetOS from an SVG path on a 24 x 24 grid (no icon fonts or images).
 // Named icons: "heart", "download", "controller", "wifi" (with `level` 0-3: arcs above it are
-// dimmed), "ethernet", "battery" (filled by `fill`, 0-1).
+// dimmed), "ethernet", "battery" (filled by `fill`, 0-1). `crossed` draws a slash over the icon
+// (e.g. offline).
 import QtQuick 2.15
 
 Canvas {
@@ -11,7 +12,21 @@ Canvas {
     property bool filled: name === "heart"
     property int level: 3
     property real fill: 1
+    property bool crossed: false
     onFillChanged: requestPaint()
+    onCrossedChanged: requestPaint()
+    function slash(ctx) {
+        if (!crossed)
+            return;
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(3, 3);
+        ctx.lineTo(21, 21);
+        ctx.stroke();
+    }
     readonly property var paths: ({
         heart: "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z",
         download: "M12 4v11M7 10l5 5 5-5M5 20h14",
@@ -56,6 +71,7 @@ Canvas {
             ctx.beginPath();
             ctx.arc(12, 19.5, 1.4, 0, Math.PI * 2);
             ctx.fill();
+            slash(ctx);
             return;
         }
         if (!paths[name])
@@ -71,5 +87,6 @@ Canvas {
             ctx.lineJoin = "round";
             ctx.stroke();
         }
+        slash(ctx);
     }
 }

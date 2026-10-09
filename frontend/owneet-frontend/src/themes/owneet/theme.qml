@@ -361,12 +361,15 @@ FocusScope {
                     font.pixelSize: Theme.fs(14.5)
                 }
             }
-            Icon {                         // network: Wi-Fi with its signal, or cable
+            Icon {                         // network: Wi-Fi with its signal, cable, or crossed when offline
                 readonly property var net: root.network
                 readonly property bool wired: net !== null && net.ethernet && net.ethernet.connected
                 readonly property bool wifi: net !== null && net.wifi && net.wifi.state === "connected"
-                visible: wired || wifi
-                name: wired ? "ethernet" : "wifi"
+                readonly property bool offline: net !== null && net.available !== false && !wired && !wifi
+                visible: net !== null
+                name: wired || (offline && !(net.wifi && net.wifi.present)) ? "ethernet" : "wifi"
+                crossed: offline
+                opacity: offline ? 0.7 : 1
                 level: wifi && net.wifi.strength !== undefined ? (net.wifi.strength >= 67 ? 3 : net.wifi.strength >= 34 ? 2 : 1) : 3
                 color: Theme.muted
                 width: Theme.fs(20); height: width

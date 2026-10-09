@@ -342,4 +342,5 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-09 | Steps 3.5 (navigation and input map) and 3.6 (home screen) approved. |
 | 2026-10-09 | Overflow rule (section 9): a list larger than its place opens the full list from its last place. Library: up to two disks shown, with three or more one summary; the disks are reached with up from the first row and A opens a window listing every disk with its free space and notices (demo 3.7, review 2). |
 | 2026-10-09 | Steps 3.7 (library) and 3.8 (frontend ↔ owneetd: games through owneetd, Guide / Resume) approved after the owner's test on the NiPoGi. Testers' boot entries ("diagnostics", "test games") leave the user ISO before the release (roadmap 7.4). |
+| 2026-10-09 | Offline is shown in the top bar with a crossed network icon (Wi-Fi, or cable on machines without Wi-Fi), not by hiding it. |
 | 2026-10-09 | The owner's final sounds are delivered before the public launch, after the legal review (roadmap 7.7); until then the interface uses CC0 placeholders by Kenney (`frontend/sounds/`). |
