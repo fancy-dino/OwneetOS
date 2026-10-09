@@ -551,7 +551,7 @@ code is written (PROJECT_RULES.md section 9).
   "Open the Steam Store" show "Coming in a later version"); "How to add games" describes disk
   scanning, which arrives in phase 6.
 
-### [~] 3.7 Library screen (awaiting owner review)
+### [x] 3.7 Library screen
 
 - **Deliverables:** unified grid, filters on LT/RT, sort on Y, disks with free space.
 - **Demo:** `design/demos/3.7-library.html`. Proposals in it: a grid of seven covers per row that
@@ -583,7 +583,7 @@ code is written (PROJECT_RULES.md section 9).
   **Still to come:** owned-but-not-installed Steam games (dimmed, "Install") with the Steam
   integration (4.1–4.2); the Windows-disk notices and disk names with automatic mounting (6.5).
 
-### [~] 3.8 Frontend ↔ daemon bridge (awaiting owner review)
+### [x] 3.8 Frontend ↔ daemon bridge
 
 - **Deliverables:** QML client for the `owneetd` API and event stream (XMLHttpRequest or a small
   C++ plugin in the fork, decided in 3.1).
@@ -614,6 +614,9 @@ code is written (PROJECT_RULES.md section 9).
   0.0.12) starts the normal session with two test games (mpv test patterns). Checked in the test
   VM (gamescope, virtual controller). (4) A second controller cannot be paired while one is
   connected (automatic pairing only when none is): pairing from Settings → Controllers (3.9).
+- **Owner test (2026-10-09, NiPoGi, "test games" entry = gamescope):** all passed — battery icon
+  of the Pro Controller, a test game starts on screen, Guide shows the home screen with the game
+  running, Resume brings it back, a second game is refused, Close game with confirmation.
 
 ### [ ] 3.9 Settings *(multi-prompt)*
 
