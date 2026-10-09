@@ -89,7 +89,8 @@ Both fonts are bundled in `owneet-frontend` as static instances generated from t
 by `tools/branding/make-fonts` (Qt 5 cannot select variation axes); their licence texts are
 installed in `/usr/share/licenses/owneet-frontend/`.
 
-Placeholder interface sounds (until the final ones, roadmap 7.7): [Kenney](https://kenney.nl)
+Interface sounds: made by the OwneetOS project owner with FL Studio (GPL-3.0-or-later). Sounds
+still to be delivered use placeholders (until roadmap 7.7) by [Kenney](https://kenney.nl)
 (Kenney Vleugels), "Interface Sounds" and "Music Jingles" packs, CC0 1.0 (public
 domain); sources listed in `frontend/sounds/SOURCES.md`.
 

@@ -335,4 +335,5 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-08 | Step 3.4 approved. Input map implemented once for every screen (step 3.5): keyboard fallback keys, fixed map, repeat timing (section 9.1). |
 | 2026-10-08 | Interface sounds planned (roadmap 3.12, list in `design/sounds.md`): WAV files provided by the owner. |
 | 2026-10-09 | Interface sounds reduced to ten (`design/sounds.md`): one "click" (`nav-confirm`) for A, B, filters, switches, volume and on-screen keyboard; one sound for notices and successes, one for errors and warnings; game launch and Guide over a game share one; `startup` required. LT/RT switch filters only: no sub-tabs inside pages (section 9.1). |
+| 2026-10-09 | Demo 3.6 (home screen) approved. The owner made six of the ten sounds with FL Studio (GPL-3.0-or-later, `frontend/sounds/SOURCES.md`); the other four stay Kenney placeholders. |
 | 2026-10-09 | The owner's final sounds are delivered before the public launch, after the legal review (roadmap 7.7); until then the interface uses CC0 placeholders by Kenney (`frontend/sounds/`). |
