@@ -665,6 +665,22 @@ code is written (PROJECT_RULES.md section 9).
   **keyboard layout** is chosen separately (default "same as the language"); owneetd has US and
   Italian tables today, more layouts need their tables (2.4); (5) the **right stick scrolls the
   page** and the content of windows such as Credits and licences.
+- **Part 1 (2026-10-09):** the Settings section as in the demo (list of sections and panel, B
+  back to the list, right stick scrolls the panel) with **Sound** (output picker, volume, mute
+  through owneetd; interface sounds on/off and volume, used by 3.12), **Appearance** (moved from
+  the temporary window, now removed), **Language** (language; keyboard layout "same as the
+  language" or one of owneetd's layouts, sent to owneetd for the on-screen keyboard), **Storage**
+  (disks and free space) and **System** (version, updates in 7.1, Sleep / Restart / Shut down
+  through owneetd with confirmation, **Credits and licences**: CREDITS.md, then every installed
+  package with its licence from pacman's database, `owneet::SystemInfo`). Shared parts: up / down
+  go to the nearest row first (`Nav`), `SettingSlider`, `InfoRow`, `NavArea.scrollTarget` (the
+  right stick scrolls the page, also in windows). Found and fixed: request bodies sent from QML
+  reached owneetd empty (a JavaScript object arrives as a QJSValue) — new unit test `test_Daemon`.
+  Checked with `tools/frontend-preview` (`settings.txt`) and in the test VM with owneetd and the
+  virtual sound cards (volume 40 → 50, output switched, keyboard layout it/us). A keyboard plugged
+  in still types with the session's layout: following the setting there needs the compositor's
+  keyboard configuration (part 3). **Next:** Network, Controllers and Bluetooth (part 2), Display
+  (part 3).
 
 ### [ ] 3.10 On-screen keyboard
 

@@ -165,6 +165,10 @@ controllers (battery) and the network through `owneetd`; the home screen shows t
 (Resume in gamescope, Close game with a confirmation), the top bar the controller's battery and
 the network (Wi-Fi signal or cable).
 
+**System facts (3.9):** `owneet::SystemInfo` (`systemInfo` in QML) gives the OwneetOS version
+(`/etc/os-release`), the credited projects (CREDITS.md tables) and every installed package with
+its licence (pacman's local database), for Settings → System → Credits and licences.
+
 **Disks (3.7):** `owneet::Storage` (`src/backend/owneet/`, `storage` in QML) lists the system disk
 and the mounted disks with their free space (Qt's `QStorageInfo`), for the library.
 
@@ -176,7 +180,7 @@ glyphs, controller, clock), the sections on LB / RB, the prompt bar (each sectio
 prompts, following the selected item), the windows (`Dialog`: details, options, confirmations;
 `Sheet`: pickers) and short messages (`Toast`). Sections: `HomePage.qml` (hero, apps, notices,
 recently played, in three `NavGroup`s), `LibraryPage.qml` (grid, filters, sort, disks: 3.7),
-`SettingsPage.qml` (Appearance only until 3.9). `GameInfo` gives the texts about a game (source,
+`SettingsPage.qml` (Settings, 3.9: sections on the left, panel on the right; `CreditsSheet.qml`). `GameInfo` gives the texts about a game (source,
 last played, play time) and the order "most recently played first"; `Cover` and `GameArt` draw a
 game's own image from local files or, without one, art generated from its title.
 

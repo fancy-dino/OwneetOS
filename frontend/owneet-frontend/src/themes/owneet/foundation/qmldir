@@ -9,6 +9,7 @@ Dialog 1.0 Dialog.qml
 FocusFrame 1.0 FocusFrame.qml
 GameArt 1.0 GameArt.qml
 Icon 1.0 Icon.qml
+InfoRow 1.0 InfoRow.qml
 Glyph 1.0 Glyph.qml
 Label 1.0 Label.qml
 NavArea 1.0 NavArea.qml
@@ -18,5 +19,6 @@ PalettePicker 1.0 PalettePicker.qml
 Prompt 1.0 Prompt.qml
 PromptBar 1.0 PromptBar.qml
 SettingRow 1.0 SettingRow.qml
+SettingSlider 1.0 SettingSlider.qml
 Sheet 1.0 Sheet.qml
 Toast 1.0 Toast.qml

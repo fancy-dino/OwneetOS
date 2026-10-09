@@ -14,7 +14,8 @@ FocusScope {
     Binding { target: Theme; property: "height"; value: root.height }
     readonly property var prefs: [
         ["palette", "paletteKey"], ["textScale", "textScale"], ["glyphs", "glyphSetting"],
-        ["reduceMotion", "reduceMotion"], ["showSafeArea", "showSafeArea"]
+        ["reduceMotion", "reduceMotion"], ["showSafeArea", "showSafeArea"], ["uiSounds", "uiSounds"],
+        ["uiSoundsVolume", "uiSoundsVolume"], ["keyboard", "keyboardSetting"]
     ]
     property string librarySort: "recent"
     onLibrarySortChanged: save("librarySort", librarySort)
@@ -38,6 +39,9 @@ FocusScope {
         function onGlyphSettingChanged() { save("glyphs", Theme.glyphSetting); }
         function onReduceMotionChanged() { save("reduceMotion", Theme.reduceMotion); }
         function onShowSafeAreaChanged() { save("showSafeArea", Theme.showSafeArea); }
+        function onUiSoundsChanged() { save("uiSounds", Theme.uiSounds); }
+        function onUiSoundsVolumeChanged() { save("uiSoundsVolume", Theme.uiSoundsVolume); }
+        function onKeyboardSettingChanged() { save("keyboard", Theme.keyboardSetting); root.applyKeyboard(); }
     }
 
     // ---- Controller: its name, and the button prompts that match it
@@ -91,7 +95,7 @@ FocusScope {
         Nav.feedback("section");
         page.focusStart();
     }
-    readonly property bool modalOpen: appearance.visible || palettes.visible || languages.visible || dialog.visible
+    readonly property bool modalOpen: palettes.visible || languages.visible || credits.visible || dialog.visible
     function backToPage() { Qt.callLater(() => { if (!root.modalOpen) root.page.forceActiveFocus(); }); }
 
     // ---- Buttons the sections leave to the whole interface (section 9.1)
@@ -133,6 +137,7 @@ FocusScope {
         owneetd.get("/v1/network", (status, data) => { if (status === 200) network = data; });
         refreshApps();
         refreshControllers();
+        applyKeyboard();          // the on-screen keyboard follows the chosen layout
     }
     Connections {
         target: owneetd
@@ -244,6 +249,61 @@ FocusScope {
         dialog.open();
     }
     function notYet() { toast.show(Tr.tr("toast.later")); }
+
+    // ---- Settings windows
+    function choose(title, options, current, pick) {   // options: [[value, label]]
+        dialog.game = null;
+        dialog.mode = "choose";
+        dialog.contentWidth = 0;
+        dialog.title = title;
+        dialog.text = "";
+        dialog.buttons = options.map(o => ({ text: o[1], style: o[0] === current ? "primary" : "secondary",
+                                             action: () => { dialog.close(); pick(o[0]); } }));
+        dialog.defaultIndex = Math.max(0, options.findIndex(o => o[0] === current));
+        dialog.open();
+    }
+    function chooseOutput(outputs, current) {
+        choose(Tr.tr("sound.output"), outputs.map(o => [o.id, o.name]), current,
+               id => owneetd.put("/v1/audio/output", { id: id }));
+    }
+    function chooseKeyboard(layouts, current) {
+        const same = Tr.tr("language.keyboard.same", { layout: Tr.tr("keyboard." + keyboardFor(Tr.language, layouts)) });
+        choose(Tr.tr("language.keyboard"), [["same", same]].concat(layouts.map(l => [l, Tr.tr("keyboard." + l)])), current,
+               v => { Theme.keyboardSetting = v; });
+    }
+    // The on-screen keyboard's layout (owneetd): the chosen one, or the language's
+    function keyboardFor(language, layouts) {
+        const byLanguage = { en: "us", it: "it" };
+        const l = byLanguage[language] || "us";
+        return !layouts || layouts.indexOf(l) >= 0 ? l : "us";
+    }
+    function applyKeyboard() {
+        if (!loaded) return;
+        const layout = Theme.keyboardSetting === "same" ? keyboardFor(Tr.language) : Theme.keyboardSetting;
+        owneetd.put("/v1/input/layout", { layout: layout });
+    }
+    Connections {
+        target: i18n
+        function onLanguageChanged() { root.applyKeyboard(); }
+    }
+    function confirmPower(action) {
+        dialog.game = null;
+        dialog.mode = "power";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("system.power.confirm." + action);
+        dialog.text = runningGame ? Tr.tr("system.power.game") : "";
+        dialog.buttons = [
+            { text: Tr.tr("system.power." + action), action: () => {
+                dialog.close();
+                owneetd.post("/v1/power/" + action, {}, status => {
+                    if (status >= 300 || status === 0) toast.show(Tr.tr("error.power"));
+                });
+            } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }
+        ];
+        dialog.defaultIndex = 1;             // Cancel first
+        dialog.open();
+    }
     function showSort() {
         const sorts = ["recent", "name", "time"];
         dialog.game = null;
@@ -432,7 +492,13 @@ FocusScope {
             anchors.fill: parent
             visible: root.section === "settings"
             focus: visible
-            onOpenAppearance: appearance.openSheet(true)
+            onOpenPalettes: palettes.openPicker()
+            onOpenLanguages: languages.openPicker()
+            onChooseOutput: root.chooseOutput(outputs, current)
+            onChooseKeyboard: root.chooseKeyboard(layouts, current)
+            onConfirmPower: root.confirmPower(action)
+            onOpenCredits: credits.openCredits()
+            onNotYet: root.notYet()
         }
     }
     Timer { interval: 0; running: true; onTriggered: home.focusStart() }   // after the first layout
@@ -552,21 +618,19 @@ FocusScope {
     }
     Toast { id: toast }
 
-    AppearanceSheet {
-        id: appearance
-        z: 100
-        onVisibleChanged: if (!visible && !palettes.visible && !languages.visible) root.backToPage()
-        onOpenPalettes: { close(true); palettes.openPicker(); }
-        onOpenLanguages: { close(true); languages.openPicker(); }
-    }
     PalettePicker {
         id: palettes
         z: 101
-        onVisibleChanged: if (!visible) appearance.openSheet(false, true)
+        onVisibleChanged: if (!visible) root.backToPage()
     }
     LanguagePicker {
         id: languages
         z: 101
-        onVisibleChanged: if (!visible) appearance.openSheet(false, true)
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
+    CreditsSheet {
+        id: credits
+        z: 101
+        onVisibleChanged: if (!visible) root.backToPage()
     }
 }

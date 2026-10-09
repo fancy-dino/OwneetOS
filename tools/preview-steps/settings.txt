@@ -1,0 +1,22 @@
+# Settings (step 3.9, part 1): sections, panels, sliders, pickers, power, credits.
+pad lb
+shot 01-settings-sound
+pad down
+shot 02-appearance
+pad right down
+shot 03-text-size-row
+pad b down
+shot 04-language
+pad right a
+shot 05-language-picker
+pad b
+pad b down down
+shot 06-system
+pad right down right
+shot 07-power-row-restart
+pad a
+shot 08-power-confirm-cancel-first
+pad b down a
+shot 09-credits
+stick rs-down 1500
+shot 10-credits-scrolled

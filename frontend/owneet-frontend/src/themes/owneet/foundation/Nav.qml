@@ -158,6 +158,33 @@ QtObject {
     // `direction` "": any direction (entering a group)
     function nearest(root, items, from, direction, aligned) {
         const a = rect(root, from), ax = (a.left + a.right) / 2, ay = (a.top + a.bottom) / 2;
+        // Up / down: the nearest row first, then the item closest to the selection in it, so a
+        // row of buttons (e.g. text size S M L XL) is never skipped (demo 3.9)
+        if (direction === "up" || direction === "down") {
+            const below = direction === "down";
+            const rows = [];
+            for (const it of items) {
+                if (it === from)
+                    continue;
+                const b = rect(root, it);
+                if (below ? b.top < a.bottom - 4 : b.bottom > a.top + 4)
+                    continue;
+                if (aligned && overlap(a.left, a.right, b.left, b.right) < 4)
+                    continue;
+                rows.push({ it: it, edge: below ? b.top : -b.bottom, cx: (b.left + b.right) / 2 });
+            }
+            if (rows.length === 0)
+                return null;
+            const first = Math.min.apply(null, rows.map(r => r.edge));
+            let best = null, bestDx = Infinity;
+            for (const r of rows) {
+                if (r.edge > first + 8)
+                    continue;
+                const dx = Math.abs(r.cx - ax);
+                if (dx < bestDx) { bestDx = dx; best = r.it; }
+            }
+            return best;
+        }
         const horizontal = direction === "" || direction === "left" || direction === "right";
         let best = null, bestScore = Infinity;
         for (const it of items) {

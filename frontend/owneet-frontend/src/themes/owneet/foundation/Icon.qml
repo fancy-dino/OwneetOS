@@ -31,7 +31,13 @@ Canvas {
         heart: "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z",
         download: "M12 4v11M7 10l5 5 5-5M5 20h14",
         controller: "M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z",
-        ethernet: "M5 9h14v8H5zM9 17v3M15 17v3M8 9V6h8v3"
+        ethernet: "M5 9h14v8H5zM9 17v3M15 17v3M8 9V6h8v3",
+        // Settings sections
+        sound: "M4 9h4l5-4v14l-5-4H4zM17 9a4 4 0 0 1 0 6",
+        palette: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M12 3v18",
+        globe: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18",
+        disks: "M5 5h14a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM5 13h14a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2z",
+        gear: "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"
     })
     // Wi-Fi: three arcs and a dot, from the largest arc down
     readonly property var wifiArcs: ["M2 9a15 15 0 0 1 20 0", "M5 12.5a10 10 0 0 1 14 0", "M8.5 16a5 5 0 0 1 7 0"]

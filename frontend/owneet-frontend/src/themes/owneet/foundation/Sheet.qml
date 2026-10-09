@@ -33,6 +33,7 @@ NavArea {
         visible = false;
     }
     backFeedback: ""            // closing plays "sheet-close"
+    scrollTarget: flick
     onMoved: ensureVisible(item)
     onCancelled: close()
 

@@ -16,9 +16,10 @@ Item {
     readonly property var pills: ({
         xbox: { lb: ["LB", 34], rb: ["RB", 34], lt: ["LT", 32], rt: ["RT", 32] },
         ps: { lb: ["L1", 30], rb: ["R1", 30], lt: ["L2", 30], rt: ["R2", 30], menu: ["OPTIONS", 62] },
-        nintendo: { lb: ["L", 28], rb: ["R", 28], lt: ["ZL", 32], rt: ["ZR", 32] }
+        nintendo: { lb: ["L", 28], rb: ["R", 28], lt: ["ZL", 32], rt: ["ZR", 32] },
+        any: { lr: ["", 44] }             // the same on every controller
     })
-    readonly property var pill: pills[set][button] || null
+    readonly property var pill: pills[set][button] || pills.any[button] || null
     // Lines and shapes inside the circle (SVG path syntax, 26 x 26 grid)
     readonly property var paths: ({
         "ps.a": "M9.2 9.2l7.6 7.6M16.8 9.2l-7.6 7.6",
@@ -26,9 +27,12 @@ Item {
         "ps.y": "M13 8.4l4.8 8.2H8.2z",
         "xbox.menu": "M8.5 10h9M8.5 13h9M8.5 16h9",
         "nintendo.menu": "M13 8.5v9M8.5 13h9",
-        "guide": "M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12"
+        "guide": "M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12",
+        // left / right (sliders), and the right stick up / down (scrolling)
+        "lr": "M15 8l-5 5 5 5M29 8l5 5-5 5",
+        "rs": "M13 9.4a3.6 3.6 0 1 1-0.01 0M13 3.8v2.4M11 5.6l2-2 2 2M13 22.2v-2.4M11 20.4l2 2 2-2"
     })
-    readonly property string path: paths[button === "guide" ? "guide" : set + "." + button] || ""
+    readonly property string path: paths[["guide", "lr", "rs"].indexOf(button) >= 0 ? button : set + "." + button] || ""
     readonly property string letter: set !== "ps" && ["a", "b", "x", "y"].indexOf(button) >= 0
                                      ? button.toUpperCase() : ""
 
@@ -81,7 +85,7 @@ Item {
             ctx.reset();
             if (root.path === "")
                 return;
-            ctx.scale(width / 26, height / 26);
+            ctx.scale(height / 26, height / 26);
             ctx.strokeStyle = strokeColor;
             ctx.lineWidth = 2;
             ctx.lineCap = "round";

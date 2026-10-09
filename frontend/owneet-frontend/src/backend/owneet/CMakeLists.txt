@@ -7,4 +7,6 @@ target_sources(pegasus-backend PRIVATE
     I18n.h
     Storage.cpp
     Storage.h
+    SystemInfo.cpp
+    SystemInfo.h
 )

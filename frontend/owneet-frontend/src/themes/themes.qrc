@@ -2,11 +2,13 @@
     <qresource prefix="/themes">
         <file>owneet/theme.cfg</file>
         <file>owneet/theme.qml</file>
-        <file>owneet/AppearanceSheet.qml</file>
+        <file>owneet/CreditsSheet.qml</file>
         <file>owneet/HomePage.qml</file>
         <file>owneet/LibraryPage.qml</file>
         <file>owneet/SettingsPage.qml</file>
         <file>owneet/foundation/qmldir</file>
+        <file>owneet/foundation/SettingSlider.qml</file>
+        <file>owneet/foundation/InfoRow.qml</file>
         <file>owneet/foundation/Icon.qml</file>
         <file>owneet/foundation/Toast.qml</file>
         <file>owneet/foundation/NavGroup.qml</file>

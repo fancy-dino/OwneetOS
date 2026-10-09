@@ -50,6 +50,7 @@ sudo cp "${pkgs[@]}" "$BOX/var/tmp/"
 sudo systemd-nspawn -q -D "$BOX" sh -c \
     'pacman -U --noconfirm /var/tmp/owneet-*.pkg.tar.zst >/dev/null 2>&1; rm -f /var/tmp/owneet-*.pkg.tar.zst'
 sudo cp "$STEPS" "$BOX/steps.txt"
+sudo cp "$ROOT/CREDITS.md" "$BOX/CREDITS.md"   # installed by owneet-base on the console
 
 # Virtual controller: an "Xbox 360 pad" (SDL maps it with SDL_GameControllerDB), driven
 # through a FIFO.
@@ -111,7 +112,7 @@ EOF
 
 sudo tee "$BOX/run-preview.sh" >/dev/null <<'EOF'
 #!/bin/sh
-export HOME=/tmp/home QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 SDL_JOYSTICK_DISABLE_UDEV=1
+export OWNEET_CREDITS=/CREDITS.md HOME=/tmp/home QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 SDL_JOYSTICK_DISABLE_UDEV=1
 rm -rf "$HOME"; mkdir -p "$HOME/.config/owneet-frontend" "$HOME/games"
 printf 'collection: Test games\nshortname: test\n\n' > "$HOME/games/metadata.pegasus.txt"
 if ! grep -q '^@nogames' /steps.txt; then

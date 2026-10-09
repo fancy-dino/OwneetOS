@@ -116,9 +116,18 @@ Daemon::Callback Daemon::toQml(const QJSValue& callback)
     };
 }
 
+// A JavaScript object from QML arrives as a QJSValue inside the QVariant, which QJsonDocument
+// cannot read: turn it into plain maps and lists first.
+static QVariant plain_body(const QVariant& body)
+{
+    if (body.userType() == qMetaTypeId<QJSValue>())
+        return body.value<QJSValue>().toVariant();
+    return body;
+}
+
 void Daemon::get(const QString& path, const QJSValue& callback) { request(QStringLiteral("GET"), path, QVariant(), toQml(callback)); }
-void Daemon::post(const QString& path, const QVariant& body, const QJSValue& callback) { request(QStringLiteral("POST"), path, body, toQml(callback)); }
-void Daemon::put(const QString& path, const QVariant& body, const QJSValue& callback) { request(QStringLiteral("PUT"), path, body, toQml(callback)); }
+void Daemon::post(const QString& path, const QVariant& body, const QJSValue& callback) { request(QStringLiteral("POST"), path, plain_body(body), toQml(callback)); }
+void Daemon::put(const QString& path, const QVariant& body, const QJSValue& callback) { request(QStringLiteral("PUT"), path, plain_body(body), toQml(callback)); }
 void Daemon::remove(const QString& path, const QJSValue& callback) { request(QStringLiteral("DELETE"), path, QVariant(), toQml(callback)); }
 
 

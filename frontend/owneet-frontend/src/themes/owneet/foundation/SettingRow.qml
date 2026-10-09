@@ -6,6 +6,7 @@ import QtQuick 2.15
 Rectangle {
     id: root
     property string text: ""
+    property string detail: ""         // a second, smaller line under the label
     property string kind: "switch"
     property bool checked: false
     property string value: ""
@@ -14,19 +15,35 @@ Rectangle {
     readonly property string feedbackKind: kind === "switch" ? (checked ? "toggle-off" : "toggle-on") : "confirm"
     signal activated()
 
-    implicitHeight: Math.max(label.implicitHeight, Theme.fs(24)) + Theme.px(22)
+    implicitHeight: Math.max(labels.implicitHeight, Theme.fs(24)) + Theme.px(22)
     radius: Theme.radiusS + Theme.px(2)
     color: Theme.surface
     border.color: Theme.line
     border.width: Math.max(1, Theme.px(1))
 
-    Text {
-        id: label
+    Column {
+        id: labels
         anchors { left: parent.left; leftMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
-        text: root.text
-        color: Theme.fg
-        font.family: Theme.textFont
-        font.pixelSize: Theme.fs(14.5)
+        width: parent.width * 0.6
+        spacing: Theme.px(2)
+        Text {
+            id: label
+            width: parent.width
+            text: root.text
+            color: Theme.fg
+            font.family: Theme.textFont
+            font.pixelSize: Theme.fs(14.5)
+            elide: Text.ElideRight
+        }
+        Text {
+            visible: root.detail !== ""
+            width: parent.width
+            text: root.detail
+            color: Theme.muted
+            font.family: Theme.textFont
+            font.pixelSize: Theme.fs(12.5)
+            wrapMode: Text.Wrap
+        }
     }
     Row {
         visible: root.kind === "picker"

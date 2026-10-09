@@ -21,6 +21,9 @@ QtObject {
     property real textScale: 1.0                         // 0.9, 1.0, 1.2, 1.4
     property bool reduceMotion: false
     property bool showSafeArea: false                    // dashed outline of the TV safe area
+    property bool uiSounds: true                         // interface sounds (step 3.12)
+    property int uiSoundsVolume: 70
+    property string keyboardSetting: "same"              // "same" as the language, or a layout
     readonly property int motionMs: reduceMotion ? 0 : 160
     property string glyphSetting: "auto"                 // auto, xbox, ps, nintendo
     property string padKind: "xbox"                      // from the connected controller
