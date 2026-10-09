@@ -62,7 +62,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .chip { padding: 6px 15px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; }
 .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 500; }
 .filters .sortnote { margin-left: auto; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
-.grid-wrap { min-height: 0; overflow-y: auto; scrollbar-width: none; padding: 10px; margin: -10px; }
+.grid-wrap { min-height: 0; overflow-y: auto; scrollbar-width: none; padding: 18px; margin: -18px; }
+/* room for the focus ring and lift when the grid scrolls to the first or last row */
+.grid .cover { scroll-margin-block: 18px; }
 .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 16px 14px; align-content: start; }
 .cover {
   position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 4 / 5; color: #fff;

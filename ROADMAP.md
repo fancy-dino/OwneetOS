@@ -562,6 +562,9 @@ code is written (PROJECT_RULES.md section 9).
   and A reads "Install" (opens Steam: phase 4); favourites have a heart; X details (with the disk
   and size) and Menu options as on the home screen; disks with their free space in the header
   (from the system: phase 6); "No favorites yet" explains how to add one.
+- **Review 1 (2026-10-09):** the prompt bar cut the focus ring of the last row: scrolling lists
+  and grids keep room for the ring and the lift at both ends (in QML: the view's margins and the
+  range the selection is kept in).
 
 ### [ ] 3.8 Frontend ↔ daemon bridge
 
