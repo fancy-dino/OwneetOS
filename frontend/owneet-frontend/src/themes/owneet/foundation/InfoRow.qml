@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// A settings row that only shows something (not selectable): a label, an optional second line,
-// and a value on the right.
+// A settings row that only shows something (not selectable): an optional icon, a label, an
+// optional second line, and a value on the right.
 import QtQuick 2.15
 
 Rectangle {
@@ -8,6 +8,8 @@ Rectangle {
     property string text: ""
     property string detail: ""
     property string value: ""
+    property string icon: ""           // Icon name, e.g. "wifi"
+    property bool crossed: false       // the icon crossed out (e.g. offline)
     default property alias extra: more.data
     implicitHeight: column.implicitHeight + Theme.px(24)
     radius: Theme.radiusS + Theme.px(2)
@@ -23,9 +25,19 @@ Rectangle {
         Item {
             width: parent.width
             height: Math.max(label.implicitHeight, valueText.implicitHeight)
+            Icon {
+                id: icon
+                visible: root.icon !== ""
+                anchors.verticalCenter: label.verticalCenter
+                width: visible ? Theme.fs(20) : 0; height: width
+                name: root.icon
+                crossed: root.crossed
+                color: Theme.fg
+            }
             Text {
                 id: label
-                width: parent.width - valueText.implicitWidth - Theme.px(16)
+                x: icon.visible ? icon.width + Theme.px(10) : 0
+                width: parent.width - x - valueText.implicitWidth - Theme.px(16)
                 text: root.text
                 color: Theme.fg
                 font.family: Theme.textFont

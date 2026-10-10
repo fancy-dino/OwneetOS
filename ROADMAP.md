@@ -681,6 +681,27 @@ code is written (PROJECT_RULES.md section 9).
   in still types with the session's layout: following the setting there needs the compositor's
   keyboard configuration (part 3). **Next:** Network, Controllers and Bluetooth (part 2), Display
   (part 3).
+- **Part 2 (2026-10-10):** **Network** (first section): offline notice (crossed icon), Wi-Fi
+  switch (with a note when a hardware switch turns it off), cable status, networks nearby
+  (connected first, then by signal; Connected / Saved badges, lock or "Open network"), "Search
+  again" (owneetd scan), password window with "Connecting…", wrong / too short password shown in
+  the window, other failures as a message; a saved network connects without asking its password;
+  A on the connected network or Menu on a saved one: Disconnect / Forget (Cancel first).
+  Enterprise and WEP networks say they are not supported yet. **Until the on-screen keyboard
+  (3.10) the password is typed with a keyboard** (the field says so). **Controllers and
+  Bluetooth:** connected controllers with connection and battery; A or Menu: Bluetooth ones
+  **Turn off** (disconnect) / **Forget**, cable and adapter ones say how to remove them; **"Pair
+  a new controller"** window with the drawn outlines (`PadDrawing`, pulsing marks) and per-brand
+  instructions, owneetd's auto-pair for two minutes (also with a controller connected), "Pairing
+  …" / failure / "No controller found" with "Search again", closes with a toast when one pairs
+  and turns auto-pair off again; known devices (paired, not a connected controller) with Forget;
+  "No Bluetooth on this console" without an adapter. Rows from owneetd keep the selection when
+  their lists change. Found and fixed: in Settings, A ran a row's action twice (a switch went on
+  and straight off again; part 1 was affected). New `tools/preview-steps/fake-owneetd.py`
+  (steps files starting with `@owneetd`) and the `type` step: `settings-network.txt` covers the
+  panels and windows with invented networks and devices. Checked in the test VM with the real
+  owneetd (cable connected, no Wi-Fi, no Bluetooth adapter, test pad listed as "Cable").
+  owneet-frontend 0.9.0. Real Wi-Fi and Bluetooth pairing go in the next hardware batch.
 
 ### [ ] 3.10 On-screen keyboard
 

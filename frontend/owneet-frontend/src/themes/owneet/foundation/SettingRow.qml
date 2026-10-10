@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// A settings row: a label on the left and, on the right, a switch (kind "switch") or the current
-// value with an arrow that opens a picker (kind "picker").
+// A settings row: a label on the left and, on the right, a switch (kind "switch"), the current
+// value with an arrow that opens a picker (kind "picker"), or an action with an optional state
+// text and no arrow (kind "action", e.g. "Search again").
 import QtQuick 2.15
 
 Rectangle {
@@ -46,7 +47,7 @@ Rectangle {
         }
     }
     Row {
-        visible: root.kind === "picker"
+        visible: root.kind === "picker" || root.kind === "action"
         anchors { right: parent.right; rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
         spacing: Theme.px(10)
         Row {
@@ -58,7 +59,7 @@ Rectangle {
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: root.value + "  ›"
+            text: root.kind === "picker" ? root.value + "  ›" : root.value
             color: Theme.muted
             font.family: Theme.textFont
             font.pixelSize: Theme.fs(14.5)

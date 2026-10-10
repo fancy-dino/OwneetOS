@@ -14,6 +14,7 @@ Glyph 1.0 Glyph.qml
 Label 1.0 Label.qml
 NavArea 1.0 NavArea.qml
 NavGroup 1.0 NavGroup.qml
+PadDrawing 1.0 PadDrawing.qml
 LanguagePicker 1.0 LanguagePicker.qml
 PalettePicker 1.0 PalettePicker.qml
 Prompt 1.0 Prompt.qml
@@ -21,4 +22,5 @@ PromptBar 1.0 PromptBar.qml
 SettingRow 1.0 SettingRow.qml
 SettingSlider 1.0 SettingSlider.qml
 Sheet 1.0 Sheet.qml
+Spinner 1.0 Spinner.qml
 Toast 1.0 Toast.qml

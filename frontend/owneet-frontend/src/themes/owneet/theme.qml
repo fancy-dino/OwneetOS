@@ -153,6 +153,8 @@ FocusScope {
                 root.refreshControllers();
             } else if (type === "network.changed") {
                 root.network = data;
+            } else if (type.startsWith("bluetooth.")) {
+                root.pairingEvent(type, data);
             }
         }
     }
@@ -304,6 +306,202 @@ FocusScope {
         dialog.defaultIndex = 1;             // Cancel first
         dialog.open();
     }
+    // Network (part 2): connect, with a password when the network needs one; options of a saved
+    // network. The password is typed with a keyboard until the on-screen keyboard (step 3.10).
+    function connectNetwork(net, problem) {
+        if (net.security === "enterprise" || net.security === "wep") {
+            toast.show(Tr.tr("error.network.unsupported_security"));
+            Nav.feedback("error");
+            return;
+        }
+        const needsPassword = net.security !== "open" && (!net.known || problem !== undefined);
+        dialog.game = null;
+        dialog.mode = "connect";
+        dialog.net = net;
+        dialog.contentWidth = Theme.px(460);
+        dialog.title = net.ssid;
+        dialog.text = "";
+        dialog.problem = problem ? Tr.tr("error." + problem) : "";
+        dialog.needsPassword = needsPassword;
+        dialog.connecting = false;
+        dialog.prompts = dialog.defaultPrompts;
+        passwordInput.text = "";
+        if (!needsPassword) {
+            if (problem === undefined) Nav.feedback("sheet-open");
+            dialog.visible = true;
+            startConnect(net, "");
+            return;
+        }
+        dialog.buttons = [
+            { text: Tr.tr("network.connect"), style: "primary", action: () => root.startConnect(net, passwordInput.text) },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }
+        ];
+        dialog.initialItem = passwordField;
+        if (problem !== undefined) {         // opened again after a wrong password: no new sound
+            dialog.visible = true;
+            dialog.focusDefault();
+        } else {
+            dialog.open();
+        }
+    }
+    function startConnect(net, password) {
+        dialog.connecting = true;
+        dialog.problem = "";
+        dialog.buttons = [];
+        dialog.prompts = [{ buttons: ["b"], label: Tr.tr("prompt.close") }];   // it goes on in the background
+        dialog.focusDefault();
+        owneetd.post("/v1/network/wifi/connect", { ssid: net.ssid, password: password }, (status, data) => {
+            const code = data && data.error ? data.error.code : "";
+            const shown = dialog.visible && dialog.mode === "connect" && dialog.net === net;
+            if (status === 204 || status === 200) {
+                if (shown) dialog.close(true);
+                Nav.feedback("notify");
+                toast.show(Tr.tr("network.connected_to", { ssid: net.ssid }));
+                return;
+            }
+            Nav.feedback("error");
+            const again = ["network.wrong_password", "network.password_required", "network.invalid_password"];
+            if (shown && again.indexOf(code) >= 0) {
+                connectNetwork(Object.assign({}, net, { known: false }), code);
+                return;
+            }
+            if (shown) dialog.close(true);
+            const key = "error." + code;
+            toast.show(code && Tr.tr(key) !== key ? Tr.tr(key, { ssid: net.ssid }) : Tr.tr("error.network.connect_failed", { ssid: net.ssid }));
+        });
+    }
+    function networkOptions(net) {
+        dialog.game = null;
+        dialog.mode = "network";
+        dialog.contentWidth = 0;
+        dialog.title = net.ssid;
+        dialog.text = "";
+        const done = status => { if (status >= 300 || status === 0) toast.show(Tr.tr("error.network")); };
+        dialog.buttons = (net.connected ? [{ text: Tr.tr("network.disconnect"), action: () => {
+            dialog.close();
+            owneetd.post("/v1/network/wifi/disconnect", {}, done);
+        } }] : []).concat([
+            { text: Tr.tr("network.forget"), action: () => {
+                dialog.close();
+                owneetd.remove("/v1/network/wifi/" + encodeURIComponent(net.ssid), status => {
+                    if (status === 204 || status === 200) toast.show(Tr.tr("network.forgotten", { ssid: net.ssid }));
+                    else done(status);
+                });
+            } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }
+        ]);
+        dialog.defaultIndex = dialog.buttons.length - 1;      // Cancel first
+        dialog.open();
+    }
+
+    // Controllers and Bluetooth (part 2). A Bluetooth controller can be turned off (disconnected:
+    // it stays known and comes back when turned on) or forgotten; wired and adapter ones are
+    // removed by unplugging or turning them off.
+    function bluetoothAction(method, address, toastKey, name) {
+        const path = "/v1/bluetooth/devices/" + address.toUpperCase();
+        const done = status => {
+            if (status === 204 || status === 200) toast.show(Tr.tr(toastKey, { name: name }));
+            else toast.show(Tr.tr("error.bluetooth"));
+        };
+        if (method === "forget") owneetd.remove(path, done);
+        else owneetd.post(path + "/" + method, {}, done);
+    }
+    function controllerOptions(pad) {
+        dialog.game = null;
+        dialog.mode = "controller";
+        dialog.contentWidth = 0;
+        dialog.title = pad.name;
+        // a Bluetooth controller's id is its address
+        const address = pad.device ? pad.device.address : /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(pad.id) ? pad.id : "";
+        if (pad.connection !== "bluetooth" || address === "") {
+            dialog.text = Tr.tr(pad.connection === "usb" ? "pad.unplug" : pad.connection === "dongle" ? "pad.dongle" : "pad.other");
+            dialog.buttons = [{ text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() }];
+            dialog.defaultIndex = 0;
+            dialog.open();
+            return;
+        }
+        dialog.text = Tr.tr("pad.remove.text");
+        dialog.buttons = [
+            { text: Tr.tr("pad.off"), action: () => { dialog.close(); root.bluetoothAction("disconnect", address, "pad.turned_off", pad.name); } },
+            { text: Tr.tr("pad.forget"), action: () => { dialog.close(); root.bluetoothAction("forget", address, "pad.forgotten", pad.name); } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }
+        ];
+        dialog.defaultIndex = 2;             // Cancel first
+        dialog.open();
+    }
+    function deviceOptions(device) {
+        dialog.game = null;
+        dialog.mode = "device";
+        dialog.contentWidth = 0;
+        dialog.title = device.name;
+        dialog.text = "";
+        dialog.buttons = (device.connected ? [{ text: Tr.tr("pad.off"), action: () => {
+            dialog.close();
+            root.bluetoothAction("disconnect", device.address, "pad.turned_off", device.name);
+        } }] : []).concat([
+            { text: Tr.tr("pad.forget"), action: () => { dialog.close(); root.bluetoothAction("forget", device.address, "pad.forgotten", device.name); } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }
+        ]);
+        dialog.defaultIndex = dialog.buttons.length - 1;
+        dialog.open();
+    }
+    // "Pair a new controller": owneetd pairs any gamepad in pairing mode for two minutes, also
+    // with a controller already connected; the window closes when one is paired.
+    function pairController() {
+        dialog.game = null;
+        dialog.mode = "pair";
+        dialog.contentWidth = Theme.px(922);
+        dialog.title = Tr.tr("pair.title");
+        dialog.text = "";
+        dialog.pairState = "searching";
+        dialog.pairName = "";
+        dialog.buttons = [{ text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.prompts = pairPrompts;
+        dialog.open();
+        startPairing();
+    }
+    readonly property var pairPrompts: [{ buttons: ["a"], label: Tr.tr("prompt.cancel") }, { buttons: ["b"], label: Tr.tr("prompt.back") }]
+    function startPairing() {
+        dialog.pairState = "searching";
+        owneetd.post("/v1/bluetooth/auto-pair", { enabled: true, seconds: 120 }, status => {
+            if (status !== 204 && status !== 200 && dialog.visible && dialog.mode === "pair") {
+                dialog.close(true);
+                Nav.feedback("error");
+                toast.show(Tr.tr("error.bluetooth"));
+            }
+        });
+    }
+    function pairingEvent(type, data) {
+        if (!dialog.visible || dialog.mode !== "pair")
+            return;
+        if (type === "bluetooth.paired") {
+            dialog.close(true);
+            Nav.feedback("notify");
+            toast.show(Tr.tr("pair.done", { name: data.name || Tr.tr("pair.controller") }));
+        } else if (type === "bluetooth.pairing") {
+            dialog.pairState = "pairing";
+            dialog.pairName = data.name || Tr.tr("pair.controller");
+        } else if (type === "bluetooth.pair_failed") {
+            Nav.feedback("error");
+            dialog.pairState = "failed";
+            dialog.pairName = data.name || Tr.tr("pair.controller");
+        } else if (type === "bluetooth.auto_pair" && data.enabled === false && dialog.pairState !== "") {
+            dialog.pairState = "timeout";            // two minutes without a controller
+            dialog.buttons = [
+                { text: Tr.tr("pair.again"), style: "primary", action: () => {
+                    dialog.buttons = [{ text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+                    dialog.prompts = root.pairPrompts;
+                    dialog.focusDefault();
+                    root.startPairing();
+                } },
+                { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }
+            ];
+            dialog.prompts = dialog.defaultPrompts;
+            dialog.focusDefault();
+        }
+    }
+
     function showSort() {
         const sorts = ["recent", "name", "time"];
         dialog.game = null;
@@ -499,6 +697,14 @@ FocusScope {
             onConfirmPower: root.confirmPower(action)
             onOpenCredits: credits.openCredits()
             onNotYet: root.notYet()
+            network: root.network
+            controllers: root.controllers
+            onConnectNetwork: root.connectNetwork(net)
+            onNetworkOptions: root.networkOptions(net)
+            onControllerOptions: root.controllerOptions(pad)
+            onDeviceOptions: root.deviceOptions(device)
+            onPairController: root.pairController()
+            onFailed: toast.show(Tr.tr(message))
         }
     }
     Timer { interval: 0; running: true; onTriggered: home.focusStart() }   // after the first layout
@@ -536,7 +742,20 @@ FocusScope {
         property var game: null
         property string mode: ""
         property var volumes: []
-        onVisibleChanged: if (!visible) root.backToPage()
+        property var net: null              // connect: the network
+        property bool needsPassword: false
+        property bool connecting: false
+        property string problem: ""         // connect: why the last try failed
+        property string pairState: ""       // pair: searching, pairing, failed, timeout
+        property string pairName: ""
+        onVisibleChanged: {
+            if (visible) return;
+            // paired, or given up: no more pairing (owneetd keeps it on while no controller is connected)
+            if (mode === "pair" && pairState !== "timeout")
+                owneetd.post("/v1/bluetooth/auto-pair", { enabled: false });
+            pairState = "";
+            root.backToPage();
+        }
         Column {                          // details: facts about the game
             visible: dialog.mode === "details" && dialog.game !== null
             anchors.horizontalCenter: parent.horizontalCenter
@@ -553,6 +772,168 @@ FocusScope {
                     Text { text: modelData[0]; color: Theme.muted; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
                     Text { text: modelData[1]; color: Theme.fg; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
                 }
+            }
+        }
+        Column {                          // connect: password, what went wrong, "Connecting…"
+            visible: dialog.mode === "connect"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(460)
+            spacing: Theme.px(14)
+            FocusScope {
+                id: passwordField
+                // A keyboard types here; A (or Enter) connects
+                readonly property bool navigable: true
+                signal activated()
+                onActivated: if (dialog.buttons.length > 0) dialog.buttons[0].action()
+                visible: dialog.needsPassword && !dialog.connecting
+                width: parent.width
+                height: fieldColumn.height + Theme.px(24)
+                readonly property real radius: Theme.radiusS + Theme.px(2)
+                Rectangle {
+                    anchors.fill: parent
+                    radius: parent.radius
+                    color: Theme.surface
+                    border.color: Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                }
+                Column {
+                    id: fieldColumn
+                    x: Theme.px(16); y: Theme.px(12)
+                    width: parent.width - Theme.px(32)
+                    spacing: Theme.px(4)
+                    Text {
+                        text: Tr.tr("network.password")
+                        color: Theme.muted
+                        font.family: Theme.textFont
+                        font.pixelSize: Theme.fs(14.5)
+                    }
+                    TextInput {
+                        id: passwordInput
+                        focus: true
+                        width: parent.width
+                        echoMode: TextInput.Password
+                        passwordCharacter: "\u2022"
+                        color: Theme.fg
+                        selectionColor: Theme.accent
+                        selectedTextColor: Theme.onAccent
+                        font.family: Theme.textFont
+                        font.pixelSize: Theme.fs(17)
+                        font.letterSpacing: Theme.fs(17) * 0.1
+                        maximumLength: 63
+                        cursorVisible: passwordField.activeFocus
+                        Text {
+                            visible: parent.text === ""
+                            text: Tr.tr("network.password.hint")
+                            color: Theme.muted
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(12.5)
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+                }
+                FocusFrame { shown: passwordField.activeFocus }
+            }
+            Text {
+                visible: dialog.problem !== "" && !dialog.connecting
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: dialog.problem
+                color: Theme.accent
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(17)
+                wrapMode: Text.Wrap
+            }
+            Row {
+                visible: dialog.connecting
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Theme.px(10)
+                Spinner { anchors.verticalCenter: parent.verticalCenter }
+                Text {
+                    text: Tr.tr("network.connecting")
+                    color: Theme.muted
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(17)
+                }
+            }
+        }
+        Column {                          // pair: what is happening, how to pair each kind of controller
+            visible: dialog.mode === "pair"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(922)
+            spacing: Theme.px(16)
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Theme.px(10)
+                Spinner {
+                    visible: dialog.pairState === "searching" || dialog.pairState === "pairing"
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                Text {
+                    text: dialog.pairState === "pairing" ? Tr.tr("pair.pairing", { name: dialog.pairName })
+                        : dialog.pairState === "failed" ? Tr.tr("pair.failed", { name: dialog.pairName })
+                        : dialog.pairState === "timeout" ? Tr.tr("pair.timeout")
+                        : Tr.tr("pair.searching")
+                    color: dialog.pairState === "failed" || dialog.pairState === "timeout" ? Theme.accent : Theme.muted
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(17)
+                }
+            }
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Theme.px(14)
+                Repeater {
+                    model: ["xbox", "ps", "nintendo", "other"]
+                    Rectangle {
+                        width: Theme.px(220)
+                        height: brandColumn.height + Theme.px(28)
+                        radius: Theme.radiusM
+                        color: Theme.surface
+                        border.color: Theme.line
+                        border.width: Math.max(1, Theme.px(1))
+                        Column {
+                            id: brandColumn
+                            x: Theme.px(14); y: Theme.px(14)
+                            width: parent.width - Theme.px(28)
+                            spacing: Theme.px(10)
+                            Text {
+                                text: Tr.tr("pair." + modelData)
+                                color: Theme.fg
+                                font.family: Theme.textFont
+                                font.weight: Font.Medium
+                                font.pixelSize: Theme.fs(17)
+                            }
+                            Rectangle {           // no drawing for "other controllers"
+                                visible: modelData !== "other"
+                                width: parent.width
+                                height: Theme.px(104)
+                                radius: Theme.radiusS + Theme.px(2)
+                                color: Theme.raised
+                                PadDrawing {
+                                    anchors.centerIn: parent
+                                    width: Theme.px(170); height: Theme.px(100)
+                                    kind: modelData
+                                }
+                            }
+                            Text {
+                                width: parent.width
+                                text: Tr.tr("pair." + modelData + ".how")
+                                color: Theme.muted
+                                font.family: Theme.textFont
+                                font.pixelSize: Theme.fs(14.5)
+                                wrapMode: Text.Wrap
+                            }
+                        }
+                    }
+                }
+            }
+            Text {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: Tr.tr("pair.wired")
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(14.5)
+                wrapMode: Text.Wrap
             }
         }
         Column {                          // disks: free space of every disk

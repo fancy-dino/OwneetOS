@@ -1,10 +1,14 @@
 # Settings (step 3.9, part 1): sections, panels, sliders, pickers, power, credits.
 pad lb
+shot 00-settings-network-no-owneetd
+pad down down
 shot 01-settings-sound
 pad down
 shot 02-appearance
 pad right down
 shot 03-text-size-row
+pad down down a
+shot 03b-reduce-motion-on
 pad b down
 shot 04-language
 pad right a

@@ -1,0 +1,39 @@
+@owneetd
+# Settings (step 3.9, part 2): Network, Controllers and Bluetooth, with the pretend owneetd.
+pad lb
+wait 2
+shot 01-network
+pad right down down down
+shot 02-network-cafe-selected
+pad a
+shot 03-password-window
+type wrongpassword
+key Return
+shot 04-connecting
+wait 2
+shot 05-wrong-password
+type rightpassword
+key Return
+wait 3
+shot 06-connected
+pad menu
+shot 07-network-options
+pad b
+pad down down down down
+shot 08-open-network-row
+pad b down
+shot 09-controllers
+pad right a
+shot 10-controller-options
+pad b down down a
+shot 11-wired-explanation
+pad b down a
+shot 12-pair-window
+wait 5
+shot 13-paired
+pad down
+shot 14-known-devices
+pad a
+shot 15-device-options
+pad b b up right a
+shot 16-wifi-off

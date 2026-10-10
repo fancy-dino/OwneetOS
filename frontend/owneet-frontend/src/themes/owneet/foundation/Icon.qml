@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A small icon drawn for OwneetOS from an SVG path on a 24 x 24 grid (no icon fonts or images).
 // Named icons: "heart", "download", "controller", "wifi" (with `level` 0-3: arcs above it are
-// dimmed), "ethernet", "battery" (filled by `fill`, 0-1). `crossed` draws a slash over the icon
+// dimmed), "ethernet", "lock", "battery" (filled by `fill`, 0-1), and the settings sections. `crossed` draws a slash over the icon
 // (e.g. offline).
 import QtQuick 2.15
 
@@ -32,6 +32,7 @@ Canvas {
         download: "M12 4v11M7 10l5 5 5-5M5 20h14",
         controller: "M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z",
         ethernet: "M5 9h14v8H5zM9 17v3M15 17v3M8 9V6h8v3",
+        lock: "M7 11h10a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2zM8 11V8a4 4 0 0 1 8 0v3",
         // Settings sections
         sound: "M4 9h4l5-4v14l-5-4H4zM17 9a4 4 0 0 1 0 6",
         palette: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M12 3v18",

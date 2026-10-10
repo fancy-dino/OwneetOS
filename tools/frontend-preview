@@ -11,6 +11,7 @@
 #
 # STEPS_FILE, one step per line (the frontend starts with no saved settings):
 #   key KEY...       keyboard keys, xdotool names (Down, Return, Escape, y, Next = Page Down…)
+#   type TEXT        type text with the keyboard (e.g. a Wi-Fi password)
 #   pad BUTTON...    controller buttons: a b x y lb rb lt rt menu view up down left right
 #   stick STICK MS   hold a stick for MS ms: ls-up ls-down ls-left ls-right rs-up rs-down
 #   hold BUTTON MS   hold a button or trigger for MS ms (e.g. hold rt 1600)
@@ -18,6 +19,8 @@
 #   wait SECONDS     pause
 #   restart          restart the frontend (its settings are kept)
 #   @nogames         (first line) start with no games, as on a new system
+#   @owneetd         (first line) with a pretend owneetd: invented networks, controllers and
+#                    Bluetooth devices (tools/preview-steps/fake-owneetd.py)
 #   # …              comment
 # The frontend's log is out/frontend-preview/log.txt.
 
@@ -30,7 +33,7 @@ OUT="$ROOT/out/frontend-preview"
 
 die() { echo "error: $*" >&2; exit 1; }
 
-[[ $# -ge 1 && $# -le 2 ]] || { sed -n '4,22p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+[[ $# -ge 1 && $# -le 2 ]] || { sed -n '4,25p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 STEPS="$(realpath "$1")"
 SIZE="${2:-1280x720}"
 [[ -f "$STEPS" ]] || die "$1 not found"
@@ -51,6 +54,7 @@ sudo systemd-nspawn -q -D "$BOX" sh -c \
     'pacman -U --noconfirm /var/tmp/owneet-*.pkg.tar.zst >/dev/null 2>&1; rm -f /var/tmp/owneet-*.pkg.tar.zst'
 sudo cp "$STEPS" "$BOX/steps.txt"
 sudo cp "$ROOT/CREDITS.md" "$BOX/CREDITS.md"   # installed by owneet-base on the console
+sudo cp "$ROOT/tools/preview-steps/fake-owneetd.py" "$BOX/fake-owneetd.py"
 
 # Virtual controller: an "Xbox 360 pad" (SDL maps it with SDL_GameControllerDB), driven
 # through a FIFO.
@@ -112,7 +116,7 @@ EOF
 
 sudo tee "$BOX/run-preview.sh" >/dev/null <<'EOF'
 #!/bin/sh
-export OWNEET_CREDITS=/CREDITS.md HOME=/tmp/home QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 SDL_JOYSTICK_DISABLE_UDEV=1
+export OWNEET_CREDITS=/CREDITS.md OWNEETD_SOCKET=/tmp/owneetd.sock HOME=/tmp/home QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 SDL_JOYSTICK_DISABLE_UDEV=1
 rm -rf "$HOME"; mkdir -p "$HOME/.config/owneet-frontend" "$HOME/games"
 printf 'collection: Test games\nshortname: test\n\n' > "$HOME/games/metadata.pegasus.txt"
 if ! grep -q '^@nogames' /steps.txt; then
@@ -123,6 +127,11 @@ if ! grep -q '^@nogames' /steps.txt; then
     done
 fi
 echo "$HOME/games" > "$HOME/.config/owneet-frontend/game_dirs.txt"
+
+if grep -q '^@owneetd' /steps.txt; then
+    python3 /fake-owneetd.py "$OWNEETD_SOCKET" >> /out/log.txt 2>&1 &
+    sleep 0.5
+fi
 
 mkfifo /tmp/vpad.in
 python3 /vpad.py /tmp/vpad.in > /tmp/vpad.out 2>&1 &
@@ -135,6 +144,7 @@ while IFS= read -r line; do
     case "${1:-#}" in
         \#*|@*) ;;
         key) shift; for k in "$@"; do xdotool key "$k"; sleep 0.3; done ;;
+        type) shift; xdotool type --delay 60 "$*"; sleep 0.3 ;;
         pad|stick|hold) n=$(grep -c done /tmp/vpad.out); echo "$line" >&3
                    while [ "$(grep -c done /tmp/vpad.out)" -le "$n" ]; do sleep 0.1; done; sleep 0.3 ;;
         shot) sleep 1; import -window root "/out/$2.png"; echo "$2.png" ;;
