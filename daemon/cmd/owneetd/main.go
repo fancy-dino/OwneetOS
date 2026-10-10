@@ -151,17 +151,18 @@ func run(configPath string) error {
 		configDir = filepath.Join(os.Getenv("HOME"), ".config")
 	}
 	screen := &display.Manager{
-		Broker:       broker,
-		Log:          log,
-		Session:      appsMgr.Session,
-		AppsOpen:     func() bool { return len(appsMgr.Status().Apps) > 0 },
-		SysDRM:       "/sys/class/drm",
-		SysBacklight: "/sys/class/backlight",
-		PNPFile:      "/usr/share/hwdata/pnp.ids",
-		Modes:        display.ModeFile{Path: filepath.Join(configDir, "owneet", "gamescope-modes")},
-		Prefs:        display.Prefs{Path: filepath.Join(configDir, "owneet", "display.conf")},
-		RestartFile:  filepath.Join(runtimeDir, "owneet", "restart"),
-		ConfirmTime:  15 * time.Second,
+		Broker:            broker,
+		Log:               log,
+		Session:           appsMgr.Session,
+		AppsOpen:          func() bool { return len(appsMgr.Status().Apps) > 0 },
+		SysDRM:            "/sys/class/drm",
+		SysBacklight:      "/sys/class/backlight",
+		PNPFile:           "/usr/share/hwdata/pnp.ids",
+		Modes:             display.ModeFile{Path: filepath.Join(configDir, "owneet", "gamescope-modes")},
+		Prefs:             display.Prefs{Path: filepath.Join(configDir, "owneet", "display.conf")},
+		RestartFile:       filepath.Join(runtimeDir, "owneet", "restart"),
+		ConfirmTime:       15 * time.Second,
+		ScreenConfirmTime: 30 * time.Second,
 	}
 	if bl, err := display.NewLogindBacklight(); err == nil {
 		defer bl.Close()

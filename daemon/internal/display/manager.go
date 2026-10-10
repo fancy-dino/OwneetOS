@@ -69,7 +69,10 @@ type Manager struct {
 	Modes        ModeFile
 	Prefs        Prefs
 	RestartFile  string        // tells owneet-session that a stop of gamescope was wanted
-	ConfirmTime  time.Duration // 15 s (decision log 2026-10-10)
+	ConfirmTime  time.Duration // a new mode: 15 s (decision log 2026-10-10)
+	// A new screen: 30 s from the moment the console is up there, since a monitor coming out of
+	// standby may stay black for a while (owner's desktop: more than 15 s)
+	ScreenConfirmTime time.Duration
 
 	mu         sync.Mutex
 	pnps       map[string]string
@@ -308,7 +311,7 @@ func (m *Manager) SetScreen(id string) error {
 		return err
 	}
 	m.Log.Info("moving the console to another screen", "screen", target.ID)
-	m.startPendingLocked("screen", m.ConfirmTime+restartGrace, true, func() {
+	m.startPendingLocked("screen", m.ScreenConfirmTime+restartGrace, true, func() {
 		if err := m.Prefs.Update(before); err != nil {
 			m.Log.Warn("cannot restore the previous screen", "err", err)
 		}
@@ -560,9 +563,9 @@ func (m *Manager) check() {
 		if p := m.pending; p != nil && p.waitSession {
 			// The console is on screen again: now the user can answer
 			p.waitSession = false
-			p.timer.Reset(m.ConfirmTime)
-			p.deadline = time.Now().Add(m.ConfirmTime)
-			m.Broker.Publish("display.pending", Pending{Kind: p.kind, Seconds: int(m.ConfirmTime / time.Second)})
+			p.timer.Reset(m.ScreenConfirmTime)
+			p.deadline = time.Now().Add(m.ScreenConfirmTime)
+			m.Broker.Publish("display.pending", Pending{Kind: p.kind, Seconds: int(m.ScreenConfirmTime / time.Second)})
 		}
 	}
 	if newSession || changed {

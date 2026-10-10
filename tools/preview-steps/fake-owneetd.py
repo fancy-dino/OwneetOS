@@ -8,7 +8,8 @@
 #   - Wi-Fi connect: password "wrongpassword" → wrong_password, other valid ones → connected (1.5 s);
 #   - auto-pair on: after 3 s a "DualSense Wireless Controller" pairs;
 #   - scan: wifi.scan_done after 1.5 s;
-#   - display: two screens, modes of the TV, brightness; a change waits 15 s for "Keep".
+#   - display: two screens, modes of the TV, brightness; a change waits for "Keep" (screen 30 s,
+#     mode 15 s).
 #
 #   fake-owneetd.py SOCKET
 
@@ -115,12 +116,13 @@ def display_change(kind, undo):
         pending["timer"].cancel()
     else:
         pending["undo"] = undo
-    pending["timer"] = threading.Timer(15, display_revert)
+    secs = 30 if kind == "screen" else 15
+    pending["timer"] = threading.Timer(secs, display_revert)
     pending["timer"].start()
     with lock:
-        state["display"]["pending"] = {"kind": kind, "seconds": 15}
+        state["display"]["pending"] = {"kind": kind, "seconds": secs}
         snapshot = json.loads(json.dumps(state["display"]))
-    publish("display.pending", {"kind": kind, "seconds": 15})
+    publish("display.pending", {"kind": kind, "seconds": secs})
     publish("display.changed", snapshot)
 
 

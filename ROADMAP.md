@@ -753,6 +753,16 @@ code is written (PROJECT_RULES.md section 9).
   from 2008 has none; on NVIDIA DDC/CI needs the driver's software I2C: `owneet-nvidia-i2c.conf`,
   ddcutil's recommended setting). **Intel iGPUs had never been tested before:** to cover in 7.4.
   owneetd 0.10.2, owneet-session 0.0.15, owneet-base 0.0.18, owneet-hardware 0.0.3.
+- **Hardware test 4 (2026-10-10, desktop):** HP → ASUS (Intel) works with `noccs`. ASUS → HP: the
+  console was up on the HP after 2-3 s, but the HP never showed a picture before the 15 s ran out
+  (a monitor coming out of standby can take long). Decided with the owner: **30 s** for a move to
+  another screen, counted once the console is up there, and a warning window before moving.
+  Fixed: at the interface's start, the first selection on the home screen could take the focus
+  from an already open "Keep this?" window. No brightness: neither monitor answers DDC/CI (the
+  HP 24o has no on-screen menu at all). The Pro Controller did not pair this time (pairing
+  "Authentication Timeout", then "page timeout": on the controller's side; the Bluetooth and
+  controller code has not changed in 3.9). owneetd 0.10.3, owneet-frontend 0.10.1, owneet-base
+  0.0.19 (DPMS state in the test report).
 
 ### [ ] 3.10 On-screen keyboard
 

@@ -8,6 +8,8 @@ shot 02-screen-row
 pad a
 shot 03-screen-picker
 pad right a
+shot 04a-move-warning
+pad left a
 wait 1
 shot 04-keep-screen
 pad b

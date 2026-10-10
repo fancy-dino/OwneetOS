@@ -31,9 +31,9 @@ report() {
     for c in /sys/class/drm/card[0-9]; do
         echo "$(basename "$c") $(cat "$c/device/vendor" 2>/dev/null):$(cat "$c/device/device" 2>/dev/null) driver=$(basename "$(readlink "$c/device/driver")")"
     done
-    echo "--- connectors (status, enabled)"
+    echo "--- connectors (status, enabled, dpms)"
     for c in /sys/class/drm/card[0-9]-*; do
-        echo "$(basename "$c") $(cat "$c/status") $(cat "$c/enabled")"
+        echo "$(basename "$c") $(cat "$c/status") $(cat "$c/enabled") $(cat "$c/dpms")"
     done
     echo "--- gamescope's devices"
     for p in $(pgrep -x gamescope-wl); do

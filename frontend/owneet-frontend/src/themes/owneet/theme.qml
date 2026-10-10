@@ -520,8 +520,22 @@ FocusScope {
         });
         if (what === "screen") {
             const current = (state.screens.find(s => s.active) || {}).id;
-            choose(Tr.tr("display.screen"), state.screens.map(s => [s.id, label(s)]), current,
-                   id => { if (id !== current) put("/v1/display/screen", { id: id }); });
+            choose(Tr.tr("display.screen"), state.screens.map(s => [s.id, label(s)]), current, id => {
+                if (id === current) return;
+                // the new screen may stay black while it wakes up: say so first (owner, 2026-10-10)
+                const target = state.screens.find(s => s.id === id);
+                dialog.game = null;
+                dialog.mode = "displayMove";
+                dialog.contentWidth = 0;
+                dialog.title = Tr.tr("display.move.title", { screen: label(target) });
+                dialog.text = Tr.tr("display.move.text");
+                dialog.buttons = [
+                    { text: Tr.tr("display.move"), action: () => { dialog.close(true); put("/v1/display/screen", { id: id }); } },
+                    { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }
+                ];
+                dialog.defaultIndex = 1;      // Cancel first
+                dialog.open();
+            });
             return;
         }
         const modes = state.modes;
@@ -550,6 +564,7 @@ FocusScope {
         if (dialog.visible && dialog.mode === "displayConfirm") {
             dialog.deadline = Date.now() + seconds * 1000;
             dialog.seconds = seconds;
+            if (!dialog.activeFocus) dialog.focusDefault();
             return;
         }
         if (dialog.visible)
@@ -803,7 +818,8 @@ FocusScope {
             onChooseDisplay: root.chooseDisplay(what, state)
         }
     }
-    Timer { interval: 0; running: true; onTriggered: home.focusStart() }   // after the first layout
+    // after the first layout; a window already open (e.g. "Keep this screen?") keeps the focus
+    Timer { interval: 0; running: true; onTriggered: if (!root.modalOpen) home.focusStart() }
 
     PromptBar {
         id: prompts
