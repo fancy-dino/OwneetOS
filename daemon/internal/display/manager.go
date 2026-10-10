@@ -76,6 +76,7 @@ type Manager struct {
 	gs         *apps.Gamescope
 	pending    *pending
 	helperCard string
+	restarting bool // gamescope was stopped and its new session is not up yet
 	lastScreen string
 	lastHome   int
 }
@@ -331,6 +332,7 @@ func (m *Manager) restartLocked(reason string) error {
 		return errors.New("gamescope is not running")
 	}
 	m.stopHelperLocked()
+	m.restarting = true // the new gamescope must find its card free
 	if err := os.WriteFile(m.RestartFile, []byte(reason+"\n"), 0o644); err != nil {
 		return err
 	}
@@ -546,6 +548,7 @@ func (m *Manager) check() {
 	m.lastHome, m.lastScreen = home, screens
 
 	if newSession {
+		m.restarting = false
 		cur := active(list)
 		m.Log.Info("console session on screen", "mode", sess.Mode, "card", gamescopeCard(m.SysDRM),
 			"screen", func() string {
@@ -582,7 +585,7 @@ func (m *Manager) updateHelperLocked(gamescope bool, list []Screen) {
 		return
 	}
 	want := ""
-	if card := gamescopeCard(m.SysDRM); gamescope && card != "" && cards(m.SysDRM) > 1 {
+	if card := gamescopeCard(m.SysDRM); gamescope && !m.restarting && card != "" && cards(m.SysDRM) > 1 {
 		want = card
 	}
 	if want == m.helperCard {

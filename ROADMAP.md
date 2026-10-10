@@ -741,6 +741,18 @@ code is written (PROJECT_RULES.md section 9).
   owneetd logs what it says. New tester tool **`owneet-testlog`**: with a USB stick labelled
   OWNEETLOG (FAT32 or exFAT) plugged in, the whole system log and a display report (every 30 s)
   are written there as the system runs. owneetd 0.10.1, owneet-session 0.0.14, owneet-base 0.0.17.
+- **Hardware test 3 (2026-10-10, desktop: Intel UHD 770 `card1` with an ASUS VK192 1440 × 900 on
+  HDMI, RTX 4060 `card2` with an HP 24o; logs from `owneet-testlog`):** the second monitor now
+  turns off; moving to the other monitor came back by itself after the countdown, but the
+  Intel monitor stayed black. From the log: gamescope opened the Intel card and set 1440 × 900,
+  then `drmModeAddFB2WithModifiers failed: Invalid argument` — Intel's compressed (CCS) buffers
+  need a width that is a multiple of 128 pixels on these GPUs. Fixed: gamescope runs with
+  `INTEL_DEBUG=noccs` (compositor and interface only). Also from the log: the helper started
+  again between "go back" and the new gamescope, holding the NVIDIA card and making that start
+  fail once (owneetd now waits for the new session); neither monitor answers DDC/CI (the ASUS
+  from 2008 has none; on NVIDIA DDC/CI needs the driver's software I2C: `owneet-nvidia-i2c.conf`,
+  ddcutil's recommended setting). **Intel iGPUs had never been tested before:** to cover in 7.4.
+  owneetd 0.10.2, owneet-session 0.0.15, owneet-base 0.0.18, owneet-hardware 0.0.3.
 
 ### [ ] 3.10 On-screen keyboard
 

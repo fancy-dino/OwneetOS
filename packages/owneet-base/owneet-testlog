@@ -3,7 +3,7 @@
 #
 # Testers only (leaves the user ISO with the test boot entries, roadmap 7.4). When a USB stick
 # with a partition labelled OWNEETLOG (FAT32 or exFAT) is plugged in at boot, the system log and a
-# hardware report are written there while the system runs, so that they survive a forced
+# hardware report (every 10 s) are written there while the system runs, so that they survive a forced
 # power-off. Nothing happens without that stick.
 
 set -u
@@ -51,13 +51,13 @@ journal=$!
 trap 'kill "$journal" 2>/dev/null; sync; umount "$mnt"; exit 0' TERM INT
 
 report > "$base.report.txt" 2>&1
-# Once the console has started: the monitors seen by ddcutil, then a report every 30 s
+# Once the console has started: the monitors seen by ddcutil, then a report every 10 s
 sleep 60
 { echo "--- ddcutil detect (as the console user, like owneetd)"
   runuser -u owneet -- env HOME=/home/owneet ddcutil detect --verbose 2>&1 | head -80; } >> "$base.report.txt"
 while true; do
     report >> "$base.report.txt" 2>&1
     sync
-    sleep 30 &
+    sleep 10 &
     wait $!
 done

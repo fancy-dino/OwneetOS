@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-hardware
-pkgver=0.0.2
+pkgver=0.0.3
 pkgrel=1
 pkgdesc="OwneetOS hardware support: firmware, GPU drivers (AMD, Intel, NVIDIA), audio, network, Bluetooth"
 arch=('any')
@@ -21,11 +21,12 @@ depends=(
   'owneet-xone'
 )
 install=owneet-hardware.install
-source=('owneet-gpu-select' 'owneet-gpu-select.service' 'nvidia-utils.modprobe.conf'
+source=('owneet-gpu-select' 'owneet-gpu-select.service' 'nvidia-utils.modprobe.conf' 'owneet-nvidia-i2c.conf'
         '70-owneet-controllers.rules' '50-owneet-hardware.preset')
 sha256sums=('2b93ae8686f0f3d192198e7ff94b0790f4ade9314a6f138cdac958872cfff70d'
             '2c0da903acbed5a54ef471002dbc61422604153a4d537a32a90237063d008f00'
             '3bf736a7d5438a7cfeccd88d26515791b16f9e7dd8b978bcec264fcc6c3bd412'
+            '88f23a401cc32eeadacfb8ff7bb5bc7b5c608c3926382ba164f29f7a5b69ac24'
             '2af13c1829a66561198e1ebfb8b948319e418bae09fa09865ff8180814dd7c19'
             'a3a127e7237dac4c751883b11deca681349ac3658210970071e3a1e34961d686')
 
@@ -34,6 +35,7 @@ package() {
   install -Dm644 owneet-gpu-select.service "$pkgdir/usr/lib/systemd/system/owneet-gpu-select.service"
   # Same file name in /etc overrides nvidia-utils' blacklist of nouveau.
   install -Dm644 nvidia-utils.modprobe.conf "$pkgdir/etc/modprobe.d/nvidia-utils.conf"
+  install -Dm644 owneet-nvidia-i2c.conf "$pkgdir/usr/lib/modprobe.d/owneet-nvidia-i2c.conf"
   install -Dm644 70-owneet-controllers.rules "$pkgdir/usr/lib/udev/rules.d/70-owneet-controllers.rules"
   install -Dm644 50-owneet-hardware.preset "$pkgdir/usr/lib/systemd/system-preset/50-owneet-hardware.preset"
 }

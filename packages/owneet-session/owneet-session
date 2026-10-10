@@ -102,7 +102,11 @@ run_compositor() {
     mkdir -p "$CONFIG_DIR"
     export GAMESCOPE_MODE_SAVE_FILE="$CONFIG_DIR/gamescope-modes"
     case "$1" in
-        gamescope) gamescope_args
+        # Intel GPUs: no compressed (CCS) buffers for the compositor. The kernel refuses to show
+        # them on screens whose width is not a multiple of 128 pixels (e.g. 1440 × 900: owner's
+        # desktop, 2026-10-10), which left the screen black. Games do not get this setting.
+        gamescope) export INTEL_DEBUG="${INTEL_DEBUG:-noccs}"
+                   gamescope_args
                    log "gamescope ${GAMESCOPE_ARGS[*]}"
                    gamescope "${GAMESCOPE_ARGS[@]}" -- "$SESSION_APP" "$APP" ;;
         # The reduced session must work even without GPU acceleration (no driver, or a VM):
