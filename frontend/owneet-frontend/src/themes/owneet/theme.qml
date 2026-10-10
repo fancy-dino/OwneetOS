@@ -24,6 +24,17 @@ FocusScope {
         prefs.forEach(p => { if (api.memory.has(p[0])) Theme[p[1]] = api.memory.get(p[0]); });
         if (api.memory.has("librarySort")) librarySort = api.memory.get("librarySort");
         loaded = true;
+        // The interface restarts when the console moves to another screen (and when it comes
+        // back): it opens again on Settings → Display, where the move was asked
+        // (kept for two minutes: going back to the previous screen restarts it once more)
+        if (api.memory.has("displayReturn")) {
+            if (Date.now() - api.memory.get("displayReturn") < 120000) {
+                settings.section = "display";
+                section = "settings";
+            } else {
+                api.memory.unset("displayReturn");
+            }
+        }
         updatePad();
         refreshGames();
         refreshDaemon();          // owneetd may have connected before the theme was loaded
@@ -515,6 +526,7 @@ FocusScope {
         const put = (path, body) => owneetd.put(path, body, (status, data) => {
             if (status === 204 || status === 200) return;
             const code = data && data.error ? data.error.code : "";
+            if (api.memory.has("displayReturn")) api.memory.unset("displayReturn");   // nothing moved
             Nav.feedback("error");
             toast.show(Tr.tr(code === "display.apps_open" ? "error.display.apps_open" : "error.display"));
         });
@@ -530,7 +542,11 @@ FocusScope {
                 dialog.title = Tr.tr("display.move.title", { screen: label(target) });
                 dialog.text = Tr.tr("display.move.text");
                 dialog.buttons = [
-                    { text: Tr.tr("display.move"), action: () => { dialog.close(true); put("/v1/display/screen", { id: id }); } },
+                    { text: Tr.tr("display.move"), action: () => {
+                        dialog.close(true);
+                        api.memory.set("displayReturn", Date.now());   // back here after the restart
+                        put("/v1/display/screen", { id: id });
+                    } },
                     { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }
                 ];
                 dialog.defaultIndex = 1;      // Cancel first
@@ -575,13 +591,14 @@ FocusScope {
         dialog.deadline = Date.now() + seconds * 1000;
         dialog.seconds = seconds;
         dialog.text = Tr.tr("display.keep.text", { n: seconds });
-        dialog.contentWidth = 0;
+        dialog.contentWidth = Theme.px(640);   // fixed: the countdown must not resize the window
         dialog.title = Tr.tr("display.keep." + kind);
         dialog.buttons = [
             { text: Tr.tr("display.keep"), style: "primary", action: () => {
                 dialog.answered = true;
                 dialog.close();
                 owneetd.post("/v1/display/confirm", {});
+                if (api.memory.has("displayReturn")) api.memory.unset("displayReturn");
             } },
             { text: Tr.tr("display.go_back"), action: () => { dialog.close(); } }   // reverts on close
         ];
@@ -819,7 +836,7 @@ FocusScope {
         }
     }
     // after the first layout; a window already open (e.g. "Keep this screen?") keeps the focus
-    Timer { interval: 0; running: true; onTriggered: if (!root.modalOpen) home.focusStart() }
+    Timer { interval: 0; running: true; onTriggered: if (!root.modalOpen) root.page.focusStart() }
 
     PromptBar {
         id: prompts

@@ -112,6 +112,9 @@ NavArea {
             spacing: Theme.px(20)
             Repeater {
                 model: root.buttons
+                // Opened right at the interface's start, the buttons may be created a moment after
+                // the window: then select the default one as soon as it exists
+                onItemAdded: if (root.visible && !root.current) Qt.callLater(root.focusDefault)
                 Button {
                     text: modelData.text
                     style: modelData.style || "secondary"

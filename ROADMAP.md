@@ -763,6 +763,12 @@ code is written (PROJECT_RULES.md section 9).
   "Authentication Timeout", then "page timeout": on the controller's side; the Bluetooth and
   controller code has not changed in 3.9). owneetd 0.10.3, owneet-frontend 0.10.1, owneet-base
   0.0.19 (DPMS state in the test report).
+- **Hardware test 5 (2026-10-10, desktop):** moving between the two monitors works both ways,
+  the Pro Controller pairs again. Owner's notes, done: after a move (and after going back) the
+  interface opens again on Settings → Display instead of the home screen; the "Keep this?"
+  window has a fixed width (the countdown no longer resizes it). Found and fixed meanwhile: a
+  window opened right at the interface's start had no selected button (its buttons are created a
+  moment later), so A did nothing there. owneet-frontend 0.10.2.
 
 ### [ ] 3.10 On-screen keyboard
 

@@ -27,3 +27,8 @@ pad down a
 shot 09-rate-picker
 pad b up up right right
 shot 10-brightness
+# The interface opens again on Settings → Display after a move (the restart is simulated)
+pad up a right a left a
+wait 1
+restart
+shot 11-back-on-display
