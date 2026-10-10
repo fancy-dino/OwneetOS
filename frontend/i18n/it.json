@@ -208,6 +208,7 @@
   "network.connect": "Connetti",
   "network.password": "Password",
   "network.password.hint": "Scrivila con una tastiera (la tastiera a schermo arriva presto)",
+  "network.password.show": "Mostra password",
   "network.connecting": "Connessione…",
   "network.connected_to": "Connesso a {ssid}",
   "network.disconnect": "Disconnetti",

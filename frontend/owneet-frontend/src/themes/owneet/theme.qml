@@ -329,6 +329,7 @@ FocusScope {
         dialog.connecting = false;
         dialog.prompts = dialog.defaultPrompts;
         passwordInput.text = "";
+        showPassword.checked = false;
         if (!needsPassword) {
             if (problem === undefined) Nav.feedback("sheet-open");
             dialog.visible = true;
@@ -914,14 +915,14 @@ FocusScope {
                         id: passwordInput
                         focus: true
                         width: parent.width
-                        echoMode: TextInput.Password
+                        echoMode: showPassword.checked ? TextInput.Normal : TextInput.Password
                         passwordCharacter: "\u2022"
                         color: Theme.fg
                         selectionColor: Theme.accent
                         selectedTextColor: Theme.onAccent
                         font.family: Theme.textFont
                         font.pixelSize: Theme.fs(17)
-                        font.letterSpacing: Theme.fs(17) * 0.1
+                        font.letterSpacing: showPassword.checked ? 0 : Theme.fs(17) * 0.1
                         maximumLength: 63
                         cursorVisible: passwordField.activeFocus
                         Text {
@@ -935,6 +936,13 @@ FocusScope {
                     }
                 }
                 FocusFrame { shown: passwordField.activeFocus }
+            }
+            SettingRow {                  // so that what was typed can be checked
+                id: showPassword
+                visible: passwordField.visible
+                width: parent.width
+                text: Tr.tr("network.password.show")
+                onActivated: checked = !checked
             }
             Text {
                 visible: dialog.problem !== "" && !dialog.connecting

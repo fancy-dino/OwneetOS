@@ -1,0 +1,16 @@
+@owneetd
+# Settings, owner's review of 2026-10-10: Mute first (it hides the rest), "Show password".
+pad lb down down
+wait 1
+shot 01-sound
+pad right a
+wait 1
+shot 02-sound-muted
+pad a
+wait 1
+shot 03-sound-unmuted
+pad b up up right down down down a
+type secret-password
+shot 04-password-hidden
+pad down a
+shot 05-password-shown

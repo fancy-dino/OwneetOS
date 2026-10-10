@@ -208,6 +208,7 @@
   "network.connect": "Connect",
   "network.password": "Password",
   "network.password.hint": "Type it with a keyboard (the on-screen keyboard is coming soon)",
+  "network.password.show": "Show password",
   "network.connecting": "Connecting…",
   "network.connected_to": "Connected to {ssid}",
   "network.disconnect": "Disconnect",

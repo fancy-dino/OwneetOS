@@ -219,6 +219,7 @@ NavArea {
     // "1920x1080@60" → "1920 × 1080", "60 Hz"
     function resolutionOf(mode) { return mode.split("@")[0].replace("x", " \u00d7 "); }
     function rateOf(mode) { return mode.split("@")[1] + " Hz"; }
+    readonly property bool muted: audio !== null && audio.muted === true
     readonly property var output: {
         if (!audio || !audio.outputs) return null;
         for (let i = 0; i < audio.outputs.length; i++)
@@ -559,8 +560,16 @@ NavArea {
                         width: parent.width
                         text: Tr.tr("sound.unavailable")
                     }
+                    // Mute first: while it is on, nothing else here would be heard (owner, 2026-10-10)
                     SettingRow {
                         visible: page.output !== null
+                        width: parent.width
+                        text: Tr.tr("sound.mute")
+                        checked: page.muted
+                        onActivated: owneetd.put("/v1/audio/mute", { muted: !checked })
+                    }
+                    SettingRow {
+                        visible: page.output !== null && !page.muted
                         width: parent.width
                         kind: "picker"
                         text: Tr.tr("sound.output")
@@ -568,27 +577,21 @@ NavArea {
                         onActivated: page.chooseOutput(page.audio.outputs, page.audio.output)
                     }
                     SettingSlider {
-                        visible: page.output !== null
+                        visible: page.output !== null && !page.muted
                         width: parent.width
                         text: Tr.tr("sound.volume")
                         value: page.audio ? page.audio.volume : 0
                         onMoved: owneetd.put("/v1/audio/volume", { volume: value })
                     }
                     SettingRow {
-                        visible: page.output !== null
-                        width: parent.width
-                        text: Tr.tr("sound.mute")
-                        checked: page.audio ? page.audio.muted : false
-                        onActivated: owneetd.put("/v1/audio/mute", { muted: !checked })
-                    }
-                    SettingRow {
+                        visible: !page.muted
                         width: parent.width
                         text: Tr.tr("sound.interface")
                         checked: Theme.uiSounds
                         onActivated: Theme.uiSounds = !Theme.uiSounds
                     }
                     SettingSlider {
-                        visible: Theme.uiSounds
+                        visible: Theme.uiSounds && !page.muted
                         width: parent.width
                         text: Tr.tr("sound.interface.volume")
                         value: Theme.uiSoundsVolume

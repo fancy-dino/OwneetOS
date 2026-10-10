@@ -288,6 +288,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/v1/display/brightness":
             state["display"]["brightness"] = int(body.get("value", 0))
             return self.reply(204)
+        if path in ("/v1/audio/mute", "/v1/audio/volume"):
+            with lock:
+                state["audio"].update(body)
         if path.startswith("/v1/audio/") or path == "/v1/input/layout":
             publish("input.layout_changed" if "layout" in path else "audio.changed", body)
             return self.reply(204)

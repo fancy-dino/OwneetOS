@@ -720,6 +720,13 @@ code is written (PROJECT_RULES.md section 9).
   (see daemon-design.md). **To check on hardware:** modes and "Keep this?" on a TV, moving between
   two screens and two graphics cards (owner's desktop), brightness on a monitor with DDC/CI
   (NVIDIA cards may need ddcutil's `nvidia-i2c.conf`) and on a laptop.
+- **Hardware test 1 (2026-10-10, NiPoGi):** held-button timing, Sound and Appearance, Wi-Fi
+  (wrong and right password, forget, reconnect, disconnect), controllers (Xbox by cable, Pro
+  Controller paired from Settings, turned off, forgotten), resolution with "Keep this?" (expired
+  and kept): all working. Changed after it: **Mute first**, hiding the other sound settings while
+  on; **"Show password"** switch in the password window (the keyboard layout could not be checked
+  with hidden characters). Still to check: physical keyboard layout, the owner's desktop (two
+  screens on two graphics cards, DDC/CI brightness).
 
 ### [ ] 3.10 On-screen keyboard
 
