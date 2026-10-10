@@ -149,6 +149,7 @@ wait_until_active() {
 }
 
 fails=0
+trial=0
 while true; do
     wait_until_active
     log "starting $mode"
@@ -161,13 +162,24 @@ while true; do
     log "$mode stopped (exit code $rc) after ${ran}s"
 
     if [[ -e "$RESTART_MARK" ]]; then
+        reason="$(head -c 16 "$RESTART_MARK" | tr -dc '[:lower:]')"
         rm -f "$RESTART_MARK"
-        log "restart asked by owneetd (Settings → Display)"
+        log "restart asked by owneetd (Settings → Display): ${reason:-unknown}"
         fails=0
+        # moving to another screen: if gamescope does not start there, go back at once
+        if [[ "$reason" == screen ]]; then trial=1; else trial=0; fi
+    elif (( trial )) && (( ran < QUICK_EXIT_S )); then
+        trial=0
+        fails=0
+        if [[ -f "$CONFIG_DIR/display.conf.previous" ]]; then
+            mv -f "$CONFIG_DIR/display.conf.previous" "$CONFIG_DIR/display.conf"
+            log "gamescope did not start on the new screen: back to the previous one"
+        fi
     elif (( ran < QUICK_EXIT_S )); then
         fails=$(( fails + 1 ))
     else
         fails=0
+        trial=0
     fi
 
     if [[ "$mode" == gamescope ]] && (( fails >= GAMESCOPE_MAX_FAILS )); then

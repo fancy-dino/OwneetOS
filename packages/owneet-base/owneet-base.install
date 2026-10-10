@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 post_install() {
-  systemctl preset owneet-diagnostics.service >/dev/null 2>&1 || true
+  systemctl preset owneet-diagnostics.service owneet-testlog.service >/dev/null 2>&1 || true
 }
 
 post_upgrade() {

@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -112,27 +113,57 @@ func main() {
 		os.Exit(2)
 	}
 	keep := os.Args[1]
-	paths, _ := filepath.Glob("/dev/dri/card*")
-	var held []int
-	for _, p := range paths {
-		if filepath.Base(p) == keep || !cardName.MatchString(filepath.Base(p)) {
-			continue
-		}
-		fd, err := turnOff(p)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s left alone: %v\n", p, err)
-			continue
-		}
-		fmt.Printf("%s: screens turned off\n", p)
-		held = append(held, fd)
-	}
-	if len(held) == 0 {
-		fmt.Println("no other graphics card to turn off")
-		return
-	}
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
-	<-stop
+
+	paths, _ := filepath.Glob("/dev/dri/card*")
+	waiting := map[string]bool{} // cards still to turn off
+	for _, p := range paths {
+		if filepath.Base(p) != keep && cardName.MatchString(filepath.Base(p)) {
+			waiting[p] = true
+		}
+	}
+	if len(waiting) == 0 {
+		fmt.Println("no other graphics card to turn off")
+	}
+	// A card may still be in use for a moment (e.g. the boot splash closing): try again for a
+	// minute, then leave it.
+	var held []int
+	retry := time.NewTicker(2 * time.Second)
+	defer retry.Stop()
+	deadline := time.After(time.Minute)
+	try := func(last bool) {
+		for p := range waiting {
+			fd, err := turnOff(p)
+			if err != nil {
+				if last {
+					fmt.Fprintf(os.Stderr, "%s left alone: %v\n", p, err)
+				}
+				continue
+			}
+			fmt.Printf("%s: screens turned off\n", p)
+			held = append(held, fd)
+			delete(waiting, p)
+		}
+	}
+	try(false)
+	stopped := false
+loop:
+	for len(waiting) > 0 {
+		select {
+		case <-retry.C:
+			try(false)
+		case <-deadline:
+			try(true)
+			break loop
+		case <-stop:
+			stopped = true
+			break loop
+		}
+	}
+	if !stopped && len(held) > 0 {
+		<-stop // keep them off until owneetd stops the service
+	}
 	for _, fd := range held {
 		unix.Close(fd)
 	}

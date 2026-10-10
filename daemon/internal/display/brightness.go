@@ -122,7 +122,7 @@ func (l *LogindBacklight) session() (dbus.ObjectPath, error) {
 // are found in the background and a new value replaces one still waiting to be sent.
 type DDC struct {
 	Command string // ddcutil
-	Log     interface{ Debug(string, ...any) }
+	Log     interface{ Info(string, ...any) }
 
 	mu       sync.Mutex
 	found    bool
@@ -146,7 +146,7 @@ var (
 func (d *DDC) run(args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	return exec.CommandContext(ctx, d.Command, args...).Output()
+	return exec.CommandContext(ctx, d.Command, args...).CombinedOutput()
 }
 
 // Find looks for monitors in the background (again when the screens change); onChange is called
@@ -162,7 +162,8 @@ func (d *DDC) Find(onChange func()) {
 	go func() {
 		buses := map[string]int{}
 		values := map[string]ddcValue{}
-		if out, err := d.run("detect", "--terse"); err == nil {
+		out, err := d.run("detect", "--terse")
+		if err == nil {
 			for _, block := range bytes.Split(out, []byte("\n\n")) {
 				b, c := ddcBus.FindSubmatch(block), ddcDRM.FindSubmatch(block)
 				if b == nil || c == nil || bytes.Contains(block, []byte("Invalid display")) {
@@ -174,7 +175,13 @@ func (d *DDC) Find(onChange func()) {
 				}
 			}
 		} else if d.Log != nil {
-			d.Log.Debug("ddcutil detect failed", "err", err)
+			d.Log.Info("ddcutil detect failed", "err", err)
+		}
+		if d.Log != nil {
+			// what ddcutil said when it found nothing (e.g. no DDC/CI, no access to the I2C buses)
+			said := strings.Join(strings.Fields(string(out)), " ")
+			said = said[:min(len(said), 300)]
+			d.Log.Info("monitors with DDC/CI brightness", "found", len(values), "ddcutil", said)
 		}
 		d.mu.Lock()
 		d.buses, d.values, d.found, d.finding = buses, values, true, false
@@ -254,7 +261,7 @@ func (d *DDC) send() {
 		bus := d.buses[screen]
 		d.mu.Unlock()
 		if _, err := d.run("--bus", strconv.Itoa(bus), "setvcp", "10", fmt.Sprint(value), "--noverify"); err != nil && d.Log != nil {
-			d.Log.Debug("ddcutil setvcp failed", "screen", screen, "err", err)
+			d.Log.Info("ddcutil setvcp failed", "screen", screen, "err", err)
 		}
 	}
 }

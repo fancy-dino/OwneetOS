@@ -1,0 +1,63 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Testers only (leaves the user ISO with the test boot entries, roadmap 7.4). When a USB stick
+# with a partition labelled OWNEETLOG (FAT32 or exFAT) is plugged in at boot, the system log and a
+# hardware report are written there while the system runs, so that they survive a forced
+# power-off. Nothing happens without that stick.
+
+set -u
+
+dev=/dev/disk/by-label/OWNEETLOG
+for _ in $(seq 1 60); do [[ -e "$dev" ]] && break; sleep 1; done
+[[ -e "$dev" ]] || exit 0
+
+mnt=/run/owneet-testlog
+mkdir -p "$mnt"
+mount -o sync,noatime,uid=0,gid=0,umask=022 "$dev" "$mnt" || exit 1
+base="$mnt/owneet-$(date +%Y%m%d-%H%M%S)"
+
+owneetd_get() {
+    local uid
+    uid="$(id -u owneet)"
+    runuser -u owneet -- env XDG_RUNTIME_DIR="/run/user/$uid" owneetctl get "$1" 2>&1
+}
+
+report() {
+    echo "===== $(date '+%F %T') ($(. /etc/os-release; echo "${IMAGE_VERSION:-unknown}"), kernel $(uname -r))"
+    echo "--- kernel command line"; cat /proc/cmdline
+    echo "--- GPUs"; lspci -nnk | grep -iA3 -E 'vga|3d|display'
+    echo "--- cards"
+    for c in /sys/class/drm/card[0-9]; do
+        echo "$(basename "$c") $(cat "$c/device/vendor" 2>/dev/null):$(cat "$c/device/device" 2>/dev/null) driver=$(basename "$(readlink "$c/device/driver")")"
+    done
+    echo "--- connectors (status, enabled)"
+    for c in /sys/class/drm/card[0-9]-*; do
+        echo "$(basename "$c") $(cat "$c/status") $(cat "$c/enabled")"
+    done
+    echo "--- gamescope's devices"
+    for p in $(pgrep -x gamescope-wl); do
+        for fd in "/proc/$p/fd/"*; do readlink "$fd"; done | grep '^/dev/dri/' | sort -u | paste -sd' '
+    done
+    echo "--- display.conf"; cat /home/owneet/.config/owneet/display.conf* 2>/dev/null
+    echo "--- owneet-screens-off"; systemctl list-units --all --no-pager --plain 'owneet-screens-off@*' | head -5
+    echo "--- /v1/display"; owneetd_get /v1/display
+    echo "--- /v1/status"; owneetd_get /v1/status
+}
+
+# The whole system log, as it is written
+journalctl -b -f -n all -o short-precise > "$base.journal.txt" 2>&1 &
+journal=$!
+trap 'kill "$journal" 2>/dev/null; sync; umount "$mnt"; exit 0' TERM INT
+
+report > "$base.report.txt" 2>&1
+# Once the console has started: the monitors seen by ddcutil, then a report every 30 s
+sleep 60
+{ echo "--- ddcutil detect (as the console user, like owneetd)"
+  runuser -u owneet -- env HOME=/home/owneet ddcutil detect --verbose 2>&1 | head -80; } >> "$base.report.txt"
+while true; do
+    report >> "$base.report.txt" 2>&1
+    sync
+    sleep 30 &
+    wait $!
+done

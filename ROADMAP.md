@@ -727,6 +727,20 @@ code is written (PROJECT_RULES.md section 9).
   on; **"Show password"** switch in the password window (the keyboard layout could not be checked
   with hidden characters). Still to check: physical keyboard layout, the owner's desktop (two
   screens on two graphics cards, DDC/CI brightness).
+- **Hardware test 2 (2026-10-10, owner's desktop: RTX 4060 and a second graphics card, two
+  monitors):** mute, show password, physical keyboard layout: working. **Failed:** the second
+  monitor kept the boot splash; moving to the other monitor turned both off for good (forced
+  power-off); no brightness on either PC. No logs (live system, forced power-off). Found in the
+  code and fixed: the screen in use was guessed as "the first one on", but a frozen splash counts
+  as "on" too: owneetd now reads the card gamescope holds open (`/proc/PID/fd`), keeps that one
+  and marks its lit screen as the one in use; `owneet-screens-off` retries busy cards for a
+  minute; a move to another screen is a trial: `owneet-session` goes back to the previous
+  `display.conf` if gamescope does not start there, owneetd kills a gamescope that does not stop
+  and goes back after the countdown even when gamescope is gone; ddcutil runs only once the
+  compositor holds its card (opening a card first could keep the compositor from taking it), and
+  owneetd logs what it says. New tester tool **`owneet-testlog`**: with a USB stick labelled
+  OWNEETLOG (FAT32 or exFAT) plugged in, the whole system log and a display report (every 30 s)
+  are written there as the system runs. owneetd 0.10.1, owneet-session 0.0.14, owneet-base 0.0.17.
 
 ### [ ] 3.10 On-screen keyboard
 
@@ -882,8 +896,9 @@ code is written (PROJECT_RULES.md section 9).
 
 - **Deliverables:** test matrix (Intel / AMD / NVIDIA, old iGPU fallback, 4 GB RAM machine), bug
   fixing, RAM and boot-time measurements against the targets, release **v0.1.0**.
-  Before the release: the testers' boot entries ("diagnostics", "test games") leave the user ISO
-  (or move to a separate test ISO).
+  Before the release: the testers' boot entries ("diagnostics", "test games") and the test log on a
+  USB stick labelled OWNEETLOG (`owneet-testlog`) leave the user ISO (or move to a separate test
+  ISO).
 
 ### [ ] 7.5 Legal review before the public launch
 

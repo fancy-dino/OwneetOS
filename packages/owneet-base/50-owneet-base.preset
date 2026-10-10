@@ -1,2 +1,3 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 enable owneet-diagnostics.service
+enable owneet-testlog.service

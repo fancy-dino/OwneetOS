@@ -112,16 +112,19 @@ func (m *Manager) gamescope() *apps.Gamescope {
 	return m.gs
 }
 
-// screens lists the screens and marks the one the console uses: the one that is on (gamescope
-// turns off the others on its card), else the chosen one, else the only one.
+// screens lists the screens and marks the one the console uses. With gamescope running, it is
+// the screen that is on among those of gamescope's graphics card (gamescope turns off the others
+// there); a screen of another card may be "on" too, still showing the boot splash. Otherwise:
+// the screen that is on, the chosen one, or the only one.
 func (m *Manager) screens() []Screen {
 	m.init()
 	list := ListScreens(m.SysDRM, m.pnps)
 	output := m.Prefs.Read()["OUTPUT"]
+	card := gamescopeCard(m.SysDRM)
 	pick := -1
 	lit := 0
 	for i, s := range list {
-		if s.lit {
+		if s.lit && (card == "" || s.card == card) {
 			lit++
 			if pick < 0 || s.Connector == output {
 				pick = i
@@ -291,11 +294,16 @@ func (m *Manager) SetScreen(id string) error {
 	}
 	prev := m.Prefs.Read()
 	before := map[string]string{"OUTPUT": prev["OUTPUT"], "VK_DEVICE": prev["VK_DEVICE"]}
+	// owneet-session goes back to it by itself if gamescope does not start on the new screen
+	if err := m.previous().Write(prev); err != nil {
+		return err
+	}
 	if err := m.Prefs.Update(map[string]string{"OUTPUT": target.Connector, "VK_DEVICE": target.gpu}); err != nil {
 		return err
 	}
-	if err := m.restartLocked(); err != nil {
+	if err := m.restartLocked("screen"); err != nil {
 		m.Prefs.Update(before)
+		os.Remove(m.previous().Path)
 		return err
 	}
 	m.Log.Info("moving the console to another screen", "screen", target.ID)
@@ -303,27 +311,75 @@ func (m *Manager) SetScreen(id string) error {
 		if err := m.Prefs.Update(before); err != nil {
 			m.Log.Warn("cannot restore the previous screen", "err", err)
 		}
-		if err := m.restartLocked(); err != nil {
-			m.Log.Warn("cannot restart the display", "err", err)
+		os.Remove(m.previous().Path)
+		// not running: owneet-session has already gone back (or is about to)
+		if err := m.restartLocked("revert"); err != nil {
+			m.Log.Info("display not restarted", "err", err)
 		}
 	})
 	return nil
 }
 
-// restartLocked stops gamescope; owneet-session starts it again with display.conf.
-func (m *Manager) restartLocked() error {
+// previous holds display.conf as it was before a move to another screen, until it is kept.
+func (m *Manager) previous() Prefs { return Prefs{Path: m.Prefs.Path + ".previous"} }
+
+// restartLocked stops gamescope; owneet-session starts it again with display.conf. The reason
+// ("screen", "revert") tells owneet-session that the stop was wanted.
+func (m *Manager) restartLocked(reason string) error {
 	pids := processes("/usr/bin/gamescope")
 	if len(pids) == 0 {
 		return errors.New("gamescope is not running")
 	}
 	m.stopHelperLocked()
-	if err := os.WriteFile(m.RestartFile, nil, 0o644); err != nil {
+	if err := os.WriteFile(m.RestartFile, []byte(reason+"\n"), 0o644); err != nil {
 		return err
 	}
 	for _, pid := range pids {
 		syscall.Kill(pid, syscall.SIGTERM)
 	}
+	// a gamescope stuck on a screen that does not answer is ended for good
+	go func() {
+		time.Sleep(5 * time.Second)
+		for _, pid := range processes("/usr/bin/gamescope") {
+			for _, old := range pids {
+				if pid == old {
+					m.Log.Warn("gamescope did not stop: killing it", "pid", pid)
+					syscall.Kill(pid, syscall.SIGKILL)
+				}
+			}
+		}
+	}()
 	return nil
+}
+
+// gamescopeCard returns the graphics card gamescope drives ("card1"), from the devices it holds
+// open (logind hands it the card); "" when gamescope does not run or drives no screen (headless).
+func gamescopeCard(sysDRM string) string {
+	found := ""
+	for _, pid := range processes("/usr/bin/gamescope") {
+		fds, _ := os.ReadDir(filepath.Join("/proc", strconv.Itoa(pid), "fd"))
+		for _, fd := range fds {
+			target, err := os.Readlink(filepath.Join("/proc", strconv.Itoa(pid), "fd", fd.Name()))
+			if err != nil || !strings.HasPrefix(target, "/dev/dri/card") {
+				continue
+			}
+			card := filepath.Base(target)
+			if found == "" || hasLitScreen(sysDRM, card) {
+				found = card
+			}
+		}
+	}
+	return found
+}
+
+func hasLitScreen(sysDRM, card string) bool {
+	matches, _ := filepath.Glob(filepath.Join(sysDRM, card+"-*", "enabled"))
+	for _, f := range matches {
+		if readTrim(f) == "enabled" {
+			return true
+		}
+	}
+	return false
 }
 
 // processes returns this user's processes running that program (gamescope renames its main
@@ -386,6 +442,7 @@ func (m *Manager) Confirm() error {
 		return ErrNotPending
 	}
 	m.pending.timer.Stop()
+	os.Remove(m.previous().Path)
 	m.Broker.Publish("display.confirmed", map[string]string{"kind": m.pending.kind})
 	m.pending = nil
 	m.publishLocked()
@@ -451,9 +508,6 @@ func (m *Manager) SetKeyboardLayout(layout string) error {
 func (m *Manager) Run(ctx context.Context) {
 	tick := time.NewTicker(2 * time.Second)
 	defer tick.Stop()
-	if m.DDC != nil {
-		m.DDC.Find(m.publish)
-	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -492,6 +546,14 @@ func (m *Manager) check() {
 	m.lastHome, m.lastScreen = home, screens
 
 	if newSession {
+		cur := active(list)
+		m.Log.Info("console session on screen", "mode", sess.Mode, "card", gamescopeCard(m.SysDRM),
+			"screen", func() string {
+				if cur == nil {
+					return ""
+				}
+				return cur.ID
+			}())
 		if p := m.pending; p != nil && p.waitSession {
 			// The console is on screen again: now the user can answer
 			p.waitSession = false
@@ -503,10 +565,12 @@ func (m *Manager) check() {
 	if newSession || changed {
 		m.updateHelperLocked(err == nil && sess.Mode == "gamescope", list)
 	}
+	// ddcutil opens the graphics cards: only once the compositor holds its own, never during its
+	// start (a card opened by someone else first cannot be taken by the compositor)
+	if m.DDC != nil && home != 0 && (newSession || changed) {
+		m.DDC.Find(m.publish)
+	}
 	if changed {
-		if m.DDC != nil {
-			m.DDC.Find(m.publish)
-		}
 		m.publishLocked()
 	}
 }
@@ -518,8 +582,8 @@ func (m *Manager) updateHelperLocked(gamescope bool, list []Screen) {
 		return
 	}
 	want := ""
-	if cur := active(list); gamescope && cur != nil && cur.lit && cards(m.SysDRM) > 1 {
-		want = cur.card
+	if card := gamescopeCard(m.SysDRM); gamescope && card != "" && cards(m.SysDRM) > 1 {
+		want = card
 	}
 	if want == m.helperCard {
 		return
@@ -530,6 +594,7 @@ func (m *Manager) updateHelperLocked(gamescope bool, list []Screen) {
 			m.Log.Warn("cannot turn off the other screens", "err", err)
 			return
 		}
+		m.Log.Info("turning off the screens of the other graphics cards", "console_card", want)
 		m.helperCard = want
 	}
 }

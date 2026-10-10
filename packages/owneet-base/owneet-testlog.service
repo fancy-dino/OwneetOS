@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Testers only: writes the system log to a USB stick labelled OWNEETLOG, if one is plugged in.
+[Unit]
+Description=OwneetOS test log on a USB stick labelled OWNEETLOG
+After=local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/owneet/owneet-testlog
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target
