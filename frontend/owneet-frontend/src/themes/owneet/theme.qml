@@ -137,7 +137,8 @@ FocusScope {
         owneetd.get("/v1/network", (status, data) => { if (status === 200) network = data; });
         refreshApps();
         refreshControllers();
-        applyKeyboard();          // the on-screen keyboard follows the chosen layout
+        applyKeyboard();          // the on-screen keyboard and physical keyboards follow the chosen layout
+        checkDisplayPending();
     }
     Connections {
         target: owneetd
@@ -155,6 +156,8 @@ FocusScope {
                 root.network = data;
             } else if (type.startsWith("bluetooth.")) {
                 root.pairingEvent(type, data);
+            } else if (type.startsWith("display.")) {
+                root.displayEvent(type, data);
             }
         }
     }
@@ -502,6 +505,97 @@ FocusScope {
         }
     }
 
+    // Display (part 3): the screen, its resolution and refresh rate. Every change asks "Keep this?"
+    // and goes back after 15 s without an answer (owneetd keeps the time).
+    function chooseDisplay(what, state) {
+        const label = s => s.internal ? Tr.tr("display.internal")
+                                       : (s.name || Tr.tr("display.screen.unnamed")) + " (" + s.connector + ")";
+        const res = m => m.split("@")[0], rate = m => parseInt(m.split("@")[1]);
+        const put = (path, body) => owneetd.put(path, body, (status, data) => {
+            if (status === 204 || status === 200) return;
+            const code = data && data.error ? data.error.code : "";
+            Nav.feedback("error");
+            toast.show(Tr.tr(code === "display.apps_open" ? "error.display.apps_open" : "error.display"));
+        });
+        if (what === "screen") {
+            const current = (state.screens.find(s => s.active) || {}).id;
+            choose(Tr.tr("display.screen"), state.screens.map(s => [s.id, label(s)]), current,
+                   id => { if (id !== current) put("/v1/display/screen", { id: id }); });
+            return;
+        }
+        const modes = state.modes;
+        // the resolution in use: the chosen one, or the screen's preferred (listed first)
+        const shown = state.mode !== "auto" ? state.mode : modes[0];
+        if (what === "resolution") {
+            const sizes = [];
+            modes.forEach(m => { if (sizes.indexOf(res(m)) < 0) sizes.push(res(m)); });
+            const options = [["auto", Tr.tr("display.auto")]].concat(sizes.map(r => [r, r.replace("x", " \u00d7 ")]));
+            choose(Tr.tr("display.resolution"), options, state.mode === "auto" ? "auto" : res(state.mode), v => {
+                if (v === "auto") { put("/v1/display/mode", { mode: "auto" }); return; }
+                // keep the refresh rate when the new resolution has it, else its fastest
+                const same = modes.find(m => m === v + "@" + rate(shown));
+                const fastest = modes.filter(m => res(m) === v).sort((a, b) => rate(b) - rate(a))[0];
+                const mode = same || fastest;
+                if (mode !== state.mode) put("/v1/display/mode", { mode: mode });
+            });
+        } else {
+            const rates = modes.filter(m => res(m) === res(shown)).sort((a, b) => rate(b) - rate(a));
+            const options = [["auto", Tr.tr("display.auto")]].concat(rates.map(m => [m, rate(m) + " Hz"]));
+            choose(Tr.tr("display.rate"), options, state.mode, v => { if (v !== state.mode) put("/v1/display/mode", { mode: v }); });
+        }
+    }
+    // "Keep this screen / resolution?", with the seconds left; B goes back too
+    function confirmDisplay(kind, seconds) {
+        if (dialog.visible && dialog.mode === "displayConfirm") {
+            dialog.deadline = Date.now() + seconds * 1000;
+            dialog.seconds = seconds;
+            return;
+        }
+        if (dialog.visible)
+            dialog.close(true);
+        dialog.game = null;
+        dialog.mode = "displayConfirm";
+        dialog.answered = false;
+        dialog.deadline = Date.now() + seconds * 1000;
+        dialog.seconds = seconds;
+        dialog.text = Tr.tr("display.keep.text", { n: seconds });
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("display.keep." + kind);
+        dialog.buttons = [
+            { text: Tr.tr("display.keep"), style: "primary", action: () => {
+                dialog.answered = true;
+                dialog.close();
+                owneetd.post("/v1/display/confirm", {});
+            } },
+            { text: Tr.tr("display.go_back"), action: () => { dialog.close(); } }   // reverts on close
+        ];
+        dialog.defaultIndex = 0;
+        dialog.prompts = [{ buttons: ["a"], label: Tr.tr("prompt.select") }, { buttons: ["b"], label: Tr.tr("display.go_back") }];
+        dialog.open();
+    }
+    Timer {
+        interval: 250; repeat: true
+        running: dialog.visible && dialog.mode === "displayConfirm"
+        // from the clock: a QML Timer follows the frames drawn, not the real time
+        onTriggered: dialog.seconds = Math.max(0, Math.ceil((dialog.deadline - Date.now()) / 1000))
+    }
+    function displayEvent(type, data) {
+        if (type === "display.pending") {
+            root.confirmDisplay(data.kind, data.seconds);
+        } else if (type === "display.reverted" || type === "display.confirmed") {
+            if (dialog.visible && dialog.mode === "displayConfirm") {
+                dialog.answered = true;
+                dialog.close(true);
+            }
+            if (type === "display.reverted") toast.show(Tr.tr("display.reverted"));
+        }
+    }
+    function checkDisplayPending() {          // e.g. the console has just moved to another screen
+        owneetd.get("/v1/display", (status, data) => {
+            if (status === 200 && data.pending) root.confirmDisplay(data.pending.kind, data.pending.seconds);
+        });
+    }
+
     function showSort() {
         const sorts = ["recent", "name", "time"];
         dialog.game = null;
@@ -705,6 +799,7 @@ FocusScope {
             onDeviceOptions: root.deviceOptions(device)
             onPairController: root.pairController()
             onFailed: toast.show(Tr.tr(message))
+            onChooseDisplay: root.chooseDisplay(what, state)
         }
     }
     Timer { interval: 0; running: true; onTriggered: home.focusStart() }   // after the first layout
@@ -748,8 +843,16 @@ FocusScope {
         property string problem: ""         // connect: why the last try failed
         property string pairState: ""       // pair: searching, pairing, failed, timeout
         property string pairName: ""
+        property bool answered: false       // displayConfirm: Keep or Go back was chosen
+        property int seconds: 0             // displayConfirm: until it goes back
+        property real deadline: 0
+        onSecondsChanged: if (mode === "displayConfirm") text = Tr.tr("display.keep.text", { n: seconds })
         onVisibleChanged: {
             if (visible) return;
+            if (mode === "displayConfirm" && !answered) {
+                answered = true;
+                owneetd.post("/v1/display/revert", {});
+            }
             // paired, or given up: no more pairing (owneetd keeps it on while no controller is connected)
             if (mode === "pair" && pairState !== "timeout")
                 owneetd.post("/v1/bluetooth/auto-pair", { enabled: false });

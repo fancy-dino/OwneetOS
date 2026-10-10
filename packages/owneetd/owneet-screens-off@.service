@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Turns off the screens of the graphics cards the console does not use (all but %i) while the
+# console runs in gamescope. Started and stopped by owneetd (polkit rule 50-owneet-screens.rules).
+[Unit]
+Description=OwneetOS: turn off the screens the console does not use (keeps %i)
+
+[Service]
+ExecStart=/usr/lib/owneet/owneet-screens-off %i
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+DevicePolicy=closed
+DeviceAllow=char-drm rw
+CapabilityBoundingSet=CAP_SYS_ADMIN
+SystemCallArchitectures=native

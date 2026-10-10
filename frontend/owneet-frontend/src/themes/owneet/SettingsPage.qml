@@ -3,7 +3,7 @@
 // the left, the panel of the selected one on the right (it follows the selection). Right or A
 // enters the panel, B or left at its edge goes back to the list; the right stick scrolls it.
 // Built in parts: Sound, Appearance, Language, Storage and System first; Network, Controllers and
-// Bluetooth second; Display next. Rows that come from owneetd (networks, controllers, devices)
+// Bluetooth second; Display third. Rows that come from owneetd (networks, controllers, devices)
 // have a `key`, so the selection stays on the same one when the lists change.
 import QtQuick 2.15
 import "foundation"
@@ -11,7 +11,7 @@ import "foundation"
 NavArea {
     id: page
     property string section: "network"
-    readonly property var sections: ["network", "controllers", "audio", "appearance", "language", "storage", "system"]
+    readonly property var sections: ["network", "controllers", "audio", "display", "appearance", "language", "storage", "system"]
     property var network: null          // owneetd's network state (from the shell)
     property var controllers: []        // connected controllers (from the shell)
 
@@ -28,6 +28,7 @@ NavArea {
     signal deviceOptions(var device)
     signal pairController()
     signal failed(string message)       // a message key, shown as a toast
+    signal chooseDisplay(string what, var state)   // what: screen, resolution, rate
 
     scrollTarget: panel
 
@@ -89,6 +90,7 @@ NavArea {
                 panel.contentY = 0;
                 if (section === "network") refreshNetworks(true);
                 else if (section === "controllers") refreshBluetooth();
+                else if (section === "display") refreshDisplay();
             }
         } else {
             ensureVisible(item);
@@ -138,6 +140,7 @@ NavArea {
     function refresh() {
         if (section === "network") refreshNetworks(true);
         refreshBluetooth();
+        refreshDisplay();
         owneetd.get("/v1/audio", (status, data) => { if (status === 200) page.audio = data; });
         owneetd.get("/v1/input/layout", (status, data) => {
             if (status === 200) { page.keyboardLayouts = data.supported || []; page.keyboardLayout = data.layout || ""; }
@@ -160,6 +163,10 @@ NavArea {
         }
     }
     Timer { id: scanTimer; interval: 20000; onTriggered: page.scanning = false }
+    property var display: null
+    function refreshDisplay() {
+        owneetd.get("/v1/display", (status, data) => { page.display = status === 200 ? data : null; });
+    }
     function refreshBluetooth() {
         owneetd.get("/v1/bluetooth", (status, data) => { page.bluetooth = status === 200 ? data : null; });
     }
@@ -172,6 +179,7 @@ NavArea {
             else if (type === "wifi.scan_done") { page.scanning = false; if (page.visible) page.refreshNetworks(false); }
             else if ((type === "network.changed" || type === "network.forgotten") && page.visible) page.refreshNetworks(false);
             else if ((type.startsWith("bluetooth.") || type.startsWith("controller.")) && page.visible) page.refreshBluetooth();
+            else if (type === "display.changed") page.display = data;
         }
         function onConnectedChanged() { if (owneetd.connected) page.refresh(); }
     }
@@ -199,6 +207,18 @@ NavArea {
         if (!bluetooth || !bluetooth.devices || pad.connection !== "bluetooth") return null;
         return bluetooth.devices.find(d => d.address.toLowerCase() === pad.id.toLowerCase()) || null;
     }
+    // ---- Display, as the panel shows it
+    readonly property var screens: display && display.screens ? display.screens : []
+    readonly property var activeScreen: screens.find(s => s.active) || null
+    readonly property var modes: display && display.modes ? display.modes : []
+    function screenName(s) {
+        if (!s) return "";
+        if (s.internal) return Tr.tr("display.internal");
+        return (s.name || Tr.tr("display.screen.unnamed")) + " (" + s.connector + ")";
+    }
+    // "1920x1080@60" → "1920 × 1080", "60 Hz"
+    function resolutionOf(mode) { return mode.split("@")[0].replace("x", " \u00d7 "); }
+    function rateOf(mode) { return mode.split("@")[1] + " Hz"; }
     readonly property var output: {
         if (!audio || !audio.outputs) return null;
         for (let i = 0; i < audio.outputs.length; i++)
@@ -230,7 +250,7 @@ NavArea {
                         x: Theme.px(16)
                         anchors.verticalCenter: parent.verticalCenter
                         width: Theme.fs(22); height: width
-                        name: ({ network: "wifi", controllers: "controller", audio: "sound", appearance: "palette",
+                        name: ({ network: "wifi", controllers: "controller", audio: "sound", display: "display", appearance: "palette",
                                  language: "globe", storage: "disks", system: "gear" })[modelData]
                         color: parent.shown ? Theme.fg : Theme.muted
                     }
@@ -573,6 +593,67 @@ NavArea {
                         text: Tr.tr("sound.interface.volume")
                         value: Theme.uiSoundsVolume
                         onMoved: Theme.uiSoundsVolume = value
+                    }
+                }
+
+                // ---- Display
+                Column {
+                    visible: page.section === "display"
+                    width: parent.width
+                    spacing: Theme.px(12)
+                    InfoRow {
+                        visible: page.display === null
+                        width: parent.width
+                        text: Tr.tr("display.unavailable")
+                    }
+                    InfoRow {                    // the reduced (cage) session drives the screens itself
+                        visible: page.display !== null && !page.display.available
+                        width: parent.width
+                        text: Tr.tr("display.reduced")
+                        detail: Tr.tr("display.reduced.detail")
+                    }
+                    SettingRow {
+                        visible: page.display !== null && page.display.available && page.screens.length > 1
+                        width: parent.width
+                        kind: "picker"
+                        text: Tr.tr("display.screen")
+                        detail: Tr.tr("display.screen.detail")
+                        value: page.screenName(page.activeScreen)
+                        onActivated: page.chooseDisplay("screen", page.display)
+                    }
+                    InfoRow {
+                        visible: page.screens.length === 1
+                        width: parent.width
+                        text: Tr.tr("display.one")
+                        value: page.screenName(page.screens[0])
+                    }
+                    SettingSlider {              // only on screens that allow it (laptops, many monitors)
+                        visible: page.display !== null && page.display.brightness !== undefined
+                        width: parent.width
+                        text: Tr.tr("display.brightness")
+                        value: page.display && page.display.brightness !== undefined ? page.display.brightness : 0
+                        onMoved: owneetd.put("/v1/display/brightness", { value: value })
+                    }
+                    SettingRow {
+                        visible: page.modes.length > 0
+                        width: parent.width
+                        kind: "picker"
+                        text: Tr.tr("display.resolution")
+                        value: page.display && page.display.mode !== "auto" ? page.resolutionOf(page.display.mode) : Tr.tr("display.auto")
+                        onActivated: page.chooseDisplay("resolution", page.display)
+                    }
+                    SettingRow {
+                        visible: page.modes.length > 0
+                        width: parent.width
+                        kind: "picker"
+                        text: Tr.tr("display.rate")
+                        value: page.display && page.display.mode !== "auto" ? page.rateOf(page.display.mode) : Tr.tr("display.auto")
+                        onActivated: page.chooseDisplay("rate", page.display)
+                    }
+                    InfoRow {                    // a laptop's own screen keeps its native mode
+                        visible: page.activeScreen !== null && page.activeScreen.internal && page.display.available
+                        width: parent.width
+                        text: Tr.tr("display.native")
                     }
                 }
 

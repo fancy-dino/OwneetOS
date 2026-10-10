@@ -10,15 +10,18 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/api"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/audio"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/bluetooth"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/config"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/display"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/network"
@@ -142,6 +145,37 @@ func run(configPath string) error {
 		go logind.Run(ctx)
 	}
 
+	// Settings → Display: files shared with owneet-session (it starts gamescope with them)
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		configDir = filepath.Join(os.Getenv("HOME"), ".config")
+	}
+	screen := &display.Manager{
+		Broker:       broker,
+		Log:          log,
+		Session:      appsMgr.Session,
+		AppsOpen:     func() bool { return len(appsMgr.Status().Apps) > 0 },
+		SysDRM:       "/sys/class/drm",
+		SysBacklight: "/sys/class/backlight",
+		PNPFile:      "/usr/share/hwdata/pnp.ids",
+		Modes:        display.ModeFile{Path: filepath.Join(configDir, "owneet", "gamescope-modes")},
+		Prefs:        display.Prefs{Path: filepath.Join(configDir, "owneet", "display.conf")},
+		RestartFile:  filepath.Join(runtimeDir, "owneet", "restart"),
+		ConfirmTime:  15 * time.Second,
+	}
+	if bl, err := display.NewLogindBacklight(); err == nil {
+		defer bl.Close()
+		screen.Backlight = bl
+	}
+	if _, err := exec.LookPath("ddcutil"); err == nil {
+		screen.DDC = &display.DDC{Command: "ddcutil", Log: log}
+	}
+	if helper, err := display.NewSystemdHelper(); err == nil {
+		defer helper.Close()
+		screen.Helper = helper
+	}
+	go screen.Run(ctx)
+
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
@@ -153,6 +187,7 @@ func run(configPath string) error {
 		Audio:           sound,
 		Power:           powerAPI,
 		Apps:            appsAPI,
+		Display:         screen,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

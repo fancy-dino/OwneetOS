@@ -1,0 +1,27 @@
+@owneetd
+# Settings (step 3.9, part 3): Display, with the pretend owneetd.
+pad lb down down down
+wait 1
+shot 01-display
+pad right
+shot 02-screen-row
+pad a
+shot 03-screen-picker
+pad right a
+wait 1
+shot 04-keep-screen
+pad b
+wait 1
+shot 05-went-back
+pad down down a
+shot 06-resolution-picker
+pad right right a
+wait 1
+shot 07-keep-resolution
+pad a
+wait 1
+shot 08-kept
+pad down a
+shot 09-rate-picker
+pad b up up right right
+shot 10-brightness

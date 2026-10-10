@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// owneetd (the console user) starts and stops owneet-screens-off@CARD.service, which turns off
+// the screens the console does not use (Settings → Display). Only these units, only start and
+// stop, only the console user in the active local session.
+polkit.addRule(function (action, subject) {
+    if (action.id === "org.freedesktop.systemd1.manage-units" &&
+            subject.user === "owneet" && subject.local && subject.active &&
+            /^owneet-screens-off@card[0-9]+\.service$/.test(action.lookup("unit")) &&
+            (action.lookup("verb") === "start" || action.lookup("verb") === "stop")) {
+        return polkit.Result.YES;
+    }
+});

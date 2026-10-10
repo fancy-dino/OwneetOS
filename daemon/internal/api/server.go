@@ -45,6 +45,8 @@ type Server struct {
 	Power Power
 	// Apps starts and closes games and apps in the console session (nil without the user's systemd).
 	Apps Apps
+	// Display is Settings → Display: screens, modes, brightness, keyboard layout (nil: not available).
+	Display Display
 
 	started time.Time
 }
@@ -84,6 +86,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/power/shutdown", s.handlePowerAction(power.Shutdown))
 	mux.HandleFunc("POST /v1/power/restart", s.handlePowerAction(power.Restart))
 	mux.HandleFunc("POST /v1/power/suspend", s.handlePowerAction(power.Suspend))
+	mux.HandleFunc("GET /v1/display", s.handleDisplay)
+	mux.HandleFunc("PUT /v1/display/screen", s.handleDisplayScreen)
+	mux.HandleFunc("PUT /v1/display/mode", s.handleDisplayMode)
+	mux.HandleFunc("PUT /v1/display/brightness", s.handleDisplayBrightness)
+	mux.HandleFunc("POST /v1/display/confirm", s.handleDisplayAction(Display.Confirm))
+	mux.HandleFunc("POST /v1/display/revert", s.handleDisplayAction(Display.Revert))
 	mux.HandleFunc("GET /v1/apps", s.handleApps)
 	mux.HandleFunc("POST /v1/apps/launch", s.handleAppLaunch)
 	mux.HandleFunc("POST /v1/apps/{id}/close", s.handleAppAction(Apps.Close))

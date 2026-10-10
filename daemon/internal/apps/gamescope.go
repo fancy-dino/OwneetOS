@@ -5,6 +5,7 @@ package apps
 import (
 	"errors"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,6 +19,9 @@ import (
 //   - it watches new windows and tags them: the home screen with HomeAppID, each app with its own;
 //   - it writes GAMESCOPECTRL_BASELAYER_APPID: the apps to show, first one with a window wins;
 //   - it reads GAMESCOPE_FOCUSED_APP (on screen) and GAMESCOPE_FOCUSABLE_APPS (have a window).
+//
+// Settings → Display uses the same root window properties as Steam (RootString, SetRootString,
+// SetRootCardinal): the screen's modes, the mode "nudge" and the keyboard layout.
 //
 // Connections are opened on first use and again after an error (gamescope restarted).
 type Gamescope struct {
@@ -34,7 +38,8 @@ type Gamescope struct {
 }
 
 var atomNames = []string{"GAMESCOPE_FOCUSED_APP", "GAMESCOPE_FOCUSABLE_APPS",
-	"GAMESCOPECTRL_BASELAYER_APPID", "STEAM_GAME", "_NET_WM_PID"}
+	"GAMESCOPECTRL_BASELAYER_APPID", "STEAM_GAME", "_NET_WM_PID",
+	"GAMESCOPE_DISPLAY_MODE_LIST_EXTERNAL", "GAMESCOPE_DISPLAY_MODE_NUDGE", "GAMESCOPE_KEYBOARD_LAYOUT"}
 
 // dial opens a connection to the X server and looks up the atoms.
 func (g *Gamescope) dial() (*xgb.Conn, xproto.Window, map[string]xproto.Atom, error) {
@@ -108,6 +113,50 @@ func (g *Gamescope) rootCardinals(name string) ([]uint32, error) {
 		g.reset()
 	}
 	return v, err
+}
+
+// RootString reads a text property of the root window ("" when it is not set).
+func (g *Gamescope) RootString(name string) (string, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if err := g.connect(); err != nil {
+		return "", err
+	}
+	reply, err := xproto.GetProperty(g.conn, false, g.root, g.atoms[name], xproto.AtomString, 0, 65536).Reply()
+	if err != nil {
+		g.reset()
+		return "", err
+	}
+	return strings.TrimRight(string(reply.Value), "\x00"), nil
+}
+
+// SetRootString sets a text property of the root window.
+func (g *Gamescope) SetRootString(name, value string) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if err := g.connect(); err != nil {
+		return err
+	}
+	err := xproto.ChangePropertyChecked(g.conn, xproto.PropModeReplace, g.root, g.atoms[name], xproto.AtomString, 8,
+		uint32(len(value)), []byte(value)).Check()
+	if err != nil {
+		g.reset()
+	}
+	return err
+}
+
+// SetRootCardinal sets a number property of the root window.
+func (g *Gamescope) SetRootCardinal(name string, value uint32) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if err := g.connect(); err != nil {
+		return err
+	}
+	err := setCardinals(g.conn, g.root, g.atoms[name], []uint32{value})
+	if err != nil {
+		g.reset()
+	}
+	return err
 }
 
 // Focused returns the app id on screen (0: none).

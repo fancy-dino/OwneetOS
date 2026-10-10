@@ -36,6 +36,8 @@ Licences are given as [SPDX](https://spdx.org/licenses/) identifiers, as declare
 | [NVIDIA open GPU kernel modules](https://github.com/NVIDIA/open-gpu-kernel-modules) and driver | NVIDIA | MIT and GPL-2.0-only (kernel modules); NVIDIA driver licence (user space) | NVIDIA GPU support, redistributed unmodified as its licence allows |
 | [mpv](https://mpv.io) | mpv contributors | GPL-2.0-or-later and LGPL-2.1-or-later | Local media playback and the placeholder screen |
 | [FFmpeg](https://ffmpeg.org) | FFmpeg contributors | GPL-3.0-only (as packaged) | Audio and video decoding |
+| [ddcutil](https://www.ddcutil.com) | Sanford Rockowitz and contributors | GPL-2.0-or-later | Brightness of monitors that accept DDC/CI commands |
+| [hwdata](https://github.com/vcrhonek/hwdata) | hwdata contributors | GPL-2.0-or-later | Names of screen makers, shown in Settings → Display |
 
 ## Sound, network, Bluetooth, system services
 

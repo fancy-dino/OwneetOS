@@ -634,9 +634,10 @@ code is written (PROJECT_RULES.md section 9).
   which one the console uses), Language, Storage (read-only), System (version, restart, shut down).
 - **Known issue to fix here (2026-10-08, owner's desktop with two monitors on two GPUs):**
   gamescope uses one screen; a screen on the other GPU keeps showing the frozen boot splash.
-  Other screens are **not** turned off by default (owner's decision): they must show something
-  sensible instead of the frozen splash. Using a second screen for something (e.g. chat, guides)
-  is a possible later feature.
+  **Decision 2026-10-10:** the other screens are turned off (gamescope turns off those on its own
+  GPU; those on other GPUs need a small privileged helper). The logo on other screens is an
+  optional choice after Wave 1; using a second screen for something (e.g. chat, guides) is a
+  possible later feature.
 - **Demo:** `design/demos/3.9-settings.html`. Proposals in it: the sections in a list on the left
   and the panel on the right, which follows the selection; right or A enters the panel, B (or left
   at its edge) goes back to the list; sliders change with left / right (the click plays at the new
@@ -702,10 +703,28 @@ code is written (PROJECT_RULES.md section 9).
   panels and windows with invented networks and devices. Checked in the test VM with the real
   owneetd (cable connected, no Wi-Fi, no Bluetooth adapter, test pad listed as "Cable").
   owneet-frontend 0.9.0. Real Wi-Fi and Bluetooth pairing go in the next hardware batch.
+- **Part 3 (2026-10-10):** **Display** (after Sound): the screen used by the console, chosen
+  among all connected screens (the others are turned off, decision 2026-10-10; with a game or app
+  open: "close it first"); brightness only where the screen allows it (laptop backlight through
+  logind, monitors through DDC/CI with `ddcutil`); resolution and refresh rate from the screen's
+  own modes ("Automatic (recommended)" first; a laptop's built-in screen keeps its native mode);
+  every change asks **"Keep this?"** and goes back after 15 s (B also goes back); the reduced
+  (cage) session says these settings need the main mode. **Language → Keyboard layout** now also
+  sets physical keyboards (gamescope at once, cage at the next start). owneetd 0.10.0:
+  `internal/display`, `/v1/display` API and events, `owneet-screens-off@CARD.service` with its
+  polkit rule (docs/daemon-design.md); owneet-session 0.0.13 reads `display.conf`; new
+  dependencies `ddcutil` and `hwdata` (credited; ISO 1749 MiB, +29 MiB). Found and fixed:
+  gamescope's main process is called `gamescope-wl` (found by its program instead); a QML `Timer`
+  follows the frames drawn, not the clock (the countdown runs from the clock). Checked with
+  `tools/frontend-preview` (`settings-display.txt`, pretend screens and modes) and in the test VM
+  (see daemon-design.md). **To check on hardware:** modes and "Keep this?" on a TV, moving between
+  two screens and two graphics cards (owner's desktop), brightness on a monitor with DDC/CI
+  (NVIDIA cards may need ddcutil's `nvidia-i2c.conf`) and on a laptop.
 
 ### [ ] 3.10 On-screen keyboard
 
 - **Deliverables:** gamepad OSK for frontend text fields (Wi-Fi passwords, search), layouts per language.
+  Until then the Wi-Fi password is typed with a keyboard (3.9, part 2).
 
 ### [ ] 3.11 Notifications
 
@@ -886,6 +905,8 @@ code is written (PROJECT_RULES.md section 9).
 - **11. More stores and Windows games:** Epic (legendary), GOG (gogdl), umu-launcher + GE-Proton.
 - **12. Console features:** user profiles, parental controls, play-time statistics, quick suspend and resume.
 - **13. Custom accent colour** with automatic contrast checking.
+- **14. Other screens (optional choice):** Settings → Display "Other screens: show the OwneetOS
+  logo / turn off" (decided 2026-10-10: Wave 1 turns them off).
 
 ## Backlog — nice-to-have, order to be decided
 

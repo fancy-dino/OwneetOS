@@ -8,6 +8,10 @@
 #
 # Kernel command line options:
 #   owneet.session=auto|gamescope|cage   force a mode (default: auto)
+# Settings → Display and Language (written by owneetd in ~/.config/owneet/display.conf):
+#   OUTPUT, VK_DEVICE   the screen the console uses and its graphics card (gamescope)
+#   KEYBOARD            the layout of a physical keyboard (gamescope also follows it live)
+# Screen modes are gamescope's own GAMESCOPE_MODE_SAVE_FILE (~/.config/owneet/gamescope-modes).
 # Test hooks (troubleshooting; never needed by users):
 #   owneet.debug.gamescope_backend=headless   gamescope without a screen, for VMs without a
 #                                             hardware Vulkan device (windows and focus still work)
@@ -28,6 +32,10 @@ SESSION_APP=/usr/lib/owneet/owneet-session-app
 QUICK_EXIT_S=30          # a compositor that stops sooner than this counts as a failure
 GAMESCOPE_MAX_FAILS=2    # then fall back to cage
 CAGE_MAX_FAILS=3         # then show an error and wait before trying again
+
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/owneet"
+# owneetd stops gamescope on purpose to move the console to another screen: not a failure.
+RESTART_MARK="${XDG_RUNTIME_DIR:-/tmp}/owneet/restart"
 
 # Technical messages go to the journal only (journalctl -t owneet-session); the screen is for users.
 log() {
@@ -51,6 +59,11 @@ debug_opt() {
     grep -oE "(^| )owneet\.debug\.$1=[a-z]+" /proc/cmdline | tail -1 | cut -d= -f2 || true
 }
 
+# A value of display.conf (only the safe characters owneetd writes).
+display_pref() {
+    grep -E "^$1=[A-Za-z0-9:_-]+\$" "$CONFIG_DIR/display.conf" 2>/dev/null | tail -1 | cut -d= -f2
+}
+
 # gamescope's arguments, in GAMESCOPE_ARGS.
 gamescope_args() {
     # --steam: gamescope shows the windows owneetd tags and lets it choose which one is on screen
@@ -58,6 +71,12 @@ gamescope_args() {
     GAMESCOPE_ARGS=(--fullscreen --steam)
     if [[ "$(debug_opt gamescope_steam)" == off ]]; then GAMESCOPE_ARGS=(--fullscreen); fi
     if [[ "$(debug_opt gamescope_backend)" == headless ]]; then GAMESCOPE_ARGS+=(--backend headless); fi
+    # The screen chosen in Settings → Display, then any other; its graphics card does the work.
+    local output vk
+    output="$(display_pref OUTPUT)"
+    vk="$(display_pref VK_DEVICE)"
+    if [[ -n "$output" ]]; then GAMESCOPE_ARGS+=(--prefer-output "$output,*"); fi
+    if [[ "$vk" =~ ^[0-9a-f]{4}:[0-9a-f]{4}$ ]]; then GAMESCOPE_ARGS+=(--prefer-vk-device "$vk"); fi
     # With the NVIDIA driver, windows sent straight to the screen (direct scanout) show flickering
     # black rectangles (owner's RTX 4060, 2026-10-08): always composite there. AMD and Intel keep
     # direct scanout, which saves GPU work on low-end hardware.
@@ -75,6 +94,13 @@ run_compositor() {
     echo "$1" > "${XDG_RUNTIME_DIR:-/tmp}/owneet/session-mode"
     # Stale until the new session publishes its display.
     rm -f "${XDG_RUNTIME_DIR:-/tmp}/owneet/session-env"
+    # A keyboard plugged in types with the layout chosen in Settings → Language.
+    local keyboard
+    keyboard="$(display_pref KEYBOARD)"
+    if [[ -n "$keyboard" ]]; then export XKB_DEFAULT_LAYOUT="${keyboard%%:*}"; fi
+    if [[ "$keyboard" == *:* ]]; then export XKB_DEFAULT_VARIANT="${keyboard#*:}"; fi
+    mkdir -p "$CONFIG_DIR"
+    export GAMESCOPE_MODE_SAVE_FILE="$CONFIG_DIR/gamescope-modes"
     case "$1" in
         gamescope) gamescope_args
                    log "gamescope ${GAMESCOPE_ARGS[*]}"
@@ -134,7 +160,15 @@ while true; do
     ran=$(( SECONDS - start ))
     log "$mode stopped (exit code $rc) after ${ran}s"
 
-    if (( ran < QUICK_EXIT_S )); then fails=$(( fails + 1 )); else fails=0; fi
+    if [[ -e "$RESTART_MARK" ]]; then
+        rm -f "$RESTART_MARK"
+        log "restart asked by owneetd (Settings → Display)"
+        fails=0
+    elif (( ran < QUICK_EXIT_S )); then
+        fails=$(( fails + 1 ))
+    else
+        fails=0
+    fi
 
     if [[ "$mode" == gamescope ]] && (( fails >= GAMESCOPE_MAX_FAILS )); then
         log "gamescope failed $fails times in a row: falling back to cage"

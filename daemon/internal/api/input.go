@@ -133,6 +133,12 @@ func (s *Server) handlePutLayout(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusBadRequest, "input.unsupported_layout", err.Error())
 		return
 	}
+	// A keyboard plugged in types with the same layout (Settings → Language)
+	if s.Display != nil {
+		if err := s.Display.SetKeyboardLayout(body.Layout); err != nil {
+			s.Log.Warn("cannot set the layout of physical keyboards", "err", err)
+		}
+	}
 	s.Broker.Publish("input.layout_changed", map[string]string{"layout": body.Layout})
 	w.WriteHeader(http.StatusNoContent)
 }

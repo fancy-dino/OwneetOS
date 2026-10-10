@@ -2,15 +2,16 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneetd
-pkgver=0.9.0
+pkgver=0.10.0
 pkgrel=1
-pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps) and owneetctl"
+pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps, display) and owneetctl"
 arch=('x86_64')
 url="https://github.com/fancy-dino/OwneetOS"
 # owneetd: GPL-3.0-or-later; SDL_GameControllerDB: Zlib; vendored Go modules (daemon/vendor/):
 # godbus/dbus BSD-2-Clause, golang.org/x/sys BSD-3-Clause, jezek/xgb BSD-3-Clause, jfreymuth/pulse MIT
 license=('GPL-3.0-or-later' 'Zlib' 'BSD-2-Clause' 'BSD-3-Clause' 'MIT')
-depends=('systemd' 'bluez' 'networkmanager' 'polkit' 'pipewire-pulse')
+# ddcutil: brightness of monitors (DDC/CI); hwdata: screen makers' names (as gamescope shows them)
+depends=('systemd' 'bluez' 'networkmanager' 'polkit' 'pipewire-pulse' 'ddcutil' 'hwdata')
 makedepends=('go')
 options=('!debug')
 install=owneetd.install
@@ -19,6 +20,7 @@ _sdldb=c1d5289a1f713b30a2c121e9fe6529d39360be0f
 # owneetd-src.tar.gz is generated from daemon/ by tools/build-packages (listed in source-dirs).
 source=('owneetd-src.tar.gz' 'owneetd.service' '50-owneetd.preset'
         '70-owneet-uinput.rules' 'owneet-uinput.modules-load.conf' '50-owneet-networkmanager.rules'
+        'owneet-screens-off@.service' '50-owneet-screens.rules'
         "gamecontrollerdb-$_sdldb.txt::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/gamecontrollerdb.txt"
         "gamecontrollerdb-LICENSE-$_sdldb::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/LICENSE")
 sha256sums=('SKIP'
@@ -27,6 +29,8 @@ sha256sums=('SKIP'
             '05704193de80d2e0de3f1fe137d3b189b9c29986a2976ae87c5b6da1d64642c8'
             '31a567f64e305e209a81c69a5d00593eb0a6a9f82248a6627ab0066d272a2ea8'
             'fd39be370627656bfc6ac2df05fbace5fced1699b1a1b62fac77d5d1a99d2536'
+            '53db6bb4d6294d2a72032d440cedd8221a54fa24a89a717efb7eab557ffaa504'
+            '2eef4c58614327306c3346fbb04fe242b2be8f6cbcc521e4fdec6655e4e96208'
             'e606134678e6b3fdbdec9081289a1f0ba3e25d53b59b2aa3cdfe69bf491ad18f'
             '97f35b302b361680ec1e891e95d2d52097bb95abff361434916d99dc1305f127')
 
@@ -40,6 +44,7 @@ build() {
   export CGO_ENABLED=0 GOFLAGS="-trimpath -mod=vendor"
   go build -ldflags "$(_ldflags)" -o owneetd ./cmd/owneetd
   go build -ldflags "$(_ldflags)" -o owneetctl ./cmd/owneetctl
+  go build -ldflags "$(_ldflags)" -o owneet-screens-off ./cmd/owneet-screens-off
 }
 
 check() {
@@ -49,6 +54,9 @@ check() {
 
 package() {
   install -Dm755 daemon/owneetd daemon/owneetctl -t "$pkgdir/usr/bin/"
+  install -Dm755 daemon/owneet-screens-off -t "$pkgdir/usr/lib/owneet/"
+  install -Dm644 owneet-screens-off@.service -t "$pkgdir/usr/lib/systemd/system/"
+  install -Dm644 50-owneet-screens.rules "$pkgdir/usr/share/polkit-1/rules.d/50-owneet-screens.rules"
   install -Dm644 owneetd.service "$pkgdir/usr/lib/systemd/user/owneetd.service"
   install -Dm644 50-owneetd.preset "$pkgdir/usr/lib/systemd/user-preset/50-owneetd.preset"
   install -Dm644 70-owneet-uinput.rules "$pkgdir/usr/lib/udev/rules.d/70-owneet-uinput.rules"
