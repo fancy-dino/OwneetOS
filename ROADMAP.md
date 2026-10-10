@@ -627,7 +627,7 @@ code is written (PROJECT_RULES.md section 9).
   of the Pro Controller, a test game starts on screen, Guide shows the home screen with the game
   running, Resume brings it back, a second game is refused, Close game with confirmation.
 
-### [~] 3.9 Settings *(multi-prompt; demo approved 2026-10-09)*
+### [x] 3.9 Settings *(multi-prompt; demo approved 2026-10-09; approved 2026-10-10)*
 
 - **Deliverables:** Appearance (palette, text size, reduce motion, persisted), Network, Controllers
   and Bluetooth, Audio, Display (resolution, refresh rate via gamescope; with several screens,
@@ -957,6 +957,10 @@ code is written (PROJECT_RULES.md section 9).
 - **13. Custom accent colour** with automatic contrast checking.
 - **14. Other screens (optional choice):** Settings → Display "Other screens: show the OwneetOS
   logo / turn off" (decided 2026-10-10: Wave 1 turns them off).
+- **15. Picture dimming (proposal, not confirmed, owner 2026-10-10):** for screens without a real
+  brightness control (no backlight, no DDC/CI), an optional "Dim the picture" setting done by
+  gamescope's colour pipeline: darker pixels, same backlight (no energy saved, lower contrast);
+  it would apply to games too. Needs a demo and the owner's approval.
 
 ## Backlog — nice-to-have, order to be decided
 
