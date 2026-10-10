@@ -1,0 +1,541 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS — interactive demo for roadmap step 3.10 (on-screen keyboard). Open in a browser;
+     drive it with a gamepad or the keyboard. Fonts come from Google Fonts for the demo only (the
+     console bundles them); sounds come from sounds.js (frontend/sounds/). Networks are invented. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS — On-screen keyboard (demo 3.10)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1; --motion: 1; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+.frame { position: relative; flex: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+
+/* ---------- 1280 × 720 grid, 5% horizontal safe area ---------- */
+.stage {
+  width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px;
+  display: grid; grid-template-rows: auto 1fr auto; gap: 20px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350;
+}
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+.label { text-transform: uppercase; letter-spacing: .09em; font-weight: 500; color: var(--muted); }
+
+[data-f] { outline: none; position: relative; transition: transform calc(.12s * var(--motion)) ease, box-shadow calc(.12s * var(--motion)) ease; }
+[data-f].focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); transform: scale(calc(1 + .03 * var(--motion))); z-index: 2; }
+
+/* ---------- Top bar ---------- */
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 36px; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.clock { color: var(--fg); font-weight: 500; }
+
+/* ---------- The page behind (Settings → Network, as approved in demo 3.9) ---------- */
+.behind { display: grid; grid-template-columns: 290px 1fr; gap: 28px; align-content: start; }
+.behind .nav { display: grid; gap: 6px; align-content: start; color: var(--muted); }
+.behind .nav span { padding: 11px 16px; border-radius: 14px; }
+.behind .nav span.on { background: var(--surface); color: var(--fg); font-weight: 500; }
+.behind .rows { display: grid; gap: 12px; align-content: start; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); min-height: 54px; }
+
+/* ---------- Prompt bar and glyphs ---------- */
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 22px; flex-wrap: wrap; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+
+/* ---------- The window with the text field ---------- */
+.overlay { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 85%, transparent); z-index: 10; }
+.sheet { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -56%); width: 704px;
+         text-align: center; justify-items: center; background: var(--bg); border: 1px solid var(--line); border-radius: 18px;
+         padding: 20px 24px 24px; display: grid; gap: 14px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.7);
+         transition: top calc(.22s * var(--motion)) ease; }
+.osk-open .sheet { top: 34px; transform: translate(-50%, 0); }
+.osk-open .sheet .list { display: none; }   /* Done does what Connect does */
+.field { width: 560px; padding: 12px 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); text-align: left; display: grid; gap: 4px; }
+.field.typing { border-color: var(--accent); }
+.field .text { min-height: 1.4em; white-space: pre; overflow: hidden; }
+.field .text.dots { letter-spacing: .12em; }
+.field .hint { color: var(--muted); }
+.caret { display: inline-block; width: 2px; height: 1.1em; background: var(--accent); vertical-align: -0.15em; margin-left: 1px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.switchrow { width: 560px; }
+.switch { width: 44px; height: 24px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); position: relative; flex: none; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--muted); }
+[aria-checked="true"] .switch { background: var(--accent); border-color: var(--accent); }
+[aria-checked="true"] .switch::after { left: 23px; background: var(--on-accent); }
+.list { display: flex; justify-content: center; gap: 20px; margin-top: 6px; }
+.item { padding: 11px 26px; border-radius: 999px; font-weight: 500; background: var(--raised); color: var(--fg); }
+.item.primary { background: var(--accent); color: var(--on-accent); }
+.error { color: var(--accent); }
+.searching { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); }
+.spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- On-screen keyboard ---------- */
+.osk { position: absolute; left: 64px; right: 64px; bottom: 70px; z-index: 11; background: var(--surface); border: 1px solid var(--line);
+       border-radius: 18px; padding: 14px 16px 16px; display: none; gap: 10px; box-shadow: 0 -20px 60px -20px rgba(0,0,0,.6); }
+.osk-open .osk { display: grid; animation: up calc(.2s * var(--motion)) ease; }
+@keyframes up { from { transform: translateY(30px); opacity: 0; } }
+.osk-head { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.pages { display: flex; gap: 6px; align-items: center; }
+.pages span.pg { padding: 3px 12px; border-radius: 999px; }
+.pages span.pg.on { background: var(--fg); color: var(--bg); font-weight: 500; }
+.keys { display: grid; gap: 8px; }
+.krow { display: flex; gap: 8px; justify-content: center; }
+.key { height: 46px; min-width: 76px; flex: 0 0 76px; border-radius: 11px; background: var(--raised); color: var(--fg); display: grid; place-items: center;
+       font-size: calc(19px * var(--ts)); font-weight: 400; }
+.key.w15 { flex-basis: 120px; } .key.w2 { flex-basis: 160px; } .key.space { flex-basis: 420px; }
+.key.fn { background: color-mix(in srgb, var(--raised) 70%, var(--line)); font-size: calc(14.5px * var(--ts)); font-weight: 500; }
+.key.done { background: var(--accent); color: var(--on-accent); }
+.key.on { background: var(--fg); color: var(--bg); }
+.key svg { width: 22px; height: 22px; }
+.key .gl { display: inline-flex; gap: 6px; align-items: center; }
+.key .gl .g { height: 18px; }
+
+.toast { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); padding: 9px 18px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; white-space: nowrap; }
+.toast.show { opacity: 1; }
+.sheet-prompts { position: absolute; left: 64px; right: 64px; bottom: 28px; z-index: 12; }
+
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; max-width: 1180px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <header class="top">
+    <div class="top-left">
+      <span class="mark">Owneet<i>OS</i></span>
+      <nav class="tabs t-s">
+        <span data-glyph="lb"></span>
+        <span class="tab" data-i18n="tab.home">Home</span>
+        <span class="tab" data-i18n="tab.library">Library</span>
+        <span class="tab" aria-current="page" data-i18n="tab.settings">Settings</span>
+        <span data-glyph="rb"></span>
+      </nav>
+    </div>
+    <span class="clock t-s" id="clock"></span>
+  </header>
+  <main class="behind" id="behind"></main>
+  <footer></footer>
+
+  <div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
+  <div class="osk" id="osk">
+    <div class="osk-head t-xs"><div class="pages" id="pages"></div><span id="layout-name"></span></div>
+    <div class="keys" id="keys"></div>
+  </div>
+  <div class="prompts t-s sheet-prompts" id="prompts"></div>
+  <div class="toast t-s" id="toast"></div>
+</div></div>
+<p class="help"><b>Gamepad:</b> D-pad / stick move between keys (rows wrap around), A type, X delete, Y space, LT / RT change the page of keys
+(letters, symbols, accents), Menu done, B close the keyboard (B again closes the window).
+<b>Keyboard (emulates the gamepad):</b> arrows, Enter = A, Esc = B, X, Y, Z / C = LT / RT, M = Menu.<br>
+<b>Demo only:</b> K keyboard layout (English US / Italian), L language, S another kind of field (library search, an example), P palette, N sounds (<span id="snd-state">on</span>).
+A Wi-Fi password needs 8 to 63 characters; "wrongpassword" is refused. Address: <code>#layout=it&amp;lang=it&amp;field=search</code></p>
+
+<script src="sounds.js"></script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 80) / 720);
+    stage.style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+
+  /* ---------- Palettes (as approved in demo 3.3) ---------- */
+  const PALETTES = [
+    ['dusk', 'Dusk', 'dark', '#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+    ['tide', 'Tide', 'dark', '#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+    ['bloom', 'Bloom', 'dark', '#1A1020', '#25182D', '#33223D', '#45304F', '#F7EEF6', '#AE93AE', '#FF7AA8', '#2A0614'],
+    ['ember', 'Ember', 'dark', '#1C0F0C', '#2A1713', '#3A201A', '#4E2C24', '#FBEDE9', '#C49C93', '#FF6B47', '#2A0A03'],
+    ['espresso', 'Espresso', 'dark', '#1A1310', '#261C17', '#33261F', '#47362C', '#F5ECE4', '#BBA693', '#D9A066', '#2A1707'],
+    ['harbor', 'Harbor', 'dark', '#0D1B2E', '#14263D', '#1D3350', '#2A4566', '#F3EAD8', '#B7AE99', '#E8D3A8', '#142033'],
+    ['forest', 'Forest', 'dark', '#0E1A14', '#15261D', '#1E3428', '#2B4636', '#ECF5EE', '#95B2A0', '#7BD88F', '#072012'],
+    ['lagoon', 'Lagoon', 'dark', '#0A1426', '#101E38', '#182A4B', '#23395F', '#EAF1FF', '#90A4C9', '#4DA3FF', '#03162E'],
+    ['amethyst', 'Amethyst', 'dark', '#15121F', '#1F1A2E', '#2A2340', '#3A3155', '#F1EDFA', '#A99FC4', '#B69CFF', '#1B0E3A'],
+    ['crimson', 'Crimson', 'dark', '#170A0E', '#241018', '#321722', '#47202F', '#FCECEF', '#C597A1', '#FF4D6D', '#2B0510'],
+    ['synthwave', 'Synthwave', 'dark', '#140B24', '#1F1236', '#2B1A4A', '#3D2563', '#FBEFFF', '#B99DD8', '#FF4FD8', '#2B0326'],
+    ['amber', 'Amber', 'dark', '#0F0B05', '#1A1409', '#251C0D', '#3A2C14', '#FFE8C2', '#C9AA78', '#FFB000', '#241700'],
+    ['olive', 'Olive', 'dark', '#14160E', '#1E2116', '#292D1F', '#3A402B', '#F1F3E6', '#ABB092', '#C5D86D', '#1C2306'],
+    ['graphite', 'Graphite', 'dark', '#121212', '#1C1C1C', '#262626', '#383838', '#F2F2F2', '#A6A6A6', '#DADADA', '#121212'],
+    ['daylight', 'Daylight', 'light', '#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+    ['arctic', 'Arctic', 'light', '#EEF5FA', '#FFFFFF', '#DCE9F3', '#C3D5E4', '#0F1E2B', '#4E6577', '#0A78B8', '#FFFFFF'],
+    ['sand', 'Sand', 'light', '#F4EEE3', '#FFFBF4', '#E8DFD0', '#D3C6B1', '#2A2117', '#6A5C49', '#B04A28', '#FFFFFF'],
+    ['latte', 'Latte', 'light', '#F3ECE4', '#FFFAF5', '#E6DACD', '#D2C1AF', '#2B1E14', '#6B5746', '#8B5A2B', '#FFFFFF'],
+    ['sakura', 'Sakura', 'light', '#FBEFF3', '#FFFFFF', '#F3DDE5', '#E3C3CF', '#2A1420', '#76505F', '#C92A62', '#FFFFFF'],
+    ['contrast', 'High contrast', 'access', '#000000', '#000000', '#161616', '#FFFFFF', '#FFFFFF', '#E0E0E0', '#FFE14D', '#000000'],
+    ['contrast-light', 'High contrast light', 'access', '#FFFFFF', '#FFFFFF', '#EDEDED', '#000000', '#000000', '#262626', '#0038B8', '#FFFFFF'],
+  ];
+  const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
+  let palKey = 'dusk';
+  const pal = k => PALETTES.find(p => p[0] === k) || PALETTES[0];
+  function applyPalette(k) { TOKENS.forEach((t, i) => stage.style.setProperty('--' + t, pal(k)[3 + i])); }
+
+  /* ---------- i18n ---------- */
+  const EN = {
+    'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings',
+    's.network': 'Network', 's.controllers': 'Controllers and Bluetooth', 's.audio': 'Sound', 's.display': 'Display', 's.appearance': 'Appearance',
+    's.language': 'Language', 's.storage': 'Storage', 's.system': 'System', 'net.wifi': 'Wi-Fi', 'net.nearby': 'Networks nearby',
+    'net.password': 'Password', 'net.show': 'Show password', 'net.connect': 'Connect', 'net.connecting': 'Connecting…',
+    'net.ok': 'Connected to {ssid}', 'net.wrong': 'Wrong password. Try again.', 'net.short': 'A Wi-Fi password has 8 to 63 characters.',
+    'search.title': 'Search the library', 'search.label': 'Game name', 'search.example': '(an example of another text field: library search comes later)',
+    'search.found': '{n} games found (demo)', 'search.go': 'Search',
+    'p.type': 'Type', 'p.delete': 'Delete', 'p.space': 'Space', 'p.pages': 'Symbols', 'p.done': 'Done', 'p.close': 'Close keyboard',
+    'p.select': 'Select', 'p.back': 'Back', 'p.keyboard': 'Keyboard', 'p.home': 'Home', 'p.toggle': 'Turn on / off',
+    'k.done': 'Done', 'k.space': 'space', 'k.shift': 'Shift', 'k.caps': 'Caps lock', 'pg.abc': 'ABC', 'pg.sym': '?!#', 'pg.acc': 'àé',
+    'layout.us': 'English (US)', 'layout.it': 'Italiano', 'cancel': 'Cancel',
+  };
+  const IT = {
+    'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni',
+    's.network': 'Rete', 's.controllers': 'Controller e Bluetooth', 's.audio': 'Suono', 's.display': 'Schermo', 's.appearance': 'Aspetto',
+    's.language': 'Lingua', 's.storage': 'Dischi', 's.system': 'Sistema', 'net.wifi': 'Wi-Fi', 'net.nearby': 'Reti vicine',
+    'net.password': 'Password', 'net.show': 'Mostra password', 'net.connect': 'Connetti', 'net.connecting': 'Connessione…',
+    'net.ok': 'Connesso a {ssid}', 'net.wrong': 'Password sbagliata. Riprova.', 'net.short': 'Una password Wi-Fi ha da 8 a 63 caratteri.',
+    'search.title': 'Cerca nella libreria', 'search.label': 'Nome del gioco', 'search.example': '(un esempio di altro campo di testo: la ricerca nella libreria arriva più avanti)',
+    'search.found': '{n} giochi trovati (demo)', 'search.go': 'Cerca',
+    'p.type': 'Scrivi', 'p.delete': 'Cancella', 'p.space': 'Spazio', 'p.pages': 'Simboli', 'p.done': 'Fatto', 'p.close': 'Chiudi tastiera',
+    'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.keyboard': 'Tastiera', 'p.home': 'Home', 'p.toggle': 'Attiva / disattiva',
+    'k.done': 'Fatto', 'k.space': 'spazio', 'k.shift': 'Maiusc', 'k.caps': 'Bloc maiusc', 'pg.abc': 'ABC', 'pg.sym': '?!#', 'pg.acc': 'àé',
+    'layout.us': 'English (US)', 'layout.it': 'Italiano', 'cancel': 'Annulla',
+  };
+  let lang = 'en';
+  const tr = (k, a = {}) => ((lang === 'it' ? IT[k] : null) || EN[k] || k).replace(/\{(\w+)\}/g, (_, x) => a[x] ?? '');
+
+  /* ---------- Glyphs ---------- */
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const G = { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lb: pill('LB', 34), rb: pill('RB', 34), lt: pill('LT', 32), rt: pill('RT', 32),
+    menu: circle(`<path d="M8.5 10h9M8.5 13h9M8.5 16h9" ${S}/>`), guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`) };
+  const P = (b, l) => `<span class="prompt">${b.map(x => G[x]).join('')}<span>${tr(l)}</span></span>`;
+  const ICON = {
+    backspace: `<svg viewBox="0 0 24 24" ${S}><path d="M8 5h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H8l-6-7z"/><path d="M11 9l6 6M17 9l-6 6"/></svg>`,
+    shift: `<svg viewBox="0 0 24 24" ${S}><path d="M12 4 4 12h4v7h8v-7h4z"/></svg>`,
+    caps: `<svg viewBox="0 0 24 24" ${S}><path d="M12 3 4 11h4v5h8v-5h4z"/><path d="M8 20h8"/></svg>`,
+    left: `<svg viewBox="0 0 24 24" ${S}><path d="M15 6l-6 6 6 6"/></svg>`,
+    right: `<svg viewBox="0 0 24 24" ${S}><path d="M9 6l6 6-6 6"/></svg>`,
+    eye: `<svg viewBox="0 0 24 24" ${S}><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`,
+    eyeoff: `<svg viewBox="0 0 24 24" ${S}><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>`,
+  };
+
+  /* ---------- Sounds: the "click" for every key and delete (design/sounds.md) ---------- */
+  let soundOn = true, ctx = null;
+  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', notify: 'notify', error: 'error' };
+  const buffers = {};
+  function startAudio() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    if (!window.OWNEET_SOUNDS) return;
+    ctx = new AudioContext();
+    for (const [k, f] of Object.entries(SOUNDS)) {
+      const url = window.OWNEET_SOUNDS[f]; if (!url) continue;
+      const bytes = Uint8Array.from(atob(url.split(',')[1]), c => c.charCodeAt(0));
+      ctx.decodeAudioData(bytes.buffer).then(b => { buffers[k] = b; });
+    }
+  }
+  addEventListener('keydown', startAudio, true); addEventListener('pointerdown', startAudio, true);
+  function feedback(k) {
+    if (!soundOn || !ctx || !buffers[k]) return;
+    const src = ctx.createBufferSource(), g = ctx.createGain();
+    g.gain.value = 0.7; src.buffer = buffers[k]; src.connect(g); g.connect(ctx.destination); src.start();
+  }
+
+  /* ---------- Keyboard layouts: they follow Settings → Language → Keyboard layout ---------- */
+  // Page "abc": letters (Italian puts its accented letters where an Italian keyboard has them);
+  // "sym": digits and symbols; "acc": accented letters of other languages.
+  const LAYOUTS = {
+    us: { abc: ['1234567890', 'qwertyuiop', 'asdfghjkl\'', 'zxcvbnm,.-'] },
+    it: { abc: ['1234567890', 'qwertyuiopè', 'asdfghjklòàù', 'zxcvbnm,.-'] },
+  };
+  const SYM = ['1234567890', '@#€$%&*()_', '+=/\\:;"!?\'', '<>[]{}~^|`'];
+  const ACC = ['àáâäãåæ', 'èéêëìíîï', 'òóôöõøùúûü', 'çñßÿ'];
+  const PAGES = ['abc', 'sym', 'acc'];
+  let layout = 'us', page = 'abc', shift = 0;   // shift: 0 off, 1 next letter, 2 caps lock
+
+  /* ---------- State ---------- */
+  let field = 'password';          // or "search" (example)
+  let text = '', showPw = false, oskOpen = false, focused = null, connecting = false, error = '';
+  const MAX = 63;
+
+  function renderBehind() {
+    const sections = ['network', 'controllers', 'audio', 'display', 'appearance', 'language', 'storage', 'system'];
+    $('#behind').innerHTML = `<div class="nav t-m">${sections.map(s => `<span class="${s === 'network' ? 'on' : ''}">${tr('s.' + s)}</span>`).join('')}</div>
+      <div class="rows"><h2 class="disp t-l" style="margin:0 0 4px">${tr('s.network')}</h2>
+      <div class="row t-s"><span>${tr('net.wifi')}</span></div>
+      <span class="label t-xs" style="margin-top:8px">${tr('net.nearby')}</span>
+      ${['Casa Rossi', 'Cafe Wi-Fi', 'Biblioteca'].map(n => `<div class="row t-s"><span>${n}</span></div>`).join('')}</div>`;
+    $$('[data-i18n]').forEach(el => { el.textContent = tr(el.dataset.i18n); });
+    $$('[data-glyph]').forEach(el => { el.innerHTML = G[el.dataset.glyph]; });
+  }
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  function fieldText() {
+    if (!text) return '';
+    return field === 'password' && !showPw ? '•'.repeat([...text].length) : esc(text);
+  }
+  function renderSheet() {
+    const pw = field === 'password';
+    if (connecting) {
+      $('#sheet').innerHTML = `<span class="disp t-l">Cafe Wi-Fi</span><span class="searching t-m"><span class="spinner"></span>${tr('net.connecting')}</span>`;
+      return;
+    }
+    const caret = oskOpen ? '<span class="caret"></span>' : '';
+    $('#sheet').innerHTML = `<span class="disp t-l">${pw ? 'Cafe Wi-Fi' : tr('search.title')}</span>
+      <div class="field${oskOpen ? ' typing' : ''}" data-f data-k="field"><span class="t-s muted">${tr(pw ? 'net.password' : 'search.label')}</span>
+        <span class="t-m text${pw && !showPw ? ' dots' : ''}">${fieldText()}${caret}</span></div>
+      ${pw ? `<button class="row switchrow t-s" data-f data-k="show" role="switch" aria-checked="${showPw}"><span>${tr('net.show')}</span><span class="switch"></span></button>` : `<span class="t-xs muted">${tr('search.example')}</span>`}
+      ${error ? `<span class="error t-m">${error}</span>` : ''}
+      <div class="list t-m"><button class="item primary" data-f data-k="ok">${tr(pw ? 'net.connect' : 'search.go')}</button><button class="item" data-f data-k="cancel">${tr('cancel')}</button></div>`;
+  }
+  function keyRows() {
+    const rows = page === 'abc' ? LAYOUTS[layout].abc : page === 'sym' ? SYM : ACC;
+    const up = shift > 0 && page !== 'sym';
+    const chars = rows.map(r => [...r].map(c => ({ t: 'char', c: up ? c.toLocaleUpperCase(layout === 'it' ? 'it' : 'en') : c })));
+    chars[0].push({ t: 'del', w: 'w15 fn' });
+    const pg = PAGES.indexOf(page);
+    chars[chars.length - 1].unshift({ t: 'shift', w: 'w15 fn' });
+    chars.push([
+      { t: 'page', w: 'w15 fn', p: PAGES[(pg + 1) % PAGES.length] },
+      { t: 'left', w: 'fn' }, { t: 'space', w: 'space fn' }, { t: 'right', w: 'fn' },
+      // password fields: show or hide what was typed, without leaving the keys
+      ...(field === 'password' ? [{ t: 'eye', w: 'fn' }] : []),
+      { t: 'done', w: 'w2 fn done' }]);
+    return chars;
+  }
+  let cursor = 0;   // text cursor (characters before it)
+  function renderKeys(keepPos) {
+    const pos = keepPos && focused && focused.dataset.r !== undefined ? [+focused.dataset.r, +focused.dataset.c] : null;
+    const rows = keyRows();
+    $('#keys').innerHTML = rows.map((row, r) => `<div class="krow">${row.map((k, c) => {
+      const label = k.t === 'char' ? esc(k.c) : k.t === 'del' ? ICON.backspace : k.t === 'shift' ? (shift === 2 ? ICON.caps : ICON.shift)
+        : k.t === 'page' ? tr('pg.' + k.p) : k.t === 'left' ? ICON.left : k.t === 'right' ? ICON.right
+        : k.t === 'eye' ? (showPw ? ICON.eyeoff : ICON.eye)
+        : k.t === 'space' ? `<span class="gl">${G.y}${tr('k.space')}</span>` : `<span class="gl">${G.menu}${tr('k.done')}</span>`;
+      const on = (k.t === 'shift' && shift > 0) || (k.t === 'eye' && showPw) ? ' on' : '';
+      return `<button class="key t-m ${k.w || ''}${on}" data-f data-r="${r}" data-c="${c}" data-t="${k.t}" data-ch="${k.t === 'char' ? esc(k.c) : ''}" data-p="${k.p || ''}">${label}</button>`;
+    }).join('')}</div>`).join('');
+    $('#pages').innerHTML = `${G.lt}${PAGES.map(p => `<span class="pg${p === page ? ' on' : ''}">${tr('pg.' + p)}</span>`).join('')}${G.rt}`;
+    $('#layout-name').textContent = tr('layout.' + layout);
+    if (oskOpen) {
+      const rowsEl = $$('#keys .krow');
+      let el = null;
+      if (pos) { const r = rowsEl[Math.min(pos[0], rowsEl.length - 1)]; const ks = $$('[data-f]', r); el = ks[Math.min(pos[1], ks.length - 1)]; }
+      setFocus(el || $('#keys [data-r="1"][data-c="0"]'), true);
+    }
+  }
+  function renderPrompts() {
+    let left;
+    if (connecting) left = [];
+    else if (oskOpen) left = [P(['a'], 'p.type'), P(['x'], 'p.delete'), P(['y'], 'p.space'), P(['lt', 'rt'], 'p.pages'), P(['menu'], 'p.done'), P(['b'], 'p.close')];
+    else if (focused && focused.dataset.k === 'field') left = [P(['a'], 'p.keyboard'), P(['b'], 'p.back')];
+    else if (focused && focused.dataset.k === 'show') left = [P(['a'], 'p.toggle'), P(['b'], 'p.back')];
+    else left = [P(['a'], 'p.select'), P(['b'], 'p.back')];
+    $('#prompts').innerHTML = `<div class="set">${left.join('')}</div><div class="set">${P(['guide'], 'p.home')}</div>`;
+  }
+  function render() {
+    stage.classList.toggle('osk-open', oskOpen);
+    renderSheet();
+    renderKeys(true);
+    if (!oskOpen) {
+      const k = focused && focused.dataset.k;
+      setFocus($(`#sheet [data-k="${k || 'field'}"]`) || $('#sheet [data-f]'), true);
+    }
+    renderPrompts();
+  }
+
+  /* ---------- Focus and navigation ---------- */
+  function setFocus(el, silent) {
+    if (focused) focused.classList.remove('focus');
+    focused = el || null;
+    if (!el) return;
+    el.classList.add('focus');
+    if (!silent) feedback('move');
+    renderPrompts();
+  }
+  // Keys: up / down keep the column (nearest key by position); left / right wrap around the row
+  function moveKeys(dir) {
+    const rows = $$('#keys .krow').map(r => $$('[data-f]', r));
+    const r = +focused.dataset.r, c = +focused.dataset.c;
+    if (dir === 'left' || dir === 'right') {
+      const row = rows[r], n = row.length;
+      setFocus(row[(c + (dir === 'right' ? 1 : -1) + n) % n]);
+      return;
+    }
+    const nr = r + (dir === 'down' ? 1 : -1);
+    if (nr < 0 || nr >= rows.length) { feedback('edge'); return; }
+    const a = focused.getBoundingClientRect(), ax = a.left + a.width / 2;
+    let best = null, d = Infinity;
+    for (const k of rows[nr]) { const b = k.getBoundingClientRect(), dx = Math.abs(b.left + b.width / 2 - ax); if (dx < d) { d = dx; best = k; } }
+    setFocus(best);
+  }
+  function moveSheet(dir) {
+    const items = $$('#sheet [data-f]');
+    const i = items.indexOf(focused);
+    let n = null;
+    if (dir === 'down' || dir === 'up') {
+      const order = items.filter(el => el.dataset.k !== 'cancel');     // the buttons count as one row
+      const j = order.indexOf(focused.dataset.k === 'cancel' ? $('#sheet [data-k="ok"]') : focused) + (dir === 'down' ? 1 : -1);
+      n = order[j] || null;
+    } else if (focused.dataset.k === 'ok' && dir === 'right') n = $('#sheet [data-k="cancel"]');
+    else if (focused.dataset.k === 'cancel' && dir === 'left') n = $('#sheet [data-k="ok"]');
+    if (n) setFocus(n); else feedback('edge');
+    void i;
+  }
+  function move(dir) { if (connecting) return; oskOpen ? moveKeys(dir) : moveSheet(dir); }
+
+  /* ---------- Typing ---------- */
+  function insert(s) {
+    const chars = [...text];
+    if (field === 'password' && chars.length + [...s].length > MAX) { feedback('edge'); return; }
+    chars.splice(cursor, 0, ...s); text = chars.join(''); cursor += [...s].length;
+    if (shift === 1) { shift = 0; renderKeys(true); }
+    feedback('confirm'); error = ''; renderSheet(); renderPrompts();
+  }
+  function del() {
+    if (cursor === 0) { feedback('edge'); return; }
+    const chars = [...text]; chars.splice(cursor - 1, 1); text = chars.join(''); cursor--;
+    feedback('confirm'); renderSheet();
+  }
+  function setPage(p) { page = p; shift = shift === 2 ? 2 : 0; renderKeys(true); feedback('confirm'); }
+  function openOsk() { oskOpen = true; cursor = [...text].length; render(); setFocus($('#keys [data-r="1"][data-c="0"]'), true); renderPrompts(); }
+  function closeOsk() { oskOpen = false; render(); setFocus($('#sheet [data-k="ok"]'), true); renderPrompts(); feedback('sheet-close'); }
+  function done() {
+    oskOpen = false; feedback('confirm');
+    if (field === 'password') submit(); else { render(); toast(tr('search.found', { n: 3 })); }
+  }
+  function submit() {
+    const n = [...text].length;
+    if (n < 8) { error = tr('net.short'); feedback('error'); render(); setFocus($('#sheet [data-k="field"]'), true); return; }
+    connecting = true; render(); renderPrompts();
+    setTimeout(() => {
+      connecting = false;
+      if (text === 'wrongpassword') { error = tr('net.wrong'); text = ''; feedback('error'); oskOpen = true; cursor = 0; render(); renderPrompts(); return; }
+      feedback('notify'); toast(tr('net.ok', { ssid: 'Cafe Wi-Fi' })); text = ''; error = '';
+      setTimeout(() => { oskOpen = true; render(); }, 1600);       // (demo) the window opens again
+    }, 1300);
+  }
+  function accept() {
+    if (connecting) return;
+    if (!oskOpen) {
+      const k = focused && focused.dataset.k;
+      if (k === 'field') { feedback('confirm'); openOsk(); }
+      else if (k === 'show') { showPw = !showPw; feedback('confirm'); render(); }
+      else if (k === 'ok') { feedback('confirm'); field === 'password' ? submit() : toast(tr('search.found', { n: 3 })); }
+      else if (k === 'cancel') { feedback('sheet-close'); text = ''; error = ''; toast('(demo) window closed'); setTimeout(() => { oskOpen = true; render(); }, 900); }
+      return;
+    }
+    const t = focused.dataset.t;
+    if (t === 'char') insert(focused.dataset.ch.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'));
+    else if (t === 'del') del();
+    else if (t === 'space') insert(' ');
+    else if (t === 'shift') { shift = (shift + 1) % 3; feedback('confirm'); renderKeys(true); }
+    else if (t === 'page') setPage(focused.dataset.p);
+    else if (t === 'left' || t === 'right') {
+      const n = [...text].length, next = cursor + (t === 'right' ? 1 : -1);
+      if (next < 0 || next > n) { feedback('edge'); return; }
+      cursor = next; feedback('confirm'); renderSheet();
+    }
+    else if (t === 'eye') { showPw = !showPw; feedback('confirm'); renderSheet(); renderKeys(true); }
+    else if (t === 'done') done();
+  }
+  let toastTimer;
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 1800); }
+
+  // The caret sits where the cursor is
+  const _renderSheet = renderSheet;
+  renderSheet = function () {
+    _renderSheet();
+    const span = $('#sheet .text'); if (!span || !oskOpen) return;
+    const shown = field === 'password' && !showPw ? '•'.repeat([...text].length) : text;
+    const chars = [...shown];
+    span.innerHTML = `${esc(chars.slice(0, cursor).join(''))}<span class="caret"></span>${esc(chars.slice(cursor).join(''))}`;
+  };
+
+  const press = {
+    a: accept,
+    b: () => { if (connecting) return; if (oskOpen) closeOsk(); else { feedback('sheet-close'); toast('(demo) window closed'); setTimeout(() => { oskOpen = true; render(); }, 900); } },
+    x: () => oskOpen ? del() : feedback('edge'),
+    y: () => oskOpen ? insert(' ') : feedback('edge'),
+    lt: () => oskOpen ? setPage(PAGES[(PAGES.indexOf(page) + PAGES.length - 1) % PAGES.length]) : feedback('edge'),
+    rt: () => oskOpen ? setPage(PAGES[(PAGES.indexOf(page) + 1) % PAGES.length]) : feedback('edge'),
+    menu: () => oskOpen ? done() : feedback('edge'),
+    lb: () => feedback('edge'), rb: () => feedback('edge'),
+  };
+  const DEMO = {
+    k: () => { layout = layout === 'us' ? 'it' : 'us'; page = 'abc'; renderKeys(false); toast(tr('layout.' + layout)); },
+    l: () => { lang = lang === 'en' ? 'it' : 'en'; renderBehind(); render(); },
+    s: () => { field = field === 'password' ? 'search' : 'password'; text = ''; cursor = 0; error = ''; oskOpen = true; render(); },
+    p: () => { const i = PALETTES.findIndex(p => p[0] === palKey); palKey = PALETTES[(i + 1) % PALETTES.length][0]; applyPalette(palKey); toast(pal(palKey)[1]); },
+    n: () => { soundOn = !soundOn; $('#snd-state').textContent = soundOn ? 'on' : 'off'; },
+  };
+  document.addEventListener('keydown', e => {
+    const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    const keys = { Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b', x: 'x', y: 'y', m: 'menu', q: 'lb', e: 'rb', z: 'lt', c: 'rt' };
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (dirs[e.key]) { e.preventDefault(); move(dirs[e.key]); }
+    else if (keys[k]) { e.preventDefault(); if (!e.repeat) press[keys[k]](); }
+    else if (DEMO[k]) { e.preventDefault(); DEMO[k](); }
+  });
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-f]'); if (!el) return;
+    setFocus(el, true); accept();
+  });
+
+  /* ---------- Gamepad (held directions: 360 ms then 140 ms; LT / RT: 720 ms then 360 ms) ---------- */
+  const prev = {}; let repeatAt = 0, lastDir = null; const trigAt = {};
+  function poll(ts) {
+    const pad = (navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [])[0];
+    if (pad) {
+      const on = i => !!(pad.buttons[i] && (pad.buttons[i].pressed || pad.buttons[i].value > 0.5));
+      const edge = i => { const p = on(i), was = prev[i]; prev[i] = p; return p && !was; };
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+      [['lt', 6], ['rt', 7]].forEach(([n, i]) => {
+        if (on(i)) { if (!trigAt[n] || ts > trigAt[n]) { press[n](); trigAt[n] = ts + (trigAt[n] ? 360 : 720); } } else trigAt[n] = 0;
+      });
+      [['a', 0], ['b', 1], ['x', 2], ['y', 3], ['lb', 4], ['rb', 5], ['menu', 9]].forEach(([n, i]) => { if (edge(i)) press[n](); });
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+  const tick = () => { $('#clock').textContent = new Date().toTimeString().slice(0, 5); };
+  tick(); setInterval(tick, 10000);
+
+  /* ---------- Start: the password window has just opened, with the keyboard ---------- */
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get('pal') && pal(q.get('pal'))[0] === q.get('pal')) palKey = q.get('pal');
+  applyPalette(palKey);
+  if (q.get('layout') === 'it') layout = 'it';
+  if (q.get('lang') === 'it') lang = 'it';
+  if (q.get('field') === 'search') field = 'search';
+  if (q.get('motion') === 'off') document.documentElement.style.setProperty('--motion', 0);
+  if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
+  renderBehind();
+  oskOpen = true;
+  render();
+  if (q.get('keys')) q.get('keys').split(',').forEach((k, i) => setTimeout(() =>
+    ['left', 'right', 'up', 'down'].includes(k) ? move(k) : press[k] && press[k](), 250 * (i + 1)));
+})();
+</script>
+</body>
+</html>

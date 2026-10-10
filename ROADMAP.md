@@ -770,10 +770,20 @@ code is written (PROJECT_RULES.md section 9).
   window opened right at the interface's start had no selected button (its buttons are created a
   moment later), so A did nothing there. owneet-frontend 0.10.2.
 
-### [ ] 3.10 On-screen keyboard
+### [~] 3.10 On-screen keyboard
 
 - **Deliverables:** gamepad OSK for frontend text fields (Wi-Fi passwords, search), layouts per language.
   Until then the Wi-Fi password is typed with a keyboard (3.9, part 2).
+- **Demo (2026-10-10, waiting for approval):** `design/demos/3.10-osk.html`. Proposals in it: the
+  keyboard opens by itself under a text field (the window moves up; its buttons hide, Done does
+  the same); five rows: digits with delete, letters, shift and punctuation, then page key, cursor
+  left / right, space, a show / hide key in password fields, and Done; the layout follows Settings
+  → Language → Keyboard layout (Italian has è ò à ù on the letters page); pages of keys: letters,
+  symbols, accented letters of other languages; shift once = next letter, twice = caps lock; rows
+  wrap around left / right. **Buttons, as on Xbox and PlayStation keyboards (changes to section
+  9.1 inside the keyboard, to approve):** A types the key, X deletes, Y types a space, LT / RT
+  change the page of keys, Menu = Done, B closes the keyboard (B again closes the window). A
+  keyboard plugged in keeps working at the same time. Every key plays the "click" (design/sounds.md).
 
 ### [ ] 3.11 Notifications
 
