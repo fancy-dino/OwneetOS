@@ -1,6 +1,6 @@
 # Interface sounds
 
-The ten sounds of `design/sounds.md`. The owner's final sounds replace the placeholders one by one
+The eleven sounds of `design/sounds.md`. The owner's final sounds replace the placeholders one by one
 (roadmap 7.7).
 
 ## Final sounds
@@ -27,5 +27,6 @@ packs by [Kenney](https://kenney.nl), Creative Commons CC0 1.0 (public domain,
 |---|---|---|---|
 | `nav-edge.wav` | Kenney, Interface Sounds (1.0) | `error_004.ogg` | 104 ms |
 | `notify.wav` | Kenney, Interface Sounds (1.0) | `glass_001.ogg` | 276 ms |
+| `notify-error.wav` | Kenney, Interface Sounds (1.0) | `glass_001.ogg` | 276 ms |
 | `game-launch.wav` | Kenney, Music Jingles | `jingles_STEEL00.ogg` | 933 ms |
 | `startup.wav` | Kenney, Music Jingles | `jingles_STEEL07.ogg` | 1555 ms |

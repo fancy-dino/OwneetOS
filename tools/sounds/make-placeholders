@@ -36,6 +36,8 @@ PACKS = {
 SOUNDS = {
     "nav-edge": ("interface", "Audio/error_004.ogg", -10),
     "notify": ("interface", "Audio/glass_001.ogg", -6),
+    # a copy of notify for now: the owner's template for the attention notifications
+    "notify-error": ("interface", "Audio/glass_001.ogg", -6),
     "game-launch": ("jingles", "Audio/Steel jingles/jingles_STEEL00.ogg", -6),
     "startup": ("jingles", "Audio/Steel jingles/jingles_STEEL07.ogg", -6),
 }

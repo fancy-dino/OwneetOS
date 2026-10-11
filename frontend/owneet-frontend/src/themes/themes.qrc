@@ -3,6 +3,7 @@
         <file>owneet/theme.cfg</file>
         <file>owneet/theme.qml</file>
         <file>owneet/CreditsSheet.qml</file>
+        <file>owneet/NotificationsSheet.qml</file>
         <file>owneet/HomePage.qml</file>
         <file>owneet/LibraryPage.qml</file>
         <file>owneet/SettingsPage.qml</file>
@@ -33,6 +34,7 @@
         <file>owneet/foundation/PadDrawing.qml</file>
         <file>owneet/foundation/Spinner.qml</file>
         <file>owneet/foundation/Keyboard.qml</file>
+        <file>owneet/foundation/Banners.qml</file>
         <file>owneet/foundation/Tr.qml</file>
     </qresource>
 </RCC>

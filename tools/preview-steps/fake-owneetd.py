@@ -11,7 +11,10 @@
 #   - display: two screens, modes of the TV, brightness; a change waits for "Keep" (screen 30 s,
 #     mode 15 s).
 #
-#   fake-owneetd.py SOCKET
+# Steps can send it events (tools/frontend-preview "event TYPE JSON"): one line each in the FIFO
+# given as second argument.
+#
+#   fake-owneetd.py SOCKET [EVENTS_FIFO]
 
 import json
 import os
@@ -73,6 +76,7 @@ state = {
         "mode": "auto",
         "brightness": 80,
     },
+    "apps": [],
     "audio": {"available": True, "output": "hdmi", "volume": 60, "muted": False,
               "outputs": [{"id": "hdmi", "name": "TV (HDMI)"}, {"id": "speakers", "name": "Speakers"}]},
 }
@@ -193,7 +197,7 @@ class Handler(BaseHTTPRequestHandler):
         with lock:
             answers = {
                 "/v1/status": {"session_mode": "cage", "owneetos_version": "preview"},
-                "/v1/apps": {"apps": [], "focus": ""},
+                "/v1/apps": {"apps": state["apps"], "focus": "home"},
                 "/v1/controllers": {"controllers": state["controllers"]},
                 "/v1/network": state["network"],
                 "/v1/network/wifi": {"networks": state["networks"]},
@@ -344,8 +348,26 @@ class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
     daemon_threads = True
 
 
+def read_events(path):
+    while True:
+        with open(path) as fifo:
+            for line in fifo:
+                kind, _, data = line.strip().partition(" ")
+                if not kind:
+                    continue
+                payload = json.loads(data) if data else None
+                with lock:            # games and apps announced by events are "running"
+                    if kind == "app.started":
+                        state["apps"].append(payload)
+                    elif kind == "app.exited":
+                        state["apps"] = [a for a in state["apps"] if a["id"] != payload["id"]]
+                publish(kind, payload)
+
+
 if __name__ == "__main__":
     sock = sys.argv[1]
+    if len(sys.argv) > 2:
+        threading.Thread(target=read_events, args=(sys.argv[2],), daemon=True).start()
     if os.path.exists(sock):
         os.remove(sock)
     Server(sock, Handler).serve_forever()

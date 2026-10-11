@@ -240,9 +240,9 @@ Address: <code>#lang=it&amp;game=1&amp;events=2,4,6</code></p>
   };
   const icon = n => `<svg viewBox="0 0 24 24" ${S}>${ICON[n]}</svg>`;
 
-  /* ---------- Sounds: "notify" for notices and successes, "error" for failures and warnings ---------- */
+  /* ---------- Sounds: "notify" for news, "notify-error" for what needs attention ---------- */
   let soundOn = true, ctx = null;
-  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', notify: 'notify', error: 'error' };
+  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', notify: 'notify', 'notify-error': 'notify-error' };
   const buffers = {};
   function startAudio() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
@@ -262,7 +262,7 @@ Address: <code>#lang=it&amp;game=1&amp;events=2,4,6</code></p>
   }
 
   /* ---------- Events (owneetd gives the real ones) ---------- */
-  // kind "attention": something to act on (accent, "error" sound); "info": news ("notify" sound).
+  // kind "attention": something to act on (accent, "notify-error" sound); "info": news ("notify").
   // action: where A takes you from the list, if anywhere.
   const EVENTS = {
     1: { key: 'e.pad.on', icon: 'controller', kind: 'info', a: { name: 'DualSense', b: 64 } },
@@ -285,13 +285,13 @@ Address: <code>#lang=it&amp;game=1&amp;events=2,4,6</code></p>
     const e = EVENTS[id]; if (!e) return;
     const n = { ...e, id: Math.random(), t: when || Date.now(), read: false };
     notes.unshift(n); notes = notes.slice(0, 30);
-    if (sheetOpen) { n.read = true; renderSheet(); feedback(e.kind === 'attention' ? 'error' : 'notify'); return; }
+    if (sheetOpen) { n.read = true; renderSheet(); feedback(e.kind === 'attention' ? 'notify-error' : 'notify'); return; }
     unread++;
     renderStatus();
     // With a game on screen nothing is drawn over it (the overlay comes in Wave 2): the
     // notification waits in the list, the bell counts it
     if (gameOnScreen) return;
-    feedback(e.kind === 'attention' ? 'error' : 'notify');
+    feedback(e.kind === 'attention' ? 'notify-error' : 'notify');
     banner(n);
   }
   function banner(n) {

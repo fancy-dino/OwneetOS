@@ -30,8 +30,9 @@ package converts them to the format below and trims the silent tail when it is b
 
 ## List
 
-Ten sounds (agreed with the owner on 2026-10-09). Each one covers several events, so the set stays
-small and coherent; a dedicated sound can be added later by adding a file.
+Eleven sounds (ten agreed with the owner on 2026-10-09; `notify-error` added on 2026-10-11 for
+notifications that need attention). Each one covers several events, so the set stays small and
+coherent; a dedicated sound can be added later by adding a file.
 
 | File | When | Length |
 |---|---|---|
@@ -41,8 +42,9 @@ small and coherent; a dedicated sound can be added later by adding a file.
 | `nav-section.wav` | LB / RB: another section (Home, Library, Settings) | 120–250 ms |
 | `sheet-open.wav` | A window opens (options, details, confirmation, pickers) | 120–250 ms |
 | `sheet-close.wav` | That window closes, also with B (mirror of `sheet-open`) | 100–200 ms |
-| `notify.wav` | A notification, an action completed (Wi-Fi connected, controller paired, update installed), a controller connects | 250–600 ms |
-| `error.wav` | Something failed (wrong Wi-Fi password, game did not start), a warning (low battery, disk almost full), a controller disconnects | 300–600 ms |
+| `notify.wav` | A notification with news, an action completed (Wi-Fi connected, controller paired, update ready), a controller connects | 250–600 ms |
+| `notify-error.wav` | A notification that needs attention: controller battery low or disconnected, Wi-Fi lost, game closed unexpectedly, disk read only | 250–600 ms |
+| `error.wav` | Something you just did failed (wrong Wi-Fi password, game did not start, a setting could not change) | 300–600 ms |
 | `game-launch.wav` | A game or app starts, and Guide opens the home screen over a running game | 0.5–1.5 s |
 | `startup.wav` | The interface appears after boot (short "console on" chime) | 1.5–3 s |
 

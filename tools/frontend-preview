@@ -21,6 +21,8 @@
 #   @nogames         (first line) start with no games, as on a new system
 #   @owneetd         (first line) with a pretend owneetd: invented networks, controllers and
 #                    Bluetooth devices (tools/preview-steps/fake-owneetd.py)
+#   event TYPE JSON  (with @owneetd) the pretend owneetd sends an event, e.g.
+#                    event controller.battery {"id":"aa:bb:cc:dd:ee:01","name":"Xbox","battery":12}
 #   # …              comment
 # The frontend's log is out/frontend-preview/log.txt.
 
@@ -33,7 +35,7 @@ OUT="$ROOT/out/frontend-preview"
 
 die() { echo "error: $*" >&2; exit 1; }
 
-[[ $# -ge 1 && $# -le 2 ]] || { sed -n '4,25p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+[[ $# -ge 1 && $# -le 2 ]] || { sed -n '4,27p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 STEPS="$(realpath "$1")"
 SIZE="${2:-1280x720}"
 [[ -f "$STEPS" ]] || die "$1 not found"
@@ -129,7 +131,8 @@ fi
 echo "$HOME/games" > "$HOME/.config/owneet-frontend/game_dirs.txt"
 
 if grep -q '^@owneetd' /steps.txt; then
-    python3 /fake-owneetd.py "$OWNEETD_SOCKET" >> /out/log.txt 2>&1 &
+    mkfifo /tmp/owneetd-events
+    python3 /fake-owneetd.py "$OWNEETD_SOCKET" /tmp/owneetd-events >> /out/log.txt 2>&1 &
     sleep 0.5
 fi
 
@@ -145,6 +148,7 @@ while IFS= read -r line; do
         \#*|@*) ;;
         key) shift; for k in "$@"; do xdotool key "$k"; sleep 0.3; done ;;
         type) shift; xdotool type --delay 60 "$*"; sleep 0.3 ;;
+        event) shift; echo "$*" > /tmp/owneetd-events; sleep 0.5 ;;
         pad|stick|hold) n=$(grep -c done /tmp/vpad.out); echo "$line" >&3
                    while [ "$(grep -c done /tmp/vpad.out)" -le "$n" ]; do sleep 0.1; done; sleep 0.3 ;;
         shot) sleep 1; import -window root "/out/$2.png"; echo "$2.png" ;;

@@ -2,6 +2,7 @@ singleton GameInfo 1.0 GameInfo.qml
 singleton Nav 1.0 Nav.qml
 singleton Theme 1.0 Theme.qml
 singleton Tr 1.0 Tr.qml
+Banners 1.0 Banners.qml
 Button 1.0 Button.qml
 Choice 1.0 Choice.qml
 Cover 1.0 Cover.qml

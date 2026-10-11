@@ -9,7 +9,8 @@
 //   find(area, from, direction)  spatial navigation: the nearest navigable item that way.
 //   feedback(kind)  what just happened, for the interface sounds (step 3.12): move, edge,
 //     confirm, back, section, tab, toggle-on, toggle-off, sheet-open, sheet-close, launch, notify
-//     (something completed, e.g. Wi-Fi connected), error (something failed). The sounds
+//     (news, something completed, e.g. Wi-Fi connected), notify-error (a notification that needs
+//     attention), error (something just done failed). The sounds
 //     listen to `played`: one per button press, the most specific one ("confirm" only when the
 //     action that follows, e.g. opening a window, reports nothing of its own).
 pragma Singleton

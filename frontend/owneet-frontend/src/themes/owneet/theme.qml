@@ -107,12 +107,15 @@ FocusScope {
         page.focusStart();
     }
     readonly property bool modalOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
+                                      || notices.visible
     function backToPage() { Qt.callLater(() => { if (!root.modalOpen) root.page.forceActiveFocus(); }); }
 
     // ---- Buttons the sections leave to the whole interface (section 9.1)
     Keys.onPressed: {
         const a = Nav.action(event);
-        if ((a === "section-prev" || a === "section-next") && !modalOpen) {
+        if (a === "page" && section === "home" && !modalOpen) {
+            notices.openSheet();                    // Y: notifications (demo 3.11)
+        } else if ((a === "section-prev" || a === "section-next") && !modalOpen) {
             const i = sections.indexOf(section) + (a === "section-next" ? 1 : -1);
             goSection(sections[(i + sections.length) % sections.length]);
         } else if (a.startsWith("section-") || a.startsWith("filter-") || a === "page") {
@@ -145,7 +148,7 @@ FocusScope {
     }
     function refreshDaemon() {
         owneetd.get("/v1/status", (status, data) => { if (status === 200) sessionMode = data.session_mode || ""; });
-        owneetd.get("/v1/network", (status, data) => { if (status === 200) network = data; });
+        owneetd.get("/v1/network", (status, data) => { if (status === 200) { network = data; lastNetwork = data; } });
         refreshApps();
         refreshControllers();
         applyKeyboard();          // the on-screen keyboard and physical keyboards follow the chosen layout
@@ -155,6 +158,7 @@ FocusScope {
         target: owneetd
         function onConnectedChanged() { if (owneetd.connected) root.refreshDaemon(); }
         function onEvent(type, data) {
+            root.noticeFor(type, data);
             if (type === "app.started" || type === "app.exited") {
                 root.refreshApps();
                 if (type === "app.exited")
@@ -196,6 +200,7 @@ FocusScope {
         dialog.buttons = [
             { text: Tr.tr("home.close"), action: () => {
                 dialog.close();
+                closingApps[app.id] = true;          // closed on purpose: not "closed unexpectedly"
                 owneetd.post("/v1/apps/" + encodeURIComponent(app.id) + "/close", {}, (status) => {
                     if (status >= 300 || status === 0) toast.show(Tr.tr("error.close"));
                 });
@@ -204,6 +209,110 @@ FocusScope {
         ];
         dialog.defaultIndex = 1;             // Cancel first: no game closed by accident
         dialog.open();
+    }
+
+    // ---- Notifications (3.11, approved demo design/demos/3.11-notifications.html): banners at the top
+    // right, the bell in the top bar, the list on Y from the home screen. "attention": something to
+    // act on (notify-error sound); "info": news (notify). Kept until the console restarts (30 at most).
+    property var noticeList: []
+    property int unseen: 0
+    property var quietPads: ({})              // controllers turned off from Settings: id → time
+    property var closingApps: ({})            // games closed on purpose
+    property var warnedBattery: ({})          // controllers already warned about their battery
+    property real quietNetUntil: 0
+    property bool lostNetwork: false          // a "lost" notice was given: "back online" is news
+    property var lastNetwork: null
+    function quietNetwork() { quietNetUntil = Date.now() + 15000; }
+    // While a game is on screen nothing is drawn over it (the overlay comes in Wave 2) and no
+    // sound plays: the notification waits in the list, the bell counts it
+    readonly property bool gameOnScreen: runningGame !== null && focusedApp !== "home"
+    function notify(n) {
+        n.time = Date.now();
+        noticeList = [n].concat(noticeList).slice(0, 30);
+        if (notices.visible)
+            return;
+        unseen++;
+        if (gameOnScreen)
+            return;
+        Nav.feedback(n.kind === "attention" ? "notify-error" : "notify");
+        const detailKey = n.detailKey !== undefined ? n.detailKey : n.key + ".detail";
+        banners.show({ title: Tr.tr(n.key, n.args), detail: detailKey ? Tr.tr(detailKey, n.args) : "",
+                       icon: n.icon, crossed: n.crossed, kind: n.kind });
+    }
+    function padName(id) {
+        const c = controllers.find(c => c.id === id);
+        return c ? c.name : "";
+    }
+    function batteryLow(c) {
+        return c.battery !== undefined ? c.battery <= 15 : c.battery_level === "low" || c.battery_level === "critical";
+    }
+    function noticeFor(type, data) {
+        if (type === "controller.added" && data && data.name) {
+            if (Date.now() - (quietPads["paired:" + (data.id || "").toLowerCase()] || 0) < 15000)
+                return;                         // just paired from Settings: "… paired" said it
+            const pct = data.battery !== undefined;
+            notify({ key: "notices.pad.connected", args: { name: data.name, battery: data.battery }, icon: "controller",
+                     kind: "info", detailKey: pct ? "notices.pad.connected.detail" : "" });
+        } else if (type === "controller.removed") {
+            const name = padName(data.id);
+            delete warnedBattery[data.id];
+            if (!name || Date.now() - (quietPads[(data.id || "").toLowerCase()] || 0) < 15000)
+                return;
+            notify({ key: "notices.pad.off", args: { name: name }, icon: "controller", kind: "attention", action: "controllers" });
+        } else if (type === "controller.battery" && data && data.id) {
+            if (!batteryLow(data)) {
+                if (data.battery === undefined || data.battery > 25)
+                    delete warnedBattery[data.id];
+                return;
+            }
+            if (warnedBattery[data.id])
+                return;
+            warnedBattery[data.id] = true;
+            const pct = data.battery !== undefined;
+            notify({ key: "notices.pad.low", args: { name: data.name || padName(data.id), battery: data.battery }, icon: "battery",
+                     kind: "attention", action: "controllers",
+                     detailKey: pct ? "notices.pad.low.detail" : "notices.pad.low.level.detail" });
+        } else if (type === "bluetooth.paired" && data) {
+            quietPads["paired:" + (data.address || "").toLowerCase()] = Date.now();
+        } else if (type === "network.changed" && data) {
+            const online = n => n && n.available !== false && ((n.ethernet && n.ethernet.connected) || (n.wifi && n.wifi.state === "connected"));
+            const before = lastNetwork;
+            lastNetwork = data;
+            if (!before || Date.now() < quietNetUntil)
+                return;
+            if (online(before) && !online(data)) {
+                // Wi-Fi turned off on purpose (Settings, or a switch on the computer) is not news
+                if (before.wifi && before.wifi.state === "connected" && data.wifi && data.wifi.enabled === false)
+                    return;
+                lostNetwork = true;
+                const wifi = before.wifi && before.wifi.state === "connected";
+                notify({ key: wifi ? "notices.net.lost" : "notices.net.cable", args: { ssid: wifi ? before.wifi.ssid : "" },
+                         icon: wifi ? "wifi" : "ethernet", crossed: true, kind: "attention", action: "network" });
+            } else if (!online(before) && online(data) && lostNetwork) {
+                lostNetwork = false;
+                const wifi = data.wifi && data.wifi.state === "connected";
+                notify({ key: wifi ? "notices.net.back" : "notices.net.back.cable", args: { ssid: wifi ? data.wifi.ssid : "" },
+                         icon: wifi ? "wifi" : "ethernet", kind: "info", detailKey: "notices.net.back.detail" });
+            }
+        } else if (type === "app.exited" && data) {
+            const app = apps.find(a => a.id === data.id);
+            const wanted = closingApps[data.id];
+            delete closingApps[data.id];
+            if (wanted || !app || app.kind !== "game" || ["exit-code", "signal", "core-dump"].indexOf(data.result) < 0)
+                return;
+            notify({ key: "notices.game.crash", args: { name: data.name || app.name }, icon: "alert", kind: "attention",
+                     action: "play", game: data.name || app.name });
+        }
+    }
+    function openNotice(n) {
+        notices.close(true);
+        if (n.action === "controllers" || n.action === "network") {
+            settings.section = n.action;
+            goSection("settings");
+        } else if (n.action === "play") {
+            const g = games.find(g => g.title === n.game);
+            if (g) root.launch(g); else Nav.feedback("edge");
+        }
     }
 
     // ---- Games: launch, details, options
@@ -363,6 +472,7 @@ FocusScope {
     }
     function startConnect(net, password) {
         osk.close(true);
+        quietNetwork();                          // "Connected to …" comes as a toast
         dialog.connecting = true;
         dialog.problem = "";
         dialog.buttons = [];
@@ -397,10 +507,12 @@ FocusScope {
         const done = status => { if (status >= 300 || status === 0) toast.show(Tr.tr("error.network")); };
         dialog.buttons = (net.connected ? [{ text: Tr.tr("network.disconnect"), action: () => {
             dialog.close();
+            root.quietNetwork();
             owneetd.post("/v1/network/wifi/disconnect", {}, done);
         } }] : []).concat([
             { text: Tr.tr("network.forget"), action: () => {
                 dialog.close();
+                root.quietNetwork();
                 owneetd.remove("/v1/network/wifi/" + encodeURIComponent(net.ssid), status => {
                     if (status === 204 || status === 200) toast.show(Tr.tr("network.forgotten", { ssid: net.ssid }));
                     else done(status);
@@ -416,6 +528,7 @@ FocusScope {
     // it stays known and comes back when turned on) or forgotten; wired and adapter ones are
     // removed by unplugging or turning them off.
     function bluetoothAction(method, address, toastKey, name) {
+        quietPads[address.toLowerCase()] = Date.now();     // turned off on purpose: no notification
         const path = "/v1/bluetooth/devices/" + address.toUpperCase();
         const done = status => {
             if (status === 204 || status === 200) toast.show(Tr.tr(toastKey, { name: name }));
@@ -710,6 +823,31 @@ FocusScope {
         Row {
             anchors { right: parent.right; verticalCenter: parent.verticalCenter }
             spacing: Theme.px(20)
+            Item {                         // notifications: the bell counts the ones not seen yet
+                anchors.verticalCenter: parent.verticalCenter
+                width: Theme.fs(20); height: width
+                Icon {
+                    anchors.fill: parent
+                    name: "bell"
+                    color: root.unseen > 0 ? Theme.fg : Theme.muted
+                }
+                Rectangle {
+                    visible: root.unseen > 0
+                    x: parent.width - width / 2; y: -height / 2 + Theme.px(2)
+                    width: Math.max(height, countText.implicitWidth + Theme.px(10)); height: Theme.fs(18)
+                    radius: height / 2
+                    color: Theme.accent
+                    Text {
+                        id: countText
+                        anchors.centerIn: parent
+                        text: root.unseen > 9 ? "9+" : root.unseen
+                        color: Theme.onAccent
+                        font.family: Theme.textFont
+                        font.weight: Font.DemiBold
+                        font.pixelSize: Theme.fs(11)
+                    }
+                }
+            }
             Row {                          // controller and its battery, when known
                 visible: root.padName !== ""
                 anchors.verticalCenter: parent.verticalCenter
@@ -1141,6 +1279,35 @@ FocusScope {
         }
     }
     Toast { id: toast }
+
+    Banners {
+        id: banners
+        anchors { right: parent.right; rightMargin: Theme.safeX; top: parent.top; topMargin: Theme.px(88) }
+        visible: !notices.visible
+    }
+    NotificationsSheet {
+        id: notices
+        z: 101
+        notices: root.noticeList
+        onVisibleChanged: {
+            if (visible) {
+                root.unseen = 0;               // everything in the list has been seen
+                banners.clear();
+            } else {
+                root.backToPage();
+            }
+        }
+        onOpenAction: root.openNotice(notice)
+        onRemoveAt: {
+            root.noticeList = root.noticeList.filter((n, i) => i !== index);
+            Qt.callLater(() => notices.focusIndex(index));
+        }
+        onClearAll: {
+            root.noticeList = [];
+            toast.show(Tr.tr("notices.cleared"));
+            Qt.callLater(() => notices.focusIndex(0));
+        }
+    }
 
     // ---- On-screen keyboard (3.10): its layout is Settings → Language → Keyboard layout
     Keyboard {

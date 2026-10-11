@@ -1,0 +1,27 @@
+@owneetd
+# Notifications (step 3.11), with events from the pretend owneetd.
+wait 1
+event controller.battery {"id":"aa:bb:cc:dd:ee:01","name":"Xbox Wireless Controller","battery":12}
+event controller.added {"id":"aa:bb:cc:dd:ee:05","name":"DualSense Wireless Controller","battery":64}
+event network.changed {"available":true,"state":"disconnected","connectivity":"none","wifi":{"present":true,"enabled":true,"hardware_enabled":true,"state":"disconnected"},"ethernet":{"present":true,"connected":false}}
+shot 01-banners
+pad y
+shot 02-list
+pad down x
+shot 03-removed-one
+pad b
+event network.changed {"available":true,"state":"connected","connectivity":"full","wifi":{"present":true,"enabled":true,"hardware_enabled":true,"state":"connected","ssid":"Casa Rossi","strength":82},"ethernet":{"present":true,"connected":false}}
+shot 04-back-online
+pad y
+pad down a
+wait 1
+shot 05-opened-network
+pad rb
+pad y y
+shot 06-cleared
+# A game closes by itself: "closed unexpectedly", with Play
+pad b lb
+event app.started {"id":"local:copper","name":"Copper Coast","kind":"game"}
+wait 1
+event app.exited {"id":"local:copper","name":"Copper Coast","result":"exit-code"}
+shot 07-game-closed

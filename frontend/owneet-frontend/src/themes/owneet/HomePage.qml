@@ -39,7 +39,9 @@ NavArea {
     signal notYet()                            // a feature of a later step
 
     // The prompt bar follows the selected item
-    readonly property var prompts: {
+    // Y opens the notifications from anywhere on the home screen (demo 3.11)
+    readonly property var prompts: itemPrompts.concat([{ buttons: ["y"], label: Tr.tr("prompt.notifications") }])
+    readonly property var itemPrompts: {
         const k = current ? current.kind : "";
         const P = (b, l) => ({ buttons: [b], label: Tr.tr(l) });
         if (k === "resume")
