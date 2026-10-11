@@ -249,7 +249,7 @@ FocusScope {
         banners.show({ title: Tr.tr(n.key, n.args), detail: detailKey ? Tr.tr(detailKey, n.args) : "",
                        icon: n.icon, crossed: n.crossed, kind: n.kind });
     }
-    function padName(id) {
+    function controllerName(id) {           // a connected controller's name
         const c = controllers.find(c => c.id === id);
         return c ? c.name : "";
     }
@@ -264,7 +264,7 @@ FocusScope {
             notify({ key: "notices.pad.connected", args: { name: data.name, battery: data.battery }, icon: "controller",
                      kind: "info", detailKey: pct ? "notices.pad.connected.detail" : "" });
         } else if (type === "controller.removed") {
-            const name = padName(data.id);
+            const name = controllerName(data.id);
             delete warnedBattery[data.id];
             if (!name || Date.now() - (quietPads[(data.id || "").toLowerCase()] || 0) < 15000)
                 return;
@@ -279,7 +279,7 @@ FocusScope {
                 return;
             warnedBattery[data.id] = true;
             const pct = data.battery !== undefined;
-            notify({ key: "notices.pad.low", args: { name: data.name || padName(data.id), battery: data.battery }, icon: "battery",
+            notify({ key: "notices.pad.low", args: { name: data.name || controllerName(data.id), battery: data.battery }, icon: "battery",
                      kind: "attention", action: "controllers",
                      detailKey: pct ? "notices.pad.low.detail" : "notices.pad.low.level.detail" });
         } else if (type === "bluetooth.paired" && data) {

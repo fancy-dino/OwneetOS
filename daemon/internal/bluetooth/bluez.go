@@ -114,15 +114,12 @@ func (b *BlueZ) Snapshot() (State, error) {
 		return State{}, err
 	}
 	var st State
-	var adapter dbus.ObjectPath
+	adapter := chooseAdapter(objs)
 	devices := map[string]dbus.ObjectPath{}
-	for path, ifaces := range objs {
-		if props, ok := ifaces[ifaceAdapter]; ok && (adapter == "" || path < adapter) {
-			adapter = path
-			st.Adapter = true
-			st.Powered = boolProp(props, "Powered")
-			st.Discovering = boolProp(props, "Discovering")
-		}
+	if props, ok := objs[adapter][ifaceAdapter]; ok {
+		st.Adapter = true
+		st.Powered = boolProp(props, "Powered")
+		st.Discovering = boolProp(props, "Discovering")
 	}
 	for path, ifaces := range objs {
 		props, ok := ifaces[ifaceDevice]
@@ -152,6 +149,34 @@ func (b *BlueZ) Snapshot() (State, error) {
 	b.adapter, b.devices = adapter, devices
 	b.mu.Unlock()
 	return st, nil
+}
+
+// chooseAdapter picks the adapter the console uses when there are several (e.g. a built-in one
+// and a USB dongle): the one with the most paired devices, then the lowest address. Not the
+// lowest path: hci0 / hci1 may swap after a suspend, and the controllers would lose their pairing
+// (owner's NiPoGi test, 2026-10-11).
+func chooseAdapter(objs map[dbus.ObjectPath]map[string]map[string]dbus.Variant) dbus.ObjectPath {
+	paired := map[dbus.ObjectPath]int{}
+	for _, ifaces := range objs {
+		if props, ok := ifaces[ifaceDevice]; ok && boolProp(props, "Paired") {
+			if a, ok := props["Adapter"].Value().(dbus.ObjectPath); ok {
+				paired[a]++
+			}
+		}
+	}
+	var best dbus.ObjectPath
+	var bestAddr string
+	for path, ifaces := range objs {
+		props, ok := ifaces[ifaceAdapter]
+		if !ok {
+			continue
+		}
+		addr := strings.ToUpper(stringProp(props, "Address"))
+		if best == "" || paired[path] > paired[best] || (paired[path] == paired[best] && addr < bestAddr) {
+			best, bestAddr = path, addr
+		}
+	}
+	return best
 }
 
 func boolProp(p map[string]dbus.Variant, k string) bool     { v, _ := p[k].Value().(bool); return v }

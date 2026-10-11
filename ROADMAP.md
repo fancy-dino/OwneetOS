@@ -886,6 +886,15 @@ code is written (PROJECT_RULES.md section 9).
   `tools/preview-steps/quick-menu.txt` and in the test VM booting the ISO (frames of the start-up
   from the splash to the home screen). owneet-frontend 0.14.0. To check on real hardware: the
   animation with the sound, the quick menu and power options.
+- **Hardware test (2026-10-11, NiPoGi):** start-up animation and its sound, the first click, the
+  quick menu and power options work. Found in the log: the NiPoGi has two Bluetooth adapters
+  (built-in and a USB dongle) whose numbers swapped after Sleep, so owneetd moved to the other one
+  and the controller had to pair again; owneetd now keeps the adapter with the paired devices
+  (then the lowest address), owneetd 0.10.4. The "controller turned off" notification failed (a
+  name clash in the theme), fixed in owneet-frontend 0.14.1 with the home screen's "Steam and
+  local games" (", together" removed). Still to check: the note about a running game in the Power
+  options window (the owner did not see it; it shows in the preview), network and controller
+  notifications.
 
 ---
 
@@ -965,6 +974,10 @@ code is written (PROJECT_RULES.md section 9).
   Includes the notice that the first setup needs a Bluetooth or cable controller, and the consent
   dialog for the Xbox dongle firmware (`owneet-xone-firmware install --accept-microsoft-terms`
   when `/run/owneet/xone-firmware-needed` exists).
+- **Time zone (added 2026-10-11):** the system runs on UTC until a time zone is chosen, so the
+  clock is behind in Italy (2 hours in summer; owner's NiPoGi test). The first-boot flow asks for
+  the time zone (suggested from the language, e.g. Italian → Europe/Rome) and Settings gets a
+  way to change it. Details agreed with the owner at the start of this step.
 
 ### [ ] 6.2 Live vs installed mode
 
