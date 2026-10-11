@@ -903,7 +903,7 @@ code is written (PROJECT_RULES.md section 9).
 
 ## Phase 4 — Games
 
-### [~] 4.1 Steam library *(investigation first)*
+### [x] 4.1 Steam library *(investigation first; approved 2026-10-11)*
 
 - **Deliverables:** installed Steam games read from local files (`libraryfolders.vdf`,
   `appmanifest_*.acf`) across all disks; play time from local Steam data; check whether Pegasus's
@@ -936,6 +936,12 @@ code is written (PROJECT_RULES.md section 9).
   comes from Steam (4.1): the frontend must not add its own on top.
 - **Library changes (owner, 2026-10-11; demo first):** no "Installed" filter; the last place of
   the grid is "Add games", opening a choice of sources (Steam for now: Steam's library).
+- **Demo (2026-10-11):** `design/demos/4.2-library-add-games.html`, built on the approved demo
+  3.7: every game installed, filters All / Favorites / Steam / Local; "Add games" as the last
+  place of the grid (not in Favorites, a personal list) → a window with "Steam" (Steam opens on
+  its library: a stand-in screen; Home brings back the library on "Add games") and "From a USB
+  stick or disk" (a read-only guide to the `Games` folder; B goes back to the choice). B on the
+  page: the quick menu (3.13).
 
 ### [ ] 4.3 Local DRM-free games
 
@@ -957,10 +963,10 @@ code is written (PROJECT_RULES.md section 9).
 - **Deliverables:** Windows DRM-free games start like any other: umu-launcher + GE-Proton, one
   prefix per game, never named in the interface; a "preparing the game" screen until the game's
   first picture. Credits and licences (Wine LGPL, Proton BSD, DXVK / VKD3D-Proton zlib/LGPL).
-- **Open points:** (1) Proton and its runtime (about 1 GB) do not fit in the ISO (2 GB limit):
-  downloaded once, in the background, the first time the console is online; until then a
-  Windows game says that it needs a one-time download (PROJECT_RULES.md C9: offline for local
-  content). (2) Shader pre-compilation exists only for Steam games (Steam's own "Processing
+- **Decided (owner, 2026-10-11):** Proton and its runtime (about 1 GB) do not fit in the ISO
+  (2 GB limit): downloaded once, in the background, the first time the console is online; until
+  then a Windows game says that it needs a one-time download (the only exception to C9).
+- **Note:** shader pre-compilation exists only for Steam games (Steam's own "Processing
   Vulkan shaders"); other games compile while they play, so the "preparing" screen covers the
   start only.
 
@@ -969,9 +975,10 @@ code is written (PROJECT_RULES.md section 9).
 - **Deliverables:** installers found in a game's folder (GOG Linux `.sh`, Windows Inno Setup /
   NSIS / MSI, e.g. GOG's `setup_*.exe`) run silently in the background with their known options,
   into the console's games folder, with progress in the library; then the game appears.
-- **Open points:** (1) a silent install accepts the game's licence for the user: the console
-  shows it (or a link to it) and asks "Install" first. (2) Installers of unknown kinds may only
-  have windows made for a mouse: they need the controller pointer (4.7).
+- **Decided (owner, 2026-10-11):** a silent install accepts the game's licence for the user, so
+  the console first shows "By installing you accept the game's licence" [Read] [Install].
+- **Note:** installers of unknown kinds may only have windows made for a mouse: they need the
+  controller pointer (4.7).
 
 ### [ ] 4.7 Controller pointer *(added 2026-10-11)*
 
