@@ -943,7 +943,9 @@ code is written (PROJECT_RULES.md section 9).
     password); its first start downloads about 2.4 GB (runtime and update) and **shows nothing for
     a minute or more**: the console must show a "Preparing Steam" screen of its own.
   - In the **live system** that download is kept in RAM: with 4 GB the kernel stopped Steam (out
-    of memory). Steam needs the installed system there (decision pending).
+    of memory). Owner's decision: in the live session Steam opens only with at least 12 GB of
+    RAM, otherwise a message asks to install OwneetOS; the installed system keeps 4 GB minimum,
+    8 GB recommended.
   - With `GAMESCOPE_WAYLAND_DISPLAY` Steam takes over gamescope's focus property and its window
     stays hidden; without it Steam is an ordinary window that owneetd shows (daemon-design.md).
   - Tools: `daemon/cmd/owneet-xprobe` (test only: gamescope's windows and focus properties),
