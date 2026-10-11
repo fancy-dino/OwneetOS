@@ -47,6 +47,27 @@ QString SystemInfo::version() const
     return QString();
 }
 
+QString SystemInfo::soundsDir() const
+{
+    const QString env = qEnvironmentVariable("OWNEET_SOUNDS");
+    return env.isEmpty() ? QStringLiteral("/usr/share/owneet-frontend/sounds") : env;
+}
+
+bool SystemInfo::firstStartThisBoot() const
+{
+    const QString runtime = qEnvironmentVariable("XDG_RUNTIME_DIR");
+    if (runtime.isEmpty())
+        return true;
+    const QString dir = runtime + QStringLiteral("/owneet");
+    const QString mark = dir + QStringLiteral("/interface-started");
+    if (QFile::exists(mark))
+        return false;
+    QDir().mkpath(dir);
+    QFile file(mark);
+    file.open(QIODevice::WriteOnly);
+    return true;
+}
+
 QVariantList SystemInfo::credits() const
 {
     QString path = qEnvironmentVariable("OWNEET_CREDITS");

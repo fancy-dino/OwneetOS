@@ -36,6 +36,8 @@ FocusScope {
             }
         }
         updatePad();
+        if (systemInfo.firstStartThisBoot())
+            sounds.play("startup");                // once per boot, not when the interface restarts
         refreshGames();
         refreshDaemon();          // owneetd may have connected before the theme was loaded
     }
@@ -164,7 +166,11 @@ FocusScope {
                 if (type === "app.exited")
                     refreshTimer.restart();       // play time and "last played" have changed
             } else if (type === "focus.changed") {
+                // Guide brings the home screen over a running game: the "launch" sound, the other way
+                const fromGame = root.gameOnScreen;
                 root.focusedApp = data.focus;
+                if (data.focus === "home" && fromGame)
+                    sounds.play("launch");
             } else if (type.startsWith("controller.")) {
                 root.refreshControllers();
             } else if (type === "network.changed") {
@@ -1307,6 +1313,17 @@ FocusScope {
             toast.show(Tr.tr("notices.cleared"));
             Qt.callLater(() => notices.focusIndex(0));
         }
+    }
+
+    // ---- Interface sounds (3.12): what the navigation reports, silent while a game is on screen
+    UiSounds {
+        id: sounds
+        dir: systemInfo.soundsDir
+        muted: root.gameOnScreen
+    }
+    Connections {
+        target: Nav
+        function onPlayed(kind) { sounds.play(kind); }
     }
 
     // ---- On-screen keyboard (3.10): its layout is Settings → Language → Keyboard layout

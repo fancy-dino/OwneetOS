@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-frontend
-pkgver=0.12.0
+pkgver=0.13.0
 pkgrel=1
 pkgdesc="OwneetOS console interface, a modified version of Pegasus Frontend by Mátyás Mustoha and contributors"
 arch=('x86_64')
@@ -10,10 +10,11 @@ url="https://github.com/fancy-dino/OwneetOS"
 # owneet-frontend / Pegasus Frontend: GPL-3.0-or-later with additional terms (LICENSE.md);
 # SortFilterProxyModel: MIT; bundled Bricolage Grotesque and Lexend fonts: OFL-1.1;
 # bundled SDL_GameControllerDB: Zlib
-license=('GPL-3.0-or-later' 'MIT' 'OFL-1.1' 'Zlib')
+license=('GPL-3.0-or-later' 'MIT' 'OFL-1.1' 'Zlib' 'CC0-1.0')
 depends=('qt5-base' 'qt5-declarative' 'qt5-multimedia' 'qt5-svg' 'sdl2-compat' 'libxcb'
          'owneet-branding')
-makedepends=('cmake' 'ninja' 'qt5-tools')
+# ffmpeg: the interface sounds are converted when the package is built (design/sounds.md)
+makedepends=('cmake' 'ninja' 'qt5-tools' 'ffmpeg')
 # !lto: Qt's two-pass resource compiler (rcc, big resources) fails with LTO objects.
 options=('!debug' '!lto')
 # owneet-frontend-src.tar.gz is generated from frontend/owneet-frontend by tools/build-packages.
@@ -27,6 +28,15 @@ build() {
     -DOWNEET_VERSION="$pkgver" \
     -DOWNEET_DATE="$(date -u -d "@${SOURCE_DATE_EPOCH:-0}" +%F)"
   ninja -C build
+
+  # Interface sounds (design/sounds.md): the delivered files stay as made; here they become WAV
+  # 16-bit, 48 kHz (PipeWire's own rate), mono, without silence at the start or at the end.
+  mkdir -p build/sounds
+  local wav
+  for wav in frontend/sounds/*.wav; do
+    ffmpeg -v error -y -i "$wav" -af "silenceremove=start_periods=1:start_threshold=-60dB,areverse,silenceremove=start_periods=1:start_threshold=-60dB,areverse" \
+      -ac 1 -ar 48000 -c:a pcm_s16le "build/sounds/${wav##*/}"
+  done
 }
 
 check() {
@@ -42,9 +52,13 @@ package() {
   install -Dm755 build/src/app/owneet-frontend "$pkgdir/usr/bin/owneet-frontend"
   # Interface translations (docs/translating.md)
   install -Dm644 -t "$pkgdir/usr/share/owneet-frontend/i18n" frontend/i18n/*.json
+  # Interface sounds (3.12): the owner's (GPL-3.0-or-later) and Kenney's placeholders (CC0)
+  install -Dm644 -t "$pkgdir/usr/share/owneet-frontend/sounds" build/sounds/*.wav
   local src=frontend/owneet-frontend lic="$pkgdir/usr/share/licenses/$pkgname"
   install -Dm644 "$src/LICENSE.md" "$lic/LICENSE.md"
   install -Dm644 "$src/thirdparty/SortFilterProxyModel/LICENSE" "$lic/LICENSE.SortFilterProxyModel"
   install -Dm644 "$src/assets/fonts/owneet/OFL-BricolageGrotesque.txt" "$lic/OFL-BricolageGrotesque.txt"
   install -Dm644 "$src/assets/fonts/owneet/OFL-Lexend.txt" "$lic/OFL-Lexend.txt"
+  install -Dm644 frontend/sounds/LICENSE-Kenney.txt "$lic/LICENSE-Kenney-sounds.txt"
+  install -Dm644 frontend/sounds/SOURCES.md "$lic/SOURCES-sounds.md"
 }

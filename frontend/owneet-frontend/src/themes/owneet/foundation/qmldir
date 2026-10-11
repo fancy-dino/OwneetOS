@@ -26,3 +26,4 @@ SettingSlider 1.0 SettingSlider.qml
 Sheet 1.0 Sheet.qml
 Spinner 1.0 Spinner.qml
 Toast 1.0 Toast.qml
+UiSounds 1.0 UiSounds.qml

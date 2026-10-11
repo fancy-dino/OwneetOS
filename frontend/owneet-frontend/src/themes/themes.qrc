@@ -35,6 +35,7 @@
         <file>owneet/foundation/Spinner.qml</file>
         <file>owneet/foundation/Keyboard.qml</file>
         <file>owneet/foundation/Banners.qml</file>
+        <file>owneet/foundation/UiSounds.qml</file>
         <file>owneet/foundation/Tr.qml</file>
     </qresource>
 </RCC>
