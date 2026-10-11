@@ -867,15 +867,18 @@ code is written (PROJECT_RULES.md section 9).
   progress ring on the button shows how long to hold, then a window with Sleep, Restart, Shut
   down and Cancel (Cancel selected). Its own interactive demo first; the new binding goes into
   PROJECT_RULES.md section 9.1 once approved.
-- **Demo (2026-10-11, waiting for approval):** `design/demos/3.13-startup-power.html`. Proposals:
-  (A) the interface starts from the boot splash's own picture (the wordmark centred, as Plymouth
-  shows it): the letters of "Owneet" ripple, "OS" pops with a coral glow, then the wordmark flies
-  to its place in the top bar while the home screen rises under it (about 2.4 s, with the start-up
-  sound; once per boot; "Reduce motion": a plain fade). (B) Holding B on Home, Library or Settings
-  (no window open) shows "Keep holding for power options" with a ring filling around the B glyph
-  in 1 s; releasing earlier cancels it, and a short B keeps its usual meaning. Then the Power
-  window: Sleep, Restart, Shut down, Cancel (selected); with a game running it says that Restart
-  and Shut down close it. The window is the confirmation: no second question.
+- **Demo (2026-10-11, waiting for approval):** `design/demos/3.13-startup-power.html`. (A), approved
+  for now: the interface starts from the boot splash's own picture (the wordmark centred, as
+  Plymouth shows it): the letters of "Owneet" ripple, "OS" pops with a coral glow, then the
+  wordmark flies to its place in the top bar while the home screen rises under it (about 2.4 s,
+  with the start-up sound; once per boot; "Reduce motion": a plain fade). (B), revised by the
+  owner: instead of holding B, the **View** button (the old "Select"; keyboard V) opens a **quick
+  menu**, a side panel from the right as on SteamOS, on Home, Library and Settings: "Power options"
+  (the Power window: Sleep, Restart, Shut down, Cancel selected; with a game running it says that
+  Restart and Shut down close it) and "Controls and features" (a read-only guide to every button,
+  scrolled like Credits and licences). B goes back one level, View again closes everything. View
+  is "reserved for screenshots" in section 9.1 today: screenshots would move elsewhere (e.g. an
+  item of this menu, or the Wave 2 overlay).
 
 ---
 

@@ -77,13 +77,27 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .page-in { animation: pagein calc(.6s * var(--motion)) ease both; }
 @keyframes pagein { from { opacity: 0; transform: translateY(14px); } }
 
-/* ---------- Hold B: a ring fills around the button ---------- */
-.hold { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); z-index: 40; display: none; align-items: center; gap: 12px;
-        padding: 8px 18px 8px 10px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); }
-.hold.on { display: inline-flex; }
-.ring { position: relative; width: 40px; height: 40px; }
-.ring svg.r { position: absolute; inset: 0; transform: rotate(-90deg); }
-.ring .g { position: absolute; left: 7px; top: 7px; height: 26px; }
+/* ---------- Quick menu: a side panel from the right (View) ---------- */
+.panel { position: absolute; top: 0; right: 0; bottom: 0; width: 380px; z-index: 25; background: var(--surface); border-left: 1px solid var(--line);
+         padding: 36px 28px 28px; display: grid; grid-template-rows: auto auto 1fr auto; gap: 18px; box-shadow: -30px 0 60px -30px rgba(0,0,0,.7);
+         transform: translateX(105%); transition: transform calc(.25s * var(--motion)) cubic-bezier(.2,.8,.2,1); }
+.panel.open { transform: none; }
+.panel .items { display: grid; gap: 10px; align-content: start; }
+.panel .item { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 14px; background: var(--raised); }
+.panel .item svg { width: 24px; height: 24px; }
+.panel .item .go::after { content: "›"; color: var(--muted); }
+.panel .facts { display: grid; gap: 6px; color: var(--muted); }
+.dim { position: absolute; inset: 0; z-index: 24; background: color-mix(in srgb, var(--bg) 55%, transparent); opacity: 0; pointer-events: none; transition: opacity calc(.25s * var(--motion)) ease; }
+.dim.open { opacity: 1; }
+.guide { position: absolute; left: 64px; right: 64px; top: 40px; bottom: 76px; background: var(--bg); border: 1px solid var(--line); border-radius: 18px;
+         padding: 20px 24px; display: none; grid-template-rows: auto 1fr; gap: 12px; z-index: 32; }
+.guide.open { display: grid; }
+.guide .scroll { overflow-y: auto; scrollbar-width: none; display: grid; gap: 18px; align-content: start; padding-right: 8px; }
+.guide h3 { margin: 0 0 8px; font: 500 12.5px var(--text); text-transform: uppercase; letter-spacing: .09em; color: var(--muted); }
+.guide .rows { display: grid; gap: 6px; }
+.guide .row { display: grid; grid-template-columns: 150px 1fr; gap: 16px; align-items: center; padding: 8px 12px; border-radius: 10px; background: var(--surface); }
+.guide .row .keys { display: flex; gap: 6px; align-items: center; }
+.guide .row .keys .kb { padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); }
 
 /* ---------- The power window ---------- */
 .overlay { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 85%, transparent); display: none; z-index: 30; }
@@ -120,17 +134,18 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   </main>
   <footer class="prompts t-s" id="prompts"></footer>
 
-  <div class="hold t-s" id="hold"><span class="ring"><svg class="r" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="none" stroke="var(--line)" stroke-width="3"/>
-    <circle id="ring-fill" cx="20" cy="20" r="18" fill="none" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="113.1" stroke-dashoffset="113.1"/></svg>
-    <span id="ring-glyph"></span></span><span data-i18n="hold.label"></span></div>
+  <div class="dim" id="dim"></div>
+  <aside class="panel" id="panel"></aside>
+  <div class="guide" id="guide"><span class="disp t-l" data-i18n="guide.title"></span><div class="scroll t-s" id="guide-body"></div></div>
   <div class="overlay" id="overlay"><div class="sheet" id="sheet"></div><div class="prompts t-s sheet-prompts" id="sheet-prompts"></div></div>
   <div class="toast t-s" id="toast"></div>
   <div class="intro" id="intro"><span class="glow" id="glow"></span><span class="mark intro-mark" id="intro-mark"></span></div>
 </div></div>
 <p class="help"><b>Start-up:</b> it plays when the demo opens (R plays it again; sound after a first key press or click, as browsers want).
-<b>Power options:</b> on any page, hold B (gamepad) or Esc (keyboard) — a ring fills in 1 second, then the window opens with Cancel selected; left / right move, A choose, B close.
+<b>Quick menu:</b> View (gamepad) or V (keyboard) on any page opens the panel on the right; up / down, A open, B or View close.
+Power options: Cancel selected, left / right, A choose. Controls and features: read only, the right stick or up / down scroll (Page Up / Down).
 LB / RB (Q / E) change page. <b>Demo only:</b> G a game is running, M reduce motion, P palette, L language, N sounds (<span id="snd-state">on</span>).
-Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;power=1</code> (power=1 opens the window).</p>
+Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;open=panel|power|guide</code>.</p>
 
 <script src="sounds.js"></script>
 <script>
@@ -179,7 +194,18 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;power=1</code> (power=1 op
   const EN = {
     'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings', 'home.continue': 'Continue playing', 'home.playing': 'Playing now',
     'still.library': 'Approved in demo 3.7 (still picture here).', 'still.settings': 'Approved in demo 3.9 (still picture here).',
-    'hold.label': 'Keep holding for power options', 'power.title': 'Power', 'power.game': 'Restart and Shut down close the game that is running.',
+    'panel.title': 'Quick menu', 'panel.power': 'Power options', 'panel.power.sub': 'Sleep, restart, shut down', 'panel.guide': 'Controls and features', 'panel.guide.sub': 'What every button does',
+    'panel.version': 'OwneetOS 2026.10.11', 'p.menu': 'Menu', 'p.close': 'Close', 'p.scroll': 'Scroll',
+    'power.title': 'Power options', 'power.game': 'Restart and Shut down close the game that is running.',
+    'guide.title': 'Controls and features',
+    'g.everywhere': 'Everywhere', 'g.pages': 'Home, Library, Settings', 'g.osk': 'On-screen keyboard', 'g.games': 'Games', 'g.keyboard': 'With a keyboard plugged in',
+    'g.move': 'Move the selection', 'g.a': 'Confirm, open, play', 'g.b': 'Back, close a window', 'g.lbrb': 'Change section: Home, Library, Settings',
+    'g.guide': 'Home: from a game back to the home screen, and back to the game', 'g.view': 'This quick menu: power options, controls', 'g.rs': 'Scroll long lists and windows',
+    'g.x': 'Details of the selected game', 'g.y': 'Home: notifications · Library: sort', 'g.ltrt': 'Library: All, Installed, Favourites', 'g.menu': 'Options for the selected game or item',
+    'g.k.a': 'Type the selected key', 'g.k.x': 'Delete', 'g.k.y': 'Space', 'g.k.ltrt': 'Letters, symbols, accented letters', 'g.k.menu': 'Done', 'g.k.b': 'Close the keyboard',
+    'g.game.resume': 'Home screen over a game: Resume or Close game', 'g.game.cage': 'On older graphics cards, hold Home for 2 seconds to close the game',
+    'g.kb.move': 'Move', 'g.kb.a': 'Confirm', 'g.kb.b': 'Back', 'g.kb.sections': 'Sections', 'g.kb.filters': 'Filters', 'g.kb.others': 'X, Y, Menu, View',
+    'g.kb.scroll': 'Scroll', 'g.kb.type': 'In text fields a keyboard types as usual',
     'power.suspend': 'Sleep', 'power.restart': 'Restart', 'power.shutdown': 'Shut down', 'cancel': 'Cancel',
     'p.play': 'Play', 'p.details': 'Details', 'p.notifications': 'Notifications', 'p.sections': 'Sections', 'p.home': 'Home', 'p.select': 'Select', 'p.back': 'Back',
     'done': '(demo) The console would now: {what}',
@@ -187,7 +213,18 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;power=1</code> (power=1 op
   const IT = {
     'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni', 'home.continue': 'Continua a giocare', 'home.playing': 'In gioco ora',
     'still.library': 'Approvata nella demo 3.7 (qui un\'immagine fissa).', 'still.settings': 'Approvate nella demo 3.9 (qui un\'immagine fissa).',
-    'hold.label': 'Tieni premuto per le opzioni di alimentazione', 'power.title': 'Alimentazione', 'power.game': 'Riavvia e Spegni chiudono il gioco aperto.',
+    'panel.title': 'Menu rapido', 'panel.power': 'Opzioni di spegnimento', 'panel.power.sub': 'Sospendi, riavvia, spegni', 'panel.guide': 'Comandi e funzioni', 'panel.guide.sub': 'Cosa fa ogni tasto',
+    'panel.version': 'OwneetOS 2026.10.11', 'p.menu': 'Menu', 'p.close': 'Chiudi', 'p.scroll': 'Scorri',
+    'power.title': 'Opzioni di spegnimento', 'power.game': 'Riavvia e Spegni chiudono il gioco aperto.',
+    'guide.title': 'Comandi e funzioni',
+    'g.everywhere': 'Ovunque', 'g.pages': 'Home, Libreria, Impostazioni', 'g.osk': 'Tastiera a schermo', 'g.games': 'Giochi', 'g.keyboard': 'Con una tastiera collegata',
+    'g.move': 'Sposta la selezione', 'g.a': 'Conferma, apri, gioca', 'g.b': 'Indietro, chiudi una finestra', 'g.lbrb': 'Cambia sezione: Home, Libreria, Impostazioni',
+    'g.guide': 'Home: da un gioco alla schermata Home, e di nuovo al gioco', 'g.view': 'Questo menu rapido: spegnimento, comandi', 'g.rs': 'Scorre liste lunghe e finestre',
+    'g.x': 'Dettagli del gioco selezionato', 'g.y': 'Home: notifiche · Libreria: ordina', 'g.ltrt': 'Libreria: Tutti, Installati, Preferiti', 'g.menu': 'Opzioni del gioco o dell\'elemento selezionato',
+    'g.k.a': 'Scrive il tasto selezionato', 'g.k.x': 'Cancella', 'g.k.y': 'Spazio', 'g.k.ltrt': 'Lettere, simboli, lettere accentate', 'g.k.menu': 'Fatto', 'g.k.b': 'Chiude la tastiera',
+    'g.game.resume': 'Home sopra un gioco: Riprendi o Chiudi gioco', 'g.game.cage': 'Con schede video più vecchie, tieni premuto Home per 2 secondi per chiudere il gioco',
+    'g.kb.move': 'Sposta', 'g.kb.a': 'Conferma', 'g.kb.b': 'Indietro', 'g.kb.sections': 'Sezioni', 'g.kb.filters': 'Filtri', 'g.kb.others': 'X, Y, Menu, View',
+    'g.kb.scroll': 'Scorri', 'g.kb.type': 'Nei campi di testo la tastiera scrive come sempre',
     'power.suspend': 'Sospendi', 'power.restart': 'Riavvia', 'power.shutdown': 'Spegni', 'cancel': 'Annulla',
     'p.play': 'Gioca', 'p.details': 'Dettagli', 'p.notifications': 'Notifiche', 'p.sections': 'Sezioni', 'p.home': 'Home', 'p.select': 'Seleziona', 'p.back': 'Indietro',
     'done': '(demo) Ora la console: {what}',
@@ -201,13 +238,20 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;power=1</code> (power=1 op
   const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
   const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
   const G = { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lb: pill('LB', 34), rb: pill('RB', 34),
-    menu: circle(`<path d="M8.5 10h9M8.5 13h9M8.5 16h9" ${S}/>`), guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`) };
+    lt: pill('LT', 32), rt: pill('RT', 32),
+    menu: circle(`<path d="M8.5 10h9M8.5 13h9M8.5 16h9" ${S}/>`), guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`),
+    // View: two overlapping windows, drawn for OwneetOS
+    view: circle(`<rect x="7.5" y="8.5" width="8" height="6" rx="1" ${S}/><path d="M11 17.5h6.5a1 1 0 0 0 1-1v-5" ${S}/>`),
+    dpad: circle(`<path d="M11 7.5h4v3.5h3.5v4H15v3.5h-4V15H7.5v-4H11z" ${S}/>`),
+    rs: circle(`<circle cx="13" cy="13" r="4" fill="currentColor"/><path d="M13 3.8v2.4M10.8 5.6 13 3.4l2.2 2.2M13 19.8v2.4M10.8 20.4l2.2 2.2 2.2-2.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`) };
   const P = (b, l) => `<span class="prompt">${b.map(x => G[x]).join('')}<span>${tr(l)}</span></span>`;
   const ICON = {
     suspend: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
     restart: '<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/>',
     shutdown: '<path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/>',
     cancel: '<path d="M6 6l12 12M18 6 6 18"/>',
+    power: '<path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/>',
+    pad: '<path d="M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z"/>',
   };
   const icon = n => `<svg viewBox="0 0 24 24" ${S}>${ICON[n]}</svg>`;
 
@@ -243,9 +287,9 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;power=1</code> (power=1 op
       <div class="games">${[20, 80, 140, 200, 260, 320, 30].map(h => `<span class="cover" style="--h:${h}"></span>`).join('')}</div>`;
     $$('.page').forEach(p => p.classList.toggle('on', p.id === 'page-' + section));
     $$('[data-i18n]').forEach(el => { el.textContent = tr(el.dataset.i18n); });
-    $('#ring-glyph').innerHTML = G.b;
     $('#prompts').innerHTML = `<div class="set">${section === 'home' ? [P(['a'], 'p.play'), P(['x'], 'p.details'), P(['y'], 'p.notifications')].join('') : ''}</div>
-      <div class="set">${P(['lb', 'rb'], 'p.sections')}${P(['guide'], 'p.home')}</div>`;
+      <div class="set">${P(['view'], 'p.menu')}${P(['lb', 'rb'], 'p.sections')}${P(['guide'], 'p.home')}</div>`;
+    renderPanel();
   }
 
   /* ---------- (A) Start-up ---------- */
@@ -304,64 +348,122 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;power=1</code> (power=1 op
     introTimers.push(setTimeout(() => { intro.style.display = 'none'; intro.style.backgroundColor = ''; }, 500));
   }
 
-  /* ---------- (B) Hold B: power options ---------- */
-  const HOLD_MS = 1000;
-  let holdStart = 0, holdRaf = 0, sheetOpen = false, focused = null;
-  function holdBegin() {
-    if (sheetOpen || holdStart) return;
-    holdStart = performance.now();
-    $('#hold').classList.add('on');
-    const fill = $('#ring-fill');
-    const step = now => {
-      if (!holdStart) return;
-      const p = Math.min(1, (now - holdStart) / HOLD_MS);
-      fill.setAttribute('stroke-dashoffset', 113.1 * (1 - p));
-      if (p >= 1) { holdEnd(); openPower(); return; }
-      holdRaf = requestAnimationFrame(step);
-    };
-    holdRaf = requestAnimationFrame(step);
-  }
-  function holdEnd() {
-    holdStart = 0; cancelAnimationFrame(holdRaf);
-    $('#hold').classList.remove('on'); $('#ring-fill').setAttribute('stroke-dashoffset', 113.1);
-  }
-  function openPower() {
-    sheetOpen = true; feedback('sheet-open');
-    $('#sheet').innerHTML = `<span class="disp t-l">${tr('power.title')}</span>${game ? `<span class="t-m muted">${tr('power.game')}</span>` : ''}
-      <div class="choices t-m">${['suspend', 'restart', 'shutdown', 'cancel'].map(a => `<button class="choice${a === 'cancel' ? ' cancel' : ''}" data-f data-a="${a}">${icon(a)}<span>${tr(a === 'cancel' ? 'cancel' : 'power.' + a)}</span></button>`).join('')}</div>`;
-    $('#sheet-prompts').innerHTML = `<div class="set">${P(['a'], 'p.select')}${P(['b'], 'p.back')}</div><div class="set">${P(['guide'], 'p.home')}</div>`;
-    $('#overlay').classList.add('open'); stage.classList.add('has-sheet');
-    setFocus($('#sheet [data-a="cancel"]'), true);          // Cancel first: nothing by accident
-  }
-  function closePower(sound = true) {
-    sheetOpen = false; if (sound) feedback('sheet-close');
-    $('#overlay').classList.remove('open'); stage.classList.remove('has-sheet'); focused = null;
+  /* ---------- (B) Quick menu (View): a side panel, as on SteamOS ---------- */
+  // layer: what has the controller now — "page", "panel", "power" (window) or "guide" (window)
+  let layer = 'page', focused = null;
+  function renderPanel() {
+    $('#panel').innerHTML = `<span class="disp t-l">${tr('panel.title')}</span><span></span>
+      <div class="items t-m">
+        <button class="item" data-f data-p="power">${icon('power')}<span style="display:grid"><span>${tr('panel.power')}</span><span class="t-s muted">${tr('panel.power.sub')}</span></span><span class="go"></span></button>
+        <button class="item" data-f data-p="guide">${icon('pad')}<span style="display:grid"><span>${tr('panel.guide')}</span><span class="t-s muted">${tr('panel.guide.sub')}</span></span><span class="go"></span></button>
+      </div>
+      <div class="facts t-s"><span>${tr('panel.version')}</span></div>`;
   }
   function setFocus(el, silent) {
     if (focused) focused.classList.remove('focus');
     focused = el; if (!el) return;
     el.classList.add('focus'); if (!silent) feedback('move');
   }
+  // with the panel open, the right side of the prompt bar is under it: only the left side
+  function prompts(list) {
+    const home = layer === 'panel' ? '' : P(['guide'], 'p.home');
+    $('#sheet-prompts').innerHTML = `<div class="set">${list.join('')}</div><div class="set">${home}</div>`;
+  }
+  function openPanel() {
+    layer = 'panel'; feedback('sheet-open');
+    $('#panel').classList.add('open'); $('#dim').classList.add('open');
+    $('#overlay').classList.add('open'); $('#overlay').style.background = 'transparent'; $('#sheet').style.display = 'none';
+    stage.classList.add('has-sheet');
+    prompts([P(['a'], 'p.select'), P(['b'], 'p.close')]);
+    setFocus($('#panel [data-f]'), true);
+  }
+  function closePanel(sound = true) {
+    layer = 'page'; if (sound) feedback('sheet-close');
+    $('#panel').classList.remove('open'); $('#dim').classList.remove('open');
+    $('#overlay').classList.remove('open'); $('#overlay').style.background = ''; stage.classList.remove('has-sheet'); setFocus(null);
+  }
+  function openPower() {
+    if (layer === 'page') openPanel();
+    layer = 'power'; feedback('sheet-open');
+    $('#overlay').style.background = ''; $('#sheet').style.display = '';
+    $('#sheet').innerHTML = `<span class="disp t-l">${tr('power.title')}</span>${game ? `<span class="t-m muted">${tr('power.game')}</span>` : ''}
+      <div class="choices t-m">${['suspend', 'restart', 'shutdown', 'cancel'].map(a => `<button class="choice${a === 'cancel' ? ' cancel' : ''}" data-f data-a="${a}">${icon(a)}<span>${tr(a === 'cancel' ? 'cancel' : 'power.' + a)}</span></button>`).join('')}</div>`;
+    prompts([P(['a'], 'p.select'), P(['b'], 'p.back')]);
+    setFocus($('#sheet [data-a="cancel"]'), true);          // Cancel first: nothing by accident
+  }
+  function backToPanel() {
+    layer = 'panel'; feedback('sheet-close');
+    $('#sheet').style.display = 'none'; $('#overlay').style.background = 'transparent'; $('#guide').classList.remove('open');
+    prompts([P(['a'], 'p.select'), P(['b'], 'p.close')]);
+    setFocus($(`#panel [data-p="${lastPanelItem}"]`), true);
+  }
+  let lastPanelItem = 'power';
+  // Controls and features: read only, scrolls like Credits and licences
+  function openGuide() {
+    if (layer === 'page') openPanel();
+    layer = 'guide'; feedback('sheet-open');
+    $('#overlay').style.background = '';
+    const row = (keys, text) => `<div class="row"><span class="keys">${keys}</span><span>${tr(text)}</span></div>`;
+    const kb = t => `<span class="kb">${t}</span>`;
+    const sec = (title, rows) => `<div><h3>${tr(title)}</h3><div class="rows">${rows.join('')}</div></div>`;
+    $('#guide-body').innerHTML = [
+      sec('g.everywhere', [row(G.dpad, 'g.move'), row(G.a, 'g.a'), row(G.b, 'g.b'), row(G.lb + G.rb, 'g.lbrb'), row(G.guide, 'g.guide'), row(G.view, 'g.view'), row(G.rs, 'g.rs')]),
+      sec('g.pages', [row(G.x, 'g.x'), row(G.y, 'g.y'), row(G.lt + G.rt, 'g.ltrt'), row(G.menu, 'g.menu')]),
+      sec('g.osk', [row(G.a, 'g.k.a'), row(G.x, 'g.k.x'), row(G.y, 'g.k.y'), row(G.lt + G.rt, 'g.k.ltrt'), row(G.menu, 'g.k.menu'), row(G.b, 'g.k.b')]),
+      sec('g.games', [row(G.guide, 'g.game.resume'), row(G.guide, 'g.game.cage')]),
+      sec('g.keyboard', [row(kb('↑ ↓ ← →'), 'g.kb.move'), row(kb('Enter') + kb('Space'), 'g.kb.a'), row(kb('Esc') + kb('⌫'), 'g.kb.b'), row(kb('Q') + kb('E'), 'g.kb.sections'),
+        row(kb('Z') + kb('C'), 'g.kb.filters'), row(kb('X') + kb('Y') + kb('M') + kb('V'), 'g.kb.others'), row(kb('PgUp') + kb('PgDn'), 'g.kb.scroll'), row('', 'g.kb.type')]),
+    ].join('');
+    $('#guide-body').scrollTop = 0;
+    $('#guide').classList.add('open');
+    prompts([P(['rs'], 'p.scroll'), P(['b'], 'p.close')]);
+    setFocus(null);
+  }
+  function scroll(d) {
+    if (layer !== 'guide') { feedback('edge'); return; }
+    const box = $('#guide-body'), before = box.scrollTop; box.scrollTop += d * 90;
+    feedback(box.scrollTop === before ? 'edge' : 'move');
+  }
 
   /* ---------- Input ---------- */
   function move(dir) {
-    if (!sheetOpen) { feedback('edge'); return; }
-    const items = $$('#sheet [data-f]'), i = items.indexOf(focused) + (dir === 'right' ? 1 : dir === 'left' ? -1 : 0);
-    if (dir === 'up' || dir === 'down' || i < 0 || i >= items.length) { feedback('edge'); return; }
-    setFocus(items[i]);
+    if (layer === 'guide') { if (dir === 'up' || dir === 'down') scroll(dir === 'down' ? 1 : -1); else feedback('edge'); return; }
+    if (layer === 'panel') {
+      const items = $$('#panel [data-f]'), i = items.indexOf(focused) + (dir === 'down' ? 1 : dir === 'up' ? -1 : 99);
+      if (i < 0 || i >= items.length) { feedback('edge'); return; }
+      setFocus(items[i]); return;
+    }
+    if (layer === 'power') {
+      const items = $$('#sheet [data-f]'), i = items.indexOf(focused) + (dir === 'right' ? 1 : dir === 'left' ? -1 : 99);
+      if (i < 0 || i >= items.length) { feedback('edge'); return; }
+      setFocus(items[i]); return;
+    }
+    feedback('edge');
   }
   function accept() {
-    if (!sheetOpen) { feedback('confirm'); return; }
-    const a = focused.dataset.a;
-    if (a === 'cancel') { closePower(); return; }
-    feedback('confirm'); closePower(false); toast(tr('done', { what: tr('power.' + a).toLowerCase() }));
+    if (layer === 'panel') {
+      lastPanelItem = focused.dataset.p; feedback('confirm');
+      lastPanelItem === 'power' ? openPower() : openGuide(); return;
+    }
+    if (layer === 'power') {
+      const a = focused.dataset.a;
+      if (a === 'cancel') { backToPanel(); return; }
+      feedback('confirm'); closePanel(false); $('#sheet').style.display = 'none'; toast(tr('done', { what: tr('power.' + a).toLowerCase() })); return;
+    }
+    if (layer === 'guide') { feedback('edge'); return; }
+    feedback('confirm');
   }
-  // B: a short press does what it always does (here: nothing, or close the window); held on a
-  // page, it fills the ring
-  function bDown() { if (sheetOpen) { closePower(); return; } holdBegin(); }
-  function bUp() { if (holdStart) { holdEnd(); feedback('edge'); } }
+  function back() {
+    if (layer === 'power' || layer === 'guide') backToPanel();
+    else if (layer === 'panel') closePanel();
+    else feedback('confirm');
+  }
+  function view() {
+    if (layer === 'page') openPanel();
+    else { $('#guide').classList.remove('open'); $('#sheet').style.display = 'none'; closePanel(); }   // View again: everything closes
+  }
   function sectionStep(d) {
-    if (sheetOpen) { feedback('edge'); return; }
+    if (layer !== 'page') { feedback('edge'); return; }
     section = SECT[(SECT.indexOf(section) + d + 3) % 3]; feedback('section'); render();
   }
   let toastTimer;
@@ -379,14 +481,15 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;power=1</code> (power=1 op
     const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     if (dirs[e.key]) { e.preventDefault(); move(dirs[e.key]); }
-    else if (e.key === 'Escape' || e.key === 'Backspace') { e.preventDefault(); if (!e.repeat) bDown(); }
+    else if (e.key === 'Escape' || e.key === 'Backspace') { e.preventDefault(); if (!e.repeat) back(); }
+    else if (k === 'v') { e.preventDefault(); if (!e.repeat) view(); }
+    else if (e.key === 'PageUp' || e.key === 'PageDown') { e.preventDefault(); scroll(e.key === 'PageDown' ? 1 : -1); }
     else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!e.repeat) accept(); }
     else if (k === 'q' || k === 'e') { e.preventDefault(); if (!e.repeat) sectionStep(k === 'e' ? 1 : -1); }
     else if (DEMO[k]) { e.preventDefault(); DEMO[k](); }
   });
-  document.addEventListener('keyup', e => { if (e.key === 'Escape' || e.key === 'Backspace') bUp(); });
 
-  const prev = {}; let repeatAt = 0, lastDir = null;
+  const prev = {}; let repeatAt = 0, lastDir = null, scrollAt = 0;
   function poll(ts) {
     const pad = (navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [])[0];
     if (pad) {
@@ -395,8 +498,10 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;power=1</code> (power=1 op
       const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) ? 'up' : on(13) ? 'down' : null;
       if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
       lastDir = dir; if (!dir) repeatAt = 0;
-      [[0, accept], [4, () => sectionStep(-1)], [5, () => sectionStep(1)]].forEach(([i, f]) => { const p = on(i); if (p && !prev[i]) f(); prev[i] = p; });
-      const b = on(1); if (b && !prev[1]) bDown(); if (!b && prev[1]) bUp(); prev[1] = b;
+      [[0, accept], [1, back], [4, () => sectionStep(-1)], [5, () => sectionStep(1)], [8, view]].forEach(([i, f]) => { const p = on(i); if (p && !prev[i]) f(); prev[i] = p; });
+      const ry = pad.axes[3] || 0;
+      if (Math.abs(ry) > 0.5 && ts > scrollAt) { scroll(ry < 0 ? -1 : 1); scrollAt = ts + (scrollAt ? 90 : 360); }
+      if (Math.abs(ry) <= 0.5) scrollAt = 0;
     }
     requestAnimationFrame(poll);
   }
@@ -412,8 +517,8 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;power=1</code> (power=1 op
   if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
   render();
   (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => setTimeout(startup, 300));
-  if (q.get('hold') === '1') setTimeout(() => { holdBegin(); }, 3000);
-  if (q.get('power') === '1') setTimeout(() => { openPower(); }, 2600);
+  const open = q.get('open');
+  if (open) setTimeout(() => open === 'power' ? openPower() : open === 'guide' ? openGuide() : openPanel(), 2600);
 })();
 </script>
 </body>
