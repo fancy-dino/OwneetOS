@@ -32,6 +32,7 @@
         <file>owneet/foundation/Sheet.qml</file>
         <file>owneet/foundation/PadDrawing.qml</file>
         <file>owneet/foundation/Spinner.qml</file>
+        <file>owneet/foundation/Keyboard.qml</file>
         <file>owneet/foundation/Tr.qml</file>
     </qresource>
 </RCC>

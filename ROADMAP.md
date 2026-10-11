@@ -785,6 +785,15 @@ code is written (PROJECT_RULES.md section 9).
   9.1 inside the keyboard, approved):** A types the key, X deletes, Y types a space, LT / RT
   change the page of keys, Menu = Done, B closes the keyboard (B again closes the window). A
   keyboard plugged in keeps working at the same time. Every key plays the "click" (design/sounds.md).
+- **Outcome (2026-10-11):** `foundation/Keyboard.qml`, as in the demo, types into any TextInput of
+  the interface; used by the Wi-Fi password window, where it opens by itself (also after a wrong
+  password) and A on the field opens it again; the window moves up and its buttons and prompts
+  make room; Done connects. The layout follows Settings → Language → Keyboard layout (English US,
+  Italian); a keyboard plugged in types, deletes and confirms (Enter) while it is open. Checked
+  with `tools/frontend-preview` (`osk.txt`: typing, delete, space, pages, wrap-around, show /
+  hide, physical keyboard, Done → connected; `settings-network.txt`). Apps (Brave) get their
+  keyboard later, through owneetd's virtual keyboard (2.4) and the extension (5.2).
+  owneet-frontend 0.11.0.
 
 ### [ ] 3.11 Notifications
 

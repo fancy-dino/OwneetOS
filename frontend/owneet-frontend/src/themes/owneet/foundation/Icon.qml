@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A small icon drawn for OwneetOS from an SVG path on a 24 x 24 grid (no icon fonts or images).
 // Named icons: "heart", "download", "controller", "wifi" (with `level` 0-3: arcs above it are
-// dimmed), "ethernet", "lock", "battery" (filled by `fill`, 0-1), and the settings sections. `crossed` draws a slash over the icon
+// dimmed), "ethernet", "lock", "battery" (filled by `fill`, 0-1), the settings sections and the
+// on-screen keyboard's keys. `crossed` draws a slash over the icon
 // (e.g. offline).
 import QtQuick 2.15
 
@@ -33,6 +34,13 @@ Canvas {
         controller: "M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z",
         ethernet: "M5 9h14v8H5zM9 17v3M15 17v3M8 9V6h8v3",
         lock: "M7 11h10a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2zM8 11V8a4 4 0 0 1 8 0v3",
+        // On-screen keyboard
+        backspace: "M8 5h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H8l-6-7zM11 9l6 6M17 9l-6 6",
+        shift: "M12 4 4 12h4v7h8v-7h4z",
+        caps: "M12 3 4 11h4v5h8v-5h4zM8 20h8",
+        left: "M15 6l-6 6 6 6",
+        right: "M9 6l6 6-6 6",
+        eye: "M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6",
         // Settings sections
         sound: "M4 9h4l5-4v14l-5-4H4zM17 9a4 4 0 0 1 0 6",
         display: "M3 5h18v11H3zM8 20h8M12 16v4",

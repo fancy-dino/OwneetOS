@@ -106,7 +106,7 @@ FocusScope {
         Nav.feedback("section");
         page.focusStart();
     }
-    readonly property bool modalOpen: palettes.visible || languages.visible || credits.visible || dialog.visible
+    readonly property bool modalOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
     function backToPage() { Qt.callLater(() => { if (!root.modalOpen) root.page.forceActiveFocus(); }); }
 
     // ---- Buttons the sections leave to the whole interface (section 9.1)
@@ -358,8 +358,11 @@ FocusScope {
         } else {
             dialog.open();
         }
+        // the on-screen keyboard opens by itself under the field (demo 3.10)
+        Qt.callLater(() => { if (dialog.visible && dialog.mode === "connect") osk.open(passwordInput, true); });
     }
     function startConnect(net, password) {
+        osk.close(true);
         dialog.connecting = true;
         dialog.problem = "";
         dialog.buttons = [];
@@ -881,8 +884,10 @@ FocusScope {
         property int seconds: 0             // displayConfirm: until it goes back
         property real deadline: 0
         onSecondsChanged: if (mode === "displayConfirm") text = Tr.tr("display.keep.text", { n: seconds })
+        keyboardOpen: osk.visible
         onVisibleChanged: {
             if (visible) return;
+            osk.close(true);
             if (mode === "displayConfirm" && !answered) {
                 answered = true;
                 owneetd.post("/v1/display/revert", {});
@@ -918,10 +923,10 @@ FocusScope {
             spacing: Theme.px(14)
             FocusScope {
                 id: passwordField
-                // A keyboard types here; A (or Enter) connects
+                // A opens the on-screen keyboard; a keyboard plugged in types here, Enter connects
                 readonly property bool navigable: true
                 signal activated()
-                onActivated: if (dialog.buttons.length > 0) dialog.buttons[0].action()
+                onActivated: osk.open(passwordInput, true)
                 visible: dialog.needsPassword && !dialog.connecting
                 width: parent.width
                 height: fieldColumn.height + Theme.px(24)
@@ -930,7 +935,7 @@ FocusScope {
                     anchors.fill: parent
                     radius: parent.radius
                     color: Theme.surface
-                    border.color: Theme.line
+                    border.color: osk.visible && osk.target === passwordInput ? Theme.accent : Theme.line
                     border.width: Math.max(1, Theme.px(1))
                 }
                 Column {
@@ -957,15 +962,9 @@ FocusScope {
                         font.pixelSize: Theme.fs(17)
                         font.letterSpacing: showPassword.checked ? 0 : Theme.fs(17) * 0.1
                         maximumLength: 63
-                        cursorVisible: passwordField.activeFocus
-                        Text {
-                            visible: parent.text === ""
-                            text: Tr.tr("network.password.hint")
-                            color: Theme.muted
-                            font.family: Theme.textFont
-                            font.pixelSize: Theme.fs(12.5)
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
+                        cursorVisible: passwordField.activeFocus || (osk.visible && osk.target === passwordInput)
+                        Keys.onReturnPressed: if (dialog.buttons.length > 0) dialog.buttons[0].action()
+                        Keys.onEnterPressed: if (dialog.buttons.length > 0) dialog.buttons[0].action()
                     }
                 }
                 FocusFrame { shown: passwordField.activeFocus }
@@ -1142,6 +1141,30 @@ FocusScope {
         }
     }
     Toast { id: toast }
+
+    // ---- On-screen keyboard (3.10): its layout is Settings → Language → Keyboard layout
+    Keyboard {
+        id: osk
+        layout: {
+            const l = Theme.keyboardSetting === "same" ? root.keyboardFor(Tr.language) : Theme.keyboardSetting;
+            return ["us", "it"].indexOf(l) >= 0 ? l : "us";
+        }
+        showPassword: showPassword.checked
+        onTogglePassword: showPassword.checked = !showPassword.checked
+        onDone: {
+            if (dialog.visible && dialog.mode === "connect" && dialog.buttons.length > 0)
+                dialog.buttons[0].action();      // Done = Connect
+            else
+                close(true);
+        }
+        onClosed: {
+            close();
+            if (dialog.visible)
+                Qt.callLater(() => dialog.focusButton(0));
+            else
+                root.backToPage();
+        }
+    }
 
     PalettePicker {
         id: palettes

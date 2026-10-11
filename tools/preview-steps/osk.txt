@@ -1,0 +1,30 @@
+@owneetd
+# On-screen keyboard (step 3.10) in the Wi-Fi password window, with the pretend owneetd.
+pad lb
+wait 1
+pad right down down down a
+wait 1
+shot 01-keyboard-opens
+# "w" "e" (row of letters), then delete one, space, then the symbols page and "#"
+pad right a right a
+shot 02-typed-we
+pad x y
+shot 03-delete-space
+pad rt
+shot 04-symbols-page
+pad right a
+pad lt lt
+shot 05-accents-page
+pad lt
+# wrap around: up from the digits row goes to the bottom row
+pad up up
+shot 06-wrapped-to-bottom-row
+# the show / hide key, then Done
+pad right right a
+shot 07-shown
+key BackSpace BackSpace BackSpace BackSpace
+type rightpassword
+shot 08-physical-keyboard
+pad menu
+wait 3
+shot 09-connected

@@ -13,6 +13,9 @@ NavArea {
     property var buttons: []
     property int defaultIndex: 0
     property Item initialItem: null
+    // The on-screen keyboard is open under the window: it moves up, and its buttons and prompts
+    // make room (the keyboard's Done does what the first button does)
+    property bool keyboardOpen: false
     property real contentWidth: 0          // width the window's own content needs, if any
     readonly property var defaultPrompts: [{ buttons: ["a"], label: Tr.tr("prompt.select") }, { buttons: ["b"], label: Tr.tr("prompt.back") }]
     property var prompts: defaultPrompts
@@ -36,6 +39,13 @@ NavArea {
         const item = initialItem && initialItem.visible ? initialItem : buttons[defaultIndex] || buttons[0] || null;
         current = null;
         focusItem(item);
+    }
+    // Selects one of the buttons (e.g. after the on-screen keyboard closes)
+    function focusButton(i) {
+        forceActiveFocus();
+        const buttons = Nav.navigables(row);
+        if (buttons[i])
+            focusItem(buttons[i]);
     }
     function close(quiet) {
         if (!visible)
@@ -64,10 +74,10 @@ NavArea {
     }
     Rectangle {
         id: box
-        anchors.centerIn: parent
-        anchors.verticalCenterOffset: -Theme.px(30)
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: root.keyboardOpen ? Theme.px(34) : Math.round((root.height - height) / 2 - Theme.px(30))
         width: Math.max(Theme.px(520), Math.min(Theme.px(1000), Math.max(row.implicitRowWidth, contentWidth) + Theme.px(64)))
-        height: column.height + row.height + Theme.px(20) + Theme.px(44)
+        height: column.height + (row.visible ? row.height + Theme.px(20) : 0) + Theme.px(44)
         radius: Theme.radiusL
         color: Theme.bg
         border.color: Theme.line
@@ -101,6 +111,7 @@ NavArea {
         }
         Flow {
             id: row
+            visible: !root.keyboardOpen
             anchors { top: column.bottom; topMargin: Theme.px(20); horizontalCenter: parent.horizontalCenter }
             width: Math.min(column.width, implicitRowWidth)
             readonly property real implicitRowWidth: {
@@ -124,6 +135,7 @@ NavArea {
         }
     }
     PromptBar {
+        visible: !root.keyboardOpen
         anchors {
             left: parent.left; right: parent.right; bottom: parent.bottom
             leftMargin: Theme.safeX; rightMargin: Theme.safeX; bottomMargin: Theme.safeBottom
