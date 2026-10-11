@@ -28,6 +28,7 @@ NavArea {
     signal deviceOptions(var device)
     signal pairController()
     signal failed(string message)       // a message key, shown as a toast
+    signal quickMenu()                  // B on the list of sections: nothing to go back to (3.13)
     signal chooseDisplay(string what, var state)   // what: screen, resolution, rate
 
     scrollTarget: panel
@@ -35,7 +36,7 @@ NavArea {
     readonly property var prompts: {
         const P = (b, l) => ({ buttons: [b], label: Tr.tr(l) });
         if (!current || current.section !== undefined)
-            return [P("a", "prompt.open")];
+            return [P("a", "prompt.open"), P("b", "prompt.menu")];
         if (current.kind === "slider")
             return [P("lr", "prompt.adjust"), P("b", "prompt.back")];
         if (current.kind === "switch")
@@ -118,7 +119,8 @@ NavArea {
         }
         // other items: NavArea has already called their activated()
     }
-    onCancelled: if (inPanel(current)) focusItem(navItem(section))
+    onCancelled: if (inPanel(current)) focusItem(navItem(section)); else quickMenu()
+    backFeedback: inPanel(current) ? "back" : ""      // the quick menu plays its own sound
 
     function ensureVisible(item) {
         const p = item.mapToItem(panelColumn, 0, 0);

@@ -1,0 +1,25 @@
+@owneetd
+# Quick menu (step 3.13): B where there is nothing to go back to; power options; controls guide.
+shot 01-home-after-intro
+pad b
+shot 02-quick-menu
+pad a
+shot 03-power-options
+pad left
+shot 04-power-shutdown-selected
+pad b
+shot 05-back-to-quick-menu
+pad down a
+shot 06-controls
+stick rs-down 1500
+shot 07-controls-scrolled
+pad b b
+shot 08-closed
+pad rb b
+shot 09-library-quick-menu
+pad b rb
+pad b
+shot 10-settings-quick-menu
+pad b
+pad right b
+shot 11-settings-panel-back

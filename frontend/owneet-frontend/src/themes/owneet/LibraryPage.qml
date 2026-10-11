@@ -13,6 +13,7 @@ FocusScope {
     signal options(var game)
     signal chooseSort()
     signal openDisks(var volumes)
+    signal quickMenu()                          // B: nothing to go back to here (3.13)
 
     readonly property var filters: ["all", "installed", "favorites", "steam", "local"]
     property string filter: "all"
@@ -38,7 +39,7 @@ FocusScope {
 
     readonly property var prompts: {
         const P = (b, l) => ({ buttons: b, label: Tr.tr(l) });
-        const page = [P(["y"], "prompt.sort"), P(["lt", "rt"], "prompt.filter")];
+        const page = [P(["y"], "prompt.sort"), P(["lt", "rt"], "prompt.filter"), P(["b"], "prompt.menu")];
         if (disks.activeFocus)
             return [P(["a"], "prompt.disks")].concat(page);
         if (grid.count > 0)
@@ -62,11 +63,12 @@ FocusScope {
         grid.positionViewAtIndex(grid.currentIndex, GridView.Contain);
     }
 
-    // Filters and sort: for the whole page, wherever the selection is
+    // Filters, sort and the quick menu: for the whole page, wherever the selection is
     Keys.onPressed: {
         const a = Nav.action(event);
         if (a === "filter-prev" || a === "filter-next") setFilter(a === "filter-next" ? 1 : -1);
         else if (a === "page") page.chooseSort();
+        else if (a === "back") page.quickMenu();
         else return;
         event.accepted = true;
     }

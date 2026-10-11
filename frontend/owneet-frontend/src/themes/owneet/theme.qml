@@ -36,8 +36,12 @@ FocusScope {
             }
         }
         updatePad();
-        if (systemInfo.firstStartThisBoot())
-            sounds.playStartup();                  // once per boot, not when the interface restarts
+        // once per boot, not when the interface restarts: the start-up animation with its sound
+        if (systemInfo.firstStartThisBoot()) {
+            intro.show();
+            sounds.playStartup();
+            introFallback.start();
+        }
         refreshGames();
         refreshDaemon();          // owneetd may have connected before the theme was loaded
     }
@@ -109,7 +113,7 @@ FocusScope {
         page.focusStart();
     }
     readonly property bool modalOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
-                                      || notices.visible
+                                      || notices.visible || quick.visible || controls.visible
     function backToPage() { Qt.callLater(() => { if (!root.modalOpen) root.page.forceActiveFocus(); }); }
 
     // ---- Buttons the sections leave to the whole interface (section 9.1)
@@ -416,6 +420,24 @@ FocusScope {
     Connections {
         target: i18n
         function onLanguageChanged() { root.applyKeyboard(); }
+    }
+    // Quick menu → Power options (3.13): Sleep, Restart, Shut down, Cancel (selected first)
+    function showPowerOptions() {
+        dialog.game = null;
+        dialog.mode = "powerOptions";
+        dialog.contentWidth = powerChoices.implicitWidth;
+        dialog.title = Tr.tr("quick.power");
+        dialog.text = runningGame ? Tr.tr("quick.power.game") : "";
+        dialog.buttons = [];
+        dialog.initialItem = choiceRepeater.itemAt(3);   // Cancel
+        dialog.open();
+    }
+    function power(action) {
+        quick.close(true);
+        dialog.close(true);
+        owneetd.post("/v1/power/" + action, {}, status => {
+            if (status >= 300 || status === 0) toast.show(Tr.tr("error.power"));
+        });
     }
     function confirmPower(action) {
         dialog.game = null;
@@ -792,6 +814,7 @@ FocusScope {
         Text {
             id: mark
             anchors.verticalCenter: parent.verticalCenter
+            opacity: intro.visible ? 0 : 1      // the start-up animation brings it here
             textFormat: Text.StyledText
             text: "Owneet<font color=\"" + Theme.accent + "\">OS</font>"
             color: Theme.fg
@@ -945,6 +968,7 @@ FocusScope {
             onResume: root.resume(app)
             onCloseApp: root.confirmClose(app)
             onNotYet: root.notYet()
+            onQuickMenu: quick.openMenu()
         }
         LibraryPage {
             id: library
@@ -958,6 +982,7 @@ FocusScope {
             onOptions: root.showOptions(game)
             onChooseSort: root.showSort()
             onOpenDisks: root.showDisks(volumes)
+            onQuickMenu: quick.openMenu()
         }
         SettingsPage {
             id: settings
@@ -980,6 +1005,7 @@ FocusScope {
             onPairController: root.pairController()
             onFailed: toast.show(Tr.tr(message))
             onChooseDisplay: root.chooseDisplay(what, state)
+            onQuickMenu: quick.openMenu()
         }
     }
     // after the first layout; a window already open (e.g. "Keep this screen?") keeps the focus
@@ -1040,7 +1066,49 @@ FocusScope {
             if (mode === "pair" && pairState !== "timeout")
                 owneetd.post("/v1/bluetooth/auto-pair", { enabled: false });
             pairState = "";
-            root.backToPage();
+            if (quick.visible) Qt.callLater(quick.refocus);    // back to the quick menu
+            else root.backToPage();
+        }
+        Row {                             // powerOptions: four large choices (demo 3.13)
+            id: powerChoices
+            visible: dialog.mode === "powerOptions"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(14)
+            Repeater {
+                id: choiceRepeater
+                model: ["suspend", "restart", "shutdown", "cancel"]
+                Rectangle {
+                    readonly property bool navigable: true
+                    signal activated()
+                    onActivated: modelData === "cancel" ? dialog.close(true) : root.power(modelData)
+                    readonly property string feedbackKind: modelData === "cancel" ? "sheet-close" : "confirm"
+                    width: Theme.px(128)
+                    height: choiceColumn.height + Theme.px(30)
+                    radius: Theme.radiusL
+                    color: modelData === "cancel" ? Theme.raised : Theme.surface
+                    border.color: Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                    Column {
+                        id: choiceColumn
+                        anchors.centerIn: parent
+                        spacing: Theme.px(10)
+                        Icon {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: Theme.fs(30); height: width
+                            name: modelData === "shutdown" ? "power" : modelData
+                            color: Theme.fg
+                        }
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: Tr.tr(modelData === "cancel" ? "prompt.cancel" : "system.power." + modelData)
+                            color: Theme.fg
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(17)
+                        }
+                    }
+                    FocusFrame {}
+                }
+            }
         }
         Column {                          // details: facts about the game
             visible: dialog.mode === "details" && dialog.game !== null
@@ -1364,5 +1432,36 @@ FocusScope {
         id: credits
         z: 101
         onVisibleChanged: if (!visible) root.backToPage()
+    }
+
+    // ---- Quick menu (3.13): B where there is nothing to go back to
+    QuickMenu {
+        id: quick
+        covered: dialog.visible || controls.visible
+        onOpenPower: root.showPowerOptions()
+        onOpenControls: controls.openControls()
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
+    ControlsSheet {
+        id: controls
+        z: 103
+        onVisibleChanged: if (!visible && quick.visible) quick.refocus()
+    }
+
+    // ---- Start-up animation (3.13): with the start-up sound; without it (sounds off, or the
+    // output not ready), on its own after a while
+    Intro {
+        id: intro
+        target: mark
+        pages: pages
+    }
+    Connections {
+        target: sounds
+        function onStartupStarted() { intro.go(); }
+    }
+    Timer {
+        id: introFallback
+        interval: Theme.uiSounds && systemInfo.soundsDir !== "" ? 4000 : 1200
+        onTriggered: intro.go()
     }
 }

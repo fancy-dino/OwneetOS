@@ -30,6 +30,7 @@ QtObject {
 
     // The start-up sound waits until the output has been running for a moment and it is loaded
     property bool startupPending: false
+    signal startupStarted()             // the start-up animation goes with it (3.13)
     function playStartup() { startupPending = true; startupTimer.restart(); }
     property Timer startupTimer: Timer {
         interval: 1200
@@ -39,6 +40,7 @@ QtObject {
                 return;
             if (e && e.status === SoundEffect.Ready && root.awake.playing) {
                 root.startupPending = false;
+                root.startupStarted();
                 root.play("startup");
             } else if (e && e.status !== SoundEffect.Error) {
                 restart();                      // not ready yet: try again

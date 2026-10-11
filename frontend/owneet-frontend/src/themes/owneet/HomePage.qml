@@ -37,10 +37,14 @@ NavArea {
     signal openLibrary()
     signal howToAdd()
     signal notYet()                            // a feature of a later step
+    signal quickMenu()                         // B: nothing to go back to here (3.13)
+    onCancelled: quickMenu()
+    backFeedback: ""                           // the quick menu plays its own sound
 
     // The prompt bar follows the selected item
     // Y opens the notifications from anywhere on the home screen (demo 3.11)
-    readonly property var prompts: itemPrompts.concat([{ buttons: ["y"], label: Tr.tr("prompt.notifications") }])
+    readonly property var prompts: itemPrompts.concat([{ buttons: ["y"], label: Tr.tr("prompt.notifications") },
+                                                        { buttons: ["b"], label: Tr.tr("prompt.menu") }])
     readonly property var itemPrompts: {
         const k = current ? current.kind : "";
         const P = (b, l) => ({ buttons: [b], label: Tr.tr(l) });

@@ -867,18 +867,25 @@ code is written (PROJECT_RULES.md section 9).
   progress ring on the button shows how long to hold, then a window with Sleep, Restart, Shut
   down and Cancel (Cancel selected). Its own interactive demo first; the new binding goes into
   PROJECT_RULES.md section 9.1 once approved.
-- **Demo (2026-10-11, waiting for approval):** `design/demos/3.13-startup-power.html`. (A), approved
-  for now: the interface starts from the boot splash's own picture (the wordmark centred, as
-  Plymouth shows it): the letters of "Owneet" ripple, "OS" pops with a coral glow, then the
-  wordmark flies to its place in the top bar while the home screen rises under it (about 2.4 s,
-  with the start-up sound; once per boot; "Reduce motion": a plain fade). (B), revised by the
-  owner: instead of holding B, the **View** button (the old "Select"; keyboard V) opens a **quick
-  menu**, a side panel from the right as on SteamOS, on Home, Library and Settings: "Power options"
-  (the Power window: Sleep, Restart, Shut down, Cancel selected; with a game running it says that
+- **Demo (2026-10-11, approved the same day):** `design/demos/3.13-startup-power.html`. (A) the
+  interface starts from the boot splash's own picture (the wordmark centred, as Plymouth shows
+  it): the letters of "Owneet" ripple, "OS" pops with a coral glow, then the wordmark flies to its
+  place in the top bar while the home screen rises under it (about 2.4 s, with the start-up sound;
+  once per boot; "Reduce motion": a plain fade). (B) a **quick menu**, a side panel from the right
+  as on SteamOS, opened by **B where there is nothing to go back to** (Home, Library, the list of
+  Settings sections; the owner chose B over View, which stays reserved for screenshots):
+  "Power options" (Sleep, Restart, Shut down, Cancel selected; with a game running it says that
   Restart and Shut down close it) and "Controls and features" (a read-only guide to every button,
-  scrolled like Credits and licences). B goes back one level, View again closes everything. View
-  is "reserved for screenshots" in section 9.1 today: screenshots would move elsewhere (e.g. an
-  item of this menu, or the Wave 2 overlay).
+  scrolled like Credits and licences). B goes back one level.
+- **Outcome (2026-10-11):** `Intro.qml` takes over the boot splash at the same size and place
+  (Plymouth's 420-pixel wordmark, its top at 46 % of the free height), starts with the start-up
+  sound (or on its own after a few seconds when sounds are off or the output is not ready) and
+  lands on the top bar's wordmark. `QuickMenu.qml` (B on Home, Library and the list of Settings
+  sections, prompt "B Menu"), the Power options window (Cancel selected; Sleep, Restart and Shut
+  down go to owneetd's `/v1/power`) and `ControlsSheet.qml` (Controls and features). Checked with
+  `tools/preview-steps/quick-menu.txt` and in the test VM booting the ISO (frames of the start-up
+  from the splash to the home screen). owneet-frontend 0.14.0. To check on real hardware: the
+  animation with the sound, the quick menu and power options.
 
 ---
 
