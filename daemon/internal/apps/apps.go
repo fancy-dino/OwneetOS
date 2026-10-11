@@ -45,6 +45,8 @@ type App struct {
 	Started time.Time `json:"started"`
 	unit    string
 	appID   uint32 // gamescope app id of its windows
+	reaper  int    // a Steam game: Steam's launcher process (steam.go)
+	window  bool   // has shown a window
 }
 
 // HomeAppID tags the home screen's windows in gamescope; apps get ids just above it (see
@@ -133,6 +135,12 @@ type Manager struct {
 	LookPath func(string) (string, error)
 	// Hold is how long Guide is held to close the app in the cage session (HoldToClose).
 	Hold time.Duration
+	// Steam (steam.go): processes, Steam's folder, whether Steam may run, how an address
+	// reaches the running Steam.
+	Procs        Procs
+	SteamDir     string
+	SteamAllowed func() bool
+	Forward      func(argv, env []string) error
 
 	mu      sync.Mutex
 	apps    map[string]*App // by id
@@ -140,6 +148,8 @@ type Manager struct {
 	lastApp string          // the app shown before the home screen
 	hold    *time.Timer     // cage: Guide held
 	homePID int             // of the session being watched
+	// names given by the interface to Steam games about to start, by Steam app id
+	steamNames map[string]string
 }
 
 func (m *Manager) init() {
@@ -151,6 +161,22 @@ func (m *Manager) init() {
 	}
 	if m.Hold == 0 {
 		m.Hold = HoldToClose
+	}
+	if m.Procs == nil {
+		m.Procs = procFS{}
+	}
+	if m.SteamDir == "" {
+		home, _ := os.UserHomeDir()
+		m.SteamDir = filepath.Join(home, ".local", "share", "Steam")
+	}
+	if m.SteamAllowed == nil {
+		m.SteamAllowed = steamAllowed
+	}
+	if m.Forward == nil {
+		m.Forward = forward
+	}
+	if m.steamNames == nil {
+		m.steamNames = map[string]string{}
 	}
 }
 
@@ -169,10 +195,16 @@ func (m *Manager) newAppID(id string) uint32 {
 	}
 }
 
-// tag is the app id of a window's process: the home screen, an app, or 0 (unknown).
+// tag is the app id of a window's process: the home screen, an app, or 0 (unknown). Inside
+// Steam, the windows of a game get the game's app id.
 func (m *Manager) tag(pid int) uint32 {
 	m.mu.Lock()
+	m.init()
 	home := m.homePID
+	steamUnit := ""
+	if s, ok := m.apps[SteamID]; ok {
+		steamUnit = s.unit
+	}
 	m.mu.Unlock()
 	if pid == home {
 		return HomeAppID
@@ -181,14 +213,38 @@ func (m *Manager) tag(pid int) uint32 {
 		return 0
 	}
 	unit := m.UnitOf(pid)
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	for _, a := range m.apps {
-		if a.unit == unit {
-			return a.appID
+	if unit == "" {
+		return 0
+	}
+	if unit == steamUnit {
+		if appid, reaper := m.reaperOf(pid); appid != "" {
+			return m.markWindow(m.steamGame(appid, reaper, unit))
 		}
 	}
-	return 0
+	m.mu.Lock()
+	var app *App
+	for _, a := range m.apps {
+		if a.unit == unit && a.reaper == 0 {
+			app = a
+		}
+	}
+	m.mu.Unlock()
+	return m.markWindow(app)
+}
+
+// markWindow notes that an app has a window ("app.window" the first time) and returns its app id.
+func (m *Manager) markWindow(a *App) uint32 {
+	if a == nil {
+		return 0
+	}
+	m.mu.Lock()
+	first := !a.window
+	a.window = true
+	m.mu.Unlock()
+	if first {
+		m.Broker.Publish("app.window", map[string]string{"id": a.ID})
+	}
+	return a.appID
 }
 
 // Run adopts apps still running from a previous owneetd and tracks exits until stop is closed.
@@ -212,6 +268,7 @@ func (m *Manager) Run(stop <-chan struct{}) {
 			m.exited(e)
 		case <-tick.C:
 			m.watchSession()
+			m.scanSteam()
 		}
 	}
 }
@@ -380,21 +437,26 @@ func (m *Manager) forget(id string) {
 	}
 }
 
+// exited: a unit stopped, with every app in it (Steam and the game running inside it).
 func (m *Manager) exited(e Exit) {
 	m.mu.Lock()
-	var app *App
-	for _, a := range m.apps {
-		if a.unit == e.Unit {
-			app = a
+	var gone []*App
+	for _, id := range m.order {
+		if a := m.apps[id]; a.unit == e.Unit {
+			gone = append([]*App{a}, gone...) // the newest first: a Steam game before Steam
 		}
 	}
 	m.mu.Unlock()
-	if app == nil {
-		return
+	for _, a := range gone {
+		m.ended(a, e.Result)
 	}
+}
+
+// ended forgets an app that stopped and goes back to the home screen if it was on screen.
+func (m *Manager) ended(app *App, result string) {
 	m.forget(app.ID)
-	m.Log.Info("app exited", "id", app.ID, "result", e.Result)
-	m.Broker.Publish("app.exited", map[string]string{"id": app.ID, "name": app.Name, "result": e.Result})
+	m.Log.Info("app exited", "id", app.ID, "result", result)
+	m.Broker.Publish("app.exited", map[string]string{"id": app.ID, "name": app.Name, "result": result})
 	if sess, err := m.Session(); err == nil {
 		if f := m.focus(sess); f != nil {
 			if focused, err := f.Focused(); err == nil && (focused == app.appID || focused == 0) {
@@ -404,35 +466,44 @@ func (m *Manager) exited(e Exit) {
 	}
 }
 
-func (m *Manager) unitOf(id string) (string, error) {
+func (m *Manager) appOf(id string) (*App, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.init()
 	a, ok := m.apps[id]
 	if !ok {
-		return "", ErrUnknownApp
+		return nil, ErrUnknownApp
 	}
-	return a.unit, nil
+	return a, nil
 }
 
-// Close asks an app to close (SIGTERM to all its processes; SIGKILL after 10 seconds).
+// Close asks an app to close (SIGTERM to all its processes; SIGKILL after 10 seconds). A Steam
+// game closes alone: Steam keeps running.
 func (m *Manager) Close(id string) error {
-	unit, err := m.unitOf(id)
+	a, err := m.appOf(id)
 	if err != nil {
 		return err
 	}
+	if a.reaper != 0 {
+		m.closeSteamGame(a, false)
+		return nil
+	}
 	m.Log.Info("closing app", "id", id)
-	return m.Units.Stop(unit)
+	return m.Units.Stop(a.unit)
 }
 
 // Kill force-closes a frozen app at once.
 func (m *Manager) Kill(id string) error {
-	unit, err := m.unitOf(id)
+	a, err := m.appOf(id)
 	if err != nil {
 		return err
 	}
+	if a.reaper != 0 {
+		m.closeSteamGame(a, true)
+		return nil
+	}
 	m.Log.Info("force-closing app", "id", id)
-	return m.Units.Kill(unit)
+	return m.Units.Kill(a.unit)
 }
 
 func (m *Manager) focus(s Session) Focus {

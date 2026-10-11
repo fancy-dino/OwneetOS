@@ -23,6 +23,7 @@ type fakeUnits struct {
 	exits    chan Exit
 	failAt   string
 	workdirs []string
+	argvs    [][]string
 }
 
 func (f *fakeUnits) Start(unit, desc string, argv, env []string, workdir string) error {
@@ -33,6 +34,7 @@ func (f *fakeUnits) Start(unit, desc string, argv, env []string, workdir string)
 	}
 	f.started = append(f.started, unit)
 	f.workdirs = append(f.workdirs, workdir)
+	f.argvs = append(f.argvs, argv)
 	return nil
 }
 func (f *fakeUnits) Stop(unit string) error {

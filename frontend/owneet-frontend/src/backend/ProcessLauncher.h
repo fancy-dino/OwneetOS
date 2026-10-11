@@ -65,7 +65,9 @@ private:
     QString m_daemon_app;
     QString m_title;
     QString m_game_path;
+    QString m_steam_appid;  // OwneetOS: a Steam game, started by Steam through owneetd
     void runWithDaemon(const QString&, const QStringList&, const QString&);
+    void runSteamGame();
     void onDaemonEvent(const QString& type, const QVariant& data);
 
     void runProcess(const QString&, const QStringList&, const QString&);

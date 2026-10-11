@@ -97,6 +97,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/apps/{id}/close", s.handleAppAction(Apps.Close))
 	mux.HandleFunc("POST /v1/apps/{id}/kill", s.handleAppAction(Apps.Kill))
 	mux.HandleFunc("POST /v1/apps/{id}/focus", s.handleAppAction(Apps.FocusApp))
+	mux.HandleFunc("GET /v1/steam", s.handleSteamStatus)
+	mux.HandleFunc("POST /v1/steam", s.handleSteam)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusNotFound, "not_found", "no such endpoint: "+r.Method+" "+r.URL.Path)
 	})

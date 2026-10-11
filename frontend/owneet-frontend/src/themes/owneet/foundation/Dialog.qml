@@ -17,6 +17,9 @@ NavArea {
     // make room (the keyboard's Done does what the first button does)
     property bool keyboardOpen: false
     property real contentWidth: 0          // width the window's own content needs, if any
+    // B goes back to the window this one came from (e.g. a guide opened from a choice), instead
+    // of closing
+    property var backAction: null
     readonly property var defaultPrompts: [{ buttons: ["a"], label: Tr.tr("prompt.select") }, { buttons: ["b"], label: Tr.tr("prompt.back") }]
     property var prompts: defaultPrompts
     default property alias content: column.data
@@ -26,8 +29,9 @@ NavArea {
     visible: false
     z: 150
 
-    function open() {
-        Nav.feedback("sheet-open");
+    function open(quiet) {
+        if (!quiet)
+            Nav.feedback("sheet-open");
         visible = true;
         forceActiveFocus();
         focusDefault();
@@ -54,9 +58,17 @@ NavArea {
             Nav.feedback("sheet-close");
         visible = false;
         initialItem = null;             // the next window starts from the defaults
+        backAction = null;
         prompts = Qt.binding(() => defaultPrompts);
     }
-    onCancelled: close()
+    onCancelled: {
+        if (backAction) {
+            Nav.feedback("sheet-close");
+            backAction();
+        } else {
+            close();
+        }
+    }
     // A runs the button's action; the action decides whether the window closes (quietly when
     // something else follows, e.g. another window or a game starting).
     // (the actions stay in `buttons`: a Repeater's modelData would drop the functions)

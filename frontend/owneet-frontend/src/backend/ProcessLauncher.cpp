@@ -231,6 +231,7 @@ void ProcessLauncher::onLaunchRequested(const model::GameFile* q_gamefile)
     beforeRun(gamefile.fileinfo().absoluteFilePath());
     m_title = game.title();
     m_game_path = gamefile.fileinfo().absoluteFilePath();
+    m_steam_appid = gamefile.uri().startsWith(QLatin1String("steam:")) ? gamefile.uri().mid(6) : QString();
     if (m_daemon && m_daemon->available())  // OwneetOS: the console session
         runWithDaemon(command, args, workdir);
     else
@@ -280,6 +281,10 @@ void ProcessLauncher::runProcess(const QString& command, const QStringList& args
 // event; errors carry owneetd's stable code ("owneetd:apps.game_running"), translated by the theme.
 void ProcessLauncher::runWithDaemon(const QString& command, const QStringList& args, const QString& workdir)
 {
+    if (!m_steam_appid.isEmpty()) {
+        runSteamGame();
+        return;
+    }
     // A stable id per game file: a readable part and a short hash of its path
     QString slug = m_title.toLower();
     slug.replace(QRegularExpression(QStringLiteral("[^a-z0-9]+")), QStringLiteral("-"));
@@ -304,6 +309,32 @@ void ProcessLauncher::runWithDaemon(const QString& command, const QStringList& a
         const QVariantMap error = data.toMap().value(QStringLiteral("error")).toMap();
         const QString code = error.value(QStringLiteral("code")).toString();
         Log::warning(LOGMSG("owneetd could not start the game: %1 (%2)")
+            .arg(code, error.value(QStringLiteral("message")).toString()));
+        emit processLaunchError(QStringLiteral("owneetd:") + (code.isEmpty() ? QStringLiteral("apps.failed") : code));
+        ScriptRunner::run(ScriptEvent::PROCESS_FINISHED);
+        TerminalKbd::disable();
+    });
+}
+
+// OwneetOS: a Steam game is started by Steam (owneetd starts Steam when needed, roadmap 4.2);
+// owneetd lists it as "steam:APPID" once Steam has launched it, and its end is app.exited too.
+void ProcessLauncher::runSteamGame()
+{
+    const QString id = QStringLiteral("steam:") + m_steam_appid;
+    Log::info(LOGMSG("Starting through Steam as `%1`").arg(id));
+    const QVariantMap body {
+        {QStringLiteral("run"), m_steam_appid},
+        {QStringLiteral("name"), m_title},
+    };
+    m_daemon->request(QStringLiteral("POST"), QStringLiteral("/v1/steam"), body, [this, id](int status, const QVariant& data) {
+        if (status == 202) {
+            m_daemon_app = id;
+            emit processLaunchOk();
+            return;
+        }
+        const QVariantMap error = data.toMap().value(QStringLiteral("error")).toMap();
+        const QString code = error.value(QStringLiteral("code")).toString();
+        Log::warning(LOGMSG("owneetd could not start the Steam game: %1 (%2)")
             .arg(code, error.value(QStringLiteral("message")).toString()));
         emit processLaunchError(QStringLiteral("owneetd:") + (code.isEmpty() ? QStringLiteral("apps.failed") : code));
         ScriptRunner::run(ScriptEvent::PROCESS_FINISHED);

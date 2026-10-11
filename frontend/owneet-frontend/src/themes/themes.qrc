@@ -2,7 +2,9 @@
     <qresource prefix="/themes">
         <file>owneet/theme.cfg</file>
         <file>owneet/theme.qml</file>
+        <file>owneet/AddGamesTile.qml</file>
         <file>owneet/ControlsSheet.qml</file>
+        <file>owneet/SteamPreparing.qml</file>
         <file>owneet/CreditsSheet.qml</file>
         <file>owneet/Intro.qml</file>
         <file>owneet/NotificationsSheet.qml</file>

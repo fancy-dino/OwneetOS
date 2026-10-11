@@ -55,7 +55,11 @@ Canvas {
         power: "M12 3v8M6.3 6.8a8 8 0 1 0 11.4 0",
         suspend: "M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z",
         restart: "M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5",
-        cancel: "M6 6l12 12M18 6 6 18"
+        cancel: "M6 6l12 12M18 6 6 18",
+        // Add games (4.2): a store (no third-party logo) and a USB stick
+        plus: "M12 5v14M5 12h14",
+        store: "M4 9h16l-1.2 10a1 1 0 0 1-1 .9H6.2a1 1 0 0 1-1-.9zM8.5 9V7a3.5 3.5 0 0 1 7 0v2",
+        usb: "M9 3h6v6H9zM7 9h10v8a4 4 0 0 1-4 4h-2a4 4 0 0 1-4-4zM11 5.5v1M13 5.5v1"
     })
     // Wi-Fi: three arcs and a dot, from the largest arc down
     readonly property var wifiArcs: ["M2 9a15 15 0 0 1 20 0", "M5 12.5a10 10 0 0 1 14 0", "M8.5 16a5 5 0 0 1 7 0"]

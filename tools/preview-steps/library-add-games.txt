@@ -1,0 +1,25 @@
+@owneetd
+# Library with "Add games" (step 4.2, approved demo 4.2): the grid's last place, the choice of
+# sources, the guide to games on a disk, Steam starting, and Steam in a live system without memory.
+pad rb
+key Next Next Next Next
+shot 01-add-games-place
+pad a
+shot 02-add-games-window
+pad right a
+shot 03-disk-guide
+pad b
+shot 04-back-to-choice
+pad left a
+shot 05-preparing-steam
+wait 7
+shot 06-steam-window-arrived
+pad lt
+shot 07-favorites-no-add-place
+pad rt rt
+shot 08-local-filter
+event fake.steam {"allowed": false, "running": false}
+pad rt rt
+key Next Next Next Next
+pad a a
+shot 09-needs-install

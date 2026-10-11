@@ -77,6 +77,8 @@ state = {
         "brightness": 80,
     },
     "apps": [],
+    # Steam (4.2): change it with the event line "fake.steam {...}" (e.g. {"allowed": false})
+    "steam": {"installed": True, "allowed": True, "prepared": False, "running": False},
     "audio": {"available": True, "output": "hdmi", "volume": 60, "muted": False,
               "outputs": [{"id": "hdmi", "name": "TV (HDMI)"}, {"id": "speakers", "name": "Speakers"}]},
 }
@@ -198,6 +200,7 @@ class Handler(BaseHTTPRequestHandler):
             answers = {
                 "/v1/status": {"session_mode": "cage", "owneetos_version": "preview"},
                 "/v1/apps": {"apps": state["apps"], "focus": "home"},
+                "/v1/steam": state["steam"],
                 "/v1/controllers": {"controllers": state["controllers"]},
                 "/v1/network": state["network"],
                 "/v1/network/wifi": {"networks": state["networks"]},
@@ -262,6 +265,19 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(204)
         if path.startswith("/v1/power/"):
             return self.reply(204)
+        if path == "/v1/steam":
+            with lock:
+                steam = state["steam"]
+                if not steam["allowed"]:
+                    return self.error(409, "steam.needs_install")
+                starting = not steam["running"]
+                steam["running"] = True
+                if starting:
+                    state["apps"].append({"id": "steam", "name": "Steam", "kind": "app"})
+            if starting:   # Steam's window appears after a while (minutes the first time)
+                publish("app.started", {"id": "steam", "name": "Steam", "kind": "app"})
+                later(6, lambda: (state["steam"].update(prepared=True), publish("app.window", {"id": "steam"})))
+            return self.reply(202)
         self.error(404, "not_found")
 
     def do_PUT(self):
@@ -357,6 +373,9 @@ def read_events(path):
                     continue
                 payload = json.loads(data) if data else None
                 with lock:            # games and apps announced by events are "running"
+                    if kind == "fake.steam":
+                        state["steam"].update(payload)
+                        continue
                     if kind == "app.started":
                         state["apps"].append(payload)
                     elif kind == "app.exited":

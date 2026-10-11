@@ -113,7 +113,7 @@ FocusScope {
         page.focusStart();
     }
     readonly property bool modalOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
-                                      || notices.visible || quick.visible || controls.visible
+                                      || notices.visible || quick.visible || controls.visible || steamPrep.visible
     function backToPage() { Qt.callLater(() => { if (!root.modalOpen) root.page.forceActiveFocus(); }); }
 
     // ---- Buttons the sections leave to the whole interface (section 9.1)
@@ -191,6 +191,11 @@ FocusScope {
         target: api
         function onEventLaunchError(msg) {
             const code = msg.startsWith("owneetd:") ? msg.slice(8) : "";
+            steamPrep.close(true);
+            if (code === "steam.needs_install") {
+                root.showSteamNeedsInstall();
+                return;
+            }
             const key = "error." + code;
             toast.show(code && Tr.tr(key) !== key ? Tr.tr(key) : Tr.tr("error.launch"));
         }
@@ -334,6 +339,12 @@ FocusScope {
         }
         Nav.feedback("launch");
         toast.show(Tr.tr("toast.launch", { title: game.title }));
+        if (GameInfo.isSteam(game) && owneetd.connected) {
+            // Steam starts the game; while Steam itself starts, the console says so
+            owneetd.get("/v1/steam", (status, st) => {
+                if (status === 200 && st.allowed && !st.running) steamPrep.start(!st.prepared);
+            });
+        }
         game.launch();                    // through owneetd from step 3.8
         refreshTimer.restart();           // "last played" changes once the game has started
     }
@@ -379,11 +390,88 @@ FocusScope {
         dialog.contentWidth = 0;
         dialog.title = Tr.tr("how.title");
         dialog.text = Tr.tr("how.steam") + "\n\n" + Tr.tr("how.local");
-        dialog.buttons = [{ text: Tr.tr("home.empty.store"), style: "primary", action: () => { dialog.close(); root.notYet(); } }];
+        dialog.buttons = [{ text: Tr.tr("home.empty.store"), style: "primary", action: () => { dialog.close(true); root.openSteam("store"); } }];
         dialog.defaultIndex = 0;
         dialog.open();
     }
     function notYet() { toast.show(Tr.tr("toast.later")); }
+
+    // ---- Steam (4.2): its library or store; owneetd starts Steam when needed
+    function openSteam(page) {
+        if (!owneetd.connected) {
+            toast.show(Tr.tr("error.daemon.unavailable"));
+            Nav.feedback("error");
+            return;
+        }
+        owneetd.get("/v1/steam", (status, st) => {
+            if (status !== 200 || !st.installed) {
+                toast.show(Tr.tr("error.apps.unavailable"));
+                Nav.feedback("error");
+                return;
+            }
+            if (!st.allowed) {
+                root.showSteamNeedsInstall();
+                return;
+            }
+            Nav.feedback("launch");
+            owneetd.post("/v1/steam", { open: page }, (status2, data) => {
+                if (status2 === 202) {
+                    if (!st.running) steamPrep.start(!st.prepared);
+                    return;
+                }
+                const code = data && data.error ? data.error.code : "";
+                if (code === "steam.needs_install") { root.showSteamNeedsInstall(); return; }
+                toast.show(Tr.tr(code && Tr.tr("error." + code) !== "error." + code ? "error." + code : "error.apps.failed"));
+                Nav.feedback("error");
+            });
+        });
+    }
+    // The live system keeps Steam's files in RAM: with less than 12 GB, install first
+    function showSteamNeedsInstall() {
+        dialog.game = null;
+        dialog.mode = "steamInstall";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("steam.install.title");
+        dialog.text = Tr.tr("steam.install.text");
+        dialog.buttons = [{ text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        Nav.feedback("error");
+        dialog.open(true);
+    }
+    // Library → Add games (approved demo 4.2): where games come from
+    function showAddGames(selectDisk, quiet) {
+        dialog.game = null;
+        dialog.mode = "addGames";
+        dialog.contentWidth = addChoices.implicitWidth;
+        dialog.title = Tr.tr("add.title");
+        dialog.text = "";
+        dialog.buttons = [];
+        dialog.backAction = null;
+        dialog.initialItem = addRepeater.itemAt(selectDisk ? 1 : 0);
+        dialog.prompts = Qt.binding(() => dialog.defaultPrompts);
+        dialog.open(quiet);
+    }
+    function addFrom(source) {
+        if (source === "steam") {
+            dialog.close(true);
+            root.openSteam("library");
+        } else {
+            showDiskGuide();
+        }
+    }
+    // Read only: how to put games on a disk; B goes back to the choice
+    function showDiskGuide() {
+        dialog.mode = "diskGuide";
+        dialog.contentWidth = Theme.px(720);
+        dialog.title = Tr.tr("disk.title");
+        dialog.text = "";
+        dialog.initialItem = null;
+        dialog.buttons = [{ text: Tr.tr("prompt.back"), style: "primary", action: () => { Nav.feedback("sheet-close"); root.showAddGames(true, true); } }];
+        dialog.defaultIndex = 0;
+        dialog.prompts = [{ buttons: ["a", "b"], label: Tr.tr("prompt.back") }];
+        dialog.backAction = () => root.showAddGames(true, true);
+        dialog.focusDefault();
+    }
 
     // ---- Settings windows
     function choose(title, options, current, pick) {   // options: [[value, label]]
@@ -963,6 +1051,7 @@ FocusScope {
             onOptions: root.showOptions(game)
             onOpenLibrary: root.goSection("library")
             onHowToAdd: root.showHowToAdd()
+            onOpenStore: root.openSteam("store")
             running: root.runningGame
             canResume: root.sessionMode === "gamescope"
             onResume: root.resume(app)
@@ -982,6 +1071,7 @@ FocusScope {
             onOptions: root.showOptions(game)
             onChooseSort: root.showSort()
             onOpenDisks: root.showDisks(volumes)
+            onAddGames: root.showAddGames(false)
             onQuickMenu: quick.openMenu()
         }
         SettingsPage {
@@ -1068,6 +1158,120 @@ FocusScope {
             pairState = "";
             if (quick.visible) Qt.callLater(quick.refocus);    // back to the quick menu
             else root.backToPage();
+        }
+        Row {                             // addGames: Steam, or games on a disk (demo 4.2)
+            id: addChoices
+            visible: dialog.mode === "addGames"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(16)
+            Repeater {
+                id: addRepeater
+                model: [["steam", "store", "add.steam"], ["disk", "usb", "add.disk"]]
+                Rectangle {
+                    readonly property bool navigable: true
+                    signal activated()
+                    onActivated: root.addFrom(modelData[0])
+                    width: Theme.px(250)
+                    height: Math.max(addColumn.height + Theme.px(36), Theme.px(150))
+                    radius: Theme.radiusL
+                    color: Theme.surface
+                    border.color: Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                    Column {
+                        id: addColumn
+                        anchors { top: parent.top; topMargin: Theme.px(20); horizontalCenter: parent.horizontalCenter }
+                        width: parent.width - Theme.px(32)
+                        spacing: Theme.px(8)
+                        Icon {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: Theme.fs(32); height: width
+                            name: modelData[1]
+                            color: Theme.fg
+                        }
+                        Text {
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
+                            text: Tr.tr(modelData[2])
+                            color: Theme.fg
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(17)
+                            wrapMode: Text.Wrap
+                        }
+                        Text {
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
+                            text: Tr.tr(modelData[2] + ".detail")
+                            color: Theme.muted
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(12.5)
+                            wrapMode: Text.Wrap
+                        }
+                    }
+                    FocusFrame {}
+                }
+            }
+        }
+        Column {                          // diskGuide: the Games folder (demo 4.2)
+            visible: dialog.mode === "diskGuide"
+            width: Theme.px(720)
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(14)
+            Rectangle {
+                width: parent.width
+                height: tree.height + Theme.px(28)
+                radius: Theme.radiusM
+                color: Theme.surface
+                border.color: Theme.line
+                border.width: Math.max(1, Theme.px(1))
+                Column {
+                    id: tree
+                    x: Theme.px(20); y: Theme.px(14)
+                    width: parent.width - Theme.px(40)
+                    spacing: Theme.px(3)
+                    Repeater {
+                        // [depth, name (a label key when it starts with "@"), folder?, comment key]
+                        model: [[0, "@disk.tree.root", true, ""], [1, "@disk.tree.games", true, "disk.tree.c.games"],
+                                [2, "Celeste/", true, "disk.tree.c.game"], [3, "bin/ …  Celeste", false, "disk.tree.c.any"],
+                                [3, "cover.jpg", false, "disk.tree.c.cover"], [2, "Stardew Valley/", true, ""],
+                                [3, "setup.exe", false, "disk.tree.c.setup"]]
+                        Item {
+                            width: tree.width
+                            height: Math.max(treeName.implicitHeight, treeNote.implicitHeight)
+                            Text {
+                                id: treeName
+                                x: modelData[0] * Theme.px(18)
+                                text: modelData[1].startsWith("@") ? Tr.tr(modelData[1].slice(1)) : modelData[1]
+                                color: modelData[2] ? Theme.fg : Theme.muted
+                                font.family: Theme.textFont
+                                font.weight: modelData[2] ? Font.Medium : Font.Normal
+                                font.pixelSize: Theme.fs(14.5)
+                            }
+                            Text {
+                                id: treeNote
+                                x: Theme.px(300)
+                                width: parent.width - x
+                                visible: modelData[3] !== ""
+                                text: "← " + Tr.tr(modelData[3])
+                                color: Theme.accent
+                                font.family: Theme.textFont
+                                font.pixelSize: Theme.fs(12.5)
+                                wrapMode: Text.Wrap
+                            }
+                        }
+                    }
+                }
+            }
+            Repeater {
+                model: ["disk.step.plug", "disk.step.find", "disk.step.install", "disk.step.win"]
+                Text {
+                    width: parent.width
+                    text: "•  " + Tr.tr(modelData)
+                    color: Theme.fg
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(14.5)
+                    wrapMode: Text.Wrap
+                }
+            }
         }
         Row {                             // powerOptions: four large choices (demo 3.13)
             id: powerChoices
@@ -1432,6 +1636,23 @@ FocusScope {
         id: credits
         z: 101
         onVisibleChanged: if (!visible) root.backToPage()
+    }
+
+    // ---- Steam starting (4.2): until Steam's or the game's window appears, or Steam stops
+    SteamPreparing {
+        id: steamPrep
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
+    Connections {
+        target: owneetd
+        function onEvent(type, data) {
+            if (!steamPrep.visible || !data) return;
+            const id = data.id || "";
+            if ((type === "app.window" && (id === "steam" || id.startsWith("steam:")))
+                    || (type === "app.exited" && id === "steam")
+                    || (type === "focus.changed" && data.focus !== "home"))
+                steamPrep.close(true);
+        }
     }
 
     // ---- Quick menu (3.13): B where there is nothing to go back to

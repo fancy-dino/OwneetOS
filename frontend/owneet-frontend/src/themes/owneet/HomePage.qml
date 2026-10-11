@@ -38,6 +38,7 @@ NavArea {
     signal howToAdd()
     signal notYet()                            // a feature of a later step
     signal quickMenu()                         // B: nothing to go back to here (3.13)
+    signal openStore()                         // Steam's store (4.2)
     onCancelled: quickMenu()
     backFeedback: ""                           // the quick menu plays its own sound
 
@@ -78,7 +79,8 @@ NavArea {
         else if (k === "how") howToAdd();
         else if (k === "resume") resume(running);
         else if (k === "close") closeApp(running);
-        else notYet();                         // apps, notices, Steam Store
+        else if (k === "store" || item.steamStore) openStore();
+        else notYet();                         // apps and notices (later steps)
     }
     onOtherAction: {
         const game = gameOf(current);
@@ -264,6 +266,7 @@ NavArea {
                         Rectangle {
                             readonly property bool navigable: true
                             readonly property string kind: "app"
+                            readonly property bool steamStore: modelData.key === "app.store"
                             width: apps.cell
                             height: Math.max(Theme.px(78), appName.implicitHeight + icon.height + Theme.px(28))
                             radius: Theme.radiusM

@@ -950,6 +950,16 @@ code is written (PROJECT_RULES.md section 9).
     stays hidden; without it Steam is an ordinary window that owneetd shows (daemon-design.md).
   - Tools: `daemon/cmd/owneet-xprobe` (test only: gamescope's windows and focus properties),
     `OWNEET_TEST_MEM_MB` for the test VM's RAM.
+- **Part 2 (2026-10-11):** owneetd 0.11.0: `/v1/steam` (library, store, run a game; Steam starts
+  without gamescope's control variable), Steam games found under Steam's launcher and listed as
+  `steam:N` (their own app id, Guide and Resume, close without closing Steam), the live-system
+  memory rule, the `app.window` event; unit tests with pretend processes. owneet-frontend 0.16.0:
+  the library without "Installed" and with "Add games" (Steam's library, the guide to games on a
+  disk), "Preparing Steam…" until Steam's window appears, the "installed system" window for live
+  systems under 12 GB, Home's "Steam Store" opens Steam's store, Steam games start through Steam
+  and keep Steam's play time. Fixed on the way: A on an item whose action selects another item in
+  the same window (e.g. the guide's Back button) also pressed that one. Preview:
+  `tools/preview-steps/library-add-games.txt`.
 - **Demo (2026-10-11):** `design/demos/4.2-library-add-games.html`, built on the approved demo
   3.7: every game installed, filters All / Favorites / Steam / Local; "Add games" as the last
   place of the grid (not in Favorites, a personal list) → a window with "Steam" (Steam opens on

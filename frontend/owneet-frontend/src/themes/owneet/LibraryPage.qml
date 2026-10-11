@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The library (roadmap 3.7, approved demo design/demos/3.7-library.html): every game in one grid,
 // filters on LT / RT, sort on Y, the disks with their free space (up from the first row; A opens
-// the Disks window). Games owned but not installed arrive with the Steam integration (4.x).
+// the Disks window). Every game shown is installed (4.1); the last place of the grid is "Add games"
+// (approved demo design/demos/4.2-library-add-games.html), not in Favorites, a personal list.
 import QtQuick 2.15
 import "foundation"
 
@@ -14,8 +15,9 @@ FocusScope {
     signal chooseSort()
     signal openDisks(var volumes)
     signal quickMenu()                          // B: nothing to go back to here (3.13)
+    signal addGames()
 
-    readonly property var filters: ["all", "installed", "favorites", "steam", "local"]
+    readonly property var filters: ["all", "favorites", "steam", "local"]
     property string filter: "all"
     property string sort: "recent"             // saved by the shell
     readonly property int columns: 7
@@ -30,6 +32,8 @@ FocusScope {
         return GameInfo.sorted(games.filter(g => matches(g, filter)), sort);
     }
     function count(f) { const r = favoritesRevision; return games.filter(g => matches(g, f)).length; }
+    // the grid's places: the games, then "Add games"
+    readonly property var places: filter === "favorites" ? shown : shown.concat([{ addGames: true }])
 
     // Disks: refreshed whenever the library is shown (mounting arrives with step 6.5)
     property var volumes: []
@@ -42,9 +46,10 @@ FocusScope {
         const page = [P(["y"], "prompt.sort"), P(["lt", "rt"], "prompt.filter"), P(["b"], "prompt.menu")];
         if (disks.activeFocus)
             return [P(["a"], "prompt.disks")].concat(page);
+        if (grid.currentItem && grid.currentItem.addTile)
+            return [P(["a"], "prompt.add_games")].concat(page);
         if (grid.count > 0)
-            return [P(["a"], GameInfo.installed(grid.currentItem ? grid.currentItem.game : null) ? "prompt.play" : "prompt.install"),
-                    P(["x"], "prompt.details"), P(["menu"], "prompt.options")].concat(page);
+            return [P(["a"], "prompt.play"), P(["x"], "prompt.details"), P(["menu"], "prompt.options")].concat(page);
         return page;
     }
     function focusStart() { grid.count > 0 ? grid.forceActiveFocus() : (disks.visible ? disks.forceActiveFocus() : page.forceActiveFocus()); }
@@ -89,7 +94,7 @@ FocusScope {
         }
         Text {
             anchors { left: title.right; leftMargin: Theme.px(14); baseline: title.baseline }
-            text: Tr.trn("games.count", grid.count)
+            text: Tr.trn("games.count", page.shown.length)
             color: Theme.muted
             font.family: Theme.textFont
             font.pixelSize: Theme.fs(17)
@@ -211,7 +216,7 @@ FocusScope {
         leftMargin: ring; rightMargin: ring - Theme.px(14); topMargin: ring; bottomMargin: ring
         clip: true
         focus: true
-        model: page.shown
+        model: page.places
         cellWidth: Math.floor((width - 2 * ring + Theme.px(14)) / page.columns)
         cellHeight: (cellWidth - Theme.px(14)) * 1.25 + Theme.px(16)
         keyNavigationEnabled: false             // Nav.listKeys moves the selection
@@ -219,10 +224,20 @@ FocusScope {
         preferredHighlightBegin: ring
         preferredHighlightEnd: height - ring
         highlightMoveDuration: Theme.motionMs
-        delegate: Cover {
+        delegate: Loader {
+            readonly property bool addTile: modelData.addGames === true
+            readonly property var game: addTile ? null : modelData
             width: grid.cellWidth - Theme.px(14)
             height: width * 1.25
-            game: modelData
+            sourceComponent: addTile ? addTileComponent : coverComponent
+        }
+        Component {
+            id: coverComponent
+            Cover { game: parent ? parent.game : null; focus: true }
+        }
+        Component {
+            id: addTileComponent
+            AddGamesTile { focus: true }
         }
         Keys.onPressed: {
             const a = Nav.action(event);
@@ -231,6 +246,9 @@ FocusScope {
                 Nav.feedback("move");
                 disks.forceActiveFocus();       // from the first row up to the disks
             } else if (Nav.listKeys(grid, a)) {
+            } else if (a === "accept" && currentItem && currentItem.addTile) {
+                Nav.feedback("confirm");
+                page.addGames();
             } else if (a === "accept" && game) {
                 Nav.feedback("confirm");
                 page.launch(game);

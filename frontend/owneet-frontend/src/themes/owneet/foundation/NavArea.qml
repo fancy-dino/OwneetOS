@@ -54,10 +54,12 @@ FocusScope {
         } else if ((a === "scroll-up" || a === "scroll-down") && scrollTarget) {
             scrollBy((a === "scroll-up" ? -1 : 1) * scrollTarget.height * 0.4);
         } else if (a === "accept" && current) {
-            Nav.feedback(current.feedbackKind || "confirm");
-            if (typeof current.activated === "function")
-                current.activated();
-            accepted(current);
+            // the item pressed: its action may select another one (e.g. a window's next page)
+            const item = current;
+            Nav.feedback(item.feedbackKind || "confirm");
+            if (typeof item.activated === "function")
+                item.activated();
+            accepted(item);
         } else if (a === "back") {
             if (backFeedback !== "")
                 Nav.feedback(backFeedback);

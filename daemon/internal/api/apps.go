@@ -16,6 +16,8 @@ type Apps interface {
 	Close(id string) error
 	Kill(id string) error
 	FocusApp(id string) error
+	Steam(req apps.SteamRequest) error
+	SteamStatus() apps.SteamStatus
 }
 
 var appErrors = []struct {
@@ -31,6 +33,7 @@ var appErrors = []struct {
 	{apps.ErrUnknownApp, http.StatusNotFound, "apps.unknown_app"},
 	{apps.ErrFocusUnsupported, http.StatusConflict, "apps.focus_unsupported"},
 	{apps.ErrNoWindow, http.StatusConflict, "apps.no_window"},
+	{apps.ErrSteamNeedsInstall, http.StatusConflict, "steam.needs_install"},
 }
 
 func (s *Server) appsAvailable(w http.ResponseWriter) bool {
@@ -85,4 +88,25 @@ func (s *Server) handleAppAction(action func(Apps, string) error) http.HandlerFu
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+func (s *Server) handleSteamStatus(w http.ResponseWriter, _ *http.Request) {
+	if !s.appsAvailable(w) {
+		return
+	}
+	WriteJSON(w, http.StatusOK, s.Apps.SteamStatus())
+}
+
+// handleSteam opens Steam's library or store, or runs a Steam game (roadmap 4.2): 202, the game
+// is listed in /v1/apps once Steam has started it.
+func (s *Server) handleSteam(w http.ResponseWriter, r *http.Request) {
+	var req apps.SteamRequest
+	if !s.appsAvailable(w) || !decode(w, r, &req) {
+		return
+	}
+	if err := s.Apps.Steam(req); err != nil {
+		s.appsError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
 }

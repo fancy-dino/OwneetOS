@@ -284,6 +284,10 @@ void PlaytimeStats::onGameFinished(model::GameFile* const gamefile)
     Q_ASSERT(gamefile);
     Q_ASSERT(m_last_launch_time.isValid());
 
+    // OwneetOS: Steam counts the play time of its games (read from its files, roadmap 4.1)
+    if (gamefile->uri().startsWith(QLatin1String("steam:")))
+        return;
+
     QMutexLocker lock(&m_queue_guard);
 
     const auto now = QDateTime::currentDateTimeUtc();
