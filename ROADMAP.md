@@ -967,7 +967,9 @@ code is written (PROJECT_RULES.md section 9).
   helper windows are never shown); Guide: home screen, Steam does not take it back (20 s), Guide
   again: Steam. A game installed or removed in Steam makes the console read its games again when
   you come back (owneetd lists Steam's installed games), back where you were (e.g. "Add games").
-  owneetd 0.11.3, owneet-frontend 0.16.1. To check on real hardware with the owner's account:
+  owneetd 0.11.3, owneet-frontend 0.16.1. The live system's writable space was archiso's
+  default 256 MB, too small for Steam's download: now up to 75 % of RAM (`cow_spacesize=75%`,
+  used only as files are written). To check on real hardware with the owner's account:
   login, installing and starting a game, Guide in a game, Steam's own reaction to the Guide
   button, closing a game from the home screen.
 - **Demo (2026-10-11):** `design/demos/4.2-library-add-games.html`, built on the approved demo
