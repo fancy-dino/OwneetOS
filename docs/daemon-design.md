@@ -233,7 +233,10 @@ at a time; apps such as the browser may run next to it), `apps.unknown_app` (404
   press does nothing. `guide.pressed` and `guide.released` are still sent to clients.
 - Events: `app.started`, `app.exited` (with systemd's result: `success`, `exit-code`, `signal`,
   `timeout`…), `app.window` (gamescope can show one of the app's windows for the first time, e.g.
-  Steam ready after its first download: its early helper windows are never shown), `focus.changed`.
+  Steam ready after its first download: its early helper windows are never shown), `focus.changed`
+  (also when the screen changes by itself, e.g. an app's window appears: the interface reads the
+  controllers only while it is on screen; in cage, which owneetd cannot read, the newest app is
+  taken to be on screen).
 - **Steam (4.2):** the app `steam`, started as `env -u GAMESCOPE_WAYLAND_DISPLAY steam -gamepadui
   URL` (see below); when it already runs, owneetd hands it the `steam://` address. A game Steam
   starts runs inside Steam's unit under Steam's launcher (`reaper SteamLaunch AppId=N -- …`):

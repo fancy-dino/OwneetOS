@@ -152,6 +152,7 @@ type Manager struct {
 	// names given by the interface to Steam games about to start, by Steam app id
 	steamNames map[string]string
 	shown      []uint32 // what owneetd last asked gamescope to show
+	lastFocus  string   // the last "focus.changed" sent
 }
 
 func (m *Manager) init() {
@@ -233,8 +234,21 @@ func (m *Manager) tag(pid int) uint32 {
 	return 0
 }
 
+// focusChanged sends "focus.changed" when what is on screen changed: the interface reads the
+// controllers only while it is on screen.
+func (m *Manager) focusChanged(id string) {
+	m.mu.Lock()
+	same := id == m.lastFocus
+	m.lastFocus = id
+	m.mu.Unlock()
+	if !same {
+		m.Broker.Publish("focus.changed", map[string]string{"focus": id})
+	}
+}
+
 // checkWindows sends "app.window" when gamescope can show an app's window for the first time
-// (e.g. Steam ready after its first download; its early helper windows are never shown).
+// (e.g. Steam ready after its first download; its early helper windows are never shown), and
+// "focus.changed" when what is on screen changed by itself (e.g. an app's window appeared).
 func (m *Manager) checkWindows() {
 	sess, err := m.Session()
 	if err != nil {
@@ -263,6 +277,21 @@ func (m *Manager) checkWindows() {
 	m.mu.Unlock()
 	for _, id := range ready {
 		m.Broker.Publish("app.window", map[string]string{"id": id})
+	}
+	focused, err := f.Focused()
+	if err != nil || focused == 0 {
+		return
+	}
+	m.mu.Lock()
+	id := ""
+	if focused == HomeAppID {
+		id = "home"
+	} else if a := m.appOfID(focused); a != nil {
+		id = a.ID
+	}
+	m.mu.Unlock()
+	if id != "" {
+		m.focusChanged(id)
 	}
 }
 
@@ -439,6 +468,7 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 	}
 	m.Log.Info("app started", "id", app.ID, "kind", app.Kind, "unit", app.unit)
 	m.Broker.Publish("app.started", map[string]string{"id": app.ID, "name": app.Name, "kind": app.Kind})
+	m.cageFocus(sess)
 	return *app, nil
 }
 
@@ -483,7 +513,23 @@ func (m *Manager) ended(app *App, result string) {
 				m.show(f, []uint32{HomeAppID}) // back to the home screen
 			}
 		}
+		m.cageFocus(sess)
 	}
+}
+
+// cageFocus: the reduced (cage) session shows the newest window, and owneetd cannot read it: the
+// newest app is taken to be on screen, the home screen when none is left.
+func (m *Manager) cageFocus(sess Session) {
+	if sess.Mode != "cage" {
+		return
+	}
+	m.mu.Lock()
+	id := "home"
+	if len(m.order) > 0 {
+		id = m.order[len(m.order)-1]
+	}
+	m.mu.Unlock()
+	m.focusChanged(id)
 }
 
 func (m *Manager) appOf(id string) (*App, error) {
@@ -613,7 +659,7 @@ func (m *Manager) FocusApp(id string) error {
 			if err := m.show(f, []uint32{appID, HomeAppID}); err != nil {
 				return err
 			}
-			m.Broker.Publish("focus.changed", map[string]string{"focus": id})
+			m.focusChanged(id)
 			return nil
 		}
 	}
@@ -695,7 +741,7 @@ func (m *Manager) toggle(sess Session) {
 			return
 		}
 		m.Log.Info("Guide: home screen")
-		m.Broker.Publish("focus.changed", map[string]string{"focus": "home"})
+		m.focusChanged("home")
 		return
 	}
 	if target == "" { // home screen, nothing running

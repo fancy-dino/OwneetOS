@@ -124,6 +124,10 @@ func TestSteamStartsWithoutGamescopeControl(t *testing.T) {
 	if e := next(t, ch, "app.window"); e.Data.(map[string]string)["id"] != SteamID {
 		t.Fatalf("app.window %v", e.Data)
 	}
+	// Steam's window took the screen by itself: the interface must stop reading the controllers
+	if e := next(t, ch, "focus.changed"); e.Data.(map[string]string)["focus"] != SteamID {
+		t.Fatalf("focus.changed %v", e.Data)
+	}
 	if st := m.Status(); st.Focus != SteamID {
 		t.Fatalf("focus %q", st.Focus)
 	}
@@ -296,5 +300,21 @@ func TestSteamStatusListsInstalledGames(t *testing.T) {
 	manifest(other, "620", "6")         // update waiting: installed
 	if got := strings.Join(m.SteamStatus().Games, ","); got != "480,620" {
 		t.Fatalf("games %q", got)
+	}
+}
+
+// cage shows the newest window: the interface hears that an app took the screen, and when the
+// home screen is back
+func TestCageFocusFollowsTheNewestApp(t *testing.T) {
+	m, units, _, ch := newManager(t, "cage")
+	if _, err := m.Launch(LaunchRequest{ID: SteamID, Kind: KindApp, Command: []string{"steam"}}); err != nil {
+		t.Fatal(err)
+	}
+	if d := next(t, ch, "focus.changed").Data.(map[string]string); d["focus"] != SteamID {
+		t.Fatalf("after start %v", d)
+	}
+	m.exited(Exit{Unit: units.started[0], Result: "success"})
+	if d := next(t, ch, "focus.changed").Data.(map[string]string); d["focus"] != "home" {
+		t.Fatalf("after exit %v", d)
 	}
 }

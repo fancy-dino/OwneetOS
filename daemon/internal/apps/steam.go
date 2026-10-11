@@ -362,6 +362,7 @@ func (m *Manager) steamGame(appid string, reaper int, unit string) *App {
 		if f := m.focus(sess); f != nil {
 			m.show(f, []uint32{app.appID, steam, HomeAppID})
 		}
+		m.cageFocus(sess)
 	}
 	return app
 }

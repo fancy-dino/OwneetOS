@@ -969,7 +969,10 @@ code is written (PROJECT_RULES.md section 9).
   you come back (owneetd lists Steam's installed games), back where you were (e.g. "Add games").
   owneetd 0.11.3, owneet-frontend 0.16.1. The live system's writable space was archiso's
   default 256 MB, too small for Steam's download: now up to 75 % of RAM (`cow_spacesize=75%`,
-  used only as files are written). To check on real hardware with the owner's account:
+  used only as files are written). Found before the hardware test: Steam opened from "Add games"
+  took the screen without `focus.changed`, so the hidden interface kept reading the controller
+  (keys typed in Steam would also move the library); owneetd 0.11.4 sends it whenever the screen
+  changes by itself (cage: the newest app). To check on real hardware with the owner's account:
   login, installing and starting a game, Guide in a game, Steam's own reaction to the Guide
   button, closing a game from the home screen.
 - **Demo (2026-10-11):** `design/demos/4.2-library-add-games.html`, built on the approved demo
