@@ -64,7 +64,7 @@ OwneetOS is a **lightweight, open-source Linux distribution** that turns any x86
 | Local media                     | **mpv**                                                                                                        | Kodi rejected (too heavy).                                                                                                                                                                                            |
 | Steam                           | System package (multilib), launched with `-gamepadui` for login/store                                          |                                                                                                                                                                                                                       |
 | Other stores (later)            | **legendary** (Epic), **gogdl** / lgogdownloader (GOG)                                                         | Heroic rejected (Electron, heavy).                                                                                                                                                                                    |
-| Windows games (later)           | **umu-launcher** + GE-Proton                                                                                   |                                                                                                                                                                                                                       |
+| Windows games (Wave 1: DRM-free games on disk; stores later) | **umu-launcher** + GE-Proton                                     |                                                                                                                                                                                                                       |
 | Emulation (later, nice-to-have) | **RetroArch**                                                                                                  |                                                                                                                                                                                                                       |
 
 ## 5. Distribution, build and updates
@@ -122,6 +122,15 @@ OwneetOS is a **lightweight, open-source Linux distribution** that turns any x86
   at boot and on hot-plug, with automatic scanning for game libraries and media folders.
   - NTFS left dirty by Windows Fast Startup / hibernation → mount read-only and explain why.
   - Windows games on NTFS with Proton are unreliable → readable, but suggest moving them.
+- **Games on a disk** (2026-10-11): a folder named `Games`, or its name in the chosen language
+  (e.g. `Giochi`), at the top of any disk or USB stick, and on the console's own disk; one folder
+  per game, named after the game, with **any sub-folders** inside. The console searches it
+  (recursively) for what to start or install; a cover (`cover.jpg` / `cover.png`) and a
+  `game.txt` (title, file to start, description) are optional. When the choice is not clear, the
+  console asks once, with the controller, and remembers.
+- **Moving games and media between disks** (Wave 1, roadmap 6.6): e.g. from a USB stick to the
+  console's disk, with progress and cancel; the original is deleted only after the copy is
+  checked. Steam games are moved by Steam itself (its storage settings, opened from the console).
 
 ## 7. Controllers
 
@@ -231,13 +240,17 @@ in order; the owner reviews each step before the next one starts.
 1. Bootable and installable ISO.
 2. Controller pairing (first-boot flow).
 3. Home with unified library (Steam installed games + local DRM-free games).
+   DRM-free games on a disk play **whatever their form**: ready to run or with an installer,
+   for Linux or for Windows (Proton via umu-launcher, never shown to the user: at most a
+   "preparing the game" screen while it loads). Installers run by themselves, in the
+   background. Moving games and media between disks (roadmap 6.6).
 4. Brave with Netflix, YouTube, Spotify.
 5. Basic settings: Wi-Fi, Bluetooth, audio, language, theme.
 
 ### Later waves
 
-- Overlay / quick menu over games, chat modules (Discord first), dual boot, Epic/GOG,
-  Windows games via umu/Proton, emulation, user profiles, screenshots/recording, play-time stats,
+- Overlay / quick menu over games, chat modules (Discord first), dual boot, Epic/GOG stores
+  (their Windows games through the same Proton as Wave 1), emulation, user profiles, screenshots/recording, play-time stats,
   parental controls, quick suspend/resume, Qt 6 port of the frontend.
 
 ### Nice-to-have
@@ -371,3 +384,4 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-11 | Steps 3.11 (notifications), 3.12 (interface sounds) and 3.13 (start-up animation, quick menu) approved: **phase 3 closed**. Checks left for the next USB-stick test are listed in ROADMAP.md 3.13. The time zone is chosen in the first-boot flow (roadmap 6.1; until then the system runs on UTC). Next: phase 4 (games). |
 | 2026-10-11 | Steam library (step 4.1): installed games only, from local files; games on a disk that is not connected are not shown; owned games that are not installed are installed from Steam's own library, because no local file lists them with certainty (the licence packages gave 92 games, the client shows 90). Steam, like everything the console opens, must work with the controller alone (section 8). |
 | 2026-10-11 | Library (for the demo of step 4.2): the "Installed" filter is removed (every game shown is installed); the last place of the grid is **"Add games"**, which opens a choice of sources (for now Steam, which opens on **Steam's library**, where owned games are installed and the store is one step away). |
+| 2026-10-11 | **Wave 1 scope grows** (sections 6 and 10): DRM-free games on a disk play whatever their form (ready to run or installer, Linux or Windows through umu-launcher + GE-Proton, hidden from the user); installers run by themselves in the background; moving games and media between disks (new step 6.6). Games folder: `Games` or its translated name, one folder per game with any sub-folders, searched recursively. "Add games" also offers "From a USB stick or disk". |

@@ -940,10 +940,45 @@ code is written (PROJECT_RULES.md section 9).
 ### [ ] 4.3 Local DRM-free games
 
 - **Deliverables:** folder convention + metadata file, automatic scan of mounted disks, artwork.
+- **Scope (owner, 2026-10-11, PROJECT_RULES.md sections 6 and 10):** `Games` (or its translated
+  name) on every disk; one folder per game with any sub-folders, searched recursively for what to
+  start (Linux executables, `.sh`, AppImage; Windows `.exe` → 4.5) or to install (→ 4.6);
+  optional `cover.jpg` / `cover.png` and `game.txt`; when the choice is not clear, the console
+  asks once with the controller and remembers (helpers, uninstallers, redistributables such as
+  DirectX or Visual C++ are never offered). "Add games" → "From a USB stick or disk" explains it.
 
 ### [ ] 4.4 Artwork
 
-- **Deliverables:** cover download and cache for Steam games, generated fallback covers.
+- **Deliverables:** covers of Steam games from Steam's local cache (`appcache/librarycache`, 4.1;
+  no download), covers of games on disks (`cover.jpg` / `cover.png`), generated fallback covers.
+
+### [ ] 4.5 Windows games (Proton) *(added 2026-10-11)*
+
+- **Deliverables:** Windows DRM-free games start like any other: umu-launcher + GE-Proton, one
+  prefix per game, never named in the interface; a "preparing the game" screen until the game's
+  first picture. Credits and licences (Wine LGPL, Proton BSD, DXVK / VKD3D-Proton zlib/LGPL).
+- **Open points:** (1) Proton and its runtime (about 1 GB) do not fit in the ISO (2 GB limit):
+  downloaded once, in the background, the first time the console is online; until then a
+  Windows game says that it needs a one-time download (PROJECT_RULES.md C9: offline for local
+  content). (2) Shader pre-compilation exists only for Steam games (Steam's own "Processing
+  Vulkan shaders"); other games compile while they play, so the "preparing" screen covers the
+  start only.
+
+### [ ] 4.6 Installers *(added 2026-10-11)*
+
+- **Deliverables:** installers found in a game's folder (GOG Linux `.sh`, Windows Inno Setup /
+  NSIS / MSI, e.g. GOG's `setup_*.exe`) run silently in the background with their known options,
+  into the console's games folder, with progress in the library; then the game appears.
+- **Open points:** (1) a silent install accepts the game's licence for the user: the console
+  shows it (or a link to it) and asks "Install" first. (2) Installers of unknown kinds may only
+  have windows made for a mouse: they need the controller pointer (4.7).
+
+### [ ] 4.7 Controller pointer *(added 2026-10-11)*
+
+- **Deliverables:** a pointer moved by the controller (stick, A = click) for the few windows
+  made only for a mouse: unknown installers (4.6), launchers inside some games (EA app, Ubisoft
+  Connect: 4.2). Offered automatically when such a window is on screen, never needed elsewhere.
+  Its buttons go into PROJECT_RULES.md section 9.1 before it is implemented.
 
 ---
 
@@ -1025,6 +1060,13 @@ code is written (PROJECT_RULES.md section 9).
   Free space and notices of every disk reach the library's disks summary and Disks window
   (approved in demo 3.7); later actions there, e.g. "Safely remove" for USB disks.
 
+### [ ] 6.6 Moving games and media between disks *(added and approved for Wave 1, 2026-10-11)*
+
+- **Deliverables:** Menu on a game (later on media) → "Move to another disk": the disks with their
+  free space, copy with progress and cancel, check, then the original is deleted (never before).
+  A USB stick with games plugged in: a notice "Play from here / Copy to the console". Steam
+  games: a link to Steam's own storage settings (Steam moves them). Demo first.
+
 ---
 
 ## Phase 7 — Updates and first release (Wave 1 complete)
@@ -1079,7 +1121,7 @@ code is written (PROJECT_RULES.md section 9).
 - **8. Overlay and quick menu:** gamescope overlay layer, quick menu over games, volume, battery, screenshots on View/Create.
 - **9. Chat modules:** module interface, Discord web in the background, notifications in the overlay, mute and push-to-talk.
 - **10. Dual boot (optional, not required):** "Install alongside Windows", BitLocker detection and guidance, RTC handling, default OS, "Restart into Windows".
-- **11. More stores and Windows games:** Epic (legendary), GOG (gogdl), umu-launcher + GE-Proton.
+- **11. More stores:** Epic (legendary), GOG (gogdl); their Windows games use Wave 1's Proton (4.5).
 - **12. Console features:** user profiles, parental controls, play-time statistics, quick suspend and resume.
 - **13. Custom accent colour** with automatic contrast checking.
 - **14. Other screens (optional choice):** Settings → Display "Other screens: show the OwneetOS
