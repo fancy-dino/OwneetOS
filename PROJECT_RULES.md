@@ -201,6 +201,11 @@ same screen. New bindings are added here before they are implemented.
 | Guide / PS                  | **Owned by the system daemon**: home / quick menu from anywhere, including in games. Apps and themes must never bind it. Prompt label: "Home". |
 | Right stick                 | Scrolls the page: fast scroll in long lists and grids, and the content of windows (e.g. Credits and licences)         |
 
+**On-screen keyboard** (demo 3.10, approved 2026-10-11): while it is open, A types the selected
+key, X deletes, Y types a space, LT / RT change the page of keys (letters, symbols, accented
+letters), Menu = Done, B closes the keyboard; the selection wraps around at every edge. These
+meanings hold only inside the keyboard; LB / RB, Guide and the right stick keep theirs.
+
 While a game or app is running, the system intercepts **only** the Guide button; every other input
 goes to the game.
 
@@ -354,3 +359,4 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-10 | Moving the console to another screen waits **30 seconds** for "Keep" (from the moment the console is up there: a monitor waking from standby may stay black for a while); resolution and refresh rate keep 15 seconds. Before moving, a window warns that the new screen may stay black for up to 30 seconds. |
 | 2026-10-10 | Settings → Sound: "Mute" comes first and, while it is on, hides output, volume and interface sounds. The Wi-Fi password window has a "Show password" switch (owner's NiPoGi test). |
 | 2026-10-10 | Step 3.9 (Settings) approved after the owner's tests on the NiPoGi and the desktop (two graphics cards). Picture dimming for screens without a brightness control stays a proposal for Wave 2 (not confirmed). Next: demo 3.10 (on-screen keyboard). |
+| 2026-10-11 | Demo 3.10 (on-screen keyboard) approved, with the selection wrapping around vertically too. Inside the keyboard: X delete, Y space, LT / RT pages of keys, Menu Done (section 9.1). |

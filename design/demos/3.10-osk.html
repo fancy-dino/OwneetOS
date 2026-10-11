@@ -142,7 +142,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   <div class="prompts t-s sheet-prompts" id="prompts"></div>
   <div class="toast t-s" id="toast"></div>
 </div></div>
-<p class="help"><b>Gamepad:</b> D-pad / stick move between keys (rows wrap around), A type, X delete, Y space, LT / RT change the page of keys
+<p class="help"><b>Gamepad:</b> D-pad / stick move between keys (rows and columns wrap around), A type, X delete, Y space, LT / RT change the page of keys
 (letters, symbols, accents), Menu done, B close the keyboard (B again closes the window).
 <b>Keyboard (emulates the gamepad):</b> arrows, Enter = A, Esc = B, X, Y, Z / C = LT / RT, M = Menu.<br>
 <b>Demo only:</b> K keyboard layout (English US / Italian), L language, S another kind of field (library search, an example), P palette, N sounds (<span id="snd-state">on</span>).
@@ -370,7 +370,8 @@ A Wi-Fi password needs 8 to 63 characters; "wrongpassword" is refused. Address: 
     if (!silent) feedback('move');
     renderPrompts();
   }
-  // Keys: up / down keep the column (nearest key by position); left / right wrap around the row
+  // Keys: up / down keep the column (nearest key by position); rows and columns wrap around
+  // (owner, demo review 2026-10-11)
   function moveKeys(dir) {
     const rows = $$('#keys .krow').map(r => $$('[data-f]', r));
     const r = +focused.dataset.r, c = +focused.dataset.c;
@@ -379,8 +380,7 @@ A Wi-Fi password needs 8 to 63 characters; "wrongpassword" is refused. Address: 
       setFocus(row[(c + (dir === 'right' ? 1 : -1) + n) % n]);
       return;
     }
-    const nr = r + (dir === 'down' ? 1 : -1);
-    if (nr < 0 || nr >= rows.length) { feedback('edge'); return; }
+    const nr = (r + (dir === 'down' ? 1 : -1) + rows.length) % rows.length;
     const a = focused.getBoundingClientRect(), ax = a.left + a.width / 2;
     let best = null, d = Infinity;
     for (const k of rows[nr]) { const b = k.getBoundingClientRect(), dx = Math.abs(b.left + b.width / 2 - ax); if (dx < d) { d = dx; best = k; } }
