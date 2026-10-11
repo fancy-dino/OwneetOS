@@ -45,6 +45,7 @@ add_subdirectory(backend/providers/favorites)
 add_subdirectory(backend/providers/pegasus)
 add_subdirectory(backend/providers/pegasus_media)
 add_subdirectory(backend/providers/playtime)
+add_subdirectory(backend/providers/steam) # OwneetOS
 add_subdirectory(backend/utils)
 
 # OwneetOS: the logiqx, emulationstation, launchbox and playnite providers are not built.

@@ -140,8 +140,13 @@ OwneetOS is a **lightweight, open-source Linux distribution** that turns any x86
 
 - **Unified game library** on the home screen (Steam + other stores + local DRM-free games together).
   Stores are opened **only for purchases**.
-  - Steam: installed games are read from local Steam files (no API key). Owned-but-not-installed
-    games show "Install", which opens Steam.
+  - Steam: **installed games only**, read from local Steam files (no API key, offline); a game on
+    a disk that is not connected is simply not shown. Games owned but not installed are installed
+    from Steam's own library (Big Picture), which the console opens: Steam's local files cannot
+    list them with certainty (2026-10-11, roadmap 4.1).
+  - Anything the console opens (Steam included) must be fully usable with the controller, and
+    Guide always brings back the home screen with the selection where it was. The user must
+    **never** be forced to use a mouse or keyboard (section 1, C2).
 - **Online features**: rely on existing services (Steam friends/achievements inside
   Steam, Discord, etc.). **No own server.**
 - **Chat**: pluggable modules, user picks the service. **Discord web first**, controllable by
@@ -364,3 +369,4 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-11 | Demo 3.11 (notifications) approved: banners at the top right, a bell in the top bar, the list on Y from the home screen (section 9.1: page-level option); nothing drawn over a game. Notifications that need attention get a sound of their own, `notify-error` (eleven sounds, `design/sounds.md`); `error` stays for something just done that failed. |
 | 2026-10-11 | Step 3.12 (interface sounds) done; the first sound after boot needs the sound output running first (a looped silence). Demo 3.13 approved: animated start-up from the boot splash's wordmark; a **quick menu** (side panel from the right, as on SteamOS) with power options and a read-only "Controls and features" guide, opened by **B where there is nothing to go back to** (an accidental press only opens the menu). View stays reserved for screenshots in a later wave (section 9.1). |
 | 2026-10-11 | Steps 3.11 (notifications), 3.12 (interface sounds) and 3.13 (start-up animation, quick menu) approved: **phase 3 closed**. Checks left for the next USB-stick test are listed in ROADMAP.md 3.13. The time zone is chosen in the first-boot flow (roadmap 6.1; until then the system runs on UTC). Next: phase 4 (games). |
+| 2026-10-11 | Steam library (step 4.1): installed games only, from local files; games on a disk that is not connected are not shown; owned games that are not installed are installed from Steam's own library, because no local file lists them with certainty (the licence packages gave 92 games, the client shows 90). Steam, like everything the console opens, must work with the controller alone (section 8). |

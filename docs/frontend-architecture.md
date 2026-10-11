@@ -81,10 +81,28 @@ Pegasus's own menus also get `Internal` (a separate, private object): settings, 
 |---|---|---|
 | `pegasus_metadata` | `metadata.pegasus.txt` files in game folders (title, launch command, assets) | **keep**: local DRM-free games |
 | `pegasus_media`, `pegasus_playtime`, `pegasus_favorites` | media folders, play time, favourites | **keep** |
-| `steam` | local Steam library files, **plus** `store.steampowered.com/api/appdetails` | **keep, without the store download** (local data only; covers from Steam's local cache) — reviewed in 4.1 |
+| `steam` | local Steam library files, **plus** `store.steampowered.com/api/appdetails` | **keep, without the store download**: installed games and their play time from local files (4.1, see below) |
 | `gog` | GOG Galaxy files, **plus** `api.gog.com` | **compile out** (GOG comes later with our own integration) |
 | `android_apps` | Android apps, **plus** Play Store pages | **compile out** |
 | `es2`, `launchbox`, `logiqx`, `lutris`, `playnite`, `skraper` | other frontends' and launchers' data | **compile out** (not needed; less code, less risk) |
+
+### Steam's local files (step 4.1, checked on a real Steam client in October 2026)
+
+Steam's folder is `~/.local/share/Steam/` (`OWNEET_STEAM_DIR` points elsewhere, for tests).
+
+| File | What it gives | Used |
+|---|---|---|
+| `steamapps/libraryfolders.vdf` | every library folder, also on disks not connected | yes: a missing folder is skipped, its games are not shown (owner's choice) |
+| `<library>/steamapps/appmanifest_<appid>.acf` (text) | name, appid, `StateFlags` (bit 4: fully installed; an update waiting keeps it), size | yes: games installed completely; Valve's tools left out by id and by name (Proton, Steam Linux Runtime, Steamworks redistributables) |
+| `config/loginusers.vdf` | accounts on this computer; `MostRecent` in older clients, `Timestamp` of the last login in newer ones | yes: picks the account |
+| `userdata/<account id>/config/localconfig.vdf` | `UserLocalConfigStore/Software/Valve/Steam/apps/<appid>`: `Playtime` (minutes, whole account), `LastPlayed` (Unix time) | yes: play time and last played |
+| `appcache/librarycache/<appid>/` | cached artwork: `header.jpg` for most apps, `library_600x900.jpg` (portrait cover) for about a quarter, `library_hero.jpg`, `logo.png`, hashed files | later: covers (4.4) |
+| `appcache/appinfo.vdf` (binary, format 29 since 2024: key string table) | every app the client has looked up, with its type (game, tool, DLC…), also games only seen in the store | no: not a list of owned games |
+| `appcache/packageinfo.vdf` (binary) | packages of the account's licences | no: its games did not match the client's own count exactly; owned games that are not installed are installed from Steam's library (PROJECT_RULES.md section 8) |
+| `userdata/<id>/config/licensecache` | licences, encrypted | never read |
+
+Text files are Valve's "KeyValues" format, read by `SteamPlaytime.cpp`'s small reader (keys
+compared without regard to case: clients write both `Valve` and `valve`).
 
 ### Game launching today
 

@@ -40,8 +40,7 @@ private:
     const QString m_log_tag;
     const QStringList m_name_filters;
     const std::vector<QLatin1String> m_ignored_manifests;
-    const QRegularExpression m_rx_acf_appid;
-    const QRegularExpression m_rx_acf_title;
+    const QRegularExpression m_rx_tool;
 
     std::pair<QString, QString> read_manifest_file(const QString&) const;
 };

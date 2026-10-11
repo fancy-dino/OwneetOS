@@ -17,13 +17,13 @@
 
 #include "SteamGamelist.h"
 
+#include "SteamPlaytime.h"
 #include "Log.h"
 #include "model/gaming/Game.h"
 #include "providers/SearchContext.h"
 
 #include <QDirIterator>
 #include <QStringBuilder>
-#include <QTextStream>
 
 
 namespace providers {
@@ -53,38 +53,24 @@ Gamelist::Gamelist(QString log_tag)
           QLatin1String("appmanifest_1826330.acf"), // Proton EasyAntiCheat Runtime
           QLatin1String("appmanifest_1161040.acf"), // Proton BattlEye Runtime
     }
-    , m_rx_acf_appid(QStringLiteral(R""("appid"\s+"(\d+)")""), QRegularExpression::CaseInsensitiveOption)
-    , m_rx_acf_title(QStringLiteral(R""("name"\s+"([^"]+)")""))
+    // OwneetOS: Valve's tools by name too, so new versions stay out without a new entry above
+    , m_rx_tool(QStringLiteral(R""(^(Proton\b|Steam Linux Runtime|Steamworks Common Redistributables|Steamworks SDK Redist))""))
 {}
 
+// OwneetOS: only games installed completely (StateFlags bit 4, "fully installed"; an update
+// waiting keeps it); a first download still running is not a game to play yet (roadmap 4.1)
 std::pair<QString, QString> Gamelist::read_manifest_file(const QString& manifest_path) const
 {
-    QFile manifest(manifest_path);
-    if (!manifest.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        Log::error(m_log_tag, LOGMSG("Could not open `%1`").arg(manifest_path));
+    const QVariantMap state = read_vdf_file(manifest_path).value(QLatin1String("appstate")).toMap();
+    if (state.isEmpty()) {
+        Log::error(m_log_tag, LOGMSG("Could not read `%1`").arg(manifest_path));
         return {};
     }
-
-    QString appid;
-    QString title;
-
-    QTextStream stream(&manifest);
-    stream.setCodec("UTF-8");
-
-    while (!stream.atEnd() && (appid.isEmpty() || title.isEmpty())) {
-        const QString line = stream.readLine();
-
-        const auto appid_match = m_rx_acf_appid.match(line);
-        if (appid_match.hasMatch()) {
-            appid = appid_match.captured(1);
-            continue;
-        }
-
-        const auto title_match = m_rx_acf_title.match(line);
-        if (title_match.hasMatch()) {
-            title = title_match.captured(1);
-        }
-    }
+    const QString appid = state.value(QLatin1String("appid")).toString();
+    const QString title = state.value(QLatin1String("name")).toString();
+    const int flags = state.value(QLatin1String("stateflags")).toInt();
+    if ((flags & 4) == 0 || m_rx_tool.match(title).hasMatch())
+        return {};
 
     return { appid, title };
 }

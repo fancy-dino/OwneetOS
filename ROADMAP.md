@@ -903,19 +903,38 @@ code is written (PROJECT_RULES.md section 9).
 
 ## Phase 4 — Games
 
-### [?] 4.1 Steam library *(investigation first)*
+### [~] 4.1 Steam library *(investigation first)*
 
 - **Deliverables:** installed Steam games read from local files (`libraryfolders.vdf`,
   `appmanifest_*.acf`) across all disks; play time from local Steam data; check whether Pegasus's
   built-in Steam provider can be reused (without its Steam store downloads: local data only).
-- **Open point:** listing games that are **owned but not installed** may not be possible from local
-  files alone. If it isn't, report options to the owner (e.g. show only installed games plus a
-  "Get more games" store tile) and update the rules.
+- **Open point (closed 2026-10-11):** listing games that are **owned but not installed** may not
+  be possible from local files alone. Investigation on the owner's Steam client (read only, none of
+  their data in the repository; `docs/frontend-architecture.md`, "Steam's local files"): the
+  licence packages (`appcache/packageinfo.vdf`) gave 92 games, the client shows 90. Owner's
+  decision: installed games only, the rest from Steam's own library; games on a disk that is not
+  connected are not shown (PROJECT_RULES.md section 8).
+- **Outcome (2026-10-11):** Pegasus's Steam provider reused and changed: only games installed
+  completely (`StateFlags` bit 4), Valve's tools left out by name too (new Proton and runtime
+  versions need no new entry), play time and last played from the account's `localconfig.vdf`
+  (`SteamPlaytime.cpp`, a small reader for Steam's text files). New test `test_Steam` on an
+  invented Steam folder (installed, downloading, update waiting, tools, a second library, a
+  library on a disk not connected, two accounts). owneet-frontend 0.15.0. Steam is not in the ISO
+  yet (4.2): checked on real Steam data from step 4.2 on.
 
 ### [ ] 4.2 Steam integration
 
 - **Deliverables:** Steam login and store in `-gamepadui` mode, game launch via the daemon, return
   to home on exit, Steam Store tile.
+- **Required (owner, 2026-10-11):** every step with the controller alone: first start of Steam,
+  login (Steam Guard included), store, installing a game (also the games owned but not installed:
+  a place in the library opens Steam's own library), launching and closing a game. Guide always
+  brings back the home screen with the selection where it was. Points to check first: Steam
+  controls gamescope's focus itself, as owneetd does; Steam reacts to the Guide button, which
+  owneetd owns; third-party launchers inside some games (e.g. EA app, Ubisoft Connect) need a
+  pointer: a controller-driven pointer must exist before they ship. Play time of Steam games
+  comes from Steam (4.1): the frontend must not add its own on top. The library's new place
+  gets a demo first.
 
 ### [ ] 4.3 Local DRM-free games
 

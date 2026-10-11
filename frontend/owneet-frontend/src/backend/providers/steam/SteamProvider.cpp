@@ -23,6 +23,8 @@
 #include "providers/SearchContext.h"
 #include "providers/steam/SteamGamelist.h"
 #include "providers/steam/SteamMetadata.h"
+#include "providers/steam/SteamPlaytime.h"
+#include "model/gaming/Game.h"
 #include "utils/StdHelpers.h"
 
 #include <QDir>
@@ -35,6 +37,11 @@
 namespace {
 QString find_steam_datadir()
 {
+    // OwneetOS: another Steam folder, for tests and previews
+    const QString env = qEnvironmentVariable("OWNEET_STEAM_DIR");
+    if (!env.isEmpty())
+        return env.endsWith(QChar('/')) ? env : env + QChar('/');
+
     std::vector<QString> possible_dirs;
 
 #ifdef Q_OS_WIN
@@ -218,6 +225,18 @@ Provider& SteamProvider::run(SearchContext& sctx)
     if (appid_game_map.empty())
         return *this;
 
+
+    // OwneetOS: play time and last played as Steam counts them (roadmap 4.1)
+    const HashMap<QString, PlayStats> playtime = read_playtime(steamdir_path);
+    int with_playtime = 0;
+    for (const auto& entry : appid_game_map) {
+        const auto it = playtime.find(entry.first);
+        if (it != playtime.cend()) {
+            entry.second->update_playstats(0, it->second.seconds, it->second.last_played);
+            with_playtime++;
+        }
+    }
+    Log::info(display_name(), LOGMSG("Play time found for %1 games").arg(QString::number(with_playtime)));
 
     const Metadata metahelper(display_name());
     fill_metadata_from_cache(appid_game_map, metahelper);
