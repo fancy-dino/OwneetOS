@@ -37,7 +37,7 @@ FocusScope {
         }
         updatePad();
         if (systemInfo.firstStartThisBoot())
-            sounds.play("startup");                // once per boot, not when the interface restarts
+            sounds.playStartup();                  // once per boot, not when the interface restarts
         refreshGames();
         refreshDaemon();          // owneetd may have connected before the theme was loaded
     }

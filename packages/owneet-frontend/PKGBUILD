@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-frontend
-pkgver=0.13.0
+pkgver=0.13.1
 pkgrel=1
 pkgdesc="OwneetOS console interface, a modified version of Pegasus Frontend by Mátyás Mustoha and contributors"
 arch=('x86_64')
@@ -37,6 +37,8 @@ build() {
     ffmpeg -v error -y -i "$wav" -af "silenceremove=start_periods=1:start_threshold=-60dB,areverse,silenceremove=start_periods=1:start_threshold=-60dB,areverse" \
       -ac 1 -ar 48000 -c:a pcm_s16le "build/sounds/${wav##*/}"
   done
+  # One second of silence, looped by the interface to keep the sound output running
+  ffmpeg -v error -y -f lavfi -i anullsrc=r=48000:cl=mono -t 1 -c:a pcm_s16le build/sounds/silence.wav
 }
 
 check() {

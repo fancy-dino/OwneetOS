@@ -851,6 +851,22 @@ code is written (PROJECT_RULES.md section 9).
   eleven 48 kHz mono streams loaded, both outputs with suspension off, the output recorded while
   the virtual pad pressed buttons peaks at −17.6 dB (−91 dB without presses). To check on real
   hardware: timing (no late or cut clicks) and loudness. owneet-frontend 0.13.0.
+- **Hardware test (2026-10-11, NiPoGi on an LG TV):** every sound on time, the on-screen keyboard
+  works; but the start-up sound never played, and once the first section change after pairing the
+  controller was silent. Cause: the output (HDMI to the TV) was still idle when the first sound
+  came, and the TV takes a moment to pick up the audio. Fixed: the interface loops one second of
+  silence from its start (the output is running and the TV in sync before the first real sound),
+  and the start-up sound waits until that has run for a moment and the sound is loaded. Checked
+  in the test VM: one stream always running, the start-up sound recorded at −17.7 dB after the
+  interface restarted. owneet-frontend 0.13.1.
+
+### [ ] 3.13 Start-up animation and power options *(owner's proposals, 2026-10-11)*
+
+- **Deliverables:** (A) an animated start-up: the OwneetOS logo moves with the start-up sound
+  when the interface first appears; (B) power options from any of the three pages: hold B, a
+  progress ring on the button shows how long to hold, then a window with Sleep, Restart, Shut
+  down and Cancel (Cancel selected). Its own interactive demo first; the new binding goes into
+  PROJECT_RULES.md section 9.1 once approved.
 
 ---
 
