@@ -126,7 +126,8 @@ vm/test.sh stop | reset | destroy
   in headless mode (QEMU keeps no copy of a 3D screen).
 - **Test tools in the VM:** `--tools DIR` gives the VM a host folder as a small read-only FAT disk
   (QEMU's virtual FAT, no image). Example: the virtual controller `owneet-testpad`
-  (`daemon/cmd/owneet-testpad`, not shipped in the image), built with
+  (`daemon/cmd/owneet-testpad`, not shipped in the image; `owneet-xprobe` prints gamescope's
+  windows and focus properties and is built the same way), built with
   `tools/build-in-vm 'cd daemon && CGO_ENABLED=0 go build -o ../out/vm-tools/owneet-testpad ./cmd/owneet-testpad'`,
   then in the VM: mount the vfat disk (`mount -o ro /dev/vdc1 /mnt`) and run
   `/mnt/owneet-testpad -wait 4s a guide` (buttons a b x y lb rb view menu guide up down left right).

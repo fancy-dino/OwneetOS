@@ -309,7 +309,10 @@ Events format). Event types (initial list):
 
 - The PC's power button keeps logind's default (shut down) for now; a console-like behaviour
   (e.g. short press = suspend) is decided with the UI.
-- When Steam runs inside the session (store, login: phase 4) it also wants to choose what
-  gamescope shows: decide then how owneetd and Steam share it.
+- **Steam in the session (4.2, checked in the test VM):** started with `GAMESCOPE_WAYLAND_DISPLAY`,
+  Steam binds gamescope's control protocol and writes `GAMESCOPECTRL_BASELAYER_APPID` itself
+  (its own ids, e.g. `413091,769`): its window stays hidden and owneetd loses control of the
+  screen. Started **without** that variable it is an ordinary window: owneetd tags it and brings
+  it to the front, and Steam leaves the property alone. owneetd starts Steam that way.
 - Which privileged helpers exist and their interfaces — installer (6.3), updates (7.1), disks (6.5).
 - Configuration file format and location — step 2.2.

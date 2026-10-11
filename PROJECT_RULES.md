@@ -62,18 +62,20 @@ OwneetOS is a **lightweight, open-source Linux distribution** that turns any x86
 | Streaming apps                  | **Brave**, installed system-wide (AUR `brave-bin`)                                                             | Controlled by the app via **Chromium managed policies** + launch flags (kiosk/app mode, dedicated profile). Widevine enabled (downloaded by Brave at runtime, never redistributed).                                   |
 | Browser extension               | **Manifest V3**, Gamepad API, spatial navigation (e.g. WICG polyfill), per-site content scripts                | Prefer TV interfaces where they exist (e.g. `youtube.com/tv`). Note: Netflix on Linux is limited to 720p (Widevine L3).                                                                                               |
 | Local media                     | **mpv**                                                                                                        | Kodi rejected (too heavy).                                                                                                                                                                                            |
-| Steam                           | System package (multilib), launched with `-gamepadui` for login/store                                          |                                                                                                                                                                                                                       |
+| Steam                           | System package (multilib, in the image with 32-bit drivers), launched with `-gamepadui` for login/store        |                                                                                                                                                                                                                       |
 | Other stores (later)            | **legendary** (Epic), **gogdl** / lgogdownloader (GOG)                                                         | Heroic rejected (Electron, heavy).                                                                                                                                                                                    |
 | Windows games (Wave 1: DRM-free games on disk; stores later) | **umu-launcher** + GE-Proton                                     |                                                                                                                                                                                                                       |
 | Emulation (later, nice-to-have) | **RetroArch**                                                                                                  |                                                                                                                                                                                                                       |
 
 ## 5. Distribution, build and updates
 
-- The OS is distributed as an **ISO on GitHub Releases** (public repository).
-  - GitHub limits release assets to **2 GB per file**: the ISO must stay under it.
-    If the ISO cannot stay under it, a free hosting service other than GitHub may be used for the
-    ISO (to be decided when needed).
-  - Steam's runtime is downloaded on first launch, not shipped in the ISO.
+- The OS is distributed as an **ISO on SourceForge** (free for open-source projects, no practical
+  limit on size or downloads, mirrors worldwide), with its source archive (section 12). The
+  project's **website** has its own `.org` domain on **GitHub Pages**; packages and updates stay
+  on GitHub (decided 2026-10-11: with Steam the ISO is over GitHub's 2 GB limit per file). The
+  SourceForge project and the domain are created by the owner at roadmap step 7.2.
+  - **Steam is in the ISO** with the 32-bit graphics drivers of every GPU ([multilib]); Steam's
+    runtime is downloaded by Steam on first launch, not shipped in the ISO.
 - ISO built with **archiso**, automated with **GitHub Actions**, with checksums and signatures.
 - Packages built with **PKGBUILD**s; updates served from an **own pacman repository `[owneet]`**
   hosted on GitHub. Updates are triggered from the Settings menu with the gamepad.
@@ -386,3 +388,4 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-11 | Library (for the demo of step 4.2): the "Installed" filter is removed (every game shown is installed); the last place of the grid is **"Add games"**, which opens a choice of sources (for now Steam, which opens on **Steam's library**, where owned games are installed and the store is one step away). |
 | 2026-10-11 | **Wave 1 scope grows** (sections 6 and 10): DRM-free games on a disk play whatever their form (ready to run or installer, Linux or Windows through umu-launcher + GE-Proton, hidden from the user); installers run by themselves in the background; moving games and media between disks (new step 6.6). Games folder: `Games` or its translated name, one folder per game with any sub-folders, searched recursively. "Add games" also offers "From a USB stick or disk". |
 | 2026-10-11 | Proton and its runtime are downloaded once, in the background, the first time the console is online ("a necessary evil": the only exception to C9, for Windows games before the first connection). Installing a game from an installer first shows "By installing you accept the game's licence" [Read] [Install] (the user is informed, the project is covered). Step 4.1 approved. |
+| 2026-10-11 | Demo 4.2 approved (with the generic store icon for Steam and no "Add games" in Favorites). **Distribution:** the ISO goes to SourceForge, the website to a `.org` domain on GitHub Pages, packages stay on GitHub (section 5). **Steam is in the ISO** with 32-bit drivers for every GPU (about +300 MiB, [multilib] from the same snapshot). |

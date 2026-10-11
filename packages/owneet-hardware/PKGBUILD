@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-hardware
-pkgver=0.0.4
+pkgver=0.0.5
 pkgrel=1
 pkgdesc="OwneetOS hardware support: firmware, GPU drivers (AMD, Intel, NVIDIA), audio, network, Bluetooth"
 arch=('any')
@@ -13,6 +13,8 @@ depends=(
   'linux-firmware' 'sof-firmware' 'amd-ucode' 'intel-ucode'
   # Graphics: Mesa (AMD, Intel, older NVIDIA via nouveau) and NVIDIA's driver for Turing and newer
   'mesa' 'vulkan-radeon' 'vulkan-intel' 'nvidia-open' 'nvidia-utils'
+  # The same in 32 bits, for Steam and 32-bit games ([multilib])
+  'lib32-mesa' 'lib32-vulkan-radeon' 'lib32-vulkan-intel' 'lib32-nvidia-utils'
   # Audio
   'pipewire' 'wireplumber' 'pipewire-pulse' 'pipewire-alsa'
   # Network and Bluetooth

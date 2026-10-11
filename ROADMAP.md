@@ -936,6 +936,18 @@ code is written (PROJECT_RULES.md section 9).
   comes from Steam (4.1): the frontend must not add its own on top.
 - **Library changes (owner, 2026-10-11; demo first):** no "Installed" filter; the last place of
   the grid is "Add games", opening a choice of sources (Steam for now: Steam's library).
+- **Part 1 (2026-10-11):** [multilib] from the same snapshot; Steam in the image with the 32-bit
+  drivers of every GPU (owneet-base 0.0.20, owneet-hardware 0.0.5): ISO 2164 MiB (+415 MiB; the
+  build now stops at 4 GiB, FAT32's largest file, instead of GitHub's 2 GiB). In the test VM:
+  - Steam starts in the session on its own Big Picture "Sign in" screen (QR code, or name and
+    password); its first start downloads about 2.4 GB (runtime and update) and **shows nothing for
+    a minute or more**: the console must show a "Preparing Steam" screen of its own.
+  - In the **live system** that download is kept in RAM: with 4 GB the kernel stopped Steam (out
+    of memory). Steam needs the installed system there (decision pending).
+  - With `GAMESCOPE_WAYLAND_DISPLAY` Steam takes over gamescope's focus property and its window
+    stays hidden; without it Steam is an ordinary window that owneetd shows (daemon-design.md).
+  - Tools: `daemon/cmd/owneet-xprobe` (test only: gamescope's windows and focus properties),
+    `OWNEET_TEST_MEM_MB` for the test VM's RAM.
 - **Demo (2026-10-11):** `design/demos/4.2-library-add-games.html`, built on the approved demo
   3.7: every game installed, filters All / Favorites / Steam / Local; "Add games" as the last
   place of the grid (not in Favorites, a personal list) → a window with "Steam" (Steam opens on
@@ -963,8 +975,8 @@ code is written (PROJECT_RULES.md section 9).
 - **Deliverables:** Windows DRM-free games start like any other: umu-launcher + GE-Proton, one
   prefix per game, never named in the interface; a "preparing the game" screen until the game's
   first picture. Credits and licences (Wine LGPL, Proton BSD, DXVK / VKD3D-Proton zlib/LGPL).
-- **Decided (owner, 2026-10-11):** Proton and its runtime (about 1 GB) do not fit in the ISO
-  (2 GB limit): downloaded once, in the background, the first time the console is online; until
+- **Decided (owner, 2026-10-11):** Proton and its runtime (about 1 GB) stay out of the ISO:
+  downloaded once, in the background, the first time the console is online; until
   then a Windows game says that it needs a one-time download (the only exception to C9).
 - **Note:** shader pre-compilation exists only for Steam games (Steam's own "Processing
   Vulkan shaders"); other games compile while they play, so the "preparing" screen covers the
@@ -1085,8 +1097,10 @@ code is written (PROJECT_RULES.md section 9).
 
 ### [ ] 7.2 Release pipeline
 
-- **Deliverables:** tagged release builds the ISO in CI, checks the 2 GB limit, signs, writes
-  checksums and release notes, publishes to GitHub Releases.
+- **Deliverables:** tagged release builds the ISO in CI, signs, writes checksums and release
+  notes, publishes the ISO (and its source archive) to SourceForge and the packages to GitHub;
+  the website on GitHub Pages with the project's `.org` domain (PROJECT_RULES.md section 5).
+- **Owner input:** create the SourceForge project and buy the domain.
 - **Legal (PROJECT_RULES.md section 12):** a **source archive** for every release (PKGBUILDs and
   exact sources of every package in the ISO and the repository), licence list in the ISO; only
   then may CI publish ISOs and packages again.

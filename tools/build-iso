@@ -9,7 +9,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK_DIR="/var/tmp/owneet-iso-work"
-MAX_ISO_BYTES=$(( 2 * 1024 * 1024 * 1024 ))   # GitHub Releases limit per file
+# Largest file on a FAT32 USB stick (some ISO writers copy the file): the ISO is published on
+# SourceForge, not on GitHub Releases (PROJECT_RULES.md section 5)
+MAX_ISO_BYTES=$(( 4 * 1024 * 1024 * 1024 - 1 ))
 
 die() { echo "error: $*" >&2; exit 1; }
 
@@ -79,5 +81,5 @@ sudo chown "$(id -u):$(id -g)" "$iso"
 size="$(stat -c %s "$iso")"
 echo "==> built $iso ($(( size / 1024 / 1024 )) MiB)"
 if (( size > MAX_ISO_BYTES )); then
-    die "the ISO is larger than 2 GiB, the GitHub Releases limit (PROJECT_RULES.md section 5)"
+    die "the ISO is 4 GiB or larger: it no longer fits a FAT32 USB stick (PROJECT_RULES.md section 5)"
 fi
