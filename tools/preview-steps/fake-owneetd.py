@@ -78,7 +78,7 @@ state = {
     },
     "apps": [],
     # Steam (4.2): change it with the event line "fake.steam {...}" (e.g. {"allowed": false})
-    "steam": {"installed": True, "allowed": True, "prepared": False, "running": False},
+    "steam": {"installed": True, "allowed": True, "prepared": False, "running": False, "games": []},
     "audio": {"available": True, "output": "hdmi", "volume": 60, "muted": False,
               "outputs": [{"id": "hdmi", "name": "TV (HDMI)"}, {"id": "speakers", "name": "Speakers"}]},
 }

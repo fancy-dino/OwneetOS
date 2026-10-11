@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -27,6 +28,9 @@ import (
 const SteamID = "steam"
 
 const steamGamePrefix = "steam:"
+
+// steamUIAppID is the code Steam uses for its own window when it writes what gamescope shows.
+const steamUIAppID = 769
 
 // SteamLiveMinRAM is the memory Steam needs in the live system, where its first download (about
 // 2.4 GB) is kept in RAM: 12 GB of RAM, as the kernel reports it (PROJECT_RULES.md, 2026-10-11).
@@ -48,6 +52,9 @@ type SteamStatus struct {
 	Allowed   bool `json:"allowed"`   // false in a live system with too little memory
 	Prepared  bool `json:"prepared"`  // Steam has started once (no long first download)
 	Running   bool `json:"running"`
+	// Games are the Steam app ids installed completely, on every library folder present: when
+	// they change (a game installed or removed in Steam) the interface reads its games again
+	Games []string `json:"games"`
 }
 
 // Procs reads and signals processes (/proc by default).
@@ -197,7 +204,7 @@ func (m *Manager) Steam(req SteamRequest) error {
 	// Steam's window comes to the front (a game's window takes over once it appears)
 	if err := m.FocusApp(SteamID); errors.Is(err, ErrNoWindow) {
 		if f := m.focus(sess); f != nil {
-			f.Show([]uint32{m.appIDOf(SteamID), HomeAppID})
+			m.show(f, []uint32{m.appIDOf(SteamID), HomeAppID})
 		}
 	}
 	return nil
@@ -221,7 +228,46 @@ func (m *Manager) SteamStatus() SteamStatus {
 	m.mu.Unlock()
 	_, err := m.LookPath("steam")
 	_, prepared := os.Stat(filepath.Join(dir, "ubuntu12_32", "steam"))
-	return SteamStatus{Installed: err == nil, Allowed: allowed(), Prepared: prepared == nil, Running: running}
+	return SteamStatus{Installed: err == nil, Allowed: allowed(), Prepared: prepared == nil, Running: running,
+		Games: installedSteamGames(dir)}
+}
+
+var manifestFlags = regexp.MustCompile(`(?m)^\s*"StateFlags"\s+"([0-9]+)"`)
+
+// steamLibraries: Steam's folder and the library folders it lists.
+func steamLibraries(dir string) []string {
+	libraries := []string{dir}
+	if data, err := os.ReadFile(filepath.Join(dir, "steamapps", "libraryfolders.vdf")); err == nil {
+		for _, match := range libraryPath.FindAllStringSubmatch(string(data), -1) {
+			if match[1] != dir {
+				libraries = append(libraries, match[1])
+			}
+		}
+	}
+	return libraries
+}
+
+// installedSteamGames lists the app ids installed completely (StateFlags bit 4), sorted.
+func installedSteamGames(dir string) []string {
+	ids := []string{}
+	seen := map[string]bool{}
+	for _, lib := range steamLibraries(dir) {
+		files, _ := filepath.Glob(filepath.Join(lib, "steamapps", "appmanifest_*.acf"))
+		for _, f := range files {
+			id := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(f), "appmanifest_"), ".acf")
+			data, err := os.ReadFile(f)
+			match := manifestFlags.FindSubmatch(data)
+			if err != nil || match == nil || seen[id] {
+				continue
+			}
+			if flags, _ := strconv.Atoi(string(match[1])); flags&4 != 0 {
+				seen[id] = true
+				ids = append(ids, id)
+			}
+		}
+	}
+	sort.Strings(ids)
+	return ids
 }
 
 // reaperAppID returns the Steam app id of Steam's launcher process ("reaper SteamLaunch AppId=N").
@@ -276,13 +322,7 @@ func (m *Manager) steamGameName(appid string) string {
 	if name != "" {
 		return name
 	}
-	libraries := []string{dir}
-	if data, err := os.ReadFile(filepath.Join(dir, "steamapps", "libraryfolders.vdf")); err == nil {
-		for _, match := range libraryPath.FindAllStringSubmatch(string(data), -1) {
-			libraries = append(libraries, match[1])
-		}
-	}
-	for _, lib := range libraries {
+	for _, lib := range steamLibraries(dir) {
 		data, err := os.ReadFile(filepath.Join(lib, "steamapps", "appmanifest_"+appid+".acf"))
 		if match := manifestName.FindStringSubmatch(string(data)); err == nil && match != nil {
 			return match[1]
@@ -320,7 +360,7 @@ func (m *Manager) steamGame(appid string, reaper int, unit string) *App {
 	m.Broker.Publish("app.started", map[string]string{"id": id, "name": name, "kind": KindGame})
 	if sess, err := m.Session(); err == nil {
 		if f := m.focus(sess); f != nil {
-			f.Show([]uint32{app.appID, steam, HomeAppID})
+			m.show(f, []uint32{app.appID, steam, HomeAppID})
 		}
 	}
 	return app
@@ -390,4 +430,60 @@ func (m *Manager) closeSteamGame(a *App, force bool) {
 			m.signalGame(a, syscall.SIGKILL)
 		}
 	})
+}
+
+// steamRequest: Steam wrote what gamescope should show, in its own codes (769: its own window; a
+// Steam app id: that game; others are unknown). While Steam or one of its games is in front,
+// owneetd shows what Steam asks for, in owneetd's app ids; otherwise (e.g. the home screen after
+// Guide) owneetd puts its own choice back: Steam never takes the screen by itself.
+func (m *Manager) steamRequest(ids []uint32) {
+	sess, err := m.Session()
+	if err != nil {
+		return
+	}
+	f := m.focus(sess)
+	if f == nil {
+		return
+	}
+	m.mu.Lock()
+	m.init()
+	steam, running := m.apps[SteamID]
+	shown := append([]uint32(nil), m.shown...)
+	steamFront := false
+	if running && len(shown) > 0 {
+		steamFront = shown[0] == steam.appID
+		for _, a := range m.apps {
+			steamFront = steamFront || (a.reaper != 0 && a.appID == shown[0])
+		}
+	}
+	var want []uint32
+	if steamFront {
+		seen := map[uint32]bool{}
+		add := func(id uint32) {
+			if !seen[id] {
+				seen[id] = true
+				want = append(want, id)
+			}
+		}
+		for _, id := range ids {
+			if id == steamUIAppID {
+				add(steam.appID)
+			} else if g, ok := m.apps[steamGamePrefix+strconv.FormatUint(uint64(id), 10)]; ok {
+				add(g.appID)
+			}
+		}
+		add(steam.appID)
+		add(HomeAppID)
+	}
+	m.mu.Unlock()
+	if want == nil {
+		if len(shown) == 0 {
+			shown = []uint32{HomeAppID}
+		}
+		m.Log.Debug("something else chose what gamescope shows: put back", "asked", ids, "shown", shown)
+		m.show(f, shown)
+		return
+	}
+	m.Log.Debug("Steam chose what gamescope shows", "asked", ids, "shown", want)
+	m.show(f, want)
 }

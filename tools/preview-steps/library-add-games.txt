@@ -23,3 +23,9 @@ pad rt rt
 key Next Next Next Next
 pad a a
 shot 09-needs-install
+# a game installed in Steam: back on the home screen, the console reads its games again
+pad b
+event fake.steam {"games": ["480"]}
+event focus.changed {"focus": "home"}
+wait 3
+shot 10-after-rescan

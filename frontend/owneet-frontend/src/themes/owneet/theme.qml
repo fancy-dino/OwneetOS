@@ -27,6 +27,14 @@ FocusScope {
         // The interface restarts when the console moves to another screen (and when it comes
         // back): it opens again on Settings → Display, where the move was asked
         // (kept for two minutes: going back to the previous screen restarts it once more)
+        if (api.memory.has("rescanReturn")) {            // after reading the games again (4.2)
+            const r = String(api.memory.get("rescanReturn")).split("|");
+            api.memory.unset("rescanReturn");
+            if (Date.now() - Number(r[0]) < 60000 && sections.indexOf(r[1]) >= 0) {
+                section = r[1];
+                library.startOnAddGames = r[2] === "add";
+            }
+        }
         if (api.memory.has("displayReturn")) {
             if (Date.now() - api.memory.get("displayReturn") < 120000) {
                 settings.section = "display";
@@ -96,6 +104,24 @@ FocusScope {
     // ---- Games, most recently played first (shared by the sections)
     property var games: []
     function refreshGames() { games = GameInfo.recent(api.allGames); }
+    // Steam's installed games, as owneetd last listed them: a game installed or removed in Steam
+    // makes the console read its games again when you come back from Steam (4.2)
+    property var steamGamesKey: null
+    function checkSteamGames() {
+        if (!owneetd.connected) return;
+        owneetd.get("/v1/steam", (status, st) => {
+            if (status !== 200 || !st.games) return;
+            const key = st.games.join(",");
+            if (root.steamGamesKey !== null && key !== root.steamGamesKey) {
+                console.log("Steam's games changed: reading the games again");
+                // reading the games again rebuilds the interface: it comes back where it was
+                api.memory.set("rescanReturn", [Date.now(), root.section,
+                    root.section === "library" && library.addGamesSelected ? "add" : ""].join("|"));
+                Internal.settings.reloadProviders();
+            }
+            root.steamGamesKey = key;
+        });
+    }
     Connections {
         target: api.allGames
         function onCountChanged() { root.refreshGames(); }
@@ -158,6 +184,7 @@ FocusScope {
         refreshApps();
         refreshControllers();
         applyKeyboard();          // the on-screen keyboard and physical keyboards follow the chosen layout
+        checkSteamGames();
         checkDisplayPending();
     }
     Connections {
@@ -167,9 +194,12 @@ FocusScope {
             root.noticeFor(type, data);
             if (type === "app.started" || type === "app.exited") {
                 root.refreshApps();
+                if (type === "app.exited" && (data.id === "steam" || String(data.id).startsWith("steam:")))
+                    root.checkSteamGames();
                 if (type === "app.exited")
                     refreshTimer.restart();       // play time and "last played" have changed
             } else if (type === "focus.changed") {
+                if (data.focus === "home") root.checkSteamGames();
                 // Guide brings the home screen over a running game: the "launch" sound, the other way
                 const fromGame = root.gameOnScreen;
                 root.focusedApp = data.focus;

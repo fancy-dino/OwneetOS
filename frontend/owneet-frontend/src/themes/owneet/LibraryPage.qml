@@ -52,7 +52,24 @@ FocusScope {
             return [P(["a"], "prompt.play"), P(["x"], "prompt.details"), P(["menu"], "prompt.options")].concat(page);
         return page;
     }
-    function focusStart() { grid.count > 0 ? grid.forceActiveFocus() : (disks.visible ? disks.forceActiveFocus() : page.forceActiveFocus()); }
+    readonly property bool addGamesSelected: grid.currentItem !== null && grid.currentItem.addTile === true
+    // Back from Steam after the games were read again: "Add games" stays selected while the games
+    // arrive (they come a moment after the interface)
+    property bool startOnAddGames: false
+    onStartOnAddGamesChanged: if (startOnAddGames) addGamesHold.restart()
+    Timer { id: addGamesHold; interval: 4000; onTriggered: page.startOnAddGames = false }
+    onPlacesChanged: if (startOnAddGames) Qt.callLater(selectAddGames)
+    function selectAddGames() {
+        if (grid.count === 0 || filter === "favorites")
+            return;
+        grid.currentIndex = grid.count - 1;
+        grid.positionViewAtIndex(grid.currentIndex, GridView.Contain);
+    }
+    function focusStart() {
+        if (startOnAddGames)
+            selectAddGames();
+        grid.count > 0 ? grid.forceActiveFocus() : (disks.visible ? disks.forceActiveFocus() : page.forceActiveFocus());
+    }
     function select(game) {
         filter = "all";
         const i = shown.indexOf(game);

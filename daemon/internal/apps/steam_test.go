@@ -5,6 +5,8 @@ package apps
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -116,7 +118,9 @@ func TestSteamStartsWithoutGamescopeControl(t *testing.T) {
 	if argv != "/usr/bin/env -u GAMESCOPE_WAYLAND_DISPLAY /usr/bin/steam -gamepadui steam://open/games" {
 		t.Fatalf("argv %q", argv)
 	}
+	m.checkWindows()       // no window yet: nothing
 	focus.openWindow(1001) // Steam's window
+	m.checkWindows()
 	if e := next(t, ch, "app.window"); e.Data.(map[string]string)["id"] != SteamID {
 		t.Fatalf("app.window %v", e.Data)
 	}
@@ -230,5 +234,67 @@ func TestSteamGameStartedInSteamAndSteamClosing(t *testing.T) {
 	}
 	if d := next(t, ch, "app.exited").Data.(map[string]string); d["id"] != SteamID {
 		t.Fatalf("second exit %v", d)
+	}
+}
+
+// Steam writes what gamescope shows in its own codes: owneetd translates them while Steam is in
+// front, and puts its own choice back otherwise (Steam never takes the screen by itself).
+func TestSteamRequestsWhatToShow(t *testing.T) {
+	m, units, focus, procs, _, ch := newSteamManager(t)
+	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "app.started")
+	steamUnit := units.started[0]
+	focus.openWindow(1001)
+	steamID := m.appIDOf(SteamID)
+	shown := func() []uint32 {
+		focus.mu.Lock()
+		defer focus.mu.Unlock()
+		return append([]uint32(nil), focus.shown...)
+	}
+
+	focus.request([]uint32{413091, steamUIAppID}) // Steam starting: its own window
+	if got := shown(); !sameIDs(got, []uint32{steamID, HomeAppID}) {
+		t.Fatalf("Steam in front: %v", got)
+	}
+	procs.add(2000, 1001, steamUnit, "reaper", "SteamLaunch", "AppId=480", "--", "/g/spacewar")
+	procs.add(2001, 2000, steamUnit, "/g/spacewar")
+	focus.openWindow(2001)
+	gameID := m.appIDOf("steam:480")
+	focus.request([]uint32{480, steamUIAppID}) // the game, in Steam's codes
+	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) {
+		t.Fatalf("Steam game: %v", got)
+	}
+	m.Guide(true) // the home screen: Steam cannot take it back
+	focus.request([]uint32{steamUIAppID})
+	if got := shown(); !sameIDs(got, []uint32{HomeAppID}) || m.Status().Focus != "home" {
+		t.Fatalf("home screen: %v, focus %q", got, m.Status().Focus)
+	}
+}
+
+func TestSteamStatusListsInstalledGames(t *testing.T) {
+	m, _, _, _, _, _ := newSteamManager(t)
+	other := t.TempDir()
+	write := func(path, text string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	manifest := func(lib, id, flags string) {
+		write(filepath.Join(lib, "steamapps", "appmanifest_"+id+".acf"),
+			"\"AppState\"\n{\n\t\"appid\"\t\t\""+id+"\"\n\t\"StateFlags\"\t\t\""+flags+"\"\n}\n")
+	}
+	write(filepath.Join(m.SteamDir, "steamapps", "libraryfolders.vdf"),
+		"\"libraryfolders\"\n{\n\t\"0\"\n\t{\n\t\t\"path\"\t\t\""+m.SteamDir+"\"\n\t}\n\t\"1\"\n\t{\n\t\t\"path\"\t\t\""+other+"\"\n\t}\n}\n")
+	manifest(m.SteamDir, "480", "4")
+	manifest(m.SteamDir, "570", "1026") // downloading
+	manifest(other, "620", "6")         // update waiting: installed
+	if got := strings.Join(m.SteamStatus().Games, ","); got != "480,620" {
+		t.Fatalf("games %q", got)
 	}
 }

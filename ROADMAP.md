@@ -960,6 +960,16 @@ code is written (PROJECT_RULES.md section 9).
   and keep Steam's play time. Fixed on the way: A on an item whose action selects another item in
   the same window (e.g. the guide's Back button) also pressed that one. Preview:
   `tools/preview-steps/library-add-games.txt`.
+- **Checked in the test VM (gamescope, 13 GB of RAM; 10 GB is refused as decided):** Steam opened
+  through owneetd; Steam writes gamescope's focus property even without the Wayland variable
+  (through X11), so owneetd now translates Steam's requests while Steam is in front and undoes
+  them otherwise; `app.window` only when gamescope can really show the window (Steam's early
+  helper windows are never shown); Guide: home screen, Steam does not take it back (20 s), Guide
+  again: Steam. A game installed or removed in Steam makes the console read its games again when
+  you come back (owneetd lists Steam's installed games), back where you were (e.g. "Add games").
+  owneetd 0.11.3, owneet-frontend 0.16.1. To check on real hardware with the owner's account:
+  login, installing and starting a game, Guide in a game, Steam's own reaction to the Guide
+  button, closing a game from the home screen.
 - **Demo (2026-10-11):** `design/demos/4.2-library-add-games.html`, built on the approved demo
   3.7: every game installed, filters All / Favorites / Steam / Local; "Add games" as the last
   place of the grid (not in Favorites, a personal list) → a window with "Steam" (Steam opens on

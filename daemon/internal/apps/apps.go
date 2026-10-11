@@ -102,8 +102,9 @@ type Exit struct {
 
 // Focus chooses what gamescope shows (see Gamescope).
 type Focus interface {
-	// Watch tags windows with the app id that tag returns for their process; runs until closed.
-	Watch(tag func(pid int) uint32)
+	// Watch tags windows with the app id that tag returns for their process, and passes on what
+	// someone else (Steam) asks gamescope to show; runs until closed.
+	Watch(tag func(pid int) uint32, request func(appIDs []uint32))
 	// Show shows the first of these apps that has a window.
 	Show(appIDs []uint32) error
 	// Focused returns the app id on screen (0: none).
@@ -150,6 +151,7 @@ type Manager struct {
 	homePID int             // of the session being watched
 	// names given by the interface to Steam games about to start, by Steam app id
 	steamNames map[string]string
+	shown      []uint32 // what owneetd last asked gamescope to show
 }
 
 func (m *Manager) init() {
@@ -218,33 +220,50 @@ func (m *Manager) tag(pid int) uint32 {
 	}
 	if unit == steamUnit {
 		if appid, reaper := m.reaperOf(pid); appid != "" {
-			return m.markWindow(m.steamGame(appid, reaper, unit))
+			return m.steamGame(appid, reaper, unit).appID
 		}
 	}
 	m.mu.Lock()
-	var app *App
+	defer m.mu.Unlock()
 	for _, a := range m.apps {
 		if a.unit == unit && a.reaper == 0 {
-			app = a
+			return a.appID
+		}
+	}
+	return 0
+}
+
+// checkWindows sends "app.window" when gamescope can show an app's window for the first time
+// (e.g. Steam ready after its first download; its early helper windows are never shown).
+func (m *Manager) checkWindows() {
+	sess, err := m.Session()
+	if err != nil {
+		return
+	}
+	f := m.focus(sess)
+	if f == nil {
+		return
+	}
+	visible, err := f.Visible()
+	if err != nil {
+		return
+	}
+	shown := map[uint32]bool{}
+	for _, v := range visible {
+		shown[v] = true
+	}
+	m.mu.Lock()
+	var ready []string
+	for _, a := range m.apps {
+		if !a.window && shown[a.appID] {
+			a.window = true
+			ready = append(ready, a.ID)
 		}
 	}
 	m.mu.Unlock()
-	return m.markWindow(app)
-}
-
-// markWindow notes that an app has a window ("app.window" the first time) and returns its app id.
-func (m *Manager) markWindow(a *App) uint32 {
-	if a == nil {
-		return 0
+	for _, id := range ready {
+		m.Broker.Publish("app.window", map[string]string{"id": id})
 	}
-	m.mu.Lock()
-	first := !a.window
-	a.window = true
-	m.mu.Unlock()
-	if first {
-		m.Broker.Publish("app.window", map[string]string{"id": a.ID})
-	}
-	return a.appID
 }
 
 // Run adopts apps still running from a previous owneetd and tracks exits until stop is closed.
@@ -269,6 +288,7 @@ func (m *Manager) Run(stop <-chan struct{}) {
 		case <-tick.C:
 			m.watchSession()
 			m.scanSteam()
+			m.checkWindows()
 		}
 	}
 }
@@ -283,7 +303,7 @@ func (m *Manager) watchSession() {
 	m.homePID = sess.HomePID
 	m.mu.Unlock()
 	if f := m.focus(sess); f != nil {
-		f.Watch(m.tag)
+		f.Watch(m.tag, m.steamRequest)
 	}
 }
 
@@ -409,7 +429,7 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 	// gamescope: the new app comes to the front as soon as it has a window; the home screen
 	// stays on screen until then.
 	if f := m.focus(sess); f != nil {
-		if err := f.Show([]uint32{app.appID, HomeAppID}); err != nil {
+		if err := m.show(f, []uint32{app.appID, HomeAppID}); err != nil {
 			m.Log.Debug("cannot choose what gamescope shows", "err", err)
 		}
 	}
@@ -460,7 +480,7 @@ func (m *Manager) ended(app *App, result string) {
 	if sess, err := m.Session(); err == nil {
 		if f := m.focus(sess); f != nil {
 			if focused, err := f.Focused(); err == nil && (focused == app.appID || focused == 0) {
-				f.Show([]uint32{HomeAppID}) // back to the home screen
+				m.show(f, []uint32{HomeAppID}) // back to the home screen
 			}
 		}
 	}
@@ -504,6 +524,14 @@ func (m *Manager) Kill(id string) error {
 	}
 	m.Log.Info("force-closing app", "id", id)
 	return m.Units.Kill(a.unit)
+}
+
+// show asks gamescope to show the first of these apps that has a window, and remembers it.
+func (m *Manager) show(f Focus, appIDs []uint32) error {
+	m.mu.Lock()
+	m.shown = append([]uint32(nil), appIDs...)
+	m.mu.Unlock()
+	return f.Show(appIDs)
 }
 
 func (m *Manager) focus(s Session) Focus {
@@ -582,7 +610,7 @@ func (m *Manager) FocusApp(id string) error {
 	}
 	for _, v := range visible {
 		if v == appID {
-			if err := f.Show([]uint32{appID, HomeAppID}); err != nil {
+			if err := m.show(f, []uint32{appID, HomeAppID}); err != nil {
 				return err
 			}
 			m.Broker.Publish("focus.changed", map[string]string{"focus": id})
@@ -662,7 +690,7 @@ func (m *Manager) toggle(sess Session) {
 	m.mu.Unlock()
 
 	if shown != nil {
-		if err := f.Show([]uint32{HomeAppID}); err != nil {
+		if err := m.show(f, []uint32{HomeAppID}); err != nil {
 			m.Log.Warn("cannot show the home screen", "err", err)
 			return
 		}

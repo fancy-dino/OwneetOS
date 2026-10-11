@@ -18,7 +18,9 @@ import (
 // shell choose which app is on screen. owneetd plays that role:
 //   - it watches new windows and tags them: the home screen with HomeAppID, each app with its own;
 //   - it writes GAMESCOPECTRL_BASELAYER_APPID: the apps to show, first one with a window wins;
-//   - it reads GAMESCOPE_FOCUSED_APP (on screen) and GAMESCOPE_FOCUSABLE_APPS (have a window).
+//   - it reads GAMESCOPE_FOCUSED_APP (on screen) and GAMESCOPE_FOCUSABLE_APPS (have a window);
+//   - Steam writes GAMESCOPECTRL_BASELAYER_APPID too (its own codes, e.g. when it starts): those
+//     writes are reported to the Manager, which translates or undoes them (steam.go).
 //
 // Settings → Display uses the same root window properties as Steam (RootString, SetRootString,
 // SetRootCardinal): the screen's modes, the mode "nudge" and the keyboard layout.
@@ -35,6 +37,39 @@ type Gamescope struct {
 
 	watchOnce sync.Once
 	stop      chan struct{}
+	written   []written // owneetd's recent writes of GAMESCOPECTRL_BASELAYER_APPID
+}
+
+// written is a value owneetd wrote: its change notification is not someone else's request.
+type written struct {
+	ids []uint32
+	at  time.Time
+}
+
+func sameIDs(a, b []uint32) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// ours tells whether a value is one owneetd wrote in the last few seconds; callers hold g.mu.
+func (g *Gamescope) ours(ids []uint32) bool {
+	keep := g.written[:0]
+	found := false
+	for _, w := range g.written {
+		if time.Since(w.at) < 5*time.Second {
+			keep = append(keep, w)
+			found = found || sameIDs(w.ids, ids)
+		}
+	}
+	g.written = keep
+	return found
 }
 
 var atomNames = []string{"GAMESCOPE_FOCUSED_APP", "GAMESCOPE_FOCUSABLE_APPS",
@@ -180,6 +215,7 @@ func (g *Gamescope) Show(appIDs []uint32) error {
 	if err := g.connect(); err != nil {
 		return err
 	}
+	g.written = append(g.written, written{ids: append([]uint32(nil), appIDs...), at: time.Now()})
 	err := setCardinals(g.conn, g.root, g.atoms["GAMESCOPECTRL_BASELAYER_APPID"], appIDs)
 	if err != nil {
 		g.reset()
@@ -199,20 +235,21 @@ func (g *Gamescope) Close() {
 }
 
 // Watch tags every window, present and future, with the app id that tag returns for its process
-// (0: leave it alone). Until something is chosen, the home screen is shown. It runs until Close.
-func (g *Gamescope) Watch(tag func(pid int) uint32) {
+// (0: leave it alone), and reports what someone else (Steam) asks gamescope to show. Until
+// something is chosen, the home screen is shown. It runs until Close.
+func (g *Gamescope) Watch(tag func(pid int) uint32, request func(appIDs []uint32)) {
 	g.watchOnce.Do(func() {
 		g.mu.Lock()
 		g.stop = make(chan struct{})
 		stop := g.stop
 		g.mu.Unlock()
-		go g.watch(tag, stop)
+		go g.watch(tag, request, stop)
 	})
 }
 
-func (g *Gamescope) watch(tag func(pid int) uint32, stop <-chan struct{}) {
+func (g *Gamescope) watch(tag func(pid int) uint32, request func([]uint32), stop <-chan struct{}) {
 	for {
-		if err := g.watchConn(tag, stop); err != nil && g.Log != nil {
+		if err := g.watchConn(tag, request, stop); err != nil && g.Log != nil {
 			g.Log.Debug("gamescope window watch interrupted", "err", err)
 		}
 		select {
@@ -224,7 +261,7 @@ func (g *Gamescope) watch(tag func(pid int) uint32, stop <-chan struct{}) {
 }
 
 // watchConn watches until the connection fails or stop is closed.
-func (g *Gamescope) watchConn(tag func(pid int) uint32, stop <-chan struct{}) error {
+func (g *Gamescope) watchConn(tag func(pid int) uint32, request func([]uint32), stop <-chan struct{}) error {
 	conn, root, atoms, err := g.dial()
 	if err != nil {
 		return err
@@ -242,13 +279,16 @@ func (g *Gamescope) watchConn(tag func(pid int) uint32, stop <-chan struct{}) er
 		}
 	}()
 
-	// Map events of the top-level windows.
+	// Map events of the top-level windows, and changes of the root window's properties.
 	if err := xproto.ChangeWindowAttributesChecked(conn, root, xproto.CwEventMask,
-		[]uint32{xproto.EventMaskSubstructureNotify}).Check(); err != nil {
+		[]uint32{xproto.EventMaskSubstructureNotify | xproto.EventMaskPropertyChange}).Check(); err != nil {
 		return err
 	}
 	if current, _ := cardinals(conn, root, atoms["GAMESCOPECTRL_BASELAYER_APPID"]); len(current) == 0 {
 		// gamescope --steam shows nothing until told: start with the home screen.
+		g.mu.Lock()
+		g.written = append(g.written, written{ids: []uint32{HomeAppID}, at: time.Now()})
+		g.mu.Unlock()
 		setCardinals(conn, root, atoms["GAMESCOPECTRL_BASELAYER_APPID"], []uint32{HomeAppID})
 	}
 	tree, err := xproto.QueryTree(conn, root).Reply()
@@ -263,8 +303,23 @@ func (g *Gamescope) watchConn(tag func(pid int) uint32, stop <-chan struct{}) er
 		if ev == nil && xerr == nil {
 			return errors.New("connection closed")
 		}
-		if m, ok := ev.(xproto.MapNotifyEvent); ok {
-			g.tagWindow(conn, atoms, m.Window, tag)
+		switch e := ev.(type) {
+		case xproto.MapNotifyEvent:
+			g.tagWindow(conn, atoms, e.Window, tag)
+		case xproto.PropertyNotifyEvent:
+			if e.Atom != atoms["GAMESCOPECTRL_BASELAYER_APPID"] || e.State != xproto.PropertyNewValue || request == nil {
+				continue
+			}
+			ids, err := cardinals(conn, root, e.Atom)
+			if err != nil {
+				continue
+			}
+			g.mu.Lock()
+			mine := g.ours(ids)
+			g.mu.Unlock()
+			if !mine {
+				request(ids)
+			}
 		}
 	}
 }

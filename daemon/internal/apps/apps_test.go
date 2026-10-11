@@ -58,15 +58,17 @@ func (f *fakeUnits) Exited() <-chan Exit { return f.exits }
 type fakeFocus struct {
 	mu      sync.Mutex
 	tag     func(pid int) uint32
+	request func([]uint32)
 	visible []uint32
 	shown   []uint32
 	focused uint32
 }
 
-func (f *fakeFocus) Watch(tag func(pid int) uint32) {
+func (f *fakeFocus) Watch(tag func(pid int) uint32, request func([]uint32)) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.tag = tag
+	f.request = request
 }
 func (f *fakeFocus) recompute() {
 	f.focused = 0

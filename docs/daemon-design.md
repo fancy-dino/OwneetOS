@@ -205,7 +205,7 @@ it), `power.failed` (502).
 | POST | `/v1/apps/{id}/close` | Close: SIGTERM to all its processes, SIGKILL after 10 seconds |
 | POST | `/v1/apps/{id}/kill` | Force-close a frozen game at once (SIGKILL to all its processes) |
 
-| GET | `/v1/steam` | `installed`, `allowed` (false in a live system with less than 12 GB of RAM), `prepared` (Steam has started once: no long first download), `running` (4.2) |
+| GET | `/v1/steam` | `installed`, `allowed` (false in a live system with less than 12 GB of RAM), `prepared` (Steam has started once: no long first download), `running`, `games` (Steam app ids installed completely: the interface reads its games again when they change) (4.2) |
 | POST | `/v1/steam` | `{"open": "library"}` / `{"open": "store"}`, or `{"run": "480", "name": "…"}` — Steam starts if needed (202); a game is listed in `/v1/apps` as `steam:480` once Steam has started it |
 
 Errors: `apps.unavailable` (503), `apps.invalid` (400), `apps.program_not_found` (400),
@@ -232,8 +232,8 @@ at a time; apps such as the browser may run next to it), `apps.unknown_app` (404
   which shows only the newest window, holding Guide for 2 seconds closes the app on screen; a short
   press does nothing. `guide.pressed` and `guide.released` are still sent to clients.
 - Events: `app.started`, `app.exited` (with systemd's result: `success`, `exit-code`, `signal`,
-  `timeout`…), `app.window` (an app's first window appeared, e.g. Steam ready after its first
-  download), `focus.changed`.
+  `timeout`…), `app.window` (gamescope can show one of the app's windows for the first time, e.g.
+  Steam ready after its first download: its early helper windows are never shown), `focus.changed`.
 - **Steam (4.2):** the app `steam`, started as `env -u GAMESCOPE_WAYLAND_DISPLAY steam -gamepadui
   URL` (see below); when it already runs, owneetd hands it the `steam://` address. A game Steam
   starts runs inside Steam's unit under Steam's launcher (`reaper SteamLaunch AppId=N -- …`):
@@ -242,6 +242,12 @@ at a time; apps such as the browser may run next to it), `apps.unknown_app` (404
   app id of its own (Guide, Resume and "one game at a time" work as for any game), and closes it
   by signalling the launcher's processes only (Steam keeps running). Steam's play time is Steam's
   (the frontend does not add its own, 4.1).
+- **Steam writes what gamescope shows too** (through X11, even without `GAMESCOPE_WAYLAND_DISPLAY`;
+  seen in the test VM: once when it starts, in its own codes, e.g. `413091,769`). owneetd watches
+  the property and tells its own writes from others' (those of the last few seconds): while Steam
+  or one of its games is in front, it shows what Steam asks for, translated (769: Steam's window;
+  a Steam app id: that game; unknown codes dropped; the home screen last); otherwise (e.g. the home
+  screen after Guide) it puts its own choice back: Steam never takes the screen by itself.
 - Tested in the test VM: gamescope with its headless backend (test hook
   `owneet.debug.gamescope_backend=headless`) and cage, a virtual gamepad for Guide, `mpv` as the
   test app.
