@@ -933,8 +933,9 @@ code is written (PROJECT_RULES.md section 9).
   controls gamescope's focus itself, as owneetd does; Steam reacts to the Guide button, which
   owneetd owns; third-party launchers inside some games (e.g. EA app, Ubisoft Connect) need a
   pointer: a controller-driven pointer must exist before they ship. Play time of Steam games
-  comes from Steam (4.1): the frontend must not add its own on top. The library's new place
-  gets a demo first.
+  comes from Steam (4.1): the frontend must not add its own on top.
+- **Library changes (owner, 2026-10-11; demo first):** no "Installed" filter; the last place of
+  the grid is "Add games", opening a choice of sources (Steam for now: Steam's library).
 
 ### [ ] 4.3 Local DRM-free games
 
