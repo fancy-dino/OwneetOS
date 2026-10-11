@@ -770,7 +770,7 @@ code is written (PROJECT_RULES.md section 9).
   window opened right at the interface's start had no selected button (its buttons are created a
   moment later), so A did nothing there. owneet-frontend 0.10.2.
 
-### [~] 3.10 On-screen keyboard
+### [x] 3.10 On-screen keyboard
 
 - **Deliverables:** gamepad OSK for frontend text fields (Wi-Fi passwords, search), layouts per language.
   Until then the Wi-Fi password is typed with a keyboard (3.9, part 2).
@@ -795,9 +795,21 @@ code is written (PROJECT_RULES.md section 9).
   keyboard later, through owneetd's virtual keyboard (2.4) and the extension (5.2).
   owneet-frontend 0.11.0.
 
-### [ ] 3.11 Notifications
+### [~] 3.11 Notifications
 
 - **Deliverables:** notice area on home + transient toasts fed by daemon events.
+- **Demo (2026-10-11, waiting for approval):** `design/demos/3.11-notifications.html`. Proposals in
+  it: **banners** at the top right, under the top bar (icon, title, one line of detail; at most
+  three at a time, newest on top, gone after 5 s); two kinds: "attention" (accent border and icon,
+  "error" sound: battery low, controller disconnected, Wi-Fi lost, game closed unexpectedly, disk
+  read only) and "info" ("notify" sound: controller connected, back online, update ready); a
+  **bell** in the top bar counts the ones not seen yet; **Y on the home screen** (a page-level
+  option, section 9.1) opens the **Notifications** window: newest first, with the time and, where
+  there is one, where A takes you (Controllers, Network, Play, Disks, Update); X removes one, Y
+  clears all, B closes; opening it marks everything as seen. The list is kept until the console
+  restarts (at most 30). **While a game is on screen nothing is drawn over it** (the overlay is
+  Wave 2): notifications wait in the list and the bell counts them. Disks (6.5) and updates (7.1)
+  only send theirs when those steps arrive.
 
 ### [ ] 3.12 Interface sounds
 

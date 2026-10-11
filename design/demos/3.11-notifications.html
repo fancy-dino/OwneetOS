@@ -1,0 +1,442 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS — interactive demo for roadmap step 3.11 (notifications). Open in a browser; drive it
+     with a gamepad or the keyboard. Fonts come from Google Fonts for the demo only (the console
+     bundles them); sounds come from sounds.js (frontend/sounds/). The events are invented: the
+     console gets them from owneetd. The home screen behind is a still picture of demo 3.6. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS — Notifications (demo 3.11)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1; --motion: 1; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+.frame { position: relative; flex: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+
+.stage {
+  width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px;
+  display: grid; grid-template-rows: auto 1fr auto; gap: 20px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350;
+}
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+.label { text-transform: uppercase; letter-spacing: .09em; font-weight: 500; color: var(--muted); }
+
+[data-f] { outline: none; position: relative; transition: transform calc(.14s * var(--motion)) ease, box-shadow calc(.14s * var(--motion)) ease; }
+[data-f].focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); transform: scale(calc(1 + .015 * var(--motion))); z-index: 2; }
+
+/* ---------- Top bar ---------- */
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 36px; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.status { display: flex; align-items: center; gap: 18px; color: var(--muted); }
+.status svg { width: calc(20px * var(--ts)); height: calc(20px * var(--ts)); }
+.status .clock { color: var(--fg); font-weight: 500; }
+.bell { position: relative; display: inline-flex; }
+.bell .count { position: absolute; top: -7px; right: -10px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+               background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 600; display: grid; place-items: center; }
+
+/* ---------- The home screen behind (still picture of demo 3.6) ---------- */
+.home { display: grid; grid-template-rows: 1fr auto; gap: 20px; min-height: 0; }
+.hero { position: relative; border-radius: 18px; overflow: hidden; padding: 30px 34px; display: flex; flex-direction: column;
+        justify-content: flex-end; gap: 12px; color: #fff;
+        background: radial-gradient(70% 90% at 85% 15%, hsl(205 85% 62% / .85), transparent 60%),
+                    radial-gradient(60% 80% at 60% 110%, hsl(245 70% 42%), transparent 70%),
+                    linear-gradient(135deg, hsl(205 45% 22%), hsl(235 55% 10%)); }
+.hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.55), rgba(0,0,0,0) 70%); }
+.hero > * { position: relative; }
+.hero .kicker { text-transform: uppercase; letter-spacing: .12em; opacity: .85; font-weight: 500; }
+.hero .running-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #7CFC9A; margin-right: 8px; }
+.games { display: grid; grid-template-columns: repeat(7, 1fr); gap: 14px; }
+.cover { aspect-ratio: 3 / 4; border-radius: 12px; background: linear-gradient(160deg, hsl(var(--h) 55% 45%), hsl(calc(var(--h) + 40) 50% 18%)); }
+
+/* ---------- Prompt bar and glyphs ---------- */
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 24px; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+
+/* ---------- Banners: top right, under the top bar ---------- */
+.banners { position: absolute; top: 88px; right: 64px; width: 400px; display: grid; gap: 10px; z-index: 30; pointer-events: none; }
+.banner { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 16px;
+          background: var(--surface); border: 1px solid var(--line); box-shadow: 0 18px 40px -16px rgba(0,0,0,.65);
+          animation: in calc(.25s * var(--motion)) ease; }
+.banner.attention { border-color: var(--accent); }
+.banner.out { animation: out calc(.25s * var(--motion)) ease forwards; }
+@keyframes in { from { transform: translateX(40px); opacity: 0; } }
+@keyframes out { to { transform: translateX(40px); opacity: 0; } }
+.ico { width: 40px; height: 40px; border-radius: 12px; background: var(--raised); display: grid; place-items: center; color: var(--fg); flex: none; }
+.attention .ico { background: var(--accent); color: var(--on-accent); }
+.ico svg { width: 22px; height: 22px; }
+.banner .txt, .note .txt { display: grid; gap: 2px; min-width: 0; }
+
+/* ---------- Notifications window ---------- */
+.overlay { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 85%, transparent); display: none; z-index: 20; }
+.overlay.open { display: block; }
+.sheet { position: absolute; left: 64px; right: 64px; top: 56px; bottom: 76px; background: var(--bg); border: 1px solid var(--line);
+         border-radius: 18px; padding: 20px 24px; display: grid; grid-template-rows: auto 1fr; gap: 14px; }
+.sheet .list { overflow-y: auto; scrollbar-width: none; display: grid; gap: 10px; align-content: start; padding: 8px; margin: -8px; }
+.note { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 12px 16px; border-radius: 14px;
+        background: var(--surface); border: 1px solid var(--line); }
+.note.attention { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+.note .side { display: grid; justify-items: end; gap: 4px; color: var(--muted); }
+.note .action { color: var(--fg); }
+.note .action::after { content: " ›"; }
+.unread-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: 1px; }
+.empty { place-self: center; color: var(--muted); text-align: center; display: grid; gap: 6px; }
+.sheet-prompts { position: absolute; left: 64px; right: 64px; bottom: 28px; }
+.has-sheet > .prompts { visibility: hidden; }
+.toast { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); padding: 9px 18px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 40; white-space: nowrap; }
+.toast.show { opacity: 1; }
+
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; max-width: 1180px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <header class="top">
+    <div class="top-left">
+      <span class="mark">Owneet<i>OS</i></span>
+      <nav class="tabs t-s">
+        <span data-glyph="lb"></span>
+        <span class="tab" aria-current="page" data-i18n="tab.home">Home</span>
+        <span class="tab" data-i18n="tab.library">Library</span>
+        <span class="tab" data-i18n="tab.settings">Settings</span>
+        <span data-glyph="rb"></span>
+      </nav>
+    </div>
+    <div class="status t-s" id="status"></div>
+  </header>
+  <main class="home" id="home"></main>
+  <footer class="prompts t-s" id="prompts"></footer>
+
+  <div class="banners" id="banners"></div>
+  <div class="overlay" id="overlay">
+    <div class="sheet" id="sheet"></div>
+    <div class="prompts t-s sheet-prompts" id="sheet-prompts"></div>
+  </div>
+  <div class="toast t-s" id="toast"></div>
+</div></div>
+<p class="help"><b>Gamepad:</b> Y opens the notifications (home screen); in the window: up / down move, A open (where there is somewhere to go), X remove, Y clear all, B close.
+<b>Keyboard:</b> arrows, Enter = A, Esc = B, X, Y.<br>
+<b>Demo only — events:</b> 1 controller connected · 2 controller battery low · 3 controller disconnected · 4 Wi-Fi lost · 5 Wi-Fi back · 6 game closed unexpectedly ·
+7 USB disk read only (phase 6) · 8 update ready (step 7.1). G a game on screen (nothing is drawn over it: the banners wait in the list, the bell counts them). P palette, L language, N sounds (<span id="snd-state">on</span>).
+Address: <code>#lang=it&amp;game=1&amp;events=2,4,6</code></p>
+
+<script src="sounds.js"></script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 80) / 720);
+    stage.style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+
+  /* ---------- Palettes (as approved in demo 3.3) ---------- */
+  const PALETTES = [
+    ['dusk', 'Dusk', 'dark', '#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+    ['tide', 'Tide', 'dark', '#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+    ['bloom', 'Bloom', 'dark', '#1A1020', '#25182D', '#33223D', '#45304F', '#F7EEF6', '#AE93AE', '#FF7AA8', '#2A0614'],
+    ['ember', 'Ember', 'dark', '#1C0F0C', '#2A1713', '#3A201A', '#4E2C24', '#FBEDE9', '#C49C93', '#FF6B47', '#2A0A03'],
+    ['espresso', 'Espresso', 'dark', '#1A1310', '#261C17', '#33261F', '#47362C', '#F5ECE4', '#BBA693', '#D9A066', '#2A1707'],
+    ['harbor', 'Harbor', 'dark', '#0D1B2E', '#14263D', '#1D3350', '#2A4566', '#F3EAD8', '#B7AE99', '#E8D3A8', '#142033'],
+    ['forest', 'Forest', 'dark', '#0E1A14', '#15261D', '#1E3428', '#2B4636', '#ECF5EE', '#95B2A0', '#7BD88F', '#072012'],
+    ['lagoon', 'Lagoon', 'dark', '#0A1426', '#101E38', '#182A4B', '#23395F', '#EAF1FF', '#90A4C9', '#4DA3FF', '#03162E'],
+    ['amethyst', 'Amethyst', 'dark', '#15121F', '#1F1A2E', '#2A2340', '#3A3155', '#F1EDFA', '#A99FC4', '#B69CFF', '#1B0E3A'],
+    ['crimson', 'Crimson', 'dark', '#170A0E', '#241018', '#321722', '#47202F', '#FCECEF', '#C597A1', '#FF4D6D', '#2B0510'],
+    ['synthwave', 'Synthwave', 'dark', '#140B24', '#1F1236', '#2B1A4A', '#3D2563', '#FBEFFF', '#B99DD8', '#FF4FD8', '#2B0326'],
+    ['amber', 'Amber', 'dark', '#0F0B05', '#1A1409', '#251C0D', '#3A2C14', '#FFE8C2', '#C9AA78', '#FFB000', '#241700'],
+    ['olive', 'Olive', 'dark', '#14160E', '#1E2116', '#292D1F', '#3A402B', '#F1F3E6', '#ABB092', '#C5D86D', '#1C2306'],
+    ['graphite', 'Graphite', 'dark', '#121212', '#1C1C1C', '#262626', '#383838', '#F2F2F2', '#A6A6A6', '#DADADA', '#121212'],
+    ['daylight', 'Daylight', 'light', '#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+    ['arctic', 'Arctic', 'light', '#EEF5FA', '#FFFFFF', '#DCE9F3', '#C3D5E4', '#0F1E2B', '#4E6577', '#0A78B8', '#FFFFFF'],
+    ['sand', 'Sand', 'light', '#F4EEE3', '#FFFBF4', '#E8DFD0', '#D3C6B1', '#2A2117', '#6A5C49', '#B04A28', '#FFFFFF'],
+    ['latte', 'Latte', 'light', '#F3ECE4', '#FFFAF5', '#E6DACD', '#D2C1AF', '#2B1E14', '#6B5746', '#8B5A2B', '#FFFFFF'],
+    ['sakura', 'Sakura', 'light', '#FBEFF3', '#FFFFFF', '#F3DDE5', '#E3C3CF', '#2A1420', '#76505F', '#C92A62', '#FFFFFF'],
+    ['contrast', 'High contrast', 'access', '#000000', '#000000', '#161616', '#FFFFFF', '#FFFFFF', '#E0E0E0', '#FFE14D', '#000000'],
+    ['contrast-light', 'High contrast light', 'access', '#FFFFFF', '#FFFFFF', '#EDEDED', '#000000', '#000000', '#262626', '#0038B8', '#FFFFFF'],
+  ];
+  const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
+  let palKey = 'dusk';
+  const pal = k => PALETTES.find(p => p[0] === k) || PALETTES[0];
+  function applyPalette(k) { TOKENS.forEach((t, i) => stage.style.setProperty('--' + t, pal(k)[3 + i])); }
+
+  /* ---------- i18n ---------- */
+  const EN = {
+    'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings',
+    'home.continue': 'Continue playing', 'home.playing': 'Playing now', 'game': 'Nebula Drift',
+    'n.title': 'Notifications', 'n.empty': 'No notifications', 'n.empty.sub': 'Messages about controllers, network and games appear here.',
+    'n.now': 'now', 'n.min': '{n} min ago', 'n.h': '{n} h ago', 'n.cleared': 'Notifications cleared', 'n.removed': 'Notification removed',
+    'e.pad.on': '{name} connected', 'e.pad.on.sub': 'Battery {b}%',
+    'e.pad.low': '{name}: battery low', 'e.pad.low.sub': '{b}% left. Charge it soon.',
+    'e.pad.off': '{name} disconnected', 'e.pad.off.sub': 'Turn it on again, or pair it from Settings.',
+    'e.net.lost': 'Wi-Fi lost', 'e.net.lost.sub': 'Casa Rossi is out of reach. Games keep working offline.',
+    'e.net.back': 'Connected to Casa Rossi', 'e.net.back.sub': 'Back online',
+    'e.game.crash': 'Nebula Drift closed unexpectedly', 'e.game.crash.sub': 'Starting it again usually helps.',
+    'e.disk.ro': 'USB disk: read only', 'e.disk.ro.sub': 'Windows was not shut down completely: games there can be played, not changed.',
+    'e.update': 'Update ready', 'e.update.sub': 'OwneetOS 2026.11 can be installed from Settings.',
+    'a.controllers': 'Controllers', 'a.network': 'Network', 'a.play': 'Play', 'a.disks': 'Disks', 'a.update': 'Update',
+    'p.notifications': 'Notifications', 'p.play': 'Play', 'p.details': 'Details', 'p.options': 'Options', 'p.sections': 'Sections', 'p.home': 'Home',
+    'p.open': 'Open', 'p.remove': 'Remove', 'p.clear': 'Clear all', 'p.close': 'Close', 'p.resume': 'Resume',
+    'go': '(demo) would open: {where}',
+  };
+  const IT = {
+    'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni',
+    'home.continue': 'Continua a giocare', 'home.playing': 'In gioco ora', 'game': 'Nebula Drift',
+    'n.title': 'Notifiche', 'n.empty': 'Nessuna notifica', 'n.empty.sub': 'Qui compaiono i messaggi su controller, rete e giochi.',
+    'n.now': 'ora', 'n.min': '{n} min fa', 'n.h': '{n} h fa', 'n.cleared': 'Notifiche cancellate', 'n.removed': 'Notifica tolta',
+    'e.pad.on': '{name} collegato', 'e.pad.on.sub': 'Batteria {b}%',
+    'e.pad.low': '{name}: batteria scarica', 'e.pad.low.sub': 'Resta il {b}%. Ricaricalo presto.',
+    'e.pad.off': '{name} scollegato', 'e.pad.off.sub': 'Riaccendilo, oppure abbinalo dalle Impostazioni.',
+    'e.net.lost': 'Wi-Fi perso', 'e.net.lost.sub': 'Casa Rossi non è raggiungibile. I giochi funzionano anche offline.',
+    'e.net.back': 'Connesso a Casa Rossi', 'e.net.back.sub': 'Di nuovo online',
+    'e.game.crash': 'Nebula Drift si è chiuso inaspettatamente', 'e.game.crash.sub': 'Di solito basta riavviarlo.',
+    'e.disk.ro': 'Disco USB: sola lettura', 'e.disk.ro.sub': 'Windows non è stato spento del tutto: i giochi si possono avviare, non modificare.',
+    'e.update': 'Aggiornamento pronto', 'e.update.sub': 'OwneetOS 2026.11 si può installare dalle Impostazioni.',
+    'a.controllers': 'Controller', 'a.network': 'Rete', 'a.play': 'Gioca', 'a.disks': 'Dischi', 'a.update': 'Aggiorna',
+    'p.notifications': 'Notifiche', 'p.play': 'Gioca', 'p.details': 'Dettagli', 'p.options': 'Opzioni', 'p.sections': 'Sezioni', 'p.home': 'Home',
+    'p.open': 'Apri', 'p.remove': 'Togli', 'p.clear': 'Cancella tutto', 'p.close': 'Chiudi', 'p.resume': 'Riprendi',
+    'go': '(demo) si aprirebbe: {where}',
+  };
+  let lang = 'en';
+  const tr = (k, a = {}) => ((lang === 'it' ? IT[k] : null) || EN[k] || k).replace(/\{(\w+)\}/g, (_, x) => a[x] ?? '');
+
+  /* ---------- Glyphs and icons ---------- */
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const G = { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lb: pill('LB', 34), rb: pill('RB', 34),
+    menu: circle(`<path d="M8.5 10h9M8.5 13h9M8.5 16h9" ${S}/>`), guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`) };
+  const P = (b, l) => `<span class="prompt">${b.map(x => G[x]).join('')}<span>${tr(l)}</span></span>`;
+  const ICON = {
+    bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+    controller: '<path d="M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z"/>',
+    battery: '<rect x="2.5" y="7" width="17" height="10" rx="2"/><path d="M21.5 10v4"/><rect x="4.5" y="9" width="3" height="6" fill="currentColor" stroke="none"/>',
+    wifi: '<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/>',
+    wifioff: '<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/><path d="M3 3l18 18"/>',
+    game: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 8v5M12 16.5v.5"/>',
+    disk: '<rect x="3" y="5" width="18" height="6" rx="1.5"/><rect x="3" y="13" width="18" height="6" rx="1.5"/>',
+    update: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  };
+  const icon = n => `<svg viewBox="0 0 24 24" ${S}>${ICON[n]}</svg>`;
+
+  /* ---------- Sounds: "notify" for notices and successes, "error" for failures and warnings ---------- */
+  let soundOn = true, ctx = null;
+  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', notify: 'notify', error: 'error' };
+  const buffers = {};
+  function startAudio() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    if (!window.OWNEET_SOUNDS) return;
+    ctx = new AudioContext();
+    for (const [k, f] of Object.entries(SOUNDS)) {
+      const url = window.OWNEET_SOUNDS[f]; if (!url) continue;
+      const bytes = Uint8Array.from(atob(url.split(',')[1]), c => c.charCodeAt(0));
+      ctx.decodeAudioData(bytes.buffer).then(b => { buffers[k] = b; });
+    }
+  }
+  addEventListener('keydown', startAudio, true); addEventListener('pointerdown', startAudio, true);
+  function feedback(k) {
+    if (!soundOn || !ctx || !buffers[k]) return;
+    const src = ctx.createBufferSource(), g = ctx.createGain();
+    g.gain.value = 0.7; src.buffer = buffers[k]; src.connect(g); g.connect(ctx.destination); src.start();
+  }
+
+  /* ---------- Events (owneetd gives the real ones) ---------- */
+  // kind "attention": something to act on (accent, "error" sound); "info": news ("notify" sound).
+  // action: where A takes you from the list, if anywhere.
+  const EVENTS = {
+    1: { key: 'e.pad.on', icon: 'controller', kind: 'info', a: { name: 'DualSense', b: 64 } },
+    2: { key: 'e.pad.low', icon: 'battery', kind: 'attention', a: { name: 'Xbox Wireless Controller', b: 12 }, action: 'a.controllers' },
+    3: { key: 'e.pad.off', icon: 'controller', kind: 'attention', a: { name: 'Pro Controller' }, action: 'a.controllers' },
+    4: { key: 'e.net.lost', icon: 'wifioff', kind: 'attention', action: 'a.network' },
+    5: { key: 'e.net.back', icon: 'wifi', kind: 'info' },
+    6: { key: 'e.game.crash', icon: 'game', kind: 'attention', action: 'a.play' },
+    7: { key: 'e.disk.ro', icon: 'disk', kind: 'attention', action: 'a.disks' },
+    8: { key: 'e.update', icon: 'update', kind: 'info', action: 'a.update' },
+  };
+  let notes = [];          // newest first, kept until the console restarts (at most 30)
+  let unread = 0, gameOnScreen = false, sheetOpen = false, focused = null;
+
+  function ago(t) {
+    const m = Math.floor((Date.now() - t) / 60000);
+    return m < 1 ? tr('n.now') : m < 60 ? tr('n.min', { n: m }) : tr('n.h', { n: Math.floor(m / 60) });
+  }
+  function post(id, when) {
+    const e = EVENTS[id]; if (!e) return;
+    const n = { ...e, id: Math.random(), t: when || Date.now(), read: false };
+    notes.unshift(n); notes = notes.slice(0, 30);
+    if (sheetOpen) { n.read = true; renderSheet(); feedback(e.kind === 'attention' ? 'error' : 'notify'); return; }
+    unread++;
+    renderStatus();
+    // With a game on screen nothing is drawn over it (the overlay comes in Wave 2): the
+    // notification waits in the list, the bell counts it
+    if (gameOnScreen) return;
+    feedback(e.kind === 'attention' ? 'error' : 'notify');
+    banner(n);
+  }
+  function banner(n) {
+    const box = $('#banners');
+    const el = document.createElement('div');
+    el.className = `banner ${n.kind}`;
+    el.innerHTML = `<span class="ico">${icon(n.icon)}</span><span class="txt"><span class="t-m" style="font-weight:500">${tr(n.key, n.a)}</span><span class="t-s muted">${tr(n.key + '.sub', n.a)}</span></span>`;
+    box.prepend(el);
+    while (box.children.length > 3) box.lastChild.remove();       // at most three at a time
+    setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 260); }, 5000);
+  }
+
+  /* ---------- Rendering ---------- */
+  function renderStatus() {
+    $('#status').innerHTML = `<span class="bell">${icon('bell')}${unread ? `<span class="count">${unread > 9 ? '9+' : unread}</span>` : ''}</span>
+      ${icon('controller')}${icon('wifi')}<span class="clock">${new Date().toTimeString().slice(0, 5)}</span>`;
+  }
+  function renderHome() {
+    $('#home').innerHTML = `<div class="hero"><span class="kicker t-xs">${gameOnScreen ? '<span class="running-dot"></span>' + tr('home.playing') : tr('home.continue')}</span>
+      <span class="disp" style="font-size:52px">${tr('game')}</span></div>
+      <div class="games">${[20, 80, 140, 200, 260, 320, 30].map(h => `<span class="cover" style="--h:${h}"></span>`).join('')}</div>`;
+    $$('[data-i18n]').forEach(el => { el.textContent = tr(el.dataset.i18n); });
+    $$('[data-glyph]').forEach(el => { el.innerHTML = G[el.dataset.glyph]; });
+  }
+  function renderPrompts() {
+    const left = gameOnScreen ? [P(['a'], 'p.resume'), P(['y'], 'p.notifications')]
+      : [P(['a'], 'p.play'), P(['x'], 'p.details'), P(['y'], 'p.notifications'), P(['menu'], 'p.options')];
+    $('#prompts').innerHTML = `<div class="set">${left.join('')}</div><div class="set">${P(['lb', 'rb'], 'p.sections')}${P(['guide'], 'p.home')}</div>`;
+  }
+  function renderSheet(keepIndex) {
+    const list = notes.length
+      ? notes.map((n, i) => `<div class="note ${n.kind}" data-f data-i="${i}"><span class="ico">${icon(n.icon)}</span>
+          <span class="txt"><span class="t-m" style="font-weight:500">${n.read ? '' : '<span class="unread-dot"></span>'}${tr(n.key, n.a)}</span><span class="t-s muted">${tr(n.key + '.sub', n.a)}</span></span>
+          <span class="side t-s"><span>${ago(n.t)}</span>${n.action ? `<span class="action">${tr(n.action)}</span>` : ''}</span></div>`).join('')
+      : `<div class="empty"><span class="t-m">${tr('n.empty')}</span><span class="t-s">${tr('n.empty.sub')}</span></div>`;
+    $('#sheet').innerHTML = `<span class="disp t-l">${tr('n.title')}</span><div class="list">${list}</div>`;
+    const items = $$('#sheet [data-f]');
+    setFocus(items[Math.min(keepIndex ?? 0, items.length - 1)] || null, true);
+    renderSheetPrompts();
+  }
+  function renderSheetPrompts() {
+    const n = focused ? notes[+focused.dataset.i] : null;
+    const left = notes.length ? [...(n && n.action ? [P(['a'], 'p.open')] : []), P(['x'], 'p.remove'), P(['y'], 'p.clear'), P(['b'], 'p.close')] : [P(['b'], 'p.close')];
+    $('#sheet-prompts').innerHTML = `<div class="set">${left.join('')}</div><div class="set">${P(['guide'], 'p.home')}</div>`;
+  }
+  function setFocus(el, silent) {
+    if (focused) focused.classList.remove('focus');
+    focused = el || null;
+    if (!el) return;
+    el.classList.add('focus');
+    el.scrollIntoView({ block: 'nearest' });
+    if (!silent) feedback('move');
+    renderSheetPrompts();
+  }
+
+  /* ---------- The window ---------- */
+  function openSheet() {
+    sheetOpen = true; feedback('sheet-open');
+    $('#banners').innerHTML = '';              // they are in the list now
+    $('#overlay').classList.add('open'); stage.classList.add('has-sheet');
+    renderSheet(0);
+    // opening the list marks everything as read: the bell's count goes away
+    notes.forEach(n => { n.read = true; }); unread = 0; renderStatus();
+  }
+  function closeSheet() {
+    sheetOpen = false; feedback('sheet-close');
+    $('#overlay').classList.remove('open'); stage.classList.remove('has-sheet'); focused = null;
+  }
+  const press = {
+    a: () => {
+      if (!sheetOpen) { feedback('edge'); return; }
+      const n = focused && notes[+focused.dataset.i];
+      if (!n || !n.action) { feedback('edge'); return; }
+      feedback('confirm'); closeSheet(); toast(tr('go', { where: tr(n.action) }));
+    },
+    b: () => sheetOpen ? closeSheet() : feedback('edge'),
+    x: () => {
+      if (!sheetOpen || !focused) { feedback('edge'); return; }
+      const i = +focused.dataset.i; notes.splice(i, 1); feedback('confirm'); renderSheet(i);
+    },
+    y: () => {
+      if (!sheetOpen) { openSheet(); return; }
+      if (!notes.length) { feedback('edge'); return; }
+      notes = []; feedback('confirm'); renderSheet(); toast(tr('n.cleared'));
+    },
+  };
+  function move(dir) {
+    if (!sheetOpen || !focused) { feedback('edge'); return; }
+    if (dir === 'left' || dir === 'right') { feedback('edge'); return; }
+    const items = $$('#sheet [data-f]'), i = items.indexOf(focused) + (dir === 'down' ? 1 : -1);
+    if (i < 0 || i >= items.length) { feedback('edge'); return; }
+    setFocus(items[i]);
+  }
+  let toastTimer;
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 1800); }
+
+  const DEMO = {
+    g: () => { gameOnScreen = !gameOnScreen; renderHome(); renderPrompts(); toast(gameOnScreen ? '(demo) a game is on screen' : '(demo) the home screen is on screen'); },
+    p: () => { const i = PALETTES.findIndex(p => p[0] === palKey); palKey = PALETTES[(i + 1) % PALETTES.length][0]; applyPalette(palKey); toast(pal(palKey)[1]); },
+    l: () => { lang = lang === 'en' ? 'it' : 'en'; renderHome(); renderPrompts(); renderStatus(); if (sheetOpen) renderSheet(); },
+    n: () => { soundOn = !soundOn; $('#snd-state').textContent = soundOn ? 'on' : 'off'; },
+  };
+  document.addEventListener('keydown', e => {
+    const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    const keys = { Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b', x: 'x', y: 'y' };
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (dirs[e.key]) { e.preventDefault(); move(dirs[e.key]); }
+    else if (keys[k]) { e.preventDefault(); if (!e.repeat) press[keys[k]](); }
+    else if (EVENTS[k]) { e.preventDefault(); post(+k); }
+    else if (DEMO[k]) { e.preventDefault(); DEMO[k](); }
+  });
+
+  /* ---------- Gamepad ---------- */
+  const prev = {}; let repeatAt = 0, lastDir = null;
+  function poll(ts) {
+    const pad = (navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [])[0];
+    if (pad) {
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const edge = i => { const p = on(i), was = prev[i]; prev[i] = p; return p && !was; };
+      const ay = pad.axes[1] || 0;
+      const dir = on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : on(14) ? 'left' : on(15) ? 'right' : null;
+      if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+      [['a', 0], ['b', 1], ['x', 2], ['y', 3]].forEach(([n, i]) => { if (edge(i)) press[n](); });
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+  setInterval(() => { renderStatus(); if (sheetOpen) renderSheet($$('#sheet [data-f]').indexOf(focused)); }, 30000);
+
+  /* ---------- Start ---------- */
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get('pal') && pal(q.get('pal'))[0] === q.get('pal')) palKey = q.get('pal');
+  applyPalette(palKey);
+  if (q.get('lang') === 'it') lang = 'it';
+  if (q.get('game') === '1') gameOnScreen = true;
+  if (q.get('motion') === 'off') document.documentElement.style.setProperty('--motion', 0);
+  if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
+  renderHome(); renderStatus(); renderPrompts();
+  // A few notifications from earlier, so the list is not empty at first
+  if (!q.get('events')) { post(5, Date.now() - 42 * 60000); post(1, Date.now() - 12 * 60000); $('#banners').innerHTML = ''; }
+  (q.get('events') || '').split(',').filter(Boolean).forEach((k, i) => setTimeout(() => post(+k), 400 * (i + 1)));
+  if (q.get('keys')) q.get('keys').split(',').forEach((k, i) => setTimeout(() =>
+    ['left', 'right', 'up', 'down'].includes(k) ? move(k) : press[k] && press[k](), 2500 + 300 * i));
+})();
+</script>
+</body>
+</html>

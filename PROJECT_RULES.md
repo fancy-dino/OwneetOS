@@ -360,3 +360,4 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-10 | Settings → Sound: "Mute" comes first and, while it is on, hides output, volume and interface sounds. The Wi-Fi password window has a "Show password" switch (owner's NiPoGi test). |
 | 2026-10-10 | Step 3.9 (Settings) approved after the owner's tests on the NiPoGi and the desktop (two graphics cards). Picture dimming for screens without a brightness control stays a proposal for Wave 2 (not confirmed). Next: demo 3.10 (on-screen keyboard). |
 | 2026-10-11 | Demo 3.10 (on-screen keyboard) approved, with the selection wrapping around vertically too. Inside the keyboard: X delete, Y space, LT / RT pages of keys, Menu Done (section 9.1). |
+| 2026-10-11 | Step 3.10 (on-screen keyboard) approved. The next USB-stick test on real hardware comes at the end of step 3.12, with everything since step 3.9 (on-screen keyboard, notifications, interface sounds). |
