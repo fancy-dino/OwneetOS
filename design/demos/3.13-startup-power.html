@@ -1,0 +1,420 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS — interactive demo for roadmap step 3.13 (start-up animation and power options), the
+     owner's proposals of 2026-10-11. Open in a browser; drive it with a gamepad or the keyboard.
+     Fonts come from Google Fonts for the demo only (the console bundles them); sounds come from
+     sounds.js (frontend/sounds/). The home screen is a still picture of demo 3.6. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS — Start-up and power options (demo 3.13)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1; --motion: 1; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+.frame { position: relative; flex: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+
+.stage {
+  width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px;
+  display: grid; grid-template-rows: auto 1fr auto; gap: 20px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350;
+}
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+
+[data-f] { outline: none; position: relative; transition: transform calc(.14s * var(--motion)) ease, box-shadow calc(.14s * var(--motion)) ease; }
+[data-f].focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); transform: scale(calc(1 + .03 * var(--motion))); z-index: 2; }
+
+/* ---------- Top bar ---------- */
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 36px; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; white-space: nowrap; }
+.mark i { font-style: normal; color: var(--accent); display: inline-block; }
+.mark span.l { display: inline-block; }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.status { display: flex; align-items: center; gap: 18px; color: var(--muted); }
+.status svg { width: calc(20px * var(--ts)); height: calc(20px * var(--ts)); }
+.clock { color: var(--fg); font-weight: 500; }
+
+/* ---------- Pages (stills) ---------- */
+.page { min-height: 0; display: none; }
+.page.on { display: grid; }
+.home { grid-template-rows: 1fr auto; gap: 20px; }
+.hero { position: relative; border-radius: 18px; overflow: hidden; padding: 30px 34px; display: flex; flex-direction: column;
+        justify-content: flex-end; gap: 12px; color: #fff;
+        background: radial-gradient(70% 90% at 85% 15%, hsl(205 85% 62% / .85), transparent 60%),
+                    radial-gradient(60% 80% at 60% 110%, hsl(245 70% 42%), transparent 70%),
+                    linear-gradient(135deg, hsl(205 45% 22%), hsl(235 55% 10%)); }
+.hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.55), rgba(0,0,0,0) 70%); }
+.hero > * { position: relative; }
+.kicker { text-transform: uppercase; letter-spacing: .12em; opacity: .85; font-weight: 500; }
+.games { display: grid; grid-template-columns: repeat(7, 1fr); gap: 14px; }
+.cover { aspect-ratio: 3 / 4; border-radius: 12px; background: linear-gradient(160deg, hsl(var(--h) 55% 45%), hsl(calc(var(--h) + 40) 50% 18%)); }
+.plain { place-items: center; align-content: center; gap: 8px; color: var(--muted); text-align: center; }
+
+/* ---------- Prompt bar and glyphs ---------- */
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 24px; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+
+/* ---------- Start-up: the logo of the boot splash comes to life, then takes its place ---------- */
+.intro { position: absolute; inset: 0; z-index: 50; background: var(--bg); pointer-events: none; }
+.intro.fade { transition: opacity calc(.5s * var(--motion)) ease; opacity: 0; }
+.intro-mark { position: absolute; left: 0; top: 0; transform-origin: 0 0; font-size: 62px; }
+.glow { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); opacity: 0; filter: blur(30px); }
+.page-in { animation: pagein calc(.6s * var(--motion)) ease both; }
+@keyframes pagein { from { opacity: 0; transform: translateY(14px); } }
+
+/* ---------- Hold B: a ring fills around the button ---------- */
+.hold { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); z-index: 40; display: none; align-items: center; gap: 12px;
+        padding: 8px 18px 8px 10px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); }
+.hold.on { display: inline-flex; }
+.ring { position: relative; width: 40px; height: 40px; }
+.ring svg.r { position: absolute; inset: 0; transform: rotate(-90deg); }
+.ring .g { position: absolute; left: 7px; top: 7px; height: 26px; }
+
+/* ---------- The power window ---------- */
+.overlay { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 85%, transparent); display: none; z-index: 30; }
+.overlay.open { display: block; }
+.sheet { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -56%); width: max-content; min-width: 560px;
+         text-align: center; justify-items: center; background: var(--bg); border: 1px solid var(--line); border-radius: 18px;
+         padding: 20px 28px 26px; display: grid; gap: 14px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.7); }
+.choices { display: grid; grid-auto-flow: column; gap: 14px; margin-top: 6px; }
+.choice { width: 128px; padding: 16px 10px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); display: grid; justify-items: center; gap: 10px; }
+.choice svg { width: 30px; height: 30px; }
+.choice.cancel { background: var(--raised); }
+.sheet-prompts { position: absolute; left: 64px; right: 64px; bottom: 28px; z-index: 31; }
+.has-sheet > .prompts { visibility: hidden; }
+.toast { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); padding: 9px 18px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 45; white-space: nowrap; }
+.toast.show { opacity: 1; }
+
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; max-width: 1180px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <header class="top" id="top">
+    <div class="top-left">
+      <span class="mark" id="mark">Owneet<i>OS</i></span>
+      <nav class="tabs t-s" id="tabs"></nav>
+    </div>
+    <div class="status t-s" id="status"></div>
+  </header>
+  <main style="min-height:0; display:grid" id="main">
+    <section class="page home on" id="page-home"></section>
+    <section class="page plain" id="page-library"><span class="disp t-l" data-i18n="tab.library"></span><span class="t-m" data-i18n="still.library"></span></section>
+    <section class="page plain" id="page-settings"><span class="disp t-l" data-i18n="tab.settings"></span><span class="t-m" data-i18n="still.settings"></span></section>
+  </main>
+  <footer class="prompts t-s" id="prompts"></footer>
+
+  <div class="hold t-s" id="hold"><span class="ring"><svg class="r" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="none" stroke="var(--line)" stroke-width="3"/>
+    <circle id="ring-fill" cx="20" cy="20" r="18" fill="none" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="113.1" stroke-dashoffset="113.1"/></svg>
+    <span id="ring-glyph"></span></span><span data-i18n="hold.label"></span></div>
+  <div class="overlay" id="overlay"><div class="sheet" id="sheet"></div><div class="prompts t-s sheet-prompts" id="sheet-prompts"></div></div>
+  <div class="toast t-s" id="toast"></div>
+  <div class="intro" id="intro"><span class="glow" id="glow"></span><span class="mark intro-mark" id="intro-mark"></span></div>
+</div></div>
+<p class="help"><b>Start-up:</b> it plays when the demo opens (R plays it again; sound after a first key press or click, as browsers want).
+<b>Power options:</b> on any page, hold B (gamepad) or Esc (keyboard) — a ring fills in 1 second, then the window opens with Cancel selected; left / right move, A choose, B close.
+LB / RB (Q / E) change page. <b>Demo only:</b> G a game is running, M reduce motion, P palette, L language, N sounds (<span id="snd-state">on</span>).
+Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;power=1</code> (power=1 opens the window).</p>
+
+<script src="sounds.js"></script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+  let scale = 1;
+  function fit() {
+    scale = Math.min(innerWidth / 1280, (innerHeight - 80) / 720);
+    stage.style.transform = `scale(${scale})`;
+    $('#frame').style.width = 1280 * scale + 'px'; $('#frame').style.height = 720 * scale + 'px';
+  }
+  addEventListener('resize', fit); fit();
+
+  /* ---------- Palettes (as approved in demo 3.3) ---------- */
+  const PALETTES = [
+    ['dusk', 'Dusk', 'dark', '#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+    ['tide', 'Tide', 'dark', '#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+    ['bloom', 'Bloom', 'dark', '#1A1020', '#25182D', '#33223D', '#45304F', '#F7EEF6', '#AE93AE', '#FF7AA8', '#2A0614'],
+    ['ember', 'Ember', 'dark', '#1C0F0C', '#2A1713', '#3A201A', '#4E2C24', '#FBEDE9', '#C49C93', '#FF6B47', '#2A0A03'],
+    ['espresso', 'Espresso', 'dark', '#1A1310', '#261C17', '#33261F', '#47362C', '#F5ECE4', '#BBA693', '#D9A066', '#2A1707'],
+    ['harbor', 'Harbor', 'dark', '#0D1B2E', '#14263D', '#1D3350', '#2A4566', '#F3EAD8', '#B7AE99', '#E8D3A8', '#142033'],
+    ['forest', 'Forest', 'dark', '#0E1A14', '#15261D', '#1E3428', '#2B4636', '#ECF5EE', '#95B2A0', '#7BD88F', '#072012'],
+    ['lagoon', 'Lagoon', 'dark', '#0A1426', '#101E38', '#182A4B', '#23395F', '#EAF1FF', '#90A4C9', '#4DA3FF', '#03162E'],
+    ['amethyst', 'Amethyst', 'dark', '#15121F', '#1F1A2E', '#2A2340', '#3A3155', '#F1EDFA', '#A99FC4', '#B69CFF', '#1B0E3A'],
+    ['crimson', 'Crimson', 'dark', '#170A0E', '#241018', '#321722', '#47202F', '#FCECEF', '#C597A1', '#FF4D6D', '#2B0510'],
+    ['synthwave', 'Synthwave', 'dark', '#140B24', '#1F1236', '#2B1A4A', '#3D2563', '#FBEFFF', '#B99DD8', '#FF4FD8', '#2B0326'],
+    ['amber', 'Amber', 'dark', '#0F0B05', '#1A1409', '#251C0D', '#3A2C14', '#FFE8C2', '#C9AA78', '#FFB000', '#241700'],
+    ['olive', 'Olive', 'dark', '#14160E', '#1E2116', '#292D1F', '#3A402B', '#F1F3E6', '#ABB092', '#C5D86D', '#1C2306'],
+    ['graphite', 'Graphite', 'dark', '#121212', '#1C1C1C', '#262626', '#383838', '#F2F2F2', '#A6A6A6', '#DADADA', '#121212'],
+    ['daylight', 'Daylight', 'light', '#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+    ['arctic', 'Arctic', 'light', '#EEF5FA', '#FFFFFF', '#DCE9F3', '#C3D5E4', '#0F1E2B', '#4E6577', '#0A78B8', '#FFFFFF'],
+    ['sand', 'Sand', 'light', '#F4EEE3', '#FFFBF4', '#E8DFD0', '#D3C6B1', '#2A2117', '#6A5C49', '#B04A28', '#FFFFFF'],
+    ['latte', 'Latte', 'light', '#F3ECE4', '#FFFAF5', '#E6DACD', '#D2C1AF', '#2B1E14', '#6B5746', '#8B5A2B', '#FFFFFF'],
+    ['sakura', 'Sakura', 'light', '#FBEFF3', '#FFFFFF', '#F3DDE5', '#E3C3CF', '#2A1420', '#76505F', '#C92A62', '#FFFFFF'],
+    ['contrast', 'High contrast', 'access', '#000000', '#000000', '#161616', '#FFFFFF', '#FFFFFF', '#E0E0E0', '#FFE14D', '#000000'],
+    ['contrast-light', 'High contrast light', 'access', '#FFFFFF', '#FFFFFF', '#EDEDED', '#000000', '#000000', '#262626', '#0038B8', '#FFFFFF'],
+  ];
+  const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
+  let palKey = 'dusk';
+  const pal = k => PALETTES.find(p => p[0] === k) || PALETTES[0];
+  function applyPalette(k) { TOKENS.forEach((t, i) => stage.style.setProperty('--' + t, pal(k)[3 + i])); }
+
+  /* ---------- i18n ---------- */
+  const EN = {
+    'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings', 'home.continue': 'Continue playing', 'home.playing': 'Playing now',
+    'still.library': 'Approved in demo 3.7 (still picture here).', 'still.settings': 'Approved in demo 3.9 (still picture here).',
+    'hold.label': 'Keep holding for power options', 'power.title': 'Power', 'power.game': 'Restart and Shut down close the game that is running.',
+    'power.suspend': 'Sleep', 'power.restart': 'Restart', 'power.shutdown': 'Shut down', 'cancel': 'Cancel',
+    'p.play': 'Play', 'p.details': 'Details', 'p.notifications': 'Notifications', 'p.sections': 'Sections', 'p.home': 'Home', 'p.select': 'Select', 'p.back': 'Back',
+    'done': '(demo) The console would now: {what}',
+  };
+  const IT = {
+    'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni', 'home.continue': 'Continua a giocare', 'home.playing': 'In gioco ora',
+    'still.library': 'Approvata nella demo 3.7 (qui un\'immagine fissa).', 'still.settings': 'Approvate nella demo 3.9 (qui un\'immagine fissa).',
+    'hold.label': 'Tieni premuto per le opzioni di alimentazione', 'power.title': 'Alimentazione', 'power.game': 'Riavvia e Spegni chiudono il gioco aperto.',
+    'power.suspend': 'Sospendi', 'power.restart': 'Riavvia', 'power.shutdown': 'Spegni', 'cancel': 'Annulla',
+    'p.play': 'Gioca', 'p.details': 'Dettagli', 'p.notifications': 'Notifiche', 'p.sections': 'Sezioni', 'p.home': 'Home', 'p.select': 'Seleziona', 'p.back': 'Indietro',
+    'done': '(demo) Ora la console: {what}',
+  };
+  let lang = 'en';
+  const tr = (k, a = {}) => ((lang === 'it' ? IT[k] : null) || EN[k] || k).replace(/\{(\w+)\}/g, (_, x) => a[x] ?? '');
+
+  /* ---------- Glyphs and icons ---------- */
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const G = { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lb: pill('LB', 34), rb: pill('RB', 34),
+    menu: circle(`<path d="M8.5 10h9M8.5 13h9M8.5 16h9" ${S}/>`), guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`) };
+  const P = (b, l) => `<span class="prompt">${b.map(x => G[x]).join('')}<span>${tr(l)}</span></span>`;
+  const ICON = {
+    suspend: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+    restart: '<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/>',
+    shutdown: '<path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/>',
+    cancel: '<path d="M6 6l12 12M18 6 6 18"/>',
+  };
+  const icon = n => `<svg viewBox="0 0 24 24" ${S}>${ICON[n]}</svg>`;
+
+  /* ---------- Sounds ---------- */
+  let soundOn = true, ctx = null;
+  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', section: 'nav-section', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', startup: 'startup' };
+  const buffers = {};
+  let wantStartup = false;
+  function startAudio() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    if (!window.OWNEET_SOUNDS) return;
+    ctx = new AudioContext();
+    for (const [k, f] of Object.entries(SOUNDS)) {
+      const url = window.OWNEET_SOUNDS[f]; if (!url) continue;
+      const bytes = Uint8Array.from(atob(url.split(',')[1]), c => c.charCodeAt(0));
+      ctx.decodeAudioData(bytes.buffer).then(b => { buffers[k] = b; });
+    }
+  }
+  addEventListener('keydown', startAudio, true); addEventListener('pointerdown', startAudio, true);
+  function feedback(k) {
+    if (!soundOn || !ctx || !buffers[k]) return;
+    const src = ctx.createBufferSource(), g = ctx.createGain();
+    g.gain.value = 0.7; src.buffer = buffers[k]; src.connect(g); g.connect(ctx.destination); src.start();
+  }
+
+  /* ---------- Pages ---------- */
+  const SECT = ['home', 'library', 'settings'];
+  let section = 'home', game = false;
+  function render() {
+    $('#tabs').innerHTML = `<span>${G.lb}</span>${SECT.map(s => `<span class="tab" ${s === section ? 'aria-current="page"' : ''}>${tr('tab.' + s)}</span>`).join('')}<span>${G.rb}</span>`;
+    $('#status').innerHTML = `<svg viewBox="0 0 24 24" ${S}><path d="M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z"/></svg><span class="clock">${new Date().toTimeString().slice(0, 5)}</span>`;
+    $('#page-home').innerHTML = `<div class="hero"><span class="kicker t-xs">${tr(game ? 'home.playing' : 'home.continue')}</span><span class="disp" style="font-size:52px">Nebula Drift</span></div>
+      <div class="games">${[20, 80, 140, 200, 260, 320, 30].map(h => `<span class="cover" style="--h:${h}"></span>`).join('')}</div>`;
+    $$('.page').forEach(p => p.classList.toggle('on', p.id === 'page-' + section));
+    $$('[data-i18n]').forEach(el => { el.textContent = tr(el.dataset.i18n); });
+    $('#ring-glyph').innerHTML = G.b;
+    $('#prompts').innerHTML = `<div class="set">${section === 'home' ? [P(['a'], 'p.play'), P(['x'], 'p.details'), P(['y'], 'p.notifications')].join('') : ''}</div>
+      <div class="set">${P(['lb', 'rb'], 'p.sections')}${P(['guide'], 'p.home')}</div>`;
+  }
+
+  /* ---------- (A) Start-up ---------- */
+  // The boot splash shows the wordmark centred (Plymouth, 420 px wide at 1080p ≈ 280 px here, at
+  // 46 % of the height). The interface starts from the very same picture: the letters of "Owneet"
+  // ripple, "OS" lights up with a glow, then the wordmark flies to its place in the top bar while
+  // the home screen comes up under it. About 2.4 s, with the start-up sound. "Reduce motion": a
+  // plain fade.
+  let introTimers = [];
+  function startup() {
+    introTimers.forEach(clearTimeout); introTimers = [];
+    const intro = $('#intro'), im = $('#intro-mark'), glow = $('#glow');
+    intro.classList.remove('fade'); intro.style.opacity = 1; intro.style.display = 'block';
+    $('#mark').style.visibility = 'hidden';
+    im.innerHTML = [...'Owneet'].map(c => `<span class="l">${c}</span>`).join('') + '<i>OS</i>';
+    im.style.transition = 'none'; im.style.transform = 'none';
+    const w = im.offsetWidth, h = im.offsetHeight;
+    const startX = (1280 - w) / 2, startY = 720 * 0.46 - h / 2;
+    im.style.transform = `translate(${startX}px, ${startY}px)`;
+    $('#main').classList.remove('page-in');
+    feedback('startup');
+    const reduce = getComputedStyle(document.documentElement).getPropertyValue('--motion').trim() === '0';
+    if (reduce) {
+      introTimers.push(setTimeout(finish, 1200));
+      return;
+    }
+    // 1) ripple through "Owneet"
+    $$('.l', im).forEach((l, i) => l.animate(
+      [{ transform: 'translateY(0)' }, { transform: 'translateY(-10px)' }, { transform: 'translateY(0)' }],
+      { duration: 420, delay: 80 + i * 55, easing: 'ease-in-out' }));
+    // 2) "OS" lights up, with a soft glow behind it
+    const os = $('i', im);
+    const osBox = () => { const r = os.getBoundingClientRect(), s = stage.getBoundingClientRect(); return { x: (r.left - s.left) / scale, y: (r.top - s.top) / scale, w: r.width / scale, h: r.height / scale }; };
+    introTimers.push(setTimeout(() => {
+      const b = osBox();
+      glow.style.left = b.x + b.w / 2 - 5 + 'px'; glow.style.top = b.y + b.h / 2 - 5 + 'px';
+      glow.animate([{ opacity: 0, transform: 'scale(1)' }, { opacity: .55, transform: 'scale(14)' }, { opacity: 0, transform: 'scale(22)' }], { duration: 900, easing: 'ease-out' });
+      os.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.16)' }, { transform: 'scale(1)' }], { duration: 520, easing: 'cubic-bezier(.3,1.6,.5,1)' });
+    }, 480));
+    // 3) the wordmark flies to the top bar; the page comes up under it
+    introTimers.push(setTimeout(() => {
+      const target = $('#mark').getBoundingClientRect(), s = stage.getBoundingClientRect();
+      const tx = (target.left - s.left) / scale, ty = (target.top - s.top) / scale, k = target.width / scale / w;
+      im.style.transition = 'transform .75s cubic-bezier(.6,0,.2,1)';
+      im.style.transform = `translate(${tx}px, ${ty}px) scale(${k})`;
+      intro.style.transition = 'background-color .6s ease .2s';
+      intro.style.backgroundColor = 'transparent';
+      $('#main').classList.add('page-in');
+    }, 1250));
+    introTimers.push(setTimeout(finish, 2100));
+  }
+  function finish() {
+    $('#mark').style.visibility = 'visible';
+    const intro = $('#intro');
+    intro.classList.add('fade');
+    introTimers.push(setTimeout(() => { intro.style.display = 'none'; intro.style.backgroundColor = ''; }, 500));
+  }
+
+  /* ---------- (B) Hold B: power options ---------- */
+  const HOLD_MS = 1000;
+  let holdStart = 0, holdRaf = 0, sheetOpen = false, focused = null;
+  function holdBegin() {
+    if (sheetOpen || holdStart) return;
+    holdStart = performance.now();
+    $('#hold').classList.add('on');
+    const fill = $('#ring-fill');
+    const step = now => {
+      if (!holdStart) return;
+      const p = Math.min(1, (now - holdStart) / HOLD_MS);
+      fill.setAttribute('stroke-dashoffset', 113.1 * (1 - p));
+      if (p >= 1) { holdEnd(); openPower(); return; }
+      holdRaf = requestAnimationFrame(step);
+    };
+    holdRaf = requestAnimationFrame(step);
+  }
+  function holdEnd() {
+    holdStart = 0; cancelAnimationFrame(holdRaf);
+    $('#hold').classList.remove('on'); $('#ring-fill').setAttribute('stroke-dashoffset', 113.1);
+  }
+  function openPower() {
+    sheetOpen = true; feedback('sheet-open');
+    $('#sheet').innerHTML = `<span class="disp t-l">${tr('power.title')}</span>${game ? `<span class="t-m muted">${tr('power.game')}</span>` : ''}
+      <div class="choices t-m">${['suspend', 'restart', 'shutdown', 'cancel'].map(a => `<button class="choice${a === 'cancel' ? ' cancel' : ''}" data-f data-a="${a}">${icon(a)}<span>${tr(a === 'cancel' ? 'cancel' : 'power.' + a)}</span></button>`).join('')}</div>`;
+    $('#sheet-prompts').innerHTML = `<div class="set">${P(['a'], 'p.select')}${P(['b'], 'p.back')}</div><div class="set">${P(['guide'], 'p.home')}</div>`;
+    $('#overlay').classList.add('open'); stage.classList.add('has-sheet');
+    setFocus($('#sheet [data-a="cancel"]'), true);          // Cancel first: nothing by accident
+  }
+  function closePower(sound = true) {
+    sheetOpen = false; if (sound) feedback('sheet-close');
+    $('#overlay').classList.remove('open'); stage.classList.remove('has-sheet'); focused = null;
+  }
+  function setFocus(el, silent) {
+    if (focused) focused.classList.remove('focus');
+    focused = el; if (!el) return;
+    el.classList.add('focus'); if (!silent) feedback('move');
+  }
+
+  /* ---------- Input ---------- */
+  function move(dir) {
+    if (!sheetOpen) { feedback('edge'); return; }
+    const items = $$('#sheet [data-f]'), i = items.indexOf(focused) + (dir === 'right' ? 1 : dir === 'left' ? -1 : 0);
+    if (dir === 'up' || dir === 'down' || i < 0 || i >= items.length) { feedback('edge'); return; }
+    setFocus(items[i]);
+  }
+  function accept() {
+    if (!sheetOpen) { feedback('confirm'); return; }
+    const a = focused.dataset.a;
+    if (a === 'cancel') { closePower(); return; }
+    feedback('confirm'); closePower(false); toast(tr('done', { what: tr('power.' + a).toLowerCase() }));
+  }
+  // B: a short press does what it always does (here: nothing, or close the window); held on a
+  // page, it fills the ring
+  function bDown() { if (sheetOpen) { closePower(); return; } holdBegin(); }
+  function bUp() { if (holdStart) { holdEnd(); feedback('edge'); } }
+  function sectionStep(d) {
+    if (sheetOpen) { feedback('edge'); return; }
+    section = SECT[(SECT.indexOf(section) + d + 3) % 3]; feedback('section'); render();
+  }
+  let toastTimer;
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 1900); }
+
+  const DEMO = {
+    r: () => startup(),
+    g: () => { game = !game; render(); toast(game ? '(demo) a game is running' : '(demo) no game running'); },
+    m: () => { const off = getComputedStyle(document.documentElement).getPropertyValue('--motion').trim() === '0'; document.documentElement.style.setProperty('--motion', off ? 1 : 0); toast(off ? 'motion on' : 'reduce motion'); },
+    p: () => { const i = PALETTES.findIndex(p => p[0] === palKey); palKey = PALETTES[(i + 1) % PALETTES.length][0]; applyPalette(palKey); toast(pal(palKey)[1]); },
+    l: () => { lang = lang === 'en' ? 'it' : 'en'; render(); },
+    n: () => { soundOn = !soundOn; $('#snd-state').textContent = soundOn ? 'on' : 'off'; },
+  };
+  document.addEventListener('keydown', e => {
+    const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (dirs[e.key]) { e.preventDefault(); move(dirs[e.key]); }
+    else if (e.key === 'Escape' || e.key === 'Backspace') { e.preventDefault(); if (!e.repeat) bDown(); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!e.repeat) accept(); }
+    else if (k === 'q' || k === 'e') { e.preventDefault(); if (!e.repeat) sectionStep(k === 'e' ? 1 : -1); }
+    else if (DEMO[k]) { e.preventDefault(); DEMO[k](); }
+  });
+  document.addEventListener('keyup', e => { if (e.key === 'Escape' || e.key === 'Backspace') bUp(); });
+
+  const prev = {}; let repeatAt = 0, lastDir = null;
+  function poll(ts) {
+    const pad = (navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [])[0];
+    if (pad) {
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const ax = pad.axes[0] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) ? 'up' : on(13) ? 'down' : null;
+      if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+      [[0, accept], [4, () => sectionStep(-1)], [5, () => sectionStep(1)]].forEach(([i, f]) => { const p = on(i); if (p && !prev[i]) f(); prev[i] = p; });
+      const b = on(1); if (b && !prev[1]) bDown(); if (!b && prev[1]) bUp(); prev[1] = b;
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+
+  /* ---------- Start ---------- */
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get('pal') && pal(q.get('pal'))[0] === q.get('pal')) palKey = q.get('pal');
+  applyPalette(palKey);
+  if (q.get('lang') === 'it') lang = 'it';
+  if (q.get('game') === '1') game = true;
+  if (q.get('motion') === 'off') document.documentElement.style.setProperty('--motion', 0);
+  if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
+  render();
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => setTimeout(startup, 300));
+  if (q.get('hold') === '1') setTimeout(() => { holdBegin(); }, 3000);
+  if (q.get('power') === '1') setTimeout(() => { openPower(); }, 2600);
+})();
+</script>
+</body>
+</html>

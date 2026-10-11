@@ -860,13 +860,22 @@ code is written (PROJECT_RULES.md section 9).
   in the test VM: one stream always running, the start-up sound recorded at −17.7 dB after the
   interface restarted. owneet-frontend 0.13.1.
 
-### [ ] 3.13 Start-up animation and power options *(owner's proposals, 2026-10-11)*
+### [~] 3.13 Start-up animation and power options *(owner's proposals, 2026-10-11)*
 
 - **Deliverables:** (A) an animated start-up: the OwneetOS logo moves with the start-up sound
   when the interface first appears; (B) power options from any of the three pages: hold B, a
   progress ring on the button shows how long to hold, then a window with Sleep, Restart, Shut
   down and Cancel (Cancel selected). Its own interactive demo first; the new binding goes into
   PROJECT_RULES.md section 9.1 once approved.
+- **Demo (2026-10-11, waiting for approval):** `design/demos/3.13-startup-power.html`. Proposals:
+  (A) the interface starts from the boot splash's own picture (the wordmark centred, as Plymouth
+  shows it): the letters of "Owneet" ripple, "OS" pops with a coral glow, then the wordmark flies
+  to its place in the top bar while the home screen rises under it (about 2.4 s, with the start-up
+  sound; once per boot; "Reduce motion": a plain fade). (B) Holding B on Home, Library or Settings
+  (no window open) shows "Keep holding for power options" with a ring filling around the B glyph
+  in 1 s; releasing earlier cancels it, and a short B keeps its usual meaning. Then the Power
+  window: Sleep, Restart, Shut down, Cancel (selected); with a game running it says that Restart
+  and Shut down close it. The window is the confirmation: no second question.
 
 ---
 
