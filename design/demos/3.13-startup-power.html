@@ -142,7 +142,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   <div class="intro" id="intro"><span class="glow" id="glow"></span><span class="mark intro-mark" id="intro-mark"></span></div>
 </div></div>
 <p class="help"><b>Start-up:</b> it plays when the demo opens (R plays it again; sound after a first key press or click, as browsers want).
-<b>Quick menu:</b> View (gamepad) or V (keyboard) on any page opens the panel on the right; up / down, A open, B or View close.
+<b>Quick menu:</b> B (gamepad) or Esc (keyboard) where there is nothing to go back to (Home, Library, the list of Settings) opens the panel on the right; up / down, A open, B back.
 Power options: Cancel selected, left / right, A choose. Controls and features: read only, the right stick or up / down scroll (Page Up / Down).
 LB / RB (Q / E) change page. <b>Demo only:</b> G a game is running, M reduce motion, P palette, L language, N sounds (<span id="snd-state">on</span>).
 Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;open=panel|power|guide</code>.</p>
@@ -200,11 +200,11 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;open=panel|power|guide</co
     'guide.title': 'Controls and features',
     'g.everywhere': 'Everywhere', 'g.pages': 'Home, Library, Settings', 'g.osk': 'On-screen keyboard', 'g.games': 'Games', 'g.keyboard': 'With a keyboard plugged in',
     'g.move': 'Move the selection', 'g.a': 'Confirm, open, play', 'g.b': 'Back, close a window', 'g.lbrb': 'Change section: Home, Library, Settings',
-    'g.guide': 'Home: from a game back to the home screen, and back to the game', 'g.view': 'This quick menu: power options, controls', 'g.rs': 'Scroll long lists and windows',
+    'g.guide': 'Home: from a game back to the home screen, and back to the game', 'g.view': 'Where there is nothing to go back to: this quick menu (power options, controls)', 'g.rs': 'Scroll long lists and windows',
     'g.x': 'Details of the selected game', 'g.y': 'Home: notifications · Library: sort', 'g.ltrt': 'Library: All, Installed, Favourites', 'g.menu': 'Options for the selected game or item',
     'g.k.a': 'Type the selected key', 'g.k.x': 'Delete', 'g.k.y': 'Space', 'g.k.ltrt': 'Letters, symbols, accented letters', 'g.k.menu': 'Done', 'g.k.b': 'Close the keyboard',
     'g.game.resume': 'Home screen over a game: Resume or Close game', 'g.game.cage': 'On older graphics cards, hold Home for 2 seconds to close the game',
-    'g.kb.move': 'Move', 'g.kb.a': 'Confirm', 'g.kb.b': 'Back', 'g.kb.sections': 'Sections', 'g.kb.filters': 'Filters', 'g.kb.others': 'X, Y, Menu, View',
+    'g.kb.move': 'Move', 'g.kb.a': 'Confirm', 'g.kb.b': 'Back', 'g.kb.sections': 'Sections', 'g.kb.filters': 'Filters', 'g.kb.others': 'X, Y, Menu',
     'g.kb.scroll': 'Scroll', 'g.kb.type': 'In text fields a keyboard types as usual',
     'power.suspend': 'Sleep', 'power.restart': 'Restart', 'power.shutdown': 'Shut down', 'cancel': 'Cancel',
     'p.play': 'Play', 'p.details': 'Details', 'p.notifications': 'Notifications', 'p.sections': 'Sections', 'p.home': 'Home', 'p.select': 'Select', 'p.back': 'Back',
@@ -219,11 +219,11 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;open=panel|power|guide</co
     'guide.title': 'Comandi e funzioni',
     'g.everywhere': 'Ovunque', 'g.pages': 'Home, Libreria, Impostazioni', 'g.osk': 'Tastiera a schermo', 'g.games': 'Giochi', 'g.keyboard': 'Con una tastiera collegata',
     'g.move': 'Sposta la selezione', 'g.a': 'Conferma, apri, gioca', 'g.b': 'Indietro, chiudi una finestra', 'g.lbrb': 'Cambia sezione: Home, Libreria, Impostazioni',
-    'g.guide': 'Home: da un gioco alla schermata Home, e di nuovo al gioco', 'g.view': 'Questo menu rapido: spegnimento, comandi', 'g.rs': 'Scorre liste lunghe e finestre',
+    'g.guide': 'Home: da un gioco alla schermata Home, e di nuovo al gioco', 'g.view': 'Dove non c\'è niente a cui tornare: questo menu rapido (spegnimento, comandi)', 'g.rs': 'Scorre liste lunghe e finestre',
     'g.x': 'Dettagli del gioco selezionato', 'g.y': 'Home: notifiche · Libreria: ordina', 'g.ltrt': 'Libreria: Tutti, Installati, Preferiti', 'g.menu': 'Opzioni del gioco o dell\'elemento selezionato',
     'g.k.a': 'Scrive il tasto selezionato', 'g.k.x': 'Cancella', 'g.k.y': 'Spazio', 'g.k.ltrt': 'Lettere, simboli, lettere accentate', 'g.k.menu': 'Fatto', 'g.k.b': 'Chiude la tastiera',
     'g.game.resume': 'Home sopra un gioco: Riprendi o Chiudi gioco', 'g.game.cage': 'Con schede video più vecchie, tieni premuto Home per 2 secondi per chiudere il gioco',
-    'g.kb.move': 'Sposta', 'g.kb.a': 'Conferma', 'g.kb.b': 'Indietro', 'g.kb.sections': 'Sezioni', 'g.kb.filters': 'Filtri', 'g.kb.others': 'X, Y, Menu, View',
+    'g.kb.move': 'Sposta', 'g.kb.a': 'Conferma', 'g.kb.b': 'Indietro', 'g.kb.sections': 'Sezioni', 'g.kb.filters': 'Filtri', 'g.kb.others': 'X, Y, Menu',
     'g.kb.scroll': 'Scorri', 'g.kb.type': 'Nei campi di testo la tastiera scrive come sempre',
     'power.suspend': 'Sospendi', 'power.restart': 'Riavvia', 'power.shutdown': 'Spegni', 'cancel': 'Annulla',
     'p.play': 'Gioca', 'p.details': 'Dettagli', 'p.notifications': 'Notifiche', 'p.sections': 'Sezioni', 'p.home': 'Home', 'p.select': 'Seleziona', 'p.back': 'Indietro',
@@ -287,8 +287,8 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;open=panel|power|guide</co
       <div class="games">${[20, 80, 140, 200, 260, 320, 30].map(h => `<span class="cover" style="--h:${h}"></span>`).join('')}</div>`;
     $$('.page').forEach(p => p.classList.toggle('on', p.id === 'page-' + section));
     $$('[data-i18n]').forEach(el => { el.textContent = tr(el.dataset.i18n); });
-    $('#prompts').innerHTML = `<div class="set">${section === 'home' ? [P(['a'], 'p.play'), P(['x'], 'p.details'), P(['y'], 'p.notifications')].join('') : ''}</div>
-      <div class="set">${P(['view'], 'p.menu')}${P(['lb', 'rb'], 'p.sections')}${P(['guide'], 'p.home')}</div>`;
+    $('#prompts').innerHTML = `<div class="set">${section === 'home' ? [P(['a'], 'p.play'), P(['x'], 'p.details'), P(['y'], 'p.notifications')].join('') : ''}${P(['b'], 'p.menu')}</div>
+      <div class="set">${P(['lb', 'rb'], 'p.sections')}${P(['guide'], 'p.home')}</div>`;
     renderPanel();
   }
 
@@ -348,7 +348,7 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;open=panel|power|guide</co
     introTimers.push(setTimeout(() => { intro.style.display = 'none'; intro.style.backgroundColor = ''; }, 500));
   }
 
-  /* ---------- (B) Quick menu (View): a side panel, as on SteamOS ---------- */
+  /* ---------- (B) Quick menu (B where there is nothing to go back to): a side panel, as on SteamOS ---------- */
   // layer: what has the controller now — "page", "panel", "power" (window) or "guide" (window)
   let layer = 'page', focused = null;
   function renderPanel() {
@@ -407,12 +407,12 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;open=panel|power|guide</co
     const kb = t => `<span class="kb">${t}</span>`;
     const sec = (title, rows) => `<div><h3>${tr(title)}</h3><div class="rows">${rows.join('')}</div></div>`;
     $('#guide-body').innerHTML = [
-      sec('g.everywhere', [row(G.dpad, 'g.move'), row(G.a, 'g.a'), row(G.b, 'g.b'), row(G.lb + G.rb, 'g.lbrb'), row(G.guide, 'g.guide'), row(G.view, 'g.view'), row(G.rs, 'g.rs')]),
+      sec('g.everywhere', [row(G.dpad, 'g.move'), row(G.a, 'g.a'), row(G.b, 'g.b'), row(G.lb + G.rb, 'g.lbrb'), row(G.guide, 'g.guide'), row(G.b, 'g.view'), row(G.rs, 'g.rs')]),
       sec('g.pages', [row(G.x, 'g.x'), row(G.y, 'g.y'), row(G.lt + G.rt, 'g.ltrt'), row(G.menu, 'g.menu')]),
       sec('g.osk', [row(G.a, 'g.k.a'), row(G.x, 'g.k.x'), row(G.y, 'g.k.y'), row(G.lt + G.rt, 'g.k.ltrt'), row(G.menu, 'g.k.menu'), row(G.b, 'g.k.b')]),
       sec('g.games', [row(G.guide, 'g.game.resume'), row(G.guide, 'g.game.cage')]),
-      sec('g.keyboard', [row(kb('↑ ↓ ← →'), 'g.kb.move'), row(kb('Enter') + kb('Space'), 'g.kb.a'), row(kb('Esc') + kb('⌫'), 'g.kb.b'), row(kb('Q') + kb('E'), 'g.kb.sections'),
-        row(kb('Z') + kb('C'), 'g.kb.filters'), row(kb('X') + kb('Y') + kb('M') + kb('V'), 'g.kb.others'), row(kb('PgUp') + kb('PgDn'), 'g.kb.scroll'), row('', 'g.kb.type')]),
+      sec('g.keyboard', [row(kb('↑ ↓ ← →'), 'g.kb.move'), row(kb('Enter') + kb('Space'), 'g.kb.a'), row(kb('Esc') + kb('Backspace'), 'g.kb.b'), row(kb('Q') + kb('E'), 'g.kb.sections'),
+        row(kb('Z') + kb('C'), 'g.kb.filters'), row(kb('X') + kb('Y') + kb('M'), 'g.kb.others'), row(kb('PgUp') + kb('PgDn'), 'g.kb.scroll'), row('', 'g.kb.type')]),
     ].join('');
     $('#guide-body').scrollTop = 0;
     $('#guide').classList.add('open');
@@ -456,11 +456,7 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;open=panel|power|guide</co
   function back() {
     if (layer === 'power' || layer === 'guide') backToPanel();
     else if (layer === 'panel') closePanel();
-    else feedback('confirm');
-  }
-  function view() {
-    if (layer === 'page') openPanel();
-    else { $('#guide').classList.remove('open'); $('#sheet').style.display = 'none'; closePanel(); }   // View again: everything closes
+    else openPanel();                 // nothing to go back to on a page: the quick menu
   }
   function sectionStep(d) {
     if (layer !== 'page') { feedback('edge'); return; }
@@ -482,7 +478,6 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;open=panel|power|guide</co
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     if (dirs[e.key]) { e.preventDefault(); move(dirs[e.key]); }
     else if (e.key === 'Escape' || e.key === 'Backspace') { e.preventDefault(); if (!e.repeat) back(); }
-    else if (k === 'v') { e.preventDefault(); if (!e.repeat) view(); }
     else if (e.key === 'PageUp' || e.key === 'PageDown') { e.preventDefault(); scroll(e.key === 'PageDown' ? 1 : -1); }
     else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!e.repeat) accept(); }
     else if (k === 'q' || k === 'e') { e.preventDefault(); if (!e.repeat) sectionStep(k === 'e' ? 1 : -1); }
@@ -498,7 +493,7 @@ Address: <code>#lang=it&amp;motion=off&amp;game=1&amp;open=panel|power|guide</co
       const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) ? 'up' : on(13) ? 'down' : null;
       if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
       lastDir = dir; if (!dir) repeatAt = 0;
-      [[0, accept], [1, back], [4, () => sectionStep(-1)], [5, () => sectionStep(1)], [8, view]].forEach(([i, f]) => { const p = on(i); if (p && !prev[i]) f(); prev[i] = p; });
+      [[0, accept], [1, back], [4, () => sectionStep(-1)], [5, () => sectionStep(1)]].forEach(([i, f]) => { const p = on(i); if (p && !prev[i]) f(); prev[i] = p; });
       const ry = pad.axes[3] || 0;
       if (Math.abs(ry) > 0.5 && ts > scrollAt) { scroll(ry < 0 ? -1 : 1); scrollAt = ts + (scrollAt ? 90 : 360); }
       if (Math.abs(ry) <= 0.5) scrollAt = 0;

@@ -191,7 +191,7 @@ same screen. New bindings are added here before they are implemented.
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | D-pad / left stick          | Move selection (spatial navigation)                                                                                      |
 | A / ✕                       | Confirm / select                                                                                                         |
-| B / ○                       | Back / close                                                                                                             |
+| B / ○                       | Back / close. Where there is nothing to go back to (Home, Library, the list of Settings sections): the **quick menu** (power options, controls and features) |
 | X / □                       | Secondary action on the selected item (e.g. Details, Install)                                                            |
 | Y / △                       | Page-level option (e.g. Sort, Search)                                                                                    |
 | LB / RB (L1 / R1)           | Switch top-level section (Home, Library, Settings, …) — **reserved, never used for anything else**                       |
@@ -362,3 +362,4 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-11 | Demo 3.10 (on-screen keyboard) approved, with the selection wrapping around vertically too. Inside the keyboard: X delete, Y space, LT / RT pages of keys, Menu Done (section 9.1). |
 | 2026-10-11 | Step 3.10 (on-screen keyboard) approved. The next USB-stick test on real hardware comes at the end of step 3.12, with everything since step 3.9 (on-screen keyboard, notifications, interface sounds). |
 | 2026-10-11 | Demo 3.11 (notifications) approved: banners at the top right, a bell in the top bar, the list on Y from the home screen (section 9.1: page-level option); nothing drawn over a game. Notifications that need attention get a sound of their own, `notify-error` (eleven sounds, `design/sounds.md`); `error` stays for something just done that failed. |
+| 2026-10-11 | Step 3.12 (interface sounds) done; the first sound after boot needs the sound output running first (a looped silence). Demo 3.13 approved: animated start-up from the boot splash's wordmark; a **quick menu** (side panel from the right, as on SteamOS) with power options and a read-only "Controls and features" guide, opened by **B where there is nothing to go back to** (an accidental press only opens the menu). View stays reserved for screenshots in a later wave (section 9.1). |
