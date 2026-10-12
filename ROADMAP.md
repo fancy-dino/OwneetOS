@@ -972,7 +972,13 @@ code is written (PROJECT_RULES.md section 9).
   used only as files are written). Found before the hardware test: Steam opened from "Add games"
   took the screen without `focus.changed`, so the hidden interface kept reading the controller
   (keys typed in Steam would also move the library); owneetd 0.11.4 sends it whenever the screen
-  changes by itself (cage: the newest app). To check on real hardware with the owner's account:
+  changes by itself (cage: the newest app). Owner's first test on the NiPoGi (2026-10-12): login
+  works with the controller, but Steam's start shows resolution changes and flashing windows
+  (owneetd 0.11.5: Steam comes to the front only once its window has stayed for 3 seconds, the
+  "Preparing Steam" screen covers the start); Guide is fought over by owneetd and Steam (decision
+  pending); a game installed in Steam did not start (Steam: missing executable; the test stick now
+  keeps Steam's logs, owneet-base 0.0.21); the other developer saw a green, then yellow, bar at
+  the bottom of the screen (details pending). To check on real hardware with the owner's account:
   login, installing and starting a game, Guide in a game, Steam's own reaction to the Guide
   button, closing a game from the home screen.
 - **Demo (2026-10-11):** `design/demos/4.2-library-add-games.html`, built on the approved demo

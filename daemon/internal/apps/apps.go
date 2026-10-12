@@ -47,7 +47,14 @@ type App struct {
 	appID   uint32 // gamescope app id of its windows
 	reaper  int    // a Steam game: Steam's launcher process (steam.go)
 	window  bool   // has shown a window
+	// settle: shown only once its window has stayed for a few seconds (Steam changes resolution
+	// and flashes windows while it starts: the console's "Preparing Steam" screen covers that)
+	settle bool
+	steady int // checks in a row with a window
 }
+
+// settleChecks is how many once-a-second checks a settling app's window must stay before it is shown.
+const settleChecks = 3
 
 // HomeAppID tags the home screen's windows in gamescope; apps get ids just above it (see
 // newAppID). The range is far from Steam's app ids.
@@ -268,13 +275,31 @@ func (m *Manager) checkWindows() {
 	}
 	m.mu.Lock()
 	var ready []string
+	var bring []uint32 // settled apps to bring to the front
 	for _, a := range m.apps {
-		if !a.window && shown[a.appID] {
-			a.window = true
-			ready = append(ready, a.ID)
+		if a.window {
+			continue
 		}
+		if !shown[a.appID] {
+			a.steady = 0
+			continue
+		}
+		if a.settle {
+			if a.steady++; a.steady < settleChecks {
+				continue
+			}
+			// still wanted: nothing else was chosen meanwhile
+			if len(m.shown) == 0 || m.shown[0] == HomeAppID {
+				bring = append(bring, a.appID)
+			}
+		}
+		a.window = true
+		ready = append(ready, a.ID)
 	}
 	m.mu.Unlock()
+	for _, id := range bring {
+		m.show(f, []uint32{id, HomeAppID})
+	}
 	for _, id := range ready {
 		m.Broker.Publish("app.window", map[string]string{"id": id})
 	}
@@ -450,15 +475,19 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 		}
 	}
 	app := &App{ID: req.ID, Name: req.Name, Kind: req.Kind, Started: time.Now(), unit: UnitName(req.ID),
-		appID: m.newAppID(req.ID)}
+		appID: m.newAppID(req.ID), settle: req.ID == SteamID}
 	m.apps[app.ID] = app // reserved while starting
 	m.order = append(m.order, app.ID)
 	m.mu.Unlock()
 
-	// gamescope: the new app comes to the front as soon as it has a window; the home screen
-	// stays on screen until then.
+	// gamescope: the new app comes to the front as soon as it has a window (a settling one once
+	// its window is steady: checkWindows); the home screen stays on screen until then.
 	if f := m.focus(sess); f != nil {
-		if err := m.show(f, []uint32{app.appID, HomeAppID}); err != nil {
+		first := []uint32{app.appID, HomeAppID}
+		if app.settle {
+			first = []uint32{HomeAppID}
+		}
+		if err := m.show(f, first); err != nil {
 			m.Log.Debug("cannot choose what gamescope shows", "err", err)
 		}
 	}

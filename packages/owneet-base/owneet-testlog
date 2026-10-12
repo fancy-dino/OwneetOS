@@ -4,7 +4,8 @@
 # Testers only (leaves the user ISO with the test boot entries, roadmap 7.4). When a USB stick
 # with a partition labelled OWNEETLOG (FAT32 or exFAT) is plugged in at boot, the system log and a
 # hardware report (every 10 s) are written there while the system runs, so that they survive a forced
-# power-off. Nothing happens without that stick.
+# power-off; Steam's own logs too (they name the tester's Steam account: the stick is theirs).
+# Nothing happens without that stick.
 
 set -u
 
@@ -43,6 +44,18 @@ report() {
     echo "--- owneet-screens-off"; systemctl list-units --all --no-pager --plain 'owneet-screens-off@*' | head -5
     echo "--- /v1/display"; owneetd_get /v1/display
     echo "--- /v1/status"; owneetd_get /v1/status
+    echo "--- /v1/apps"; owneetd_get /v1/apps
+    echo "--- /v1/steam"; owneetd_get /v1/steam
+}
+
+# Steam's logs (launches, Proton, downloads), copied as they grow
+steam_logs() {
+    local logs=/home/owneet/.local/share/Steam/logs
+    [[ -d "$logs" ]] || return 0
+    mkdir -p "$base.steam"
+    for f in console_log.txt compat_log.txt content_log.txt bootstrap_log.txt shader_log.txt; do
+        [[ -f "$logs/$f" ]] && cp -u "$logs/$f" "$base.steam/" 2>/dev/null
+    done
 }
 
 # The whole system log, as it is written
@@ -57,6 +70,7 @@ sleep 60
   runuser -u owneet -- env HOME=/home/owneet ddcutil detect --verbose 2>&1 | head -80; } >> "$base.report.txt"
 while true; do
     report >> "$base.report.txt" 2>&1
+    steam_logs
     sync
     sleep 10 &
     wait $!

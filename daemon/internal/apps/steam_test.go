@@ -76,6 +76,13 @@ func newSteamManager(t *testing.T) (*Manager, *fakeUnits, *fakeFocus, *fakeProcs
 	return m, units, focus, procs, forwarded, ch
 }
 
+// settle lets Steam's window stay until owneetd shows it
+func settle(m *Manager) {
+	for i := 0; i < settleChecks; i++ {
+		m.checkWindows()
+	}
+}
+
 func next(t *testing.T, ch <-chan events.Event, typ string) events.Event {
 	t.Helper()
 	timeout := time.After(2 * time.Second)
@@ -119,7 +126,13 @@ func TestSteamStartsWithoutGamescopeControl(t *testing.T) {
 		t.Fatalf("argv %q", argv)
 	}
 	m.checkWindows()       // no window yet: nothing
-	focus.openWindow(1001) // Steam's window
+	focus.openWindow(1001) // Steam's window: shown once it has stayed for a few seconds
+	for i := 0; i < settleChecks-1; i++ {
+		m.checkWindows()
+		if st := m.Status(); st.Focus != "home" {
+			t.Fatalf("Steam shown before its window settled (check %d)", i+1)
+		}
+	}
 	m.checkWindows()
 	if e := next(t, ch, "app.window"); e.Data.(map[string]string)["id"] != SteamID {
 		t.Fatalf("app.window %v", e.Data)
@@ -157,6 +170,7 @@ func TestSteamGameIsAGameOfItsOwn(t *testing.T) {
 	next(t, ch, "app.started") // Steam itself
 	steamUnit := units.started[0]
 	focus.openWindow(1001)
+	settle(m)
 	if err := m.Steam(SteamRequest{Run: "480", Name: "Spacewar"}); err != nil {
 		t.Fatal(err)
 	}
@@ -218,6 +232,7 @@ func TestSteamGameStartedInSteamAndSteamClosing(t *testing.T) {
 	next(t, ch, "app.started") // Steam itself
 	steamUnit := units.started[0]
 	focus.openWindow(1001)
+	settle(m)
 	// a game chosen in Steam's own library; its window appears before the next scan
 	procs.add(3000, 1, steamUnit, "reaper", "SteamLaunch", "AppId=570", "--", "/g/dota")
 	procs.add(3001, 3000, steamUnit, "/g/dota")
@@ -251,6 +266,7 @@ func TestSteamRequestsWhatToShow(t *testing.T) {
 	next(t, ch, "app.started")
 	steamUnit := units.started[0]
 	focus.openWindow(1001)
+	settle(m)
 	steamID := m.appIDOf(SteamID)
 	shown := func() []uint32 {
 		focus.mu.Lock()
