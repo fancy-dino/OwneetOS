@@ -28,7 +28,7 @@ Sheet {
         [["a"], "controls.k.a"], [["x"], "controls.k.x"], [["y"], "controls.k.y"], [["lt", "rt"], "controls.k.pages"],
         [["menu"], "controls.k.done"], [["b"], "controls.k.b"],
         ["controls.games"],
-        [["guide"], "controls.game.home"], [["guide"], "controls.game.cage"],
+        [["guide"], "controls.game.home"], [["guide"], "controls.game.steam"], [["guide"], "controls.game.cage"],
         ["controls.physical"],
         [["kb:↑ ↓ ← →"], "controls.kb.move"], [["kb:Enter", "kb:Space"], "controls.kb.a"], [["kb:Esc", "kb:Backspace"], "controls.kb.b"],
         [["kb:Q", "kb:E"], "controls.kb.sections"], [["kb:Z", "kb:C"], "controls.kb.filters"], [["kb:X", "kb:Y", "kb:M"], "controls.kb.others"],

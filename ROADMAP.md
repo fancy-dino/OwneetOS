@@ -975,8 +975,9 @@ code is written (PROJECT_RULES.md section 9).
   changes by itself (cage: the newest app). Owner's first test on the NiPoGi (2026-10-12): login
   works with the controller, but Steam's start shows resolution changes and flashing windows
   (owneetd 0.11.5: Steam comes to the front only once its window has stayed for 3 seconds, the
-  "Preparing Steam" screen covers the start); Guide is fought over by owneetd and Steam (decision
-  pending); a game installed in Steam did not start (Steam: missing executable; the test stick now
+  "Preparing Steam" screen covers the start); Guide was fought over by owneetd and Steam (owner's
+  choice, option A: over Steam a short press is Steam's, holding it 1 second comes back to the
+  console; owneetd 0.11.6); a game installed in Steam did not start (Steam: missing executable; the test stick now
   keeps Steam's logs, owneet-base 0.0.21); the other developer saw a green, then yellow, bar at
   the bottom of the screen (details pending). To check on real hardware with the owner's account:
   login, installing and starting a game, Guide in a game, Steam's own reaction to the Guide

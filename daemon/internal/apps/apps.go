@@ -31,6 +31,11 @@ import (
 // HoldToClose is how long Guide is held to close the game in the cage session.
 const HoldToClose = 2 * time.Second
 
+// HoldToHome is how long Guide is held, while Steam or a Steam game is on screen, to come back to
+// the console: a short press belongs to Steam then (its menu, its overlay in games; PROJECT_RULES.md
+// section 9.1, 2026-10-12).
+const HoldToHome = time.Second
+
 // Kinds of app.
 const (
 	KindGame = "game"
@@ -143,6 +148,8 @@ type Manager struct {
 	LookPath func(string) (string, error)
 	// Hold is how long Guide is held to close the app in the cage session (HoldToClose).
 	Hold time.Duration
+	// HomeHold is how long Guide is held over Steam to come back to the console (HoldToHome).
+	HomeHold time.Duration
 	// Steam (steam.go): processes, Steam's folder, whether Steam may run, how an address
 	// reaches the running Steam.
 	Procs        Procs
@@ -150,12 +157,13 @@ type Manager struct {
 	SteamAllowed func() bool
 	Forward      func(argv, env []string) error
 
-	mu      sync.Mutex
-	apps    map[string]*App // by id
-	order   []string        // launch order, oldest first
-	lastApp string          // the app shown before the home screen
-	hold    *time.Timer     // cage: Guide held
-	homePID int             // of the session being watched
+	mu       sync.Mutex
+	apps     map[string]*App // by id
+	order    []string        // launch order, oldest first
+	lastApp  string          // the app shown before the home screen
+	hold     *time.Timer     // cage: Guide held
+	homeHold *time.Timer     // gamescope: Guide held over Steam
+	homePID  int             // of the session being watched
 	// names given by the interface to Steam games about to start, by Steam app id
 	steamNames map[string]string
 	shown      []uint32 // what owneetd last asked gamescope to show
@@ -171,6 +179,9 @@ func (m *Manager) init() {
 	}
 	if m.Hold == 0 {
 		m.Hold = HoldToClose
+	}
+	if m.HomeHold == 0 {
+		m.HomeHold = HoldToHome
 	}
 	if m.Procs == nil {
 		m.Procs = procFS{}
@@ -703,9 +714,24 @@ func (m *Manager) Guide(down bool) {
 	}
 	switch sess.Mode {
 	case "gamescope":
-		if down {
-			m.toggle(sess)
+		m.mu.Lock()
+		m.init()
+		if m.homeHold != nil {
+			m.homeHold.Stop()
+			m.homeHold = nil
 		}
+		m.mu.Unlock()
+		if !down {
+			return
+		}
+		if m.steamOnScreen(sess) {
+			// Steam answers the short press itself; held, Guide comes back to the console
+			m.mu.Lock()
+			m.homeHold = time.AfterFunc(m.HomeHold, func() { m.heldToHome(sess) })
+			m.mu.Unlock()
+			return
+		}
+		m.toggle(sess)
 	case "cage":
 		m.mu.Lock()
 		m.init()
@@ -718,6 +744,34 @@ func (m *Manager) Guide(down bool) {
 		}
 		m.mu.Unlock()
 	}
+}
+
+// steamOnScreen: Steam or one of its games is on screen.
+func (m *Manager) steamOnScreen(sess Session) bool {
+	f := m.focus(sess)
+	if f == nil {
+		return false
+	}
+	focused, err := f.Focused()
+	if err != nil {
+		return false
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	a := m.appOfID(focused)
+	return a != nil && (a.ID == SteamID || a.reaper != 0)
+}
+
+// heldToHome: Guide held over Steam: the console's home screen; Steam and its game keep running.
+func (m *Manager) heldToHome(sess Session) {
+	m.mu.Lock()
+	m.homeHold = nil
+	m.mu.Unlock()
+	if !m.steamOnScreen(sess) {
+		return
+	}
+	m.Log.Info("Guide held over Steam: home screen")
+	m.toggle(sess)
 }
 
 // closeNewest closes the app on screen in the cage session (the newest one).

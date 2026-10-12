@@ -385,5 +385,6 @@
   "prompt.hide": "Hide",
   "steam.install.title": "Steam needs the installed system",
   "steam.install.text": "In this trial mode from the USB stick, Steam keeps its files in memory, and this PC has less than 12 GB. Install OwneetOS to use Steam.",
-  "error.steam.needs_install": "Install OwneetOS to use Steam on this PC."
+  "error.steam.needs_install": "Install OwneetOS to use Steam on this PC.",
+  "controls.game.steam": "Steam and Steam games: Steam's menu. Hold for 1 second to come back to the console"
 }

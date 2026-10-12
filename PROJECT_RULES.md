@@ -155,8 +155,11 @@ OwneetOS is a **lightweight, open-source Linux distribution** that turns any x86
     a disk that is not connected is simply not shown. Games owned but not installed are installed
     from Steam's own library (Big Picture), which the console opens: Steam's local files cannot
     list them with certainty (2026-10-11, roadmap 4.1).
+  - Steam's own screens (login, progress of a game's launch) are shown by the console
+    automatically when they matter: the user never has to look for them.
   - Anything the console opens (Steam included) must be fully usable with the controller, and
-    Guide always brings back the home screen with the selection where it was. The user must
+    Guide always brings back the home screen with the selection where it was (held for 1 second
+    over Steam, section 9.1). The user must
     **never** be forced to use a mouse or keyboard (section 1, C2).
 - **Online features**: rely on existing services (Steam friends/achievements inside
   Steam, Discord, etc.). **No own server.**
@@ -214,7 +217,7 @@ same screen. New bindings are added here before they are implemented.
 | LT / RT (L2 / R2)           | Switch filter inside the current page (e.g. Library: All / Installed / Favorites). There are no sub-tabs: tabs are only the sections on LB / RB |
 | Menu / Options              | Options menu for the selected item                                                                                       |
 | View / Create               | Reserved (screenshot in a later wave)                                                                                    |
-| Guide / PS                  | **Owned by the system daemon**: home / quick menu from anywhere, including in games. Apps and themes must never bind it. Prompt label: "Home". |
+| Guide / PS                  | **Owned by the system daemon**: home / quick menu from anywhere, including in games. Apps and themes must never bind it. Prompt label: "Home". **Exception, Steam** (2026-10-12): while Steam or a Steam game is on screen, a short press is Steam's (its menu; its overlay in games) and **holding it for 1 second** comes back to the console (Steam and the game keep running). |
 | Right stick                 | Scrolls the page: fast scroll in long lists and grids, and the content of windows (e.g. Credits and licences)         |
 
 **On-screen keyboard** (demo 3.10, approved 2026-10-11): while it is open, A types the selected
@@ -390,3 +393,4 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-11 | Proton and its runtime are downloaded once, in the background, the first time the console is online ("a necessary evil": the only exception to C9, for Windows games before the first connection). Installing a game from an installer first shows "By installing you accept the game's licence" [Read] [Install] (the user is informed, the project is covered). Step 4.1 approved. |
 | 2026-10-11 | Demo 4.2 approved (with the generic store icon for Steam and no "Add games" in Favorites). **Distribution:** the ISO goes to SourceForge, the website to a `.org` domain on GitHub Pages, packages stay on GitHub (section 5). **Steam is in the ISO** with 32-bit drivers for every GPU (about +300 MiB, [multilib] from the same snapshot). |
 | 2026-10-11 | Steam in the **live session** (no installed disk: Steam's first download of about 2.4 GB is kept in RAM): only with at least **12 GB of RAM**; otherwise a clear message asks to install OwneetOS to use Steam. The **installed system's requirements do not change** (4 GB minimum, 8 GB recommended); Steam is started only when needed (C1 is measured with Steam closed). |
+| 2026-10-12 | After the owner's first Steam test (Guide fought over by owneetd and Steam): **while Steam or a Steam game is on screen, a short Guide press is Steam's; holding Guide for 1 second comes back to the console** (option A; section 9.1). "Exit Steam" in Steam's menu also comes back. Steam's own screens that matter (login, a game's launch progress) are shown automatically (section 8). |

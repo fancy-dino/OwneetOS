@@ -197,12 +197,23 @@ func TestSteamGameIsAGameOfItsOwn(t *testing.T) {
 	if _, err := m.Launch(LaunchRequest{ID: "other", Kind: KindGame, Command: []string{"game"}}); !errors.Is(err, ErrGameRunning) {
 		t.Fatalf("other game: %v", err)
 	}
-	// Guide: home, then back to the game
+	// Guide over a Steam game: a short press is Steam's (its overlay); held, the console's home
+	// screen; from there a short press goes back to the game
+	m.HomeHold = 100 * time.Millisecond
 	m.Guide(true)
-	if st := m.Status(); st.Focus != "home" {
-		t.Fatalf("after Guide %q", st.Focus)
+	m.Guide(false)
+	time.Sleep(200 * time.Millisecond)
+	if st := m.Status(); st.Focus != "steam:480" {
+		t.Fatalf("short press over Steam %q", st.Focus)
 	}
 	m.Guide(true)
+	time.Sleep(250 * time.Millisecond)
+	m.Guide(false)
+	if st := m.Status(); st.Focus != "home" {
+		t.Fatalf("Guide held %q", st.Focus)
+	}
+	m.Guide(true)
+	m.Guide(false)
 	if st := m.Status(); st.Focus != "steam:480" {
 		t.Fatalf("Guide again %q", st.Focus)
 	}
@@ -286,7 +297,10 @@ func TestSteamRequestsWhatToShow(t *testing.T) {
 	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) {
 		t.Fatalf("Steam game: %v", got)
 	}
-	m.Guide(true) // the home screen: Steam cannot take it back
+	m.HomeHold = 50 * time.Millisecond
+	m.Guide(true) // held: the home screen; Steam cannot take it back
+	time.Sleep(150 * time.Millisecond)
+	m.Guide(false)
 	focus.request([]uint32{steamUIAppID})
 	if got := shown(); !sameIDs(got, []uint32{HomeAppID}) || m.Status().Focus != "home" {
 		t.Fatalf("home screen: %v, focus %q", got, m.Status().Focus)

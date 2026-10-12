@@ -228,7 +228,10 @@ at a time; apps such as the browser may run next to it), `apps.unknown_app` (404
   comes to the front as soon as its window appears, with the home screen as fallback. App ids
   are derived from the app's id, so they survive an owneetd restart.
 - **Guide** (owned by the system, PROJECT_RULES.md section 9.1): in gamescope it toggles between
-  the home screen and the app last shown; the game keeps running behind the home screen. In cage,
+  the home screen and the app last shown; the game keeps running behind the home screen. While
+  Steam or a Steam game is on screen a short press is Steam's (Steam reads the controllers itself
+  and opens its menu or overlay), and holding Guide for 1 second (`HoldToHome`) comes back to the
+  home screen. In cage,
   which shows only the newest window, holding Guide for 2 seconds closes the app on screen; a short
   press does nothing. `guide.pressed` and `guide.released` are still sent to clients.
 - Events: `app.started`, `app.exited` (with systemd's result: `success`, `exit-code`, `signal`,
