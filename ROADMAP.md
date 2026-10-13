@@ -925,7 +925,7 @@ code is written (PROJECT_RULES.md section 9).
   library on a disk not connected, two accounts). owneet-frontend 0.15.0. Steam is not in the ISO
   yet (4.2): checked on real Steam data from step 4.2 on.
 
-### [ ] 4.2 Steam integration
+### [x] 4.2 Steam integration *(approved 2026-10-13)*
 
 - **Deliverables:** Steam login and store in `-gamepadui` mode, game launch via the daemon, return
   to home on exit, Steam Store tile.
@@ -992,6 +992,11 @@ code is written (PROJECT_RULES.md section 9).
   its library: a stand-in screen; Home brings back the library on "Add games") and "From a USB
   stick or disk" (a read-only guide to the `Games` folder; B goes back to the choice). B on the
   page: the quick menu (3.13).
+- **Approved (2026-10-13)** after the owner's test on the NiPoGi: login with the controller, no
+  glitches at Steam's start, Guide over Steam (short: Steam; held: the console), Steam shown
+  automatically while a game starts, a game installed in Steam started from the console's
+  library (Dragon's Wake, with Proton forced by hand: its Linux version is broken; automatic
+  recovery planned in 4.5).
 
 ### [ ] 4.3 Local DRM-free games
 
