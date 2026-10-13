@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-# owneetd runs as a user service of the console user (not root): docs/daemon-design.md
+# owneetd runs as a user service of the console user (not root): [[owneetd-design]]
 [Unit]
 Description=OwneetOS system daemon
-Documentation=https://github.com/fancy-dino/OwneetOS/blob/main/docs/daemon-design.md
+Documentation=https://github.com/fancy-dino/OwneetOS/blob/main/daemon/README.md
 
 [Service]
 ExecStart=/usr/bin/owneetd

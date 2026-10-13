@@ -73,7 +73,7 @@ GamepadButtonNavigation::GamepadButtonNavigation(QObject* parent)
         { GamepadButton::RSTICK_UP, new QTimer(this) },
         { GamepadButton::RSTICK_DOWN, new QTimer(this) },
         // OwneetOS: no GUIDE. The Guide button belongs to the system (owneetd): it never
-        // reaches the interface (OwneetOS PROJECT_RULES.md section 9.1).
+        // reaches the interface (OwneetOS [[controller-input-map]]).
     }
     , m_keys {
         { GamepadButton::UP, Qt::Key_Up },

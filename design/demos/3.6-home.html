@@ -1,9 +1,10 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
-<!-- OwneetOS — interactive demo for roadmap step 3.6 (home screen). Open in a browser; drive it
-     with a gamepad or the keyboard. Fonts come from Google Fonts for the demo only (the console
-     bundles them); sounds are the placeholders in frontend/sounds/ (Kenney, CC0). Game names and
-     cover art are invented: real covers come from local files (Steam's cache, game folders). -->
+<!-- OwneetOS — interactive demo for [[step-3.6-home-screen]] (home screen). Open in a browser;
+     drive it with a gamepad or the keyboard. Fonts come from Google Fonts for the demo only (the
+     console bundles them); sounds are the placeholders in frontend/sounds/ (Kenney, CC0). Game
+     names and cover art are invented: real covers come from local files (Steam's cache, game
+     folders). -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -300,7 +301,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 
   /* ---------- Sounds: the placeholders of frontend/sounds/ ---------- */
   let soundOn = true;
-  // What happened -> sound file (design/sounds.md: ten sounds; A, B and filters share the "click")
+  // What happened -> sound file ([[interface-sounds-spec]]: ten sounds; A, B and filters share the
+  // "click")
   const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', back: 'nav-confirm', section: 'nav-section',
     tab: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', launch: 'game-launch', notify: 'notify' };
   // Web Audio: every sound is decoded once and plays at once, even overlapping (sounds.js holds

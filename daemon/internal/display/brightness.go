@@ -20,9 +20,9 @@ import (
 	"github.com/godbus/dbus/v5"
 )
 
-// Brightness is shown only on screens that let the console change it (PROJECT_RULES.md, decision
-// log 2026-10-09): a laptop's built-in screen (backlight, through logind) and monitors that
-// accept DDC/CI commands (ddcutil). TVs usually do not.
+// Brightness is shown only on screens that let the console change it ([[screens-and-display]],
+// 2026-10-09): a laptop's built-in screen (backlight, through logind) and monitors that accept
+// DDC/CI commands (ddcutil). TVs usually do not.
 
 // Backlight is a laptop screen's backlight in sysfs (/sys/class/backlight).
 type Backlight struct {

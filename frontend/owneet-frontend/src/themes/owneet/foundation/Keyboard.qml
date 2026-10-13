@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The on-screen keyboard (roadmap 3.10, approved demo design/demos/3.10-osk.html): it types into a
-// TextInput of the interface. Five rows: digits and delete; letters; shift and punctuation; page,
-// cursor left / right, space, show / hide (password fields) and Done. Pages of keys: letters (the
-// layout of Settings → Language → Keyboard layout), symbols, accented letters of other languages.
-// Buttons (PROJECT_RULES.md section 9.1, on-screen keyboard): A types the selected key, X deletes,
-// Y types a space, LT / RT change the page, Menu = Done, B closes; the selection wraps around at
-// every edge. A keyboard plugged in keeps typing as usual.
+// The on-screen keyboard ([[step-3.10-on-screen-keyboard]], approved demo
+// design/demos/3.10-osk.html): it types into a TextInput of the interface. Five rows: digits and
+// delete; letters; shift and punctuation; page, cursor left / right, space, show / hide (password
+// fields) and Done. Pages of keys: letters (the layout of Settings → Language → Keyboard layout),
+// symbols, accented letters of other languages. Buttons ([[controller-input-map]], on-screen
+// keyboard): A types the selected key, X deletes, Y types a space, LT / RT change the page, Menu =
+// Done, B closes; the selection wraps around at every edge. A keyboard plugged in keeps typing as
+// usual.
 import QtQuick 2.15
 
 FocusScope {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The disks the console can store games on, with their free space (roadmap 3.7, the library's
-// disks). Automatic mounting and the notices about Windows disks come with step 6.5.
+// The disks the console can store games on, with their free space ([[step-3.7-library-screen]], the
+// library's disks). Automatic mounting and the notices about Windows disks come with
+// [[step-6.5-automatic-disk-mounting]].
 
 #pragma once
 

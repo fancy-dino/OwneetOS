@@ -9,7 +9,7 @@ FocusScope {
     id: root
     property Item current: null
     property string backFeedback: "back"   // sound of B ("" when closing makes its own)
-    // The page's scrolling content (PROJECT_RULES.md section 9.1: the right stick scrolls the
+    // The page's scrolling content ([[controller-input-map]]: the right stick scrolls the
     // page); up / down scroll it too when there is nothing more to select that way.
     property Flickable scrollTarget: null
     function scrollBy(dy) {

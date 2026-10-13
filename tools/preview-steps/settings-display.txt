@@ -1,5 +1,5 @@
 @owneetd
-# Settings (step 3.9, part 3): Display, with the pretend owneetd.
+# Settings ([[step-3.9-settings]], part 3): Display, with the pretend owneetd.
 pad lb down down down
 wait 1
 shot 01-display

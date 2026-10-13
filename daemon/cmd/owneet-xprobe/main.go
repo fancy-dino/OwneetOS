@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // owneet-xprobe is a test tool (not shipped in the image): it prints what gamescope's X server
-// knows about windows and focus, to see how Steam and owneetd share the screen (roadmap 4.2).
+// knows about windows and focus, to see how Steam and owneetd share the screen
+// ([[step-4.2-steam-integration]]).
 //
 //	owneet-xprobe                 the root window's GAMESCOPE* / STEAM* properties and every window
 //	owneet-xprobe -watch 30s      also print the root properties each time they change

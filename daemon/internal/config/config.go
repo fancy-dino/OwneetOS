@@ -30,7 +30,7 @@ type Config struct {
 	// needs it to type the right characters.
 	KeyboardLayout string `json:"keyboard_layout"`
 	// BluetoothAutoPairWithoutController turns automatic gamepad pairing on whenever no
-	// controller is connected (PROJECT_RULES.md section 7: the first pairing needs no input).
+	// controller is connected ([[controllers-and-pairing]]: the first pairing needs no input).
 	BluetoothAutoPairWithoutController bool `json:"bluetooth_autopair_without_controller"`
 }
 

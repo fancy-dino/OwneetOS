@@ -1,5 +1,6 @@
 @owneetd
-# On-screen keyboard (step 3.10) in the Wi-Fi password window, with the pretend owneetd.
+# On-screen keyboard ([[step-3.10-on-screen-keyboard]]) in the Wi-Fi password window, with the
+# pretend owneetd.
 pad lb
 wait 1
 pad right down down down a

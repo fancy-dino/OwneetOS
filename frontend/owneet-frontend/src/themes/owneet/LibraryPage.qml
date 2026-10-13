@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The library (roadmap 3.7, approved demo design/demos/3.7-library.html): every game in one grid,
-// filters on LT / RT, sort on Y, the disks with their free space (up from the first row; A opens
-// the Disks window). Every game shown is installed (4.1); the last place of the grid is "Add games"
-// (approved demo design/demos/4.2-library-add-games.html), not in Favorites, a personal list.
+// The library ([[step-3.7-library-screen]], approved demo design/demos/3.7-library.html): every
+// game in one grid, filters on LT / RT, sort on Y, the disks with their free space (up from the
+// first row; A opens the Disks window). Every game shown is installed (4.1); the last place of the
+// grid is "Add games" (approved demo design/demos/4.2-library-add-games.html), not in Favorites, a
+// personal list.
 import QtQuick 2.15
 import "foundation"
 
@@ -35,7 +36,8 @@ FocusScope {
     // the grid's places: the games, then "Add games"
     readonly property var places: filter === "favorites" ? shown : shown.concat([{ addGames: true }])
 
-    // Disks: refreshed whenever the library is shown (mounting arrives with step 6.5)
+    // Disks: refreshed whenever the library is shown (mounting arrives with
+    // [[step-6.5-automatic-disk-mounting]])
     property var volumes: []
     function refreshVolumes() { volumes = storage.volumes(); }
     onVisibleChanged: if (visible) refreshVolumes()
@@ -117,7 +119,7 @@ FocusScope {
             font.pixelSize: Theme.fs(17)
         }
         Rectangle {
-            // Up to two disks; with more, one summary (overflow rule, PROJECT_RULES.md section 9)
+            // Up to two disks; with more, one summary (overflow rule, [[home-and-library]])
             id: disks
             readonly property bool navigable: true
             visible: page.volumes.length > 0

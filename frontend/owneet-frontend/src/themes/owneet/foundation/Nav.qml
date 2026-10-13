@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Input map and navigation, shared by every screen (PROJECT_RULES.md section 9.1):
+// Input map and navigation, shared by every screen ([[controller-input-map]]):
 //   action(event)  turns a key event into what it means here:
 //     up, down, left, right   move the selection (D-pad, left stick; they repeat when held)
 //     accept (A), back (B), secondary (X), page (Y), options (Menu)
@@ -7,10 +7,10 @@
 //     scroll-up / scroll-down (right stick, repeats: fast scrolling)
 //   Guide never reaches the interface (owned by owneetd).
 //   find(area, from, direction)  spatial navigation: the nearest navigable item that way.
-//   feedback(kind)  what just happened, for the interface sounds (step 3.12): move, edge,
-//     confirm, back, section, tab, toggle-on, toggle-off, sheet-open, sheet-close, launch, notify
-//     (news, something completed, e.g. Wi-Fi connected), notify-error (a notification that needs
-//     attention), error (something just done failed). The sounds
+//   feedback(kind)  what just happened, for the interface sounds ([[step-3.12-interface-sounds]]):
+//     move, edge, confirm, back, section, tab, toggle-on, toggle-off, sheet-open, sheet-close,
+//     launch, notify (news, something completed, e.g. Wi-Fi connected), notify-error (a
+//     notification that needs attention), error (something just done failed). The sounds
 //     listen to `played`: one per button press, the most specific one ("confirm" only when the
 //     action that follows, e.g. opening a window, reports nothing of its own).
 pragma Singleton

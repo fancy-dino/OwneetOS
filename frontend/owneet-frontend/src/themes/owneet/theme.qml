@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The OwneetOS theme: the shell around the sections (top bar, sections on LB / RB, prompt bar,
-// windows). Foundations: step 3.3 (design/demos/3.3-theme-foundations.html); home: step 3.6
-// (design/demos/3.6-home.html). Library (3.7) and Settings (3.9) are temporary pages for now.
+// windows). Foundations: [[step-3.3-theme-foundations]] (design/demos/3.3-theme-foundations.html);
+// home: [[step-3.6-home-screen]] (design/demos/3.6-home.html). Library (3.7) and Settings (3.9) are
+// temporary pages for now.
 import QtQuick 2.15
 import "foundation"
 
@@ -9,7 +10,7 @@ FocusScope {
     id: root
     focus: true
 
-    // ---- Preferences, saved in the theme's memory (moved to Settings in step 3.9)
+    // ---- Preferences, saved in the theme's memory (moved to Settings in [[step-3.9-settings]])
     Binding { target: Theme; property: "width"; value: root.width }
     Binding { target: Theme; property: "height"; value: root.height }
     readonly property var prefs: [
@@ -375,7 +376,7 @@ FocusScope {
                 if (status === 200 && st.allowed && !st.running) steamPrep.start(!st.prepared);
             });
         }
-        game.launch();                    // through owneetd from step 3.8
+        game.launch();                    // through owneetd, [[step-3.8-frontend-daemon-bridge]]
         refreshTimer.restart();           // "last played" changes once the game has started
     }
     Timer { id: refreshTimer; interval: 3000; onTriggered: root.refreshGames() }
@@ -576,7 +577,8 @@ FocusScope {
         dialog.open();
     }
     // Network (part 2): connect, with a password when the network needs one; options of a saved
-    // network. The password is typed with a keyboard until the on-screen keyboard (step 3.10).
+    // network. The password is typed with a keyboard until the on-screen keyboard
+    // ([[step-3.10-on-screen-keyboard]]).
     function connectNetwork(net, problem) {
         if (net.security === "enterprise" || net.security === "wep") {
             toast.show(Tr.tr("error.network.unsupported_security"));

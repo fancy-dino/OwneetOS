@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Facts about the installed system for Settings → System (roadmap 3.9): the OwneetOS version,
-// the credited projects (CREDITS.md) and every installed package with its licence; where the
-// interface sounds are, and whether this is the interface's first start since boot (3.12).
+// Facts about the installed system for Settings → System ([[step-3.9-settings]]): the OwneetOS
+// version, the credited projects (CREDITS.md) and every installed package with its licence; where
+// the interface sounds are, and whether this is the interface's first start since boot (3.12).
 
 #pragma once
 

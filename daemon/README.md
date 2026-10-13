@@ -5,7 +5,7 @@ external modules are `github.com/godbus/dbus/v5` (D-Bus, BSD-2-Clause, with `gol
 `github.com/jfreymuth/pulse` (audio, MIT) and `github.com/jezek/xgb` (X11 for gamescope,
 BSD-3-Clause), vendored in `vendor/`. Update them in the builder
 VM with `go get`, `go mod tidy`,
-`go mod vendor`, and copy `go.mod`, `go.sum` and `vendor/` back. Design and API: [`docs/daemon-design.md`](../docs/daemon-design.md).
+`go mod vendor`, and copy `go.mod`, `go.sum` and `vendor/` back. Design and API: [[owneetd-design]].
 
 - Runs as a **systemd user service** of the console user `owneet` (not root).
 - Serves **HTTP + JSON on a Unix socket**: `$XDG_RUNTIME_DIR/owneetd.sock`, mode `0600`.
@@ -51,4 +51,4 @@ tools/build-in-vm tools/build-packages owneetd
 `tools/lint` also runs `gofmt`, `go vet` and `go test` (locally and in CI), plus integration tests
 that create **virtual controllers** through `/dev/uinput` (`go test -tags uinput`, run as root).
 
-Roadmap: phase 2.
+Plan: [[phase-2-system-daemon]].

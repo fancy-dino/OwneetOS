@@ -5,7 +5,7 @@
 # is and which process is the console UI ("home"), then becomes the console UI.
 #   owneet-session-app COMMAND [ARGS...]
 # owneetd reads $XDG_RUNTIME_DIR/owneet/session-env to start games and apps in this session and,
-# under gamescope, to bring the home screen back on Guide (docs/daemon-design.md).
+# under gamescope, to bring the home screen back on Guide ([[owneetd-design]]).
 
 set -euo pipefail
 

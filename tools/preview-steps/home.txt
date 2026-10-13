@@ -1,4 +1,5 @@
-# Home screen (step 3.6): groups, details and options windows, sections, launching a game.
+# Home screen ([[step-3.6-home-screen]]): groups, details and options windows, sections, launching a
+# game.
 shot 01-home
 pad right right
 shot 02-apps

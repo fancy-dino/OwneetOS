@@ -1,4 +1,5 @@
-# Library (step 3.7): grid, filters, sort, details, options, disks, fast scrolling.
+# Library ([[step-3.7-library-screen]]): grid, filters, sort, details, options, disks, fast
+# scrolling.
 pad rb
 shot 01-library
 pad down down right

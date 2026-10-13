@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package gamepad tracks the game controllers connected to the console: discovery and hot-plug
-// (/dev/input), the Guide button (owned by owneetd, PROJECT_RULES.md section 9.1) and battery
+// (/dev/input), the Guide button (owned by owneetd, [[controller-input-map]]) and battery
 // levels. Devices are read without grabbing them: games and the UI get their input as usual.
 package gamepad
 

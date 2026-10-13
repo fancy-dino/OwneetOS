@@ -19,7 +19,7 @@ ARCH_ISO_URL="https://fastly.mirror.pkgbuild.com/iso/$ARCH_ISO_VERSION/$ARCH_ISO
 # Pierre Schmitz <pierre@archlinux.org>, Arch Linux release manager (signs the ISOs).
 ARCH_ISO_KEY="3E80CA1A8B89F69CBA57D98A76A5EF9054449A5C"
 
-# Minimum hardware from PROJECT_RULES.md section 3. OWNEET_TEST_MEM_MB gives more RAM for tests
+# Minimum hardware from [[system-requirements]]. OWNEET_TEST_MEM_MB gives more RAM for tests
 # that need it in the live system (e.g. Steam's first download is kept in RAM there).
 MEM_MB="${OWNEET_TEST_MEM_MB:-4096}"
 [[ "$MEM_MB" =~ ^[0-9]+$ ]] || { echo "error: OWNEET_TEST_MEM_MB must be a number of MB" >&2; exit 1; }

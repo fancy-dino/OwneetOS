@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The quick menu (roadmap 3.13, approved demo design/demos/3.13-startup-power.html): a side panel
-// from the right, as on SteamOS, opened by B where there is nothing to go back to (Home, Library,
-// the list of Settings sections; PROJECT_RULES.md section 9.1). Power options and "Controls and
-// features"; B closes it.
+// The quick menu ([[step-3.13-start-up-animation-and-power-options]], approved demo
+// design/demos/3.13-startup-power.html): a side panel from the right, as on SteamOS, opened by B
+// where there is nothing to go back to (Home, Library, the list of Settings sections;
+// [[controller-input-map]]). Power options and "Controls and features"; B closes it.
 import QtQuick 2.15
 import "foundation"
 

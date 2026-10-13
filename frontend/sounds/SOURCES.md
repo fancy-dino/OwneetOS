@@ -1,7 +1,7 @@
 # Interface sounds
 
-The eleven sounds of `design/sounds.md`. The owner's final sounds replace the placeholders one by one
-(roadmap 7.7).
+The eleven interface sounds ([[interface-sounds-spec]]). The owner's final sounds replace the
+placeholders one by one ([[step-7.7-final-interface-sounds]]).
 
 ## Final sounds
 

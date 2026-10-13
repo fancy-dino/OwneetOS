@@ -1,5 +1,6 @@
 @owneetd
-# Quick menu (step 3.13): B where there is nothing to go back to; power options; controls guide.
+# Quick menu ([[step-3.13-start-up-animation-and-power-options]]): B where there is nothing to go
+# back to; power options; controls guide.
 shot 01-home-after-intro
 pad b
 shot 02-quick-menu

@@ -4,7 +4,7 @@
 # OwneetOS console session. Started on tty1 for the console user (see owneet-session.profile.sh).
 # Chooses the compositor, starts the console UI in it and restarts it if it stops:
 #   - gamescope when a hardware Vulkan device exists (main session),
-#   - cage otherwise, or when gamescope keeps failing (reduced session, PROJECT_RULES.md section 3).
+#   - cage otherwise, or when gamescope keeps failing (reduced session, [[console-session]]).
 #
 # Kernel command line options:
 #   owneet.session=auto|gamescope|cage   force a mode (default: auto)
@@ -67,7 +67,7 @@ display_pref() {
 # gamescope's arguments, in GAMESCOPE_ARGS.
 gamescope_args() {
     # --steam: gamescope shows the windows owneetd tags and lets it choose which one is on screen
-    # (home screen or game, Guide button). docs/daemon-design.md, "Apps and games".
+    # (home screen or game, Guide button). [[owneetd-api-apps]].
     GAMESCOPE_ARGS=(--fullscreen --steam)
     if [[ "$(debug_opt gamescope_steam)" == off ]]; then GAMESCOPE_ARGS=(--fullscreen); fi
     if [[ "$(debug_opt gamescope_backend)" == headless ]]; then GAMESCOPE_ARGS+=(--backend headless); fi

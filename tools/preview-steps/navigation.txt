@@ -1,4 +1,5 @@
-# Input map and navigation (step 3.5): keyboard, D-pad, right stick, unused buttons, a window.
+# Input map and navigation ([[step-3.5-navigation-and-input-map]]): keyboard, D-pad, right stick,
+# unused buttons, a window.
 shot 01-start
 key Down Down Down
 shot 02-keyboard-down3

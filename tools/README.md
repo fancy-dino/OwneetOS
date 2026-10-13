@@ -4,7 +4,7 @@
 
 Scripts here must never modify the host system; anything that would requires the owner's approval.
 
-Roadmap: introduced from step 0.7 onwards.
+Plan: introduced from [[step-0.7-arch-builder-vm]] onwards.
 
 ## Frontend preview
 

@@ -11,7 +11,7 @@ The **console interface**, `owneet-frontend`:
 
 As Pegasus's licence requires, the modified frontend is not called "Pegasus" and does not use
 Pegasus's logos. Architecture, build, and what changes in C++ and in QML:
-[`docs/frontend-architecture.md`](../docs/frontend-architecture.md). The approved look is in
+[[frontend-architecture]]. The approved look is in
 [`design/mockups/`](../design/mockups/).
 
-Roadmap: phase 3.
+Plan: [[phase-3-frontend]].

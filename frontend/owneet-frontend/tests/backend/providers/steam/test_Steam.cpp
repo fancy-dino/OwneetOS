@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// OwneetOS: Steam games from Steam's local files (roadmap 4.1), on an invented Steam folder.
+// OwneetOS: Steam games from Steam's local files ([[step-4.1-steam-library]]), on an invented Steam
+// folder.
 #include <QtTest/QtTest>
 
 #include "model/gaming/Game.h"

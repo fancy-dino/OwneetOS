@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package uinput creates virtual input devices through /dev/uinput: virtual gamepads for tests,
-// and the virtual keyboard used by the on-screen keyboard (roadmap step 2.4).
+// and the virtual keyboard used by the on-screen keyboard ([[step-2.4-virtual-input-uinput]]).
 package uinput
 
 import (

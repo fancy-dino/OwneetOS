@@ -97,8 +97,8 @@ func (s *Server) handleSteamStatus(w http.ResponseWriter, _ *http.Request) {
 	WriteJSON(w, http.StatusOK, s.Apps.SteamStatus())
 }
 
-// handleSteam opens Steam's library or store, or runs a Steam game (roadmap 4.2): 202, the game
-// is listed in /v1/apps once Steam has started it.
+// handleSteam opens Steam's library or store, or runs a Steam game
+// ([[step-4.2-steam-integration]]): 202, the game is listed in /v1/apps once Steam has started it.
 func (s *Server) handleSteam(w http.ResponseWriter, r *http.Request) {
 	var req apps.SteamRequest
 	if !s.appsAvailable(w) || !decode(w, r, &req) {

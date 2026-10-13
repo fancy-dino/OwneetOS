@@ -58,7 +58,8 @@ Gamelist::Gamelist(QString log_tag)
 {}
 
 // OwneetOS: only games installed completely (StateFlags bit 4, "fully installed"; an update
-// waiting keeps it); a first download still running is not a game to play yet (roadmap 4.1)
+// waiting keeps it); a first download still running is not a game to play yet
+// ([[step-4.1-steam-library]])
 std::pair<QString, QString> Gamelist::read_manifest_file(const QString& manifest_path) const
 {
     const QVariantMap state = read_vdf_file(manifest_path).value(QLatin1String("appstate")).toMap();

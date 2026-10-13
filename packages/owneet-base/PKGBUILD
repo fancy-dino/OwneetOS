@@ -3,7 +3,7 @@
 
 pkgname=owneet-base
 pkgver=0.0.21
-pkgrel=1
+pkgrel=2
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
 url="https://github.com/fancy-dino/OwneetOS"
@@ -22,14 +22,14 @@ sha256sums=('SKIP'
             'e739678148442c4770b5c7cf793df180bc475cd33cf1bcb347affdb978f84fc3'
             'dfcdb91edaa6fd46121f8f3a2ce95b0a8e461c5f04c6f9325a1babe45e53cdea'
             'be14601d9f717b8e0285d0b7bd46f6184501229596778fd17fbb593f7dc2f762'
-            '814e86bbecc0592aea5cdbf98a328d21d05c8d157d4ff3b52ed4f6ccd7f584f0'
+            'c1e405b24b7db39a4a15cba00147903468d95115807a6f55bc45c3f0e28b4717'
             '21a26bf30666c8897ec0425f967e0a415352e22a92ba3a243e0d57fca3e55a9b')
 
 package() {
   install -Dm644 owneet-release "$pkgdir/usr/share/owneet/owneet-release"
   install -Dm755 owneet-diagnostics "$pkgdir/usr/lib/owneet/owneet-diagnostics"
   install -Dm644 owneet-diagnostics.service "$pkgdir/usr/lib/systemd/system/owneet-diagnostics.service"
-  # Testers only (roadmap 7.4): log to a USB stick labelled OWNEETLOG
+  # Testers only ([[step-7.4-hardware-testing-and-v0.1.0]]): log to a USB stick labelled OWNEETLOG
   install -Dm755 owneet-testlog "$pkgdir/usr/lib/owneet/owneet-testlog"
   install -Dm644 owneet-testlog.service "$pkgdir/usr/lib/systemd/system/owneet-testlog.service"
   install -Dm644 50-owneet-base.preset "$pkgdir/usr/lib/systemd/system-preset/50-owneet-base.preset"

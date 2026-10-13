@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The start-up animation (roadmap 3.13, approved demo design/demos/3.13-startup-power.html), once
-// per boot with the start-up sound: it starts from the boot splash's own picture (the wordmark
-// centred, at 46 % of the height, as Plymouth shows it), the letters of "Owneet" ripple, "OS" pops
-// with a coral glow, then the wordmark flies to its place in the top bar while the pages rise under
-// it. "Reduce motion": a plain fade.
+// The start-up animation ([[step-3.13-start-up-animation-and-power-options]], approved demo
+// design/demos/3.13-startup-power.html), once per boot with the start-up sound: it starts from the
+// boot splash's own picture (the wordmark centred, at 46 % of the height, as Plymouth shows it),
+// the letters of "Owneet" ripple, "OS" pops with a coral glow, then the wordmark flies to its place
+// in the top bar while the pages rise under it. "Reduce motion": a plain fade.
 import QtQuick 2.15
 import "foundation"
 

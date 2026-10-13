@@ -10,7 +10,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK_DIR="/var/tmp/owneet-iso-work"
 # Largest file on a FAT32 USB stick (some ISO writers copy the file): the ISO is published on
-# SourceForge, not on GitHub Releases (PROJECT_RULES.md section 5)
+# SourceForge, not on GitHub Releases ([[distribution-and-updates]])
 MAX_ISO_BYTES=$(( 4 * 1024 * 1024 * 1024 - 1 ))
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -47,7 +47,8 @@ cp -a "$ROOT/iso/." "$profile/"
 sudo find /var/cache/pacman/pkg -maxdepth 1 -name 'owneet-*' -delete
 
 # A repository signed with tools/sign-repo is verified against the OwneetOS key; an unsigned one is
-# accepted only as a development build (release builds must be signed, roadmap step 7.2).
+# accepted only as a development build (release builds must be signed,
+# [[step-7.2-release-pipeline]]).
 keyring="$ROOT/packages/owneet-keyring"
 if [[ -f "$repo_dir/owneet.db.sig" ]]; then
     siglevel="Required DatabaseRequired"
@@ -81,5 +82,5 @@ sudo chown "$(id -u):$(id -g)" "$iso"
 size="$(stat -c %s "$iso")"
 echo "==> built $iso ($(( size / 1024 / 1024 )) MiB)"
 if (( size > MAX_ISO_BYTES )); then
-    die "the ISO is 4 GiB or larger: it no longer fits a FAT32 USB stick (PROJECT_RULES.md section 5)"
+    die "the ISO is 4 GiB or larger: too big for a FAT32 USB stick ([[distribution-and-updates]])"
 fi

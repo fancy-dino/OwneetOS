@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // owneet-screens-off turns off the screens of the graphics cards the console does not use, and
-// keeps them off until it is stopped (PROJECT_RULES.md, decision log 2026-10-10). gamescope drives
+// keeps them off until it is stopped ([[screens-and-display]], 2026-10-10). gamescope drives
 // one screen and turns off the others on its own card; a screen on another card would otherwise
 // keep the last boot splash frame. It becomes DRM master of every other card, turns off all of its
 // outputs and holds them; when it stops, the kernel gives the cards back to the text console.

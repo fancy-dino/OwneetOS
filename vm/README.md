@@ -2,8 +2,9 @@
 
 **Builder and test virtual machines** (QEMU/KVM, UEFI without Secure Boot).
 
-- `builder`: Arch Linux VM where ISOs and packages are built (step 0.7).
-- `test`: boots a built ISO with blank virtual disks and controller passthrough (step 0.8).
+- `builder`: Arch Linux VM where ISOs and packages are built ([[step-0.7-arch-builder-vm]]).
+- `test`: boots a built ISO with blank virtual disks and controller passthrough
+  ([[step-0.8-test-vm-harness]]).
 
 Scripts and configuration are committed. **Disk images, firmware variable stores and run-time
 files are never committed** (`vm/images/`, `vm/run/`; see `.gitignore`), and they always stay
@@ -43,7 +44,7 @@ vm/vm.sh selftest                 boots a throwaway UEFI VM, checks it, deletes 
 vm/vm.sh reset-firmware NAME      fresh UEFI variables if a VM no longer finds its disk
 ```
 
-Defaults follow the minimum hardware in PROJECT_RULES.md section 3: 4 GB RAM, 32 GB disk.
+Defaults follow the minimum hardware in [[system-requirements]]: 4 GB RAM, 32 GB disk.
 
 ### Files per VM
 
@@ -121,7 +122,7 @@ vm/test.sh stop | reset | destroy
   logic (windows, focus, Guide), boot with `--kargs "owneet.session=gamescope
   owneet.debug.gamescope_backend=headless"`: gamescope then runs without a screen. What it shows
   is checked through owneetd (`GET /v1/apps`, field `focus`). Screen output and performance are
-  checked on real hardware (roadmap step 7.4).
+  checked on real hardware ([[step-7.4-hardware-testing-and-v0.1.0]]).
 - **Screenshots:** `vm/test.sh screenshot` saves the VM screen as PNG; not available with `--gl`
   in headless mode (QEMU keeps no copy of a 3D screen).
 - **Test tools in the VM:** `--tools DIR` gives the VM a host folder as a small read-only FAT disk
@@ -141,11 +142,11 @@ vm/test.sh stop | reset | destroy
 - **`--ssh`:** for the live Arch ISO only. A cloud-init seed puts the project test key
   (`vm/images/.keys/test_ed25519`) in root's `authorized_keys`, on `127.0.0.1:2223`.
 - **Sound cards:** `--audio` adds a built-in sound card (Intel HDA) and a USB sound card, to test
-  output selection (step 2.7). The QEMU backend is `none`: nothing plays on the host. Fixed PCI
-  slots `0x11` and `0x12`.
-- **Simulated Wi-Fi** (step 2.6): the kernel module `mac80211_hwsim` creates virtual Wi-Fi radios
-  that see each other, and NetworkManager makes one of them a hotspot. NetworkManager's hotspot
-  needs `dnsmasq`, which is not in the ISO: it is installed in the live system only (lost at
+  output selection ([[step-2.7-audio]]). The QEMU backend is `none`: nothing plays on the host.
+  Fixed PCI slots `0x11` and `0x12`.
+- **Simulated Wi-Fi** ([[step-2.6-network]]): the kernel module `mac80211_hwsim` creates virtual
+  Wi-Fi radios that see each other, and NetworkManager makes one of them a hotspot. NetworkManager's
+  hotspot needs `dnsmasq`, which is not in the ISO: it is installed in the live system only (lost at
   power-off), from the ISO's Arch Linux Archive snapshot. In the debug shell:
 
   ```text
@@ -157,7 +158,8 @@ vm/test.sh stop | reset | destroy
 
   owneetd uses `wlan0` (the first Wi-Fi adapter) and sees `OwneetTest`. For a WPA3-only network:
   `nmcli con modify Hotspot 802-11-wireless-security.key-mgmt sae && nmcli con up Hotspot`.
-- **Not yet:** a "Windows-like" NTFS disk; it is created when automatic mounting is built (step 6.5).
+- **Not yet:** a "Windows-like" NTFS disk; it is created when automatic mounting is built
+  ([[step-6.5-automatic-disk-mounting]]).
 - **Changing virtual hardware:** VMs keep firmware boot entries that point at PCI addresses. New
   devices get fixed PCI slots (the virtio console uses `0x10`) so existing VMs keep booting. If a VM
   still tries to boot from the network or stops in the UEFI shell, run `vm/vm.sh reset-firmware NAME`.

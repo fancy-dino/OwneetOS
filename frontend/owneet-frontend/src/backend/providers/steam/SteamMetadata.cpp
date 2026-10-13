@@ -172,7 +172,7 @@ bool Metadata::fill_from_cache(const QString& appid, model::Game& game) const
 void Metadata::fill_from_network(const QString& appid, model::Game& game, SearchContext& sctx) const
 {
     // OwneetOS: game data comes from local files only (no Steam store download).
-    // OwneetOS PROJECT_RULES.md section 12.
+    // OwneetOS [[legal-compliance]].
     Q_UNUSED(appid);
     Q_UNUSED(game);
     Q_UNUSED(sctx);

@@ -150,7 +150,7 @@ void LoadContext::handle_entry(const size_t lineno,
             handle_provider_attrib(lineno, key, vals, sections);
             break;
         case ConfigEntryCategory::KEYS:
-            // OwneetOS: the input map is fixed (PROJECT_RULES.md section 9.1), so saved key
+            // OwneetOS: the input map is fixed ([[controller-input-map]]), so saved key
             // bindings are ignored and not written; a changed default then reaches every system.
             break;
     }

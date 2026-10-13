@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// OwneetOS: play time and last played of Steam games, from Steam's own local files (roadmap 4.1,
-// local data only: PROJECT_RULES.md section 12).
+// OwneetOS: play time and last played of Steam games, from Steam's own local files
+// ([[step-4.1-steam-library]], local data only: [[legal-compliance]]).
 
 #pragma once
 

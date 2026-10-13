@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Notification banners (roadmap 3.11, approved demo design/demos/3.11-notifications.html): at the
-// top right, under the top bar; at most three at a time, the newest on top, each gone after 5 s.
-// show({ title, detail, icon, crossed, kind }); kind "attention" (accent) or "info".
+// Notification banners ([[step-3.11-notifications]], approved demo
+// design/demos/3.11-notifications.html): at the top right, under the top bar; at most three at a
+// time, the newest on top, each gone after 5 s. show({ title, detail, icon, crossed, kind }); kind
+// "attention" (accent) or "info".
 import QtQuick 2.15
 
 Item {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The home screen (roadmap 3.6, approved demo design/demos/3.6-home.html): the last game played
-// (or a welcome on a system with no games), the apps, notices, and the recently played games.
-// Three navigation groups: hero, apps column, row of games.
+// The home screen ([[step-3.6-home-screen]], approved demo design/demos/3.6-home.html): the last
+// game played (or a welcome on a system with no games), the apps, notices, and the recently played
+// games. Three navigation groups: hero, apps column, row of games.
 // A game running behind the home screen (owneetd, 3.8) takes the hero: Resume (gamescope only:
 // in cage the home screen is not shown over a game) and Close game.
 // Still to come: notices (3.11), apps (phase 5), real covers from Steam's local files (4.1).

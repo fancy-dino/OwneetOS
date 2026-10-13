@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package apps starts, tracks and closes games and apps inside the console session, and handles
-// the Guide button (PROJECT_RULES.md section 9.1, docs/daemon-design.md):
+// the Guide button ([[controller-input-map]], [[owneetd-design]]):
 //   - gamescope session: Guide toggles between the home screen and the running game or app; the
 //     game keeps running behind the home screen.
 //   - cage session (reduced): the home screen cannot be shown over a game, so holding Guide for
@@ -32,8 +32,8 @@ import (
 const HoldToClose = 2 * time.Second
 
 // HoldToHome is how long Guide is held, while Steam or a Steam game is on screen, to come back to
-// the console: a short press belongs to Steam then (its menu, its overlay in games; PROJECT_RULES.md
-// section 9.1, 2026-10-12).
+// the console: a short press belongs to Steam then (its menu, its overlay in games;
+// [[controller-input-map]], 2026-10-12).
 const HoldToHome = time.Second
 
 // Kinds of app.

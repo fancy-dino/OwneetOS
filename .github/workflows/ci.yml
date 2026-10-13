@@ -84,7 +84,7 @@ jobs:
         run: docker run --rm --privileged -v "$PWD:/src" "$ARCH_IMAGE" /src/tools/ci/build-iso
 
       # The ISO is NOT uploaded: publishing binaries requires the GPL source archive that the
-      # release pipeline will provide (PROJECT_RULES.md section 12, roadmap step 7.2).
+      # release pipeline will provide ([[legal-compliance]], [[step-7.2-release-pipeline]]).
       - name: Check the ISO
         if: steps.changes.outputs.build == 'true'
         run: ls -l out/owneetos-*.iso && cd out && sha256sum -c owneetos-*.iso.sha256

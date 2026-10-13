@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package display is Settings → Display (roadmap 3.9, part 3): the screens connected to the
-// console and the one it uses, the screen's resolution and refresh rate, brightness where the
+// Package display is Settings → Display ([[step-3.9-settings]], part 3): the screens connected to
+// the console and the one it uses, the screen's resolution and refresh rate, brightness where the
 // screen allows it, and the layout of a physical keyboard. The console runs in gamescope, which
 // drives one screen and turns off the others on its graphics card; owneetd tells it which screen
 // and which mode to use the same way Steam does on SteamOS:
@@ -14,7 +14,7 @@
 //   - the keyboard: GAMESCOPE_KEYBOARD_LAYOUT, and XKB_DEFAULT_LAYOUT at the next start.
 //
 // Screens on another graphics card are turned off by owneet-screens-off (a small root service).
-// PROJECT_RULES.md, decision log 2026-10-10.
+// [[screens-and-display]], 2026-10-10.
 package display
 
 import (
