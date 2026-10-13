@@ -16,7 +16,8 @@ inside this folder.
 |------|------------------------|------|
 | QEMU | `qemu-system-x86`, `qemu-utils` | `qemu-base` |
 | UEFI firmware | `ovmf` | `edk2-ovmf` |
-| VM windows and 3D acceleration | `qemu-system-gui` | `qemu-ui-gtk`, `qemu-hw-display-virtio-gpu-gl` |
+| Virtual screen (`virtio-vga`) | included in `qemu-system-x86` | `qemu-hw-display-virtio-gpu`, `qemu-hw-display-virtio-vga` |
+| VM windows and 3D acceleration | `qemu-system-gui` | `qemu-ui-gtk`, `qemu-hw-display-virtio-gpu-gl`, `qemu-hw-display-virtio-vga-gl` |
 | KVM | `/dev/kvm` readable and writable by your user | same |
 
 On the owner's machine these were installed with
