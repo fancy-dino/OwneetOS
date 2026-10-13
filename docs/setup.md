@@ -43,8 +43,11 @@ Any system (Linux, macOS, Windows):
 
 - **Git** — <https://git-scm.com/downloads>
 - **Obsidian** (desktop app, free) to read and edit the vault — <https://obsidian.md/download>
-- **Python 3** to rebuild the vault's indexes — <https://www.python.org/downloads/> (usually
-  already installed on Linux and macOS)
+- **Python 3 — required** — <https://www.python.org/downloads/>. It runs the guard check before
+  every tool call of Claude Code and rebuilds the vault's indexes. **Without it, Claude Code cannot
+  use any tool in the workspace**: the guard check blocks every call (on purpose: the guards are
+  never skipped) and says why. Linux distributions ship it; on macOS it comes with Apple's Command
+  Line Tools (`xcode-select --install`).
 - **Claude Code**, if you work with the AI assistant —
   <https://docs.anthropic.com/en/docs/claude-code/overview>. The workspace files below use a POSIX
   shell: Linux or macOS (on Windows, use WSL).
@@ -94,9 +97,17 @@ done) in every Claude Code session:
 @OwneetOS-knowledge-base/CLAUDE.md
 ```
 
-`owneet-workspace/.claude/settings.json` adds three hooks: the guards are loaded again, word for
-word, after every compaction of the conversation; the vault's `INDEX.md` files are rebuilt when a
-session starts and after every note Claude Code writes or edits:
+`owneet-workspace/.claude/settings.json` makes the guards binding and keeps the vault's indexes
+current. Every hook goes through the knowledge base's `scripts/hook.sh`:
+
+- **before every tool call**, `guard-check.py` blocks what the guards forbid (pushing, GitHub
+  actions, private keys, building on your PC) and asks you before anything is installed on your PC;
+  if the check cannot run (no working Python), the call is blocked and the reason is shown;
+- **with every prompt**, a one-line reminder that the guards are in force;
+- **after every compaction** of the conversation, the guards are loaded again, word for word
+  (plain shell: this and the reminder work even without Python);
+- **when a session starts and after every note written or edited**, the `INDEX.md` files are
+  rebuilt.
 
 ```json
 {
@@ -107,7 +118,7 @@ session starts and after every note Claude Code writes or edits:
         "hooks": [
           {
             "type": "command",
-            "command": "echo '# OwneetOS guards (re-injected after compaction, binding)'; cat \"$CLAUDE_PROJECT_DIR\"/OwneetOS-knowledge-base/guards/*.md",
+            "command": "sh \"$CLAUDE_PROJECT_DIR\"/OwneetOS-knowledge-base/scripts/hook.sh reinject",
             "statusMessage": "Re-loading OwneetOS guards"
           }
         ]
@@ -117,9 +128,33 @@ session starts and after every note Claude Code writes or edits:
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/OwneetOS-knowledge-base/scripts/build-indexes.py --hook",
+            "command": "sh \"$CLAUDE_PROJECT_DIR\"/OwneetOS-knowledge-base/scripts/hook.sh indexes",
             "timeout": 30,
             "statusMessage": "Rebuilding OwneetOS vault indexes"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR\"/OwneetOS-knowledge-base/scripts/hook.sh remind",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Read|Edit|MultiEdit|Write|Grep|Glob|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR\"/OwneetOS-knowledge-base/scripts/hook.sh guard-check",
+            "timeout": 10,
+            "onFailure": "block"
           }
         ]
       }
@@ -130,7 +165,7 @@ session starts and after every note Claude Code writes or edits:
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/OwneetOS-knowledge-base/scripts/build-indexes.py --hook",
+            "command": "sh \"$CLAUDE_PROJECT_DIR\"/OwneetOS-knowledge-base/scripts/hook.sh indexes",
             "timeout": 30
           }
         ]
@@ -157,9 +192,15 @@ cd owneet-workspace
 claude
 ```
 
-Always start it in the workspace folder, not inside `OwneetOS/`: the hooks are read only from the
-folder Claude Code starts in. In the session, `/memory` lists the knowledge base's `CLAUDE.md` and
-`/hooks` lists the three hooks.
+Start it in the workspace folder. In the session, `/memory` lists the knowledge base's `CLAUDE.md`
+and `/hooks` lists the five hooks.
+
+Starting it inside `OwneetOS/` works too: this repository's own `.claude/settings.json` runs the
+same hooks through `.claude/kb-hook.sh` **when the knowledge base is next to it**
+(`../OwneetOS-knowledge-base`); if the workspace's `CLAUDE.md` (step 3.2) is missing, the guards
+and the vault's rules are loaded by the session-start hook instead. If the knowledge base is not
+there, the session starts with a warning that the knowledge base is missing and that its guards
+and hooks are not in use; nothing else changes.
 
 ### 3.5 Check that everything works
 
