@@ -3,7 +3,8 @@
 // owneet-xprobe is a test tool (not shipped in the image): it prints what gamescope's X server
 // knows about windows and focus, to see how Steam and owneetd share the screen (roadmap 4.2).
 //
-//	owneet-xprobe                 the root window's GAMESCOPE* / STEAM* properties and every window
+//	owneet-xprobe                 the root window's GAMESCOPE* / STEAM* properties and every mapped
+//	                              window (size, position, the properties gamescope reads)
 //	owneet-xprobe -watch 30s      also print the root properties each time they change
 //
 // It reads DISPLAY from the environment (the console session's, e.g. DISPLAY=:0).
@@ -88,13 +89,29 @@ func windows(conn *xgb.Conn, root xproto.Window) {
 	if err != nil {
 		return
 	}
-	pid, game, name := atom(conn, "_NET_WM_PID"), atom(conn, "STEAM_GAME"), atom(conn, "WM_NAME")
+	pid, name, class := atom(conn, "_NET_WM_PID"), atom(conn, "WM_NAME"), atom(conn, "WM_CLASS")
+	// bottom to top, as they are stacked
 	for _, w := range tree.Children {
 		attrs, err := xproto.GetWindowAttributes(conn, w).Reply()
 		if err != nil || attrs.MapState != xproto.MapStateViewable {
 			continue
 		}
-		fmt.Printf("  window %d pid=%s STEAM_GAME=%s name=%q\n", w, value(conn, w, pid), value(conn, w, game), value(conn, w, name))
+		geo := ""
+		if g, err := xproto.GetGeometry(conn, xproto.Drawable(w)).Reply(); err == nil {
+			geo = fmt.Sprintf("%dx%d+%d+%d depth=%d", g.Width, g.Height, g.X, g.Y, g.Depth)
+		}
+		fmt.Printf("  window %d %s override=%v pid=%s class=%q name=%q\n", w, geo, attrs.OverrideRedirect,
+			value(conn, w, pid), value(conn, w, class), value(conn, w, name))
+		// the properties gamescope reads (STEAM_GAME, STEAM_OVERLAY, opacity, window type…)
+		if props, err := xproto.ListProperties(conn, w).Reply(); err == nil {
+			for _, a := range props.Atoms {
+				n := atomName(conn, a)
+				if strings.HasPrefix(n, "STEAM") || strings.HasPrefix(n, "GAMESCOPE") ||
+					strings.HasPrefix(n, "_NET_WM_WINDOW") || n == "_NET_WM_STATE" {
+					fmt.Printf("      %s = %s\n", n, value(conn, w, a))
+				}
+			}
+		}
 	}
 }
 

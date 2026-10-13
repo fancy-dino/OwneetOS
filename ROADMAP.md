@@ -1062,7 +1062,13 @@ code is written (PROJECT_RULES.md section 9).
   without the GPU and nothing in the logs; Steam still killed at shutdown (the console session
   stopped with it) → shutdown and restart close the apps first and wait for them (owneetd
   0.11.11); test switches in `owneet-debug.txt` on the OWNEETLOG stick (owneet-session 0.0.16),
-  first try: gamescope without explicit sync. To check on the FrankenPC.
+  first try: gamescope without explicit sync. Fourth test: explicit sync off changes nothing
+  (glyphs again, and Steam flickering over the console's home screen at the bottom); the glyphs
+  disappear while a game runs (Hollow Knight: Silksong played fine) → suspected: a Steam window
+  shown above everything but never drawn (on NVIDIA its memory keeps old pictures); the test log
+  lists the windows every 10 s when `owneet-xprobe` is on the stick (owneet-base 0.0.31). Also
+  found: choosing the running game in the library said "another game is running" → it goes back
+  to the game, as on the home screen (owneet-frontend 0.16.6).
 
 ### [ ] 4.3 Local DRM-free games
 

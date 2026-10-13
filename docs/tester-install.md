@@ -61,6 +61,10 @@ the OWNEETLOG stick, e.g. `owneet.debug.gamescope_explicit_sync=off`: they apply
 while the stick is plugged in, with no boot menu to edit. The hardware report on the stick lists
 the switches that were set.
 
+To see which windows are on screen (e.g. pictures that should not be there), copy the test tool
+`owneet-xprobe` (`out/vm-tools/`, built with `go build ./cmd/owneet-xprobe`) to the top of the
+stick: the windows of the console session are then written to `owneet-…windows.txt` every 10 s.
+
 ## If something goes wrong
 
 - The installed system keeps the **diagnostics** boot entry (hold a key at start-up to see the

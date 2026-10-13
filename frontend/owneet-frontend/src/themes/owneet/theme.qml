@@ -366,6 +366,12 @@ FocusScope {
 
     // ---- Games: launch, details, options
     function launch(game) {
+        // the game already running (same title, as on the home screen): back to it
+        if (runningGame && owneetd.connected && runningGame.name === game.title) {
+            Nav.feedback("launch");
+            root.resume(runningGame);
+            return;
+        }
         if (runningGame && owneetd.connected) {     // one game at a time
             toast.show(Tr.tr("error.apps.game_running"));
             Nav.feedback("edge");
