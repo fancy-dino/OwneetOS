@@ -1074,7 +1074,13 @@ code is written (PROJECT_RULES.md section 9).
   console and Steam's own window (32-bit, with transparency): no hidden window → most likely
   Steam's window buffers shown before they are drawn (new memory is not cleared on NVIDIA).
   Next try: `owneet.debug.gamescope_composite=off`. Also: Steam games with play time showed
-  "never played" (Steam gives no play count) → fixed (owneet-frontend 0.16.7).
+  "never played" (Steam gives no play count) → fixed (owneet-frontend 0.16.7). **Open, blocks
+  delivery (owner, 2026-10-13):** a few test starts prove nothing; the glyphs are not bound to
+  a time. With composition off (Steam's buffers sent straight to the screen) the glyphs were
+  almost constant: the pictures are already wrong in Xwayland's buffers, before gamescope →
+  suspected: Xwayland's GPU drawing (Glamor) with the NVIDIA driver. Test switch
+  `owneet.debug.xwayland_glamor=gl|es|off` (Xwayland through `owneet-xwayland`, gamescope's
+  `WLR_XWAYLAND`; owneet-session 0.0.17), tried with composition off, where the glyphs show most.
 
 ### [ ] 4.3 Local DRM-free games
 
