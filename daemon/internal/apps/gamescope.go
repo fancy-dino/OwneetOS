@@ -305,7 +305,9 @@ func (g *Gamescope) watchConn(tag func(pid int) uint32, request func([]uint32), 
 		}
 		switch e := ev.(type) {
 		case xproto.MapNotifyEvent:
-			g.tagWindow(conn, atoms, e.Window, tag)
+			if g.tagWindow(conn, atoms, e.Window, tag) != HomeAppID {
+				clearWindow(conn, e.Window)
+			}
 		case xproto.PropertyNotifyEvent:
 			if e.Atom != atoms["GAMESCOPECTRL_BASELAYER_APPID"] || e.State != xproto.PropertyNewValue || request == nil {
 				continue
@@ -324,21 +326,34 @@ func (g *Gamescope) watchConn(tag func(pid int) uint32, request func([]uint32), 
 	}
 }
 
-func (g *Gamescope) tagWindow(conn *xgb.Conn, atoms map[string]xproto.Atom, w xproto.Window, tag func(pid int) uint32) {
+// tagWindow tags a window with its app's id and returns that id (0: not an app's window).
+func (g *Gamescope) tagWindow(conn *xgb.Conn, atoms map[string]xproto.Atom, w xproto.Window, tag func(pid int) uint32) uint32 {
 	pids, err := cardinals(conn, w, atoms["_NET_WM_PID"])
 	if err != nil || len(pids) == 0 {
-		return
+		return 0
 	}
 	appID := tag(int(pids[0]))
 	if appID == 0 {
-		return
+		return 0
 	}
 	if current, _ := cardinals(conn, w, atoms["STEAM_GAME"]); len(current) == 1 && current[0] == appID {
-		return
+		return appID
 	}
 	if err := setCardinals(conn, w, atoms["STEAM_GAME"], []uint32{appID}); err == nil && g.Log != nil {
 		g.Log.Debug("window tagged", "window", w, "pid", pids[0], "app_id", appID)
 	}
+	return appID
+}
+
+// clearWindow gives a newly shown window a background (black, transparent with an alpha
+// channel) and clears it; the server then asks its program to draw it again (Expose). A window
+// without a background (X11's default, e.g. Steam's) shows whatever its new memory held until
+// the program has drawn all of it: with the NVIDIA driver, pieces of older pictures (glyph
+// strips, copies of Steam's own pictures; FrankenPC, 2026-10-13). With a background, parts
+// uncovered later (a larger window) are cleared too.
+func clearWindow(conn *xgb.Conn, w xproto.Window) {
+	xproto.ChangeWindowAttributes(conn, w, xproto.CwBackPixel, []uint32{0})
+	xproto.ClearArea(conn, true, w, 0, 0, 0, 0)
 }
 
 // GamescopeFocus returns a Manager.FocusFor that keeps one Gamescope per display (the display

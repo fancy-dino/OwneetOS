@@ -1081,7 +1081,13 @@ code is written (PROJECT_RULES.md section 9).
   rectangles), not the glyphs. Suspected for the glyphs: Xwayland's GPU drawing (Glamor) with
   the NVIDIA driver. Test switch `owneet.debug.xwayland_glamor=gl|es|off` (Xwayland through
   `owneet-xwayland`, gamescope's `WLR_XWAYLAND`; owneet-session 0.0.17), with the normal
-  composition. The owner photographs every occurrence.
+  composition. The owner photographs every occurrence. Glamor on OpenGL ES: greenish blocks on
+  Steam's still empty window. Every picture seen so far is a leftover of something Xwayland drew
+  before (Steam's start-up spinner, glyph strips, Steam's own pictures): Steam's window has no
+  background (X11's default), so a new window shows whatever its new memory held until Steam
+  has drawn it all, and the NVIDIA driver does not clear that memory → owneetd gives every app
+  window a background as soon as it is shown and clears it, asking the app to draw it again
+  (owneetd 0.11.12).
 
 ### [ ] 4.3 Local DRM-free games
 
