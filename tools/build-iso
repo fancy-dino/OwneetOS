@@ -42,6 +42,9 @@ fi
 profile="$(mktemp -d)"
 trap 'rm -rf "$profile"' EXIT
 cp -a "$ROOT/iso/." "$profile/"
+# Systems installed from the stick (owneet-tester-install) use the same Arch Linux Archive snapshot
+mkdir -p "$profile/airootfs/usr/share/owneet"
+cp "$ROOT/iso/pacman.conf" "$profile/airootfs/usr/share/owneet/pacman.conf"
 # Never reuse OwneetOS packages from pacman's cache: a cached copy with the same version (and its
 # old signature) would silently replace the package that was just built.
 sudo find /var/cache/pacman/pkg -maxdepth 1 -name 'owneet-*' -delete
@@ -76,6 +79,23 @@ sudo mkarchiso -v -r -w "$WORK_DIR" -o "$ROOT/out" "$profile"
 iso="$(find out -maxdepth 1 -name 'owneetos-*.iso' | head -1)"
 [[ -n "$iso" ]] || die "mkarchiso finished but no ISO was found in out/"
 sudo chown "$(id -u):$(id -g)" "$iso"
+
+# Every file of the image must match its package (2026-10-13: erofs with LZMA had silently
+# corrupted six files). The image is unpacked and checked against the packages' checksums;
+# configuration in /etc and /var may differ on purpose.
+echo "==> checking every file of the image against its package"
+check="$(mktemp -d /var/tmp/owneet-iso-check.XXXXXX)"
+bsdtar -xf "$iso" -C "$check" "owneet/x86_64/airootfs.sfs" || die "cannot read the system image"
+sudo unsquashfs -q -n -d "$check/root" "$check/owneet/x86_64/airootfs.sfs" >/dev/null \
+    || die "cannot unpack the system image"
+bad="$(sudo pacman --root "$check/root" -Qkk 2>&1 | grep -E 'checksum mismatch|size mismatch' \
+       | grep -vE ': /(etc|var)/' || true)"
+sudo rm -rf "$check"
+if [[ -n "$bad" ]]; then
+    echo "$bad" >&2
+    die "files of the image differ from their packages: the image is damaged"
+fi
+echo "==> every file matches its package"
 (cd out && sha256sum "$(basename "$iso")" > "$(basename "$iso").sha256")
 
 size="$(stat -c %s "$iso")"

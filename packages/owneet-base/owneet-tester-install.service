@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Runs only when the system is started from the boot entry "Install OwneetOS (testers)"
+# (owneet.tester_install): the installer takes tty1 instead of the console session, which then
+# does not start (getty@tty1.service.d/owneet-tester-install.conf). No Conflicts= here: systemd
+# would stop the console session on every boot, even when this unit's condition is false.
+[Unit]
+Description=OwneetOS installation for testers on tty1
+ConditionKernelCommandLine=owneet.tester_install
+After=systemd-user-sessions.service plymouth-quit-wait.service
+
+[Service]
+Type=simple
+ExecStartPre=-/usr/bin/plymouth quit
+ExecStart=/usr/lib/owneet/owneet-tester-install
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+KillSignal=SIGHUP
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target

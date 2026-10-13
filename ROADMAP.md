@@ -998,6 +998,35 @@ code is written (PROJECT_RULES.md section 9).
   library (Dragon's Wake, with Proton forced by hand: its Linux version is broken; automatic
   recovery planned in 4.5).
 
+### [~] 4.2a Tester installer *(owner, 2026-10-13: test PCs are installed, not run from a stick)*
+
+- **Deliverables:** a boot entry "Install OwneetOS (testers: erases a disk)" (text screen, keyboard)
+  that installs the stick's own system image onto a whole internal disk chosen by the tester:
+  GPT with a 1 GiB EFI system partition and btrfs with subvolumes ready for snapshots, fstab,
+  initramfs without the live hooks, systemd-boot, pacman pinned to the same snapshot, the tester
+  mark. Never the USB stick or other USB disks; ERASE typed to confirm. `docs/tester-install.md`.
+  Leaves the user ISO with the other test entries (7.4). The user installer stays 6.3 / 6.4.
+- **Outcome (2026-10-13):** `owneet-tester-install` (owneet-base 0.0.23). Checked in the test VM
+  with two disks: the chosen disk installed, the other untouched, the installed system starts
+  into the console without the stick (btrfs subvolumes mounted, no failed unit, every file
+  matching its package). Found and fixed on the way: (1) a `Conflicts=` on the console login
+  stopped the console on every boot (now a condition on getty@tty1 itself); (2) **the ISO's
+  erofs + LZMA image had silently corrupted six files** (five rarely used kernel modules and the
+  AMD firmware `gc_11_0_3_mes1.bin`, Radeon 780M family; `mkfs.erofs` wrote them wrong, the
+  original packages were fine): the image is now squashfs + xz (ISO 1822 MiB instead of 2164) and
+  `tools/build-iso` checks every file of the image against its package. `vm/test.sh boot --disk`
+  starts the VM from its disks.
+
+### [ ] 4.2b Updates from a USB stick *(owner, 2026-10-13)*
+
+- **Deliverables:** OwneetOS packages copied by the owner into an `owneet-updates` folder on the
+  OWNEETLOG stick (a command copies them from `out/repo`); a tester system applies them
+  **automatically at boot** when they are newer (a message on the start-up screen) and from
+  Settings → System → Updates (with progress). A small privileged helper installs packages only
+  from OwneetOS's repositories (the same helper serves the optional apps, 5.0, and the updates,
+  7.1). Unsigned OwneetOS packages are accepted only on systems with the tester mark and only
+  from the stick; Arch packages keep coming from the pinned snapshot online. Nothing published.
+
 ### [ ] 4.3 Local DRM-free games
 
 - **Deliverables:** folder convention + metadata file, automatic scan of mounted disks, artwork.
@@ -1052,6 +1081,17 @@ code is written (PROJECT_RULES.md section 9).
 ---
 
 ## Phase 5 — Streaming apps and media
+
+### [ ] 5.0 Optional apps *(owner, 2026-10-13)*
+
+- **Deliverables:** a catalogue of the apps (name, generic icon, size, internet needed, packages):
+  real programs (Steam with its 32-bit drivers, Brave, later Epic / GOG, RetroArch) and web apps
+  inside Brave (Netflix, YouTube, Spotify, Discord: choosing one installs Brave if needed,
+  removing the last one removes Brave). The apps page shows every app of the catalogue, the
+  missing ones dimmed with a download mark: A installs (size, internet needed, progress), Menu
+  removes (Steam asks whether to keep the downloaded games). The installer (6.4) asks "What do you
+  want to use?". In the live system, the RAM rule as for Steam. The ISO becomes slim (the apps
+  are downloaded when chosen). Demo first.
 
 ### [ ] 5.1 Brave in the OS
 

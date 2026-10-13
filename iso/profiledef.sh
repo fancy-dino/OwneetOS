@@ -14,8 +14,9 @@ install_dir="owneet"
 # UEFI only, booted by systemd-boot (PROJECT_RULES.md section 4).
 bootmodes=('uefi.systemd-boot')
 pacman_conf="pacman.conf"
-airootfs_image_type="erofs"
-airootfs_image_tool_options=('-zlzma,109' -E 'ztailpacking')
+airootfs_image_type="squashfs"
+# erofs with LZMA silently corrupted a few files (2026-10-13): squashfs + xz, archiso's standard
+airootfs_image_tool_options=('-comp' 'xz' '-Xbcj' 'x86' '-b' '1M' '-Xdict-size' '1M')
 file_permissions=(
   ["/etc/shadow"]="0:0:400"
 )

@@ -1,0 +1,198 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Testers only (leaves the user ISO with the test boot entries, roadmap 7.4): installs OwneetOS from
+# the live USB stick onto a whole internal disk, when the system is started from the boot entry
+# "Install OwneetOS (testers)" (kernel argument owneet.tester_install). Text screen on tty1, used
+# with a keyboard. The user installer, with the console's look and the controller, is step 6.4.
+#
+# What it does (docs/tester-install.md):
+#   - lists the internal disks (never the USB stick it runs from, never other USB disks) and asks
+#     which one to use, then asks to type ERASE: every partition on that disk is deleted;
+#   - GPT: an EFI system partition (1 GiB, FAT32) and btrfs for the rest, with subvolumes ready
+#     for snapshots (@, @home, @log, @pkg, @snapshots);
+#   - copies the system image of the stick as it is (the same files that were tested), then makes
+#     it an installed system: fstab, initramfs without the live hooks, systemd-boot, pacman pinned
+#     to the same Arch Linux Archive snapshot, the "tester" mark (updates from a USB stick, 4.2b).
+
+set -uo pipefail
+
+LOG=/run/owneet-tester-install.log
+TARGET=/mnt/owneet-target
+SOURCE=/mnt/owneet-source
+BOOTMNT=/run/archiso/bootmnt
+MIN_BYTES=$((30 * 1000 * 1000 * 1000))   # the 32 GB minimum (PROJECT_RULES.md section 3), with margin
+
+exec > >(tee -a "$LOG") 2>&1
+
+say()  { printf '%s\n' "$*"; }
+fail() {
+    say ""
+    say "!! $*"
+    say "!! The installation stopped. Press Enter to restart."
+    read -r _
+    systemctl reboot
+    exit 1
+}
+step() { say ""; say "==> $*"; }
+
+clear
+say "OwneetOS - installation for testers"
+say "==================================="
+say ""
+say "This installs OwneetOS on a whole internal disk. EVERYTHING on that disk is deleted."
+say "Other disks are not touched."
+
+# ---- The disk: internal, not the stick we started from, at least 32 GB
+[[ -d /sys/firmware/efi ]] || fail "The PC did not start in UEFI mode: switch the firmware from Legacy/CSM to UEFI."
+boot_disk=""
+if src="$(findmnt -no SOURCE "$BOOTMNT" 2>/dev/null)" && [[ -n "$src" ]]; then
+    boot_disk="$(lsblk -no PKNAME "$src" 2>/dev/null | head -1)"
+fi
+
+mapfile -t disks < <(lsblk -dnbpo NAME,SIZE,TYPE,RM,TRAN | awk -v boot="/dev/$boot_disk" \
+    '$3 == "disk" && $4 == "0" && $5 != "usb" && $1 != boot && $1 !~ /zram|loop/ { print $1 " " $2 }')
+[[ ${#disks[@]} -gt 0 ]] || fail "No internal disk was found."
+
+say ""
+say "Internal disks:"
+i=0
+for d in "${disks[@]}"; do
+    i=$((i + 1))
+    name="${d%% *}"; bytes="${d##* }"
+    model="$(lsblk -dno MODEL "$name" | xargs)"
+    parts="$(lsblk -nlo NAME,FSTYPE,LABEL,SIZE "$name" | tail -n +2 | awk '{ printf "%s%s", sep, $0; sep = "; " }')"
+    printf '  %d) %s  %s GB  %s\n' "$i" "$name" "$((bytes / 1000000000))" "${model:-unknown model}"
+    printf '     now: %s\n' "${parts:-no partitions}"
+done
+say ""
+read -r -p "Number of the disk to install on (or Enter to cancel): " choice
+if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#disks[@]} )); then
+    fail "Cancelled."
+fi
+disk="${disks[$((choice - 1))]%% *}"
+bytes="${disks[$((choice - 1))]##* }"
+(( bytes >= MIN_BYTES )) || fail "$disk is smaller than 32 GB."
+
+say ""
+say "All data on $disk ($((bytes / 1000000000)) GB, $(lsblk -dno MODEL "$disk" | xargs)) will be DELETED."
+read -r -p "Type ERASE to continue: " confirm
+[[ "$confirm" == "ERASE" ]] || fail "Cancelled: nothing was changed."
+
+# ---- Partitions and file systems
+step "Partitioning $disk"
+umount -R "$TARGET" 2>/dev/null
+swapoff -a 2>/dev/null
+wipefs -af "$disk" >/dev/null || fail "Cannot clear $disk."
+sfdisk --quiet --wipe always --wipe-partitions always "$disk" <<'EOF' || fail "Cannot partition the disk."
+label: gpt
+size=1GiB, type=uefi, name="OwneetOS boot"
+type=linux, name="OwneetOS"
+EOF
+udevadm settle
+part() { lsblk -nlpo NAME "$disk" | sed -n "$(( $1 + 1 ))p"; }
+esp="$(part 1)"; root="$(part 2)"
+[[ -b "$esp" && -b "$root" ]] || fail "The new partitions were not found."
+
+step "Creating the file systems"
+mkfs.fat -F 32 -n OWNEETBOOT "$esp" >/dev/null || fail "Cannot format the boot partition."
+mkfs.btrfs -f -L OwneetOS "$root" >/dev/null || fail "Cannot format the system partition."
+mkdir -p "$TARGET"
+mount "$root" "$TARGET" || fail "Cannot mount the system partition."
+for sv in @ @home @log @pkg @snapshots; do
+    btrfs subvolume create "$TARGET/$sv" >/dev/null || fail "Cannot create the subvolume $sv."
+done
+umount "$TARGET"
+opts="compress=zstd:1,noatime"
+mount -o "subvol=@,$opts" "$root" "$TARGET" || fail "Cannot mount the system."
+mkdir -p "$TARGET"/{home,var/log,var/cache/pacman/pkg,.snapshots,boot}
+mount -o "subvol=@home,$opts" "$root" "$TARGET/home"
+mount -o "subvol=@log,$opts" "$root" "$TARGET/var/log"
+mount -o "subvol=@pkg,$opts" "$root" "$TARGET/var/cache/pacman/pkg"
+mount -o "subvol=@snapshots,$opts" "$root" "$TARGET/.snapshots"
+mount -o umask=0077 "$esp" "$TARGET/boot" || fail "Cannot mount the boot partition."
+
+# ---- The system: the stick's own image, unchanged
+step "Copying the system (a few minutes)"
+image="$(find "$BOOTMNT" -maxdepth 3 \( -name 'airootfs.erofs' -o -name 'airootfs.sfs' \) | head -1)"
+[[ -n "$image" ]] || fail "The system image was not found on the stick."
+mkdir -p "$SOURCE"
+mount -o ro,loop "$image" "$SOURCE" || fail "Cannot open the system image."
+cp -a --preserve=all "$SOURCE/." "$TARGET/" || fail "Copying the system failed (is the disk full?)."
+umount "$SOURCE"
+
+# ---- From live system to installed system
+step "Setting up the installed system"
+uuid_root="$(blkid -s UUID -o value "$root")"
+uuid_esp="$(blkid -s UUID -o value "$esp")"
+cat > "$TARGET/etc/fstab" <<EOF
+# OwneetOS (installed by owneet-tester-install)
+UUID=$uuid_root  /                       btrfs  subvol=@,$opts           0 0
+UUID=$uuid_root  /home                   btrfs  subvol=@home,$opts       0 0
+UUID=$uuid_root  /var/log                btrfs  subvol=@log,$opts        0 0
+UUID=$uuid_root  /var/cache/pacman/pkg   btrfs  subvol=@pkg,$opts        0 0
+UUID=$uuid_root  /.snapshots             btrfs  subvol=@snapshots,$opts  0 0
+UUID=$uuid_esp   /boot                   vfat   umask=0077               0 2
+EOF
+
+# no live hooks in the initramfs (the HOOKS of the stick plus a file system check)
+rm -f "$TARGET/etc/mkinitcpio.conf.d/archiso.conf"
+cat > "$TARGET/etc/mkinitcpio.conf.d/owneet.conf" <<'EOF'
+# OwneetOS installed system: no kms hook (owneet-gpu-select chooses the NVIDIA driver at boot)
+HOOKS=(base udev microcode plymouth modconf block filesystems fsck)
+EOF
+# pacman pinned to the same Arch Linux Archive snapshot as the stick (written by tools/build-iso)
+if [[ -f "$TARGET/usr/share/owneet/pacman.conf" ]]; then
+    cp "$TARGET/usr/share/owneet/pacman.conf" "$TARGET/etc/pacman.conf"
+fi
+mkdir -p "$TARGET/etc/owneet"
+echo "Installed with owneet-tester-install on $(date -u '+%F %T') UTC" > "$TARGET/etc/owneet/tester"
+rm -f "$TARGET/etc/machine-id"
+
+for d in proc sys dev run; do mount --rbind "/$d" "$TARGET/$d"; mount --make-rslave "$TARGET/$d"; done
+in_target() { chroot "$TARGET" "$@"; }
+in_target systemd-machine-id-setup >/dev/null
+kernel="$(find "$TARGET/usr/lib/modules" -mindepth 2 -maxdepth 2 -name vmlinuz | head -1)"
+[[ -n "$kernel" ]] || fail "The kernel was not found in the system image."
+install -m644 "$kernel" "$TARGET/boot/vmlinuz-linux"
+step "Building the start-up image (initramfs)"
+in_target mkinitcpio -p linux || fail "Building the initramfs failed."
+in_target pacman-key --init >/dev/null 2>&1
+in_target pacman-key --populate archlinux >/dev/null 2>&1
+
+step "Installing the boot manager"
+bootctl --esp-path="$TARGET/boot" install >/dev/null || fail "Installing systemd-boot failed."
+quiet="quiet splash plymouth.ignore-serial-consoles loglevel=3 rd.udev.log_level=3 systemd.show_status=false rd.systemd.show_status=false vt.global_cursor_default=0"
+mkdir -p "$TARGET/boot/loader/entries"
+cat > "$TARGET/boot/loader/loader.conf" <<'EOF'
+timeout 0
+default owneetos.conf
+EOF
+cat > "$TARGET/boot/loader/entries/owneetos.conf" <<EOF
+title   OwneetOS
+linux   /vmlinuz-linux
+initrd  /initramfs-linux.img
+options root=UUID=$uuid_root rootflags=subvol=@ rw $quiet
+EOF
+cat > "$TARGET/boot/loader/entries/owneetos-diagnostics.conf" <<EOF
+title   OwneetOS (diagnostics)
+linux   /vmlinuz-linux
+initrd  /initramfs-linux.img
+options root=UUID=$uuid_root rootflags=subvol=@ rw $quiet owneet.diagnostics owneet.session=cage
+EOF
+cat > "$TARGET/boot/loader/entries/owneetos-fallback.conf" <<EOF
+title   OwneetOS (fallback start-up image)
+linux   /vmlinuz-linux
+initrd  /initramfs-linux-fallback.img
+options root=UUID=$uuid_root rootflags=subvol=@ rw
+EOF
+
+cp "$LOG" "$TARGET/var/log/owneet-tester-install.log" 2>/dev/null
+sync
+umount -R "$TARGET" 2>/dev/null || umount -lR "$TARGET"
+
+say ""
+say "OwneetOS is installed on $disk."
+say "Remove the USB stick, then press Enter to restart."
+read -r _
+systemctl reboot
