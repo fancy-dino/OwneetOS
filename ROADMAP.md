@@ -1044,6 +1044,18 @@ code is written (PROJECT_RULES.md section 9).
   lists, 0.0.26-1 → 0.0.26-2, the console starting afterwards. Fixed on the way: the test log
   service mounts the stick at the same moment (the update uses its mount); pacman refused to
   install without Arch's package lists (now the stick alone first, Arch online only if needed).
+- **FrankenPC (owner, 2026-10-13):** owneet-base 0.0.27 installed from the stick at start-up.
+  Found in the test VM before the next stick: at start-up, an update that contains a user service
+  (e.g. owneetd) waited for ever on pacman's hook that reloads the users' systemd (which waits for
+  the update itself). owneet-base 0.0.29 turns that hook off at start-up only and removes a
+  pacman lock left by an update cut short; checked in the test VM (owneetd updated at start-up,
+  the console starting afterwards). Systems with an older owneet-base take such an update from
+  Settings → System instead (stick plugged in after the console has started).
+- **Steam on the FrankenPC (owner, 2026-10-13):** Steam stayed in English → it starts in the
+  console's language (`-language`, owneetd 0.11.8); garbled, stale pictures in Steam with the
+  NVIDIA driver → Steam draws its pages without the GPU there (`-cef-disable-gpu`, owneetd 0.11.9;
+  games keep the GPU); Steam built the `en_US.UTF-8` locale again at every start → the system
+  has it (and `it_IT.UTF-8`, owneet-base 0.0.28). To check on the FrankenPC.
 
 ### [ ] 4.3 Local DRM-free games
 

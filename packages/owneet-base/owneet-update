@@ -83,9 +83,22 @@ fi
 # ---- pacman configurations: the stick's repository first (its packages win), then the system's
 stick_conf="$WORK/stick.conf"
 full_conf="$WORK/full.conf"
+# At start-up the console user's systemd waits for this update (it runs before the user sessions):
+# pacman's "reload the user managers" hook would wait for it in turn, for ever. Nothing to reload
+# then: that hook is turned off (a hook linked to /dev/null), only at start-up.
+hookdirs=""
+if [[ "$MODE" == boot ]]; then
+    # a lock left by an update cut short (power lost): nothing else runs pacman this early
+    rm -f /var/lib/pacman/db.lck
+    mkdir -p "$WORK/hooks"
+    ln -sf /dev/null "$WORK/hooks/30-systemd-daemon-reload-user.hook"
+    hookdirs="HookDir = /etc/pacman.d/hooks/
+HookDir = $WORK/hooks/"
+fi
 cat > "$stick_conf" <<EOF
 [options]
 Architecture = auto
+$hookdirs
 SigLevel = Required DatabaseOptional
 LocalFileSigLevel = Optional
 
@@ -93,9 +106,10 @@ LocalFileSigLevel = Optional
 SigLevel = Optional TrustAll
 Server = file://$repo
 EOF
-awk -v repo="$repo" '
+awk -v repo="$repo" -v hookdirs="$hookdirs" '
     /^\[core\]/ && !done { print "[owneet]"; print "SigLevel = Optional TrustAll"; print "Server = file://" repo; print ""; done = 1 }
     { print }
+    /^\[options\]/ && hookdirs != "" { print hookdirs }
 ' /etc/pacman.conf > "$full_conf"
 
 # The OwneetOS packages on the stick newer than the installed ones: "name from -> to" lines

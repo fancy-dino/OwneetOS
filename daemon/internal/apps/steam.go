@@ -158,6 +158,23 @@ func forward(argv, env []string) error {
 	return cmd.Run()
 }
 
+// nvidiaDriver tells whether NVIDIA's driver is loaded (owneet-gpu-select chose it at boot).
+func nvidiaDriver() bool {
+	_, err := os.Stat("/sys/module/nvidia_drm")
+	return err == nil
+}
+
+// steamGPUArgs: with NVIDIA's driver, Steam's pages drawn with the GPU (its web views) show
+// garbled, stale pictures inside gamescope (FrankenPC, GTX 1660 Super); Steam draws them
+// without the GPU instead, as when "GPU accelerated rendering in web views" is turned off.
+// Games keep the GPU.
+func (m *Manager) steamGPUArgs() []string {
+	if m.NVIDIA() {
+		return []string{"-cef-disable-gpu"}
+	}
+	return nil
+}
+
 // steamArgv starts the steam program without gamescope's control socket (see above).
 func (m *Manager) steamArgv(args ...string) ([]string, error) {
 	path, err := m.LookPath("steam")
@@ -206,7 +223,7 @@ func (m *Manager) Steam(req SteamRequest) error {
 	m.mu.Unlock()
 
 	if !running {
-		args := []string{"-gamepadui"}
+		args := append([]string{"-gamepadui"}, m.steamGPUArgs()...)
 		if lang := steamLanguage(req.Language); lang != "" {
 			args = append(args, "-language", lang)
 		}

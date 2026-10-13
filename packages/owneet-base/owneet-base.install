@@ -1,7 +1,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+# The system's locales (C.UTF-8 is built in): English, which Steam needs (otherwise it builds
+# the locale again at every start, in its container), and the interface's languages
+_owneet_locales() {
+  local l
+  for l in en_US it_IT; do
+    if ! locale -a 2>/dev/null | grep -qx "$l.utf8"; then
+      localedef -i "$l" -c -f UTF-8 -A /usr/share/locale/locale.alias "$l.UTF-8" >/dev/null 2>&1 || true
+    fi
+  done
+}
+
 post_install() {
   systemctl preset owneet-diagnostics.service owneet-testlog.service owneet-tester-install.service owneet-update-boot.service >/dev/null 2>&1 || true
+  _owneet_locales
 }
 
 post_upgrade() {

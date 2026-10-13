@@ -156,6 +156,9 @@ type Manager struct {
 	SteamDir     string
 	SteamAllowed func() bool
 	Forward      func(argv, env []string) error
+	// NVIDIA tells whether the NVIDIA driver runs the screen (Steam then draws its pages
+	// without the GPU, see steamGPUArgs).
+	NVIDIA func() bool
 
 	mu       sync.Mutex
 	apps     map[string]*App // by id
@@ -195,6 +198,9 @@ func (m *Manager) init() {
 	}
 	if m.Forward == nil {
 		m.Forward = forward
+	}
+	if m.NVIDIA == nil {
+		m.NVIDIA = nvidiaDriver
 	}
 	if m.steamNames == nil {
 		m.steamNames = map[string]string{}

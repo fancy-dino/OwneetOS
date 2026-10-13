@@ -243,7 +243,9 @@ at a time; apps such as the browser may run next to it), `apps.unknown_app` (404
   controllers only while it is on screen; in cage, which owneetd cannot read, the newest app is
   taken to be on screen).
 - **Steam (4.2):** the app `steam`, started as `env -u GAMESCOPE_WAYLAND_DISPLAY steam -gamepadui
-  URL` (see below); when it already runs, owneetd hands it the `steam://` address. A game Steam
+  URL` (see below), with `-language` from the interface's language and, under the NVIDIA driver,
+  `-cef-disable-gpu` (Steam's pages drawn with the GPU showed garbled, stale pictures inside
+  gamescope; games keep the GPU); when it already runs, owneetd hands it the `steam://` address. A game Steam
   starts runs inside Steam's unit under Steam's launcher (`reaper SteamLaunch AppId=N -- …`):
   owneetd finds it there (every second, and when one of its windows appears), lists it as the
   game `steam:N` (name from the interface, else from its `appmanifest`), tags its windows with an

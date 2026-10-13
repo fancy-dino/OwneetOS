@@ -70,6 +70,7 @@ func newSteamManager(t *testing.T) (*Manager, *fakeUnits, *fakeFocus, *fakeProcs
 	m.Procs = procs
 	m.SteamDir = t.TempDir()
 	m.SteamAllowed = func() bool { return true }
+	m.NVIDIA = func() bool { return false }
 	m.Forward = func(argv, _ []string) error { *forwarded = append(*forwarded, strings.Join(argv, " ")); return nil }
 	m.watchSession() // tags windows: the home screen is process 10
 	focus.openWindow(10)
@@ -126,6 +127,18 @@ func TestSteamStartsInTheConsoleLanguage(t *testing.T) {
 		if got := steamLanguage(tag); got != want {
 			t.Errorf("steamLanguage(%q) = %q, want %q", tag, got, want)
 		}
+	}
+}
+
+func TestSteamWithNVIDIADrawsPagesWithoutGPU(t *testing.T) {
+	m, units, _, _, _, _ := newSteamManager(t)
+	m.NVIDIA = func() bool { return true }
+	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {
+		t.Fatal(err)
+	}
+	argv := strings.Join(units.argvs[0], " ")
+	if argv != "/usr/bin/env -u GAMESCOPE_WAYLAND_DISPLAY /usr/bin/steam -gamepadui -cef-disable-gpu steam://open/games" {
+		t.Fatalf("argv %q", argv)
 	}
 }
 
