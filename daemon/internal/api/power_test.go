@@ -42,3 +42,17 @@ func TestPowerEndpoints(t *testing.T) {
 		t.Fatalf("done = %v", fake.done)
 	}
 }
+
+func TestShutdownClosesAppsFirst(t *testing.T) {
+	s, c, _ := start(t)
+	fake := &fakePower{}
+	apps := &fakeApps{}
+	s.Power, s.Apps = fake, apps
+	if code, _ := post(t, c, "/v1/power/shutdown", ``); code != 202 {
+		t.Fatalf("shutdown: %d", code)
+	}
+	post(t, c, "/v1/power/suspend", ``) // apps keep running while suspended
+	if len(apps.calls) != 1 || apps.calls[0] != "close all" {
+		t.Fatalf("apps: %v", apps.calls)
+	}
+}

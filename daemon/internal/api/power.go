@@ -5,6 +5,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/power"
 )
@@ -33,10 +34,18 @@ func (s *Server) handlePower(w http.ResponseWriter, _ *http.Request) {
 
 // handlePowerAction answers 202 once logind has accepted the action: the reply may be the last
 // thing the daemon sends.
+// appsCloseWait: how long a shutdown or restart waits for the apps to close (Steam's own stop
+// waits up to 20 s).
+const appsCloseWait = 25 * time.Second
+
 func (s *Server) handlePowerAction(a power.Action) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		if !s.powerAvailable(w) {
 			return
+		}
+		// Games and apps close first, cleanly (Steam saves its state); 20 s each at most
+		if s.Apps != nil && (a == power.Shutdown || a == power.Restart) {
+			s.Apps.CloseAll(appsCloseWait)
 		}
 		err := s.Power.Do(a)
 		switch {

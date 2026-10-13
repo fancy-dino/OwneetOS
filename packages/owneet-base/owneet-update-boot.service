@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Testers only: at start-up, before the console, installs the newer OwneetOS packages of the
+# update stick (owneet-update boot), so that even a broken console can be fixed by the next stick.
+[Unit]
+Description=OwneetOS update from the USB stick at start-up
+ConditionPathExists=/etc/owneet/tester
+After=local-fs.target systemd-udevd.service
+Before=getty@tty1.service systemd-user-sessions.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/owneet/owneet-update boot
+TimeoutStartSec=30min
+
+[Install]
+WantedBy=multi-user.target

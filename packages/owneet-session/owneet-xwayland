@@ -1,0 +1,9 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Xwayland as gamescope starts it (through WLR_XWAYLAND), with the Glamor setting of the
+# test switch owneet.debug.xwayland_glamor (gl, es or off; see owneet-session).
+case "${OWNEET_XWAYLAND_GLAMOR:-}" in
+    gl|es|off) exec /usr/bin/Xwayland -glamor "$OWNEET_XWAYLAND_GLAMOR" "$@" ;;
+    *)         exec /usr/bin/Xwayland "$@" ;;
+esac

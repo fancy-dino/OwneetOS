@@ -16,7 +16,10 @@ QtObject {
     }
     function source(game) { return game ? (isSteam(game) ? "Steam" : Tr.tr("game.source.local")) : ""; }
 
-    function played(game) { return game && game.lastPlayed && !isNaN(game.lastPlayed.getTime()) && game.playCount > 0; }
+    // Steam gives the play time and the last time played, not how many times: either counts
+    function played(game) {
+        return !!game && !!game.lastPlayed && !isNaN(game.lastPlayed.getTime()) && (game.playCount > 0 || game.playTime > 0);
+    }
     function lastPlayed(game) {
         if (!played(game))
             return Tr.tr("game.played.never");

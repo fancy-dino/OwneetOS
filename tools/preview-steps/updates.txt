@@ -1,0 +1,14 @@
+@owneetd
+# Settings → System → Check for updates on a tester's PC ([[step-4.2b-updates-from-a-usb-stick]]),
+# with the pretend owneetd
+pad lb
+pad down down down down down down down right
+shot 01-updates-row
+pad a
+shot 02-checking
+wait 2
+shot 03-available
+pad a
+shot 04-installing
+wait 3
+shot 05-done

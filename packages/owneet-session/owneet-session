@@ -19,6 +19,10 @@
 #                                             always composite / never force it (default: forced
 #                                             with the NVIDIA driver only, see gamescope_args)
 #   owneet.debug.gamescope_steam=off          gamescope without --steam (no focus control)
+#   owneet.debug.gamescope_explicit_sync=off  gamescope without explicit sync for its clients
+#                                             (drm_debug_disable_explicit_sync)
+#   owneet.debug.xwayland_glamor=gl|es|off    how Xwayland draws X11 windows with the GPU (OpenGL,
+#                                             OpenGL ES, or not at all), through owneet-xwayland
 #   owneet.debug.test_games=on                two test "games" (mpv test patterns), for testing
 #                                             launching, Guide and Resume on a live system
 
@@ -55,8 +59,15 @@ has_hardware_vulkan() {
 }
 
 # Value of a test hook on the kernel command line: owneet.debug.NAME=VALUE.
+# Testers also write them, one per line, in owneet-debug.txt on the OWNEETLOG stick (mounted by
+# owneet-testlog at start-up): no boot menu to edit at every start. The stick's value wins.
+DEBUG_FILE=/run/owneet-testlog/owneet-debug.txt
+if [[ -e /dev/disk/by-label/OWNEETLOG ]]; then
+    for _ in $(seq 1 20); do mountpoint -q /run/owneet-testlog && break; sleep 0.5; done
+fi
 debug_opt() {
-    grep -oE "(^| )owneet\.debug\.$1=[a-z]+" /proc/cmdline | tail -1 | cut -d= -f2 || true
+    { cat /proc/cmdline; grep -E '^owneet\.debug\.' "$DEBUG_FILE" 2>/dev/null; } \
+        | grep -oE "(^| )owneet\.debug\.$1=[a-z]+" | tail -1 | cut -d= -f2 || true
 }
 
 # A value of display.conf (only the safe characters owneetd writes).
@@ -80,6 +91,16 @@ gamescope_args() {
     # With the NVIDIA driver, windows sent straight to the screen (direct scanout) show flickering
     # black rectangles (owner's RTX 4060, 2026-10-08): always composite there. AMD and Intel keep
     # direct scanout, which saves GPU work on low-end hardware.
+    if [[ "$(debug_opt gamescope_explicit_sync)" == off ]]; then
+        export gamescope_drm_debug_disable_explicit_sync=true
+        log "test: explicit sync off"
+    fi
+    local glamor
+    glamor="$(debug_opt xwayland_glamor)"
+    if [[ "$glamor" =~ ^(gl|es|off)$ ]]; then
+        export WLR_XWAYLAND=/usr/lib/owneet/owneet-xwayland OWNEET_XWAYLAND_GLAMOR="$glamor"
+        log "test: Xwayland -glamor $glamor"
+    fi
     case "$(debug_opt gamescope_composite)" in
         force) GAMESCOPE_ARGS+=(--force-composition) ;;
         off)   ;;

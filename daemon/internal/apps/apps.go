@@ -81,6 +81,9 @@ type LaunchRequest struct {
 	Command []string `json:"command"`
 	// Workdir is the folder the program starts in (absolute; the user's home when empty).
 	Workdir string `json:"workdir,omitempty"`
+	// Stop closes the app cleanly before its processes are stopped (owneetd's own apps only:
+	// Steam).
+	Stop []string `json:"-"`
 }
 
 // Errors returned to the API.
@@ -97,7 +100,9 @@ var (
 
 // Units runs apps as systemd user services.
 type Units interface {
-	Start(unit, description string, argv, env []string, workdir string) error
+	// stop, when not nil, is run to close the app (systemd's ExecStop) before its processes are
+	// stopped.
+	Start(unit, description string, argv, stop, env []string, workdir string) error
 	Stop(unit string) error
 	Kill(unit string) error
 	// Running lists the app units already running (owneetd restarted): unit and description.
@@ -156,6 +161,9 @@ type Manager struct {
 	SteamDir     string
 	SteamAllowed func() bool
 	Forward      func(argv, env []string) error
+	// NVIDIA tells whether the NVIDIA driver runs the screen (Steam then draws its pages
+	// without the GPU, see steamGPUArgs).
+	NVIDIA func() bool
 
 	mu       sync.Mutex
 	apps     map[string]*App // by id
@@ -195,6 +203,9 @@ func (m *Manager) init() {
 	}
 	if m.Forward == nil {
 		m.Forward = forward
+	}
+	if m.NVIDIA == nil {
+		m.NVIDIA = nvidiaDriver
 	}
 	if m.steamNames == nil {
 		m.steamNames = map[string]string{}
@@ -502,7 +513,7 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 			m.Log.Debug("cannot choose what gamescope shows", "err", err)
 		}
 	}
-	if err := m.Units.Start(app.unit, description(app.Kind, app.Name), argv, sess.Env, req.Workdir); err != nil {
+	if err := m.Units.Start(app.unit, description(app.Kind, app.Name), argv, req.Stop, sess.Env, req.Workdir); err != nil {
 		m.forget(app.ID)
 		return App{}, err
 	}
@@ -596,6 +607,35 @@ func (m *Manager) Close(id string) error {
 	}
 	m.Log.Info("closing app", "id", id)
 	return m.Units.Stop(a.unit)
+}
+
+// CloseAll closes every app and waits until all have ended, at most `wait` (before shutting
+// down or restarting: Steam stopped together with the console session cannot close itself, and
+// then checks all its files at the next start).
+func (m *Manager) CloseAll(wait time.Duration) {
+	m.mu.Lock()
+	m.init()
+	units := map[string]bool{} // a Steam game runs in Steam's unit
+	for _, a := range m.apps {
+		units[a.unit] = true
+	}
+	m.mu.Unlock()
+	for unit := range units {
+		m.Log.Info("closing app before power off", "unit", unit)
+		if err := m.Units.Stop(unit); err != nil {
+			m.Log.Warn("cannot close app", "unit", unit, "err", err)
+		}
+	}
+	deadline := time.Now().Add(wait)
+	for {
+		m.mu.Lock()
+		left := len(m.apps)
+		m.mu.Unlock()
+		if left == 0 || !time.Now().Before(deadline) {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 // Kill force-closes a frozen app at once.

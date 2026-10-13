@@ -24,9 +24,10 @@ type fakeUnits struct {
 	failAt   string
 	workdirs []string
 	argvs    [][]string
+	stops    [][]string
 }
 
-func (f *fakeUnits) Start(unit, desc string, argv, env []string, workdir string) error {
+func (f *fakeUnits) Start(unit, desc string, argv, stop, env []string, workdir string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if unit == f.failAt {
@@ -35,6 +36,7 @@ func (f *fakeUnits) Start(unit, desc string, argv, env []string, workdir string)
 	f.started = append(f.started, unit)
 	f.workdirs = append(f.workdirs, workdir)
 	f.argvs = append(f.argvs, argv)
+	f.stops = append(f.stops, stop)
 	return nil
 }
 func (f *fakeUnits) Stop(unit string) error {
@@ -249,6 +251,32 @@ func TestExitAndClose(t *testing.T) {
 			}
 			break
 		}
+	}
+}
+
+func TestCloseAllWaitsForTheApps(t *testing.T) {
+	m, units, _, _ := newManager(t, "gamescope")
+	stop := make(chan struct{})
+	defer close(stop)
+	go m.Run(stop)
+	waitApps(t, m, 1) // the adopted app still running from before
+	go func() {
+		time.Sleep(200 * time.Millisecond) // the app takes a while to close
+		units.exits <- Exit{Unit: UnitName("steam/42"), Result: "success"}
+	}()
+	begin := time.Now()
+	m.CloseAll(5 * time.Second)
+	if len(m.Status().Apps) != 0 || len(units.stopped) != 1 || time.Since(begin) > 2*time.Second {
+		t.Fatalf("apps %v, stopped %v after %v", m.Status().Apps, units.stopped, time.Since(begin))
+	}
+	// an app that does not close: CloseAll gives up after its wait
+	if _, err := m.Launch(LaunchRequest{ID: "app", Name: "App", Kind: KindApp, Command: []string{"/bin/true"}}); err != nil {
+		t.Fatal(err)
+	}
+	begin = time.Now()
+	m.CloseAll(300 * time.Millisecond)
+	if d := time.Since(begin); d < 300*time.Millisecond || d > 2*time.Second {
+		t.Fatalf("waited %v", d)
 	}
 }
 

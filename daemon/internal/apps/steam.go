@@ -45,6 +45,29 @@ type SteamRequest struct {
 	Open string `json:"open,omitempty"` // "library" or "store"
 	Run  string `json:"run,omitempty"`  // a Steam app id
 	Name string `json:"name,omitempty"` // the game's name (shown while it runs)
+	// The console's language tag ("it", "pt-BR"…): Steam starts in the same language
+	Language string `json:"language,omitempty"`
+}
+
+// steamLanguages are Steam's names for the languages it offers, by language tag.
+var steamLanguages = map[string]string{
+	"ar": "arabic", "bg": "bulgarian", "cs": "czech", "da": "danish", "de": "german",
+	"el": "greek", "en": "english", "es": "spanish", "es-419": "latam", "fi": "finnish",
+	"fr": "french", "hu": "hungarian", "id": "indonesian", "it": "italian", "ja": "japanese",
+	"ko": "koreana", "nb": "norwegian", "nl": "dutch", "no": "norwegian", "pl": "polish",
+	"pt": "portuguese", "pt-BR": "brazilian", "ro": "romanian", "ru": "russian",
+	"sv": "swedish", "th": "thai", "tr": "turkish", "uk": "ukrainian", "vi": "vietnamese",
+	"zh-CN": "schinese", "zh-Hans": "schinese", "zh-TW": "tchinese", "zh-Hant": "tchinese",
+}
+
+// steamLanguage is Steam's name for a language tag ("pt-BR" → brazilian, "it-CH" → italian),
+// "" when Steam does not offer it (Steam then keeps its own choice).
+func steamLanguage(tag string) string {
+	if name, ok := steamLanguages[tag]; ok {
+		return name
+	}
+	base, _, _ := strings.Cut(tag, "-")
+	return steamLanguages[base]
 }
 
 // SteamStatus is the body of GET /v1/steam.
@@ -136,6 +159,34 @@ func forward(argv, env []string) error {
 	return cmd.Run()
 }
 
+// nvidiaDriver tells whether NVIDIA's driver is loaded (owneet-gpu-select chose it at boot).
+func nvidiaDriver() bool {
+	_, err := os.Stat("/sys/module/nvidia_drm")
+	return err == nil
+}
+
+// steamGPUArgs: with NVIDIA's driver, Steam's pages drawn with the GPU (its web views) show
+// garbled, stale pictures inside gamescope (FrankenPC, GTX 1660 Super); Steam draws them
+// without the GPU instead, as when "GPU accelerated rendering in web views" is turned off.
+// Games keep the GPU.
+func (m *Manager) steamGPUArgs() []string {
+	if m.NVIDIA() {
+		return []string{"-cef-disable-gpu"}
+	}
+	return nil
+}
+
+// steamStop closes Steam cleanly: Steam killed with its processes (e.g. at shutdown) checks
+// every one of its files at the next start (7 s on the FrankenPC). Steam's own remote control
+// asks the running Steam to exit (it never starts Steam, unlike the steam command), then the stop
+// waits for Steam's main process; the rest of the unit is stopped afterwards.
+func (m *Manager) steamStop() []string {
+	remote := filepath.Join(m.SteamDir, "ubuntu12_32", "steam-runtime", "amd64", "usr", "bin", "steam-runtime-steam-remote")
+	return []string{"/bin/sh", "-c",
+		`"$0" -shutdown >/dev/null 2>&1 || exit 0; while kill -0 "$MAINPID" 2>/dev/null; do sleep 0.5; done`,
+		remote}
+}
+
 // steamArgv starts the steam program without gamescope's control socket (see above).
 func (m *Manager) steamArgv(args ...string) ([]string, error) {
 	path, err := m.LookPath("steam")
@@ -184,11 +235,15 @@ func (m *Manager) Steam(req SteamRequest) error {
 	m.mu.Unlock()
 
 	if !running {
-		argv, err := m.steamArgv("-gamepadui", url)
+		args := append([]string{"-gamepadui"}, m.steamGPUArgs()...)
+		if lang := steamLanguage(req.Language); lang != "" {
+			args = append(args, "-language", lang)
+		}
+		argv, err := m.steamArgv(append(args, url)...)
 		if err != nil {
 			return err
 		}
-		_, err = m.Launch(LaunchRequest{ID: SteamID, Name: "Steam", Kind: KindApp, Command: argv})
+		_, err = m.Launch(LaunchRequest{ID: SteamID, Name: "Steam", Kind: KindApp, Command: argv, Stop: m.steamStop()})
 		return err
 	}
 	sess, err := m.Session()

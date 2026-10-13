@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Testers only: checks (%i = check) or installs (%i = apply) the OwneetOS packages of the update
+# stick (owneet-update). Started by owneetd from Settings → System (polkit rule
+# 50-owneet-update.rules: only these two units, only start, only the console user).
+[Unit]
+Description=OwneetOS update from the USB stick (%i)
+ConditionPathExists=/etc/owneet/tester
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/owneet/owneet-update %i
+TimeoutStartSec=30min

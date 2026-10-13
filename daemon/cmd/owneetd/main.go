@@ -27,6 +27,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/network"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/power"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/sdldb"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/update"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/vinput"
 )
@@ -177,6 +178,14 @@ func run(configPath string) error {
 	}
 	go screen.Run(ctx)
 
+	// Testers' updates from a USB stick ([[step-4.2b-updates-from-a-usb-stick]])
+	var updateAPI api.Update
+	if starter, err := update.NewSystemdStarter(); err == nil {
+		defer starter.Close()
+		updateAPI = &update.Manager{Broker: broker, Log: log, Units: starter,
+			StateFile: "/run/owneet/update.json", TesterMark: "/etc/owneet/tester"}
+	}
+
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
@@ -189,6 +198,7 @@ func run(configPath string) error {
 		Power:           powerAPI,
 		Apps:            appsAPI,
 		Display:         screen,
+		Update:          updateAPI,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

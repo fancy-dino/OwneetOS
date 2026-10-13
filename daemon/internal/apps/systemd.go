@@ -151,7 +151,7 @@ type execCommand struct {
 }
 
 // Start starts a transient service and waits until the program has been executed.
-func (s *Systemd) Start(unit, description string, argv, env []string, workdir string) error {
+func (s *Systemd) Start(unit, description string, argv, stop, env []string, workdir string) error {
 	if workdir == "" {
 		workdir, _ = os.UserHomeDir()
 	}
@@ -165,6 +165,12 @@ func (s *Systemd) Start(unit, description string, argv, env []string, workdir st
 		// Closing stops every process of the app; after 10 s they are killed.
 		{"KillMode", dbus.MakeVariant("control-group")},
 		{"TimeoutStopUSec", dbus.MakeVariant(uint64(10 * time.Second / time.Microsecond))},
+	}
+	if stop != nil {
+		// The app closes itself first (e.g. Steam saving its state); 20 s in all
+		props = append(props[:len(props)-1],
+			property{"ExecStop", dbus.MakeVariant([]execCommand{{Path: stop[0], Args: stop, IgnoreFailure: true}})},
+			property{"TimeoutStopUSec", dbus.MakeVariant(uint64(20 * time.Second / time.Microsecond))})
 	}
 	done := make(chan string, 1)
 	s.mu.Lock()

@@ -17,6 +17,7 @@
 
 #include "ProcessLauncher.h"
 
+#include "AppSettings.h"
 #include "Log.h"
 #include "ScriptRunner.h"
 #include "model/gaming/Game.h"
@@ -326,6 +327,7 @@ void ProcessLauncher::runSteamGame()
     const QVariantMap body {
         {QStringLiteral("run"), m_steam_appid},
         {QStringLiteral("name"), m_title},
+        {QStringLiteral("language"), AppSettings::general.locale}, // Steam starts in the same language
     };
     m_daemon->request(QStringLiteral("POST"), QStringLiteral("/v1/steam"), body, [this, id](int status, const QVariant& data) {
         if (status == 202) {

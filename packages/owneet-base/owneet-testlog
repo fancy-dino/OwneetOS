@@ -27,6 +27,7 @@ owneetd_get() {
 report() {
     echo "===== $(date '+%F %T') ($(. /etc/os-release; echo "${IMAGE_VERSION:-unknown}"), kernel $(uname -r))"
     echo "--- kernel command line"; cat /proc/cmdline
+    echo "--- owneet-debug.txt (tester switches)"; cat "$mnt/owneet-debug.txt" 2>/dev/null
     echo "--- GPUs"; lspci -nnk | grep -iA3 -E 'vga|3d|display'
     echo "--- cards"
     for c in /sys/class/drm/card[0-9]; do
@@ -68,9 +69,17 @@ report > "$base.report.txt" 2>&1
 sleep 60
 { echo "--- ddcutil detect (as the console user, like owneetd)"
   runuser -u owneet -- env HOME=/home/owneet ddcutil detect --verbose 2>&1 | head -80; } >> "$base.report.txt"
+# Testers looking into what is on screen copy the test tool owneet-xprobe onto the stick: the
+# windows of the console session, every 10 s (gamescope's X server)
+windows() {
+    [[ -x "$mnt/owneet-xprobe" ]] || return 0
+    { echo "===== $(date '+%F %T')"
+      runuser -u owneet -- env DISPLAY=:0 timeout 5 "$mnt/owneet-xprobe" 2>&1; } >> "$base.windows.txt"
+}
 while true; do
     report >> "$base.report.txt" 2>&1
     steam_logs
+    windows
     sync
     sleep 10 &
     wait $!

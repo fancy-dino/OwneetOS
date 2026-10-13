@@ -70,6 +70,7 @@ func newSteamManager(t *testing.T) (*Manager, *fakeUnits, *fakeFocus, *fakeProcs
 	m.Procs = procs
 	m.SteamDir = t.TempDir()
 	m.SteamAllowed = func() bool { return true }
+	m.NVIDIA = func() bool { return false }
 	m.Forward = func(argv, _ []string) error { *forwarded = append(*forwarded, strings.Join(argv, " ")); return nil }
 	m.watchSession() // tags windows: the home screen is process 10
 	focus.openWindow(10)
@@ -110,6 +111,54 @@ func TestReaperAppID(t *testing.T) {
 		if got := reaperAppID(strings.Fields(argv)); got != want {
 			t.Errorf("%q: got %q, want %q", argv, got, want)
 		}
+	}
+}
+
+func TestSteamStartsInTheConsoleLanguage(t *testing.T) {
+	m, units, _, _, _, _ := newSteamManager(t)
+	if err := m.Steam(SteamRequest{Open: "store", Language: "it"}); err != nil {
+		t.Fatal(err)
+	}
+	argv := strings.Join(units.argvs[0], " ")
+	if argv != "/usr/bin/env -u GAMESCOPE_WAYLAND_DISPLAY /usr/bin/steam -gamepadui -language italian steam://store" {
+		t.Fatalf("argv %q", argv)
+	}
+	for tag, want := range map[string]string{"pt-BR": "brazilian", "pt-PT": "portuguese", "it-CH": "italian", "zh-Hant": "tchinese", "xx": ""} {
+		if got := steamLanguage(tag); got != want {
+			t.Errorf("steamLanguage(%q) = %q, want %q", tag, got, want)
+		}
+	}
+}
+
+func TestSteamClosesItselfCleanly(t *testing.T) {
+	m, units, _, _, _, _ := newSteamManager(t)
+	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {
+		t.Fatal(err)
+	}
+	stop := units.stops[0]
+	if len(stop) != 4 || stop[0] != "/bin/sh" || !strings.Contains(stop[2], `"$0" -shutdown`) ||
+		!strings.Contains(stop[2], `kill -0 "$MAINPID"`) ||
+		stop[3] != filepath.Join(m.SteamDir, "ubuntu12_32/steam-runtime/amd64/usr/bin/steam-runtime-steam-remote") {
+		t.Fatalf("stop %q", stop)
+	}
+	// other apps are stopped as before
+	if _, err := m.Launch(LaunchRequest{ID: "game", Name: "Game", Kind: KindGame, Command: []string{"/bin/true"}}); err != nil {
+		t.Fatal(err)
+	}
+	if units.stops[1] != nil {
+		t.Fatalf("game stop %q", units.stops[1])
+	}
+}
+
+func TestSteamWithNVIDIADrawsPagesWithoutGPU(t *testing.T) {
+	m, units, _, _, _, _ := newSteamManager(t)
+	m.NVIDIA = func() bool { return true }
+	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {
+		t.Fatal(err)
+	}
+	argv := strings.Join(units.argvs[0], " ")
+	if argv != "/usr/bin/env -u GAMESCOPE_WAYLAND_DISPLAY /usr/bin/steam -gamepadui -cef-disable-gpu steam://open/games" {
+		t.Fatalf("argv %q", argv)
 	}
 }
 

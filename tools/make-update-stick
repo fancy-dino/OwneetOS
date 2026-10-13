@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Testers only ([[step-4.2b-updates-from-a-usb-stick]]): copies the OwneetOS packages built by
+# tools/build-packages (out/repo/x86_64) into the owneet-updates folder of the OWNEETLOG USB stick.
+# A test PC installed with the tester installer applies them at the next start-up, or from Settings
+# → System. Runs on the host (no root needed), with the stick mounted by the desktop:
+#
+#   tools/make-update-stick /media/$USER/OWNEETLOG
+#
+# Nothing is published: the packages go only onto the tester's stick.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO="$ROOT/out/repo/x86_64"
+
+die() { echo "error: $*" >&2; exit 1; }
+
+[[ $# -eq 1 ]] || { sed -n '4,12p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+stick="$(realpath "$1")"
+[[ -d "$stick" ]] || die "$1 is not a folder"
+mountpoint -q "$stick" || die "$stick is not a mounted USB stick"
+label="$(findmnt -no LABEL "$stick" 2>/dev/null || true)"
+[[ "$label" == OWNEETLOG ]] || die "the stick at $stick is labelled '${label:-none}', not OWNEETLOG"
+[[ -f "$REPO/owneet.db.tar.gz" ]] || die "no packages yet: tools/build-in-vm tools/build-packages"
+
+dest="$stick/owneet-updates"
+mkdir -p "$dest"
+rm -f "$dest"/*.pkg.tar.zst "$dest"/owneet.db* "$dest"/owneet.files*
+# FAT32 / exFAT have no symbolic links: owneet.db is a copy of owneet.db.tar.gz
+cp "$REPO"/*.pkg.tar.zst "$dest/"
+cp "$REPO/owneet.db.tar.gz" "$dest/owneet.db.tar.gz"
+cp "$REPO/owneet.db.tar.gz" "$dest/owneet.db"
+sync
+echo "==> copied to $dest:"
+find "$dest" -maxdepth 1 -name '*.pkg.tar.zst' -printf '    %f\n' | sort
+echo "==> unmount the stick, then plug it into the test PC: the update is installed at start-up"

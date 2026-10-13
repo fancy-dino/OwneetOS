@@ -386,5 +386,21 @@
   "steam.install.title": "Steam richiede il sistema installato",
   "steam.install.text": "In questa modalità di prova da chiavetta USB, Steam tiene i suoi file in memoria e questo PC ha meno di 12 GB. Installa OwneetOS per usare Steam.",
   "error.steam.needs_install": "Installa OwneetOS per usare Steam su questo PC.",
-  "controls.game.steam": "Steam e giochi Steam: il menu di Steam. Tieni premuto per 1 secondo per tornare alla console"
+  "controls.game.steam": "Steam e giochi Steam: il menu di Steam. Tieni premuto per 1 secondo per tornare alla console",
+  "prompt.capitals": "Maiuscole (tieni premuto)",
+  "controls.k.caps": "Tieni premuto: maiuscole",
+  "system.updates.stick": "Dalla chiavetta USB OWNEETLOG (tester)",
+  "update.title": "Aggiornamenti",
+  "update.checking": "Controllo la chiavetta USB…",
+  "update.available": "Pacchetti OwneetOS più recenti sulla chiavetta:",
+  "update.install": "Installa",
+  "update.installing": "Installazione in corso… Non scollegare la chiavetta.",
+  "update.done": "Installati. Riavvia la console per usarli.",
+  "update.restart": "Riavvia ora",
+  "update.later": "Più tardi",
+  "update.none": "La chiavetta non contiene pacchetti OwneetOS più recenti.",
+  "update.no_stick": "Collega la chiavetta OWNEETLOG con la cartella owneet-updates.",
+  "update.not_tester": "Gli aggiornamenti da chiavetta sono solo per i PC di test.",
+  "update.failed": "Non è stato possibile installare l'aggiornamento.",
+  "update.busy": "Un aggiornamento è già in corso."
 }
