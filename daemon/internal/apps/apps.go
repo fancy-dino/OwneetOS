@@ -174,8 +174,11 @@ type Manager struct {
 	homePID  int             // of the session being watched
 	// names given by the interface to Steam games about to start, by Steam app id
 	steamNames map[string]string
-	shown      []uint32 // what owneetd last asked gamescope to show
-	lastFocus  string   // the last "focus.changed" sent
+	// the steam:// address to hand to Steam once its window is shown (it started on its own
+	// home page, so that Back from that address has somewhere to go)
+	steamPending string
+	shown        []uint32 // what owneetd last asked gamescope to show
+	lastFocus    string   // the last "focus.changed" sent
 }
 
 func (m *Manager) init() {
@@ -298,6 +301,7 @@ func (m *Manager) checkWindows() {
 	m.mu.Lock()
 	var ready []string
 	var bring []uint32 // settled apps to bring to the front
+	pending := ""      // Steam's first page, once Steam is shown
 	for _, a := range m.apps {
 		if a.window {
 			continue
@@ -317,10 +321,16 @@ func (m *Manager) checkWindows() {
 		}
 		a.window = true
 		ready = append(ready, a.ID)
+		if a.ID == SteamID {
+			pending, m.steamPending = m.steamPending, ""
+		}
 	}
 	m.mu.Unlock()
 	for _, id := range bring {
 		m.show(f, []uint32{id, HomeAppID})
+	}
+	if pending != "" {
+		m.forwardSteam(pending, sess)
 	}
 	for _, id := range ready {
 		m.Broker.Publish("app.window", map[string]string{"id": id})
@@ -535,6 +545,9 @@ func (m *Manager) forget(id string) {
 	}
 	if m.lastApp == id {
 		m.lastApp = ""
+	}
+	if id == SteamID {
+		m.steamPending = ""
 	}
 }
 

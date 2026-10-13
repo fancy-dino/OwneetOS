@@ -1090,6 +1090,11 @@ code is written (PROJECT_RULES.md section 9).
   (owneetd 0.11.12). Not enough: glitches in 1 of 2 starts while Steam's side menu opened and
   closed (one Steam window, never resized: parts of an already drawn window go wrong; a copy of
   Steam's top bar lower down, a shrunken copy of the screen). Next: Xwayland without Glamor.
+  The owner noticed (normal settings) that the glitches change at every frame Steam sends and
+  slow down as Steam stops redrawing: a sign of the compositor reading Steam's frames before
+  Xwayland has finished them (synchronisation). Also found: Back from the first page Steam
+  opened on left Steam loading for ever → Steam starts on its own home page and gets the page
+  once it is shown (gamescope; owneetd 0.11.13).
 
 ### [ ] 4.3 Local DRM-free games
 

@@ -186,6 +186,19 @@ func (m *Manager) steamStop() []string {
 		remote}
 }
 
+// forwardSteam hands a steam:// address to the Steam already running.
+func (m *Manager) forwardSteam(url string, sess Session) error {
+	argv, err := m.steamArgv(url)
+	if err != nil {
+		return err
+	}
+	if err := m.Forward(argv, sess.Env); err != nil {
+		m.Log.Warn("cannot reach Steam", "url", url, "err", err)
+		return fmt.Errorf("cannot reach Steam: %w", err)
+	}
+	return nil
+}
+
 // steamArgv starts the steam program without gamescope's control socket (see above).
 func (m *Manager) steamArgv(args ...string) ([]string, error) {
 	path, err := m.LookPath("steam")
@@ -233,28 +246,36 @@ func (m *Manager) Steam(req SteamRequest) error {
 	_, running := m.apps[SteamID]
 	m.mu.Unlock()
 
+	sess, err := m.Session()
+	if err != nil {
+		return ErrNoSession
+	}
 	if !running {
 		args := append([]string{"-gamepadui"}, m.steamGPUArgs()...)
 		if lang := steamLanguage(req.Language); lang != "" {
 			args = append(args, "-language", lang)
 		}
-		argv, err := m.steamArgv(append(args, url)...)
+		// Steam started on an address keeps it as its first page: Back from there leaves Steam
+		// loading for ever (FrankenPC). In gamescope Steam starts on its own home page and gets
+		// the address once its window is shown (checkWindows); cage shows no windows to owneetd.
+		gamescope := m.focus(sess) != nil
+		if !gamescope {
+			args = append(args, url)
+		}
+		argv, err := m.steamArgv(args...)
 		if err != nil {
 			return err
+		}
+		if gamescope {
+			m.mu.Lock()
+			m.steamPending = url
+			m.mu.Unlock()
 		}
 		_, err = m.Launch(LaunchRequest{ID: SteamID, Name: "Steam", Kind: KindApp, Command: argv, Stop: m.steamStop()})
 		return err
 	}
-	sess, err := m.Session()
-	if err != nil {
-		return ErrNoSession
-	}
-	argv, err := m.steamArgv(url)
-	if err != nil {
+	if err := m.forwardSteam(url, sess); err != nil {
 		return err
-	}
-	if err := m.Forward(argv, sess.Env); err != nil {
-		return fmt.Errorf("cannot reach Steam: %w", err)
 	}
 	// Steam's window comes to the front (a game's window takes over once it appears)
 	if err := m.FocusApp(SteamID); errors.Is(err, ErrNoWindow) {
