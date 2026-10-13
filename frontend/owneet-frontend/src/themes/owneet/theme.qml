@@ -510,7 +510,7 @@ FocusScope {
                 return;
             }
             Nav.feedback("launch");
-            owneetd.post("/v1/steam", { open: page }, (status2, data) => {
+            owneetd.post("/v1/steam", { open: page, language: Tr.language }, (status2, data) => {
                 if (status2 === 202) {
                     if (!st.running) steamPrep.start(!st.prepared);
                     return;

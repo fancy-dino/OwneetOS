@@ -113,6 +113,22 @@ func TestReaperAppID(t *testing.T) {
 	}
 }
 
+func TestSteamStartsInTheConsoleLanguage(t *testing.T) {
+	m, units, _, _, _, _ := newSteamManager(t)
+	if err := m.Steam(SteamRequest{Open: "store", Language: "it"}); err != nil {
+		t.Fatal(err)
+	}
+	argv := strings.Join(units.argvs[0], " ")
+	if argv != "/usr/bin/env -u GAMESCOPE_WAYLAND_DISPLAY /usr/bin/steam -gamepadui -language italian steam://store" {
+		t.Fatalf("argv %q", argv)
+	}
+	for tag, want := range map[string]string{"pt-BR": "brazilian", "pt-PT": "portuguese", "it-CH": "italian", "zh-Hant": "tchinese", "xx": ""} {
+		if got := steamLanguage(tag); got != want {
+			t.Errorf("steamLanguage(%q) = %q, want %q", tag, got, want)
+		}
+	}
+}
+
 func TestSteamStartsWithoutGamescopeControl(t *testing.T) {
 	m, units, focus, _, forwarded, ch := newSteamManager(t)
 	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {

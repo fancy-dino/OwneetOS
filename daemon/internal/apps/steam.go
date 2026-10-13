@@ -44,6 +44,29 @@ type SteamRequest struct {
 	Open string `json:"open,omitempty"` // "library" or "store"
 	Run  string `json:"run,omitempty"`  // a Steam app id
 	Name string `json:"name,omitempty"` // the game's name (shown while it runs)
+	// The console's language tag ("it", "pt-BR"…): Steam starts in the same language
+	Language string `json:"language,omitempty"`
+}
+
+// steamLanguages are Steam's names for the languages it offers, by language tag.
+var steamLanguages = map[string]string{
+	"ar": "arabic", "bg": "bulgarian", "cs": "czech", "da": "danish", "de": "german",
+	"el": "greek", "en": "english", "es": "spanish", "es-419": "latam", "fi": "finnish",
+	"fr": "french", "hu": "hungarian", "id": "indonesian", "it": "italian", "ja": "japanese",
+	"ko": "koreana", "nb": "norwegian", "nl": "dutch", "no": "norwegian", "pl": "polish",
+	"pt": "portuguese", "pt-BR": "brazilian", "ro": "romanian", "ru": "russian",
+	"sv": "swedish", "th": "thai", "tr": "turkish", "uk": "ukrainian", "vi": "vietnamese",
+	"zh-CN": "schinese", "zh-Hans": "schinese", "zh-TW": "tchinese", "zh-Hant": "tchinese",
+}
+
+// steamLanguage is Steam's name for a language tag ("pt-BR" → brazilian, "it-CH" → italian),
+// "" when Steam does not offer it (Steam then keeps its own choice).
+func steamLanguage(tag string) string {
+	if name, ok := steamLanguages[tag]; ok {
+		return name
+	}
+	base, _, _ := strings.Cut(tag, "-")
+	return steamLanguages[base]
 }
 
 // SteamStatus is the body of GET /v1/steam.
@@ -183,7 +206,11 @@ func (m *Manager) Steam(req SteamRequest) error {
 	m.mu.Unlock()
 
 	if !running {
-		argv, err := m.steamArgv("-gamepadui", url)
+		args := []string{"-gamepadui"}
+		if lang := steamLanguage(req.Language); lang != "" {
+			args = append(args, "-language", lang)
+		}
+		argv, err := m.steamArgv(append(args, url)...)
 		if err != nil {
 			return err
 		}

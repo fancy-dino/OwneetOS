@@ -208,7 +208,7 @@ it), `power.failed` (502).
 | GET | `/v1/update` | Testers' updates from a USB stick (4.2b): `tester`, `state` (`none`, `available`, `installing`, `done`, `failed`, `no_stick`, `not_tester`), `message`, `packages` (`name`, `from`, `to`), `running` |
 | POST | `/v1/update/check` · `/v1/update/apply` | Start a check or the installation (202): root units `owneet-update@check` / `@apply.service`, allowed by a polkit rule; the result comes as `update.changed`. Errors `update.not_tester`, `update.busy` (409) |
 | GET | `/v1/steam` | `installed`, `allowed` (false in a live system with less than 12 GB of RAM), `prepared` (Steam has started once: no long first download), `running`, `games` (Steam app ids installed completely: the interface reads its games again when they change) (4.2) |
-| POST | `/v1/steam` | `{"open": "library"}` / `{"open": "store"}`, or `{"run": "480", "name": "…"}` — Steam starts if needed (202); a game is listed in `/v1/apps` as `steam:480` once Steam has started it |
+| POST | `/v1/steam` | `{"open": "library"}` / `{"open": "store"}`, or `{"run": "480", "name": "…"}`, with `"language": "it"` (the console's language tag: Steam starts with `-language italian`) — Steam starts if needed (202); a game is listed in `/v1/apps` as `steam:480` once Steam has started it |
 
 Errors: `apps.unavailable` (503), `apps.invalid` (400), `apps.program_not_found` (400),
 `apps.no_session` (409), `apps.already_running` (409, same id), `apps.game_running` (409, one game
