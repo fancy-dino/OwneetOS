@@ -1094,7 +1094,12 @@ code is written (PROJECT_RULES.md section 9).
   slow down as Steam stops redrawing: a sign of the compositor reading Steam's frames before
   Xwayland has finished them (synchronisation). Also found: Back from the first page Steam
   opened on left Steam loading for ever → Steam starts on its own home page and gets the page
-  once it is shown (gamescope; owneetd 0.11.13).
+  once it is shown (gamescope; owneetd 0.11.13). Glamor off froze the console's own start-up
+  (no OpenGL for X11 programs) → with that switch the console draws itself in software
+  (owneet-session 0.0.18). The owner points out that the FrankenPC showed no glitches while it
+  ran the live system: "NVIDIA only" rested on live tests (the NiPoGi was never installed, and
+  the NiPoGi too had glitches at Steam's start, hidden by the settling time) → same-trigger
+  comparison live/installed with a new ISO carrying every fix so far.
 
 ### [ ] 4.3 Local DRM-free games
 
