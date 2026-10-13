@@ -27,6 +27,7 @@ owneetd_get() {
 report() {
     echo "===== $(date '+%F %T') ($(. /etc/os-release; echo "${IMAGE_VERSION:-unknown}"), kernel $(uname -r))"
     echo "--- kernel command line"; cat /proc/cmdline
+    echo "--- owneet-debug.txt (tester switches)"; cat "$mnt/owneet-debug.txt" 2>/dev/null
     echo "--- GPUs"; lspci -nnk | grep -iA3 -E 'vga|3d|display'
     echo "--- cards"
     for c in /sys/class/drm/card[0-9]; do

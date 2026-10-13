@@ -53,6 +53,14 @@ Only OwneetOS's own packages come from the stick (unsigned, accepted only by sys
 with this installer); Arch Linux packages come from the pinned snapshot online, when the new
 packages need any. The result of the last check is in `/run/owneet/update.json`.
 
+## Test switches
+
+The session's test switches (the `owneet.debug.*` kernel options listed at the top of
+`owneet-session`) can also be written, one per line, in a file **`owneet-debug.txt`** at the top of
+the OWNEETLOG stick, e.g. `owneet.debug.gamescope_explicit_sync=off`: they apply at every start
+while the stick is plugged in, with no boot menu to edit. The hardware report on the stick lists
+the switches that were set.
+
 ## If something goes wrong
 
 - The installed system keeps the **diagnostics** boot entry (hold a key at start-up to see the

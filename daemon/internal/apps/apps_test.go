@@ -254,6 +254,32 @@ func TestExitAndClose(t *testing.T) {
 	}
 }
 
+func TestCloseAllWaitsForTheApps(t *testing.T) {
+	m, units, _, _ := newManager(t, "gamescope")
+	stop := make(chan struct{})
+	defer close(stop)
+	go m.Run(stop)
+	waitApps(t, m, 1) // the adopted app still running from before
+	go func() {
+		time.Sleep(200 * time.Millisecond) // the app takes a while to close
+		units.exits <- Exit{Unit: UnitName("steam/42"), Result: "success"}
+	}()
+	begin := time.Now()
+	m.CloseAll(5 * time.Second)
+	if len(m.Status().Apps) != 0 || len(units.stopped) != 1 || time.Since(begin) > 2*time.Second {
+		t.Fatalf("apps %v, stopped %v after %v", m.Status().Apps, units.stopped, time.Since(begin))
+	}
+	// an app that does not close: CloseAll gives up after its wait
+	if _, err := m.Launch(LaunchRequest{ID: "app", Name: "App", Kind: KindApp, Command: []string{"/bin/true"}}); err != nil {
+		t.Fatal(err)
+	}
+	begin = time.Now()
+	m.CloseAll(300 * time.Millisecond)
+	if d := time.Since(begin); d < 300*time.Millisecond || d > 2*time.Second {
+		t.Fatalf("waited %v", d)
+	}
+}
+
 func waitApps(t *testing.T, m *Manager, n int) {
 	t.Helper()
 	for i := 0; i < 500; i++ {

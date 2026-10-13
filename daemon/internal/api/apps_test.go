@@ -5,6 +5,7 @@ package api
 import (
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
 )
@@ -28,6 +29,7 @@ func (f *fakeApps) act(what, id string) error {
 }
 func (f *fakeApps) Close(id string) error    { return f.act("close", id) }
 func (f *fakeApps) Kill(id string) error     { return f.act("kill", id) }
+func (f *fakeApps) CloseAll(time.Duration)   { f.calls = append(f.calls, "close all") }
 func (f *fakeApps) FocusApp(id string) error { return f.act("focus", id) }
 func (f *fakeApps) Steam(r apps.SteamRequest) error {
 	switch {

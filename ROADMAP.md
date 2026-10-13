@@ -1057,8 +1057,12 @@ code is written (PROJECT_RULES.md section 9).
   games keep the GPU); Steam built the `en_US.UTF-8` locale again at every start → the system
   has it (and `it_IT.UTF-8`, owneet-base 0.0.28). Second test: Italian confirmed, no glitches
   this time, about 30 s to start: Steam had been killed at shutdown and checked all its files
-  (7 s) → owneetd closes Steam cleanly, at shutdown too (owneetd 0.11.10). To check on the
-  FrankenPC.
+  (7 s) → owneetd closes Steam cleanly, at shutdown too (owneetd 0.11.10). Third test: glyph
+  strips and copies of Steam's own pictures, in some sessions only (2 of 3), with Steam drawing
+  without the GPU and nothing in the logs; Steam still killed at shutdown (the console session
+  stopped with it) → shutdown and restart close the apps first and wait for them (owneetd
+  0.11.11); test switches in `owneet-debug.txt` on the OWNEETLOG stick (owneet-session 0.0.16),
+  first try: gamescope without explicit sync. To check on the FrankenPC.
 
 ### [ ] 4.3 Local DRM-free games
 

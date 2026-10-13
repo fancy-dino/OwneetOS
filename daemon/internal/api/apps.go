@@ -5,6 +5,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
 )
@@ -14,6 +15,8 @@ type Apps interface {
 	Status() apps.Status
 	Launch(req apps.LaunchRequest) (apps.App, error)
 	Close(id string) error
+	// CloseAll closes every app and waits until they have ended, at most `wait`.
+	CloseAll(wait time.Duration)
 	Kill(id string) error
 	FocusApp(id string) error
 	Steam(req apps.SteamRequest) error

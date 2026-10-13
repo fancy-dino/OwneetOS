@@ -609,6 +609,35 @@ func (m *Manager) Close(id string) error {
 	return m.Units.Stop(a.unit)
 }
 
+// CloseAll closes every app and waits until all have ended, at most `wait` (before shutting
+// down or restarting: Steam stopped together with the console session cannot close itself, and
+// then checks all its files at the next start).
+func (m *Manager) CloseAll(wait time.Duration) {
+	m.mu.Lock()
+	m.init()
+	units := map[string]bool{} // a Steam game runs in Steam's unit
+	for _, a := range m.apps {
+		units[a.unit] = true
+	}
+	m.mu.Unlock()
+	for unit := range units {
+		m.Log.Info("closing app before power off", "unit", unit)
+		if err := m.Units.Stop(unit); err != nil {
+			m.Log.Warn("cannot close app", "unit", unit, "err", err)
+		}
+	}
+	deadline := time.Now().Add(wait)
+	for {
+		m.mu.Lock()
+		left := len(m.apps)
+		m.mu.Unlock()
+		if left == 0 || !time.Now().Before(deadline) {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
 // Kill force-closes a frozen app at once.
 func (m *Manager) Kill(id string) error {
 	a, err := m.appOf(id)
