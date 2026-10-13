@@ -20,6 +20,9 @@ user ISO with the other test boot entries (roadmap 7.4).
    their size, model and current partitions. Type the number of the disk and press Enter.
 4. Type `ERASE` and press Enter. The installation takes a few minutes.
 5. Remove the USB stick and press Enter: the PC restarts into the installed OwneetOS.
+   If the PC says that no boot device was found, choose **"Linux Boot Manager"** (or
+   **"Fallback Linux Boot Manager"**: the same boot manager) as the first boot device in its
+   firmware settings.
 
 ## What the installed system looks like
 

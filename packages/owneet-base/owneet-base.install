@@ -6,4 +6,10 @@ post_install() {
 
 post_upgrade() {
   post_install
+  # Systems installed by owneet-tester-install before 0.0.27: the "Fallback Linux Boot Manager"
+  # entry pointed to a file that did not exist (the only entry some firmware offers)
+  local sdboot=/boot/EFI/systemd
+  if [[ -f /etc/owneet/tester && -f $sdboot/systemd-bootx64.efi && ! -f $sdboot/systemd-boot-fallbackx64.efi ]]; then
+    cp $sdboot/systemd-bootx64.efi $sdboot/systemd-boot-fallbackx64.efi || true
+  fi
 }

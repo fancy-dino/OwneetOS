@@ -1016,6 +1016,13 @@ code is written (PROJECT_RULES.md section 9).
   original packages were fine): the image is now squashfs + xz (ISO 1822 MiB instead of 2164) and
   `tools/build-iso` checks every file of the image against its package. `vm/test.sh boot --disk`
   starts the VM from its disks.
+- **FrankenPC (owner, 2026-10-13):** installed, but it started only with "Linux Boot Manager"
+  chosen from the F12 menu: its firmware settings offer only "Fallback Linux Boot Manager", which
+  systemd 262's `bootctl install` registers while writing its file
+  (`\EFI\systemd\systemd-boot-fallbackx64.efi`) only on later updates. The installer now writes
+  it (owneet-base 0.0.27), and the update to 0.0.27 writes it on systems already installed;
+  checked in the test VM (update from the stick at start-up, then a start through the Fallback
+  entry).
 
 ### [~] 4.2b Updates from a USB stick *(owner, 2026-10-13)*
 

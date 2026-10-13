@@ -162,6 +162,10 @@ in_target pacman-key --populate archlinux >/dev/null 2>&1
 
 step "Installing the boot manager"
 bootctl --esp-path="$TARGET/boot" install >/dev/null || fail "Installing systemd-boot failed."
+# bootctl also registers "Fallback Linux Boot Manager", whose file it writes only when it updates
+# systemd-boot: some firmware (Acer Predator G3-710) offers only that entry in its settings
+cp "$TARGET/boot/EFI/systemd/systemd-bootx64.efi" "$TARGET/boot/EFI/systemd/systemd-boot-fallbackx64.efi" \
+    || fail "Installing systemd-boot failed."
 quiet="quiet splash plymouth.ignore-serial-consoles loglevel=3 rd.udev.log_level=3 systemd.show_status=false rd.systemd.show_status=false vt.global_cursor_default=0"
 mkdir -p "$TARGET/boot/loader/entries"
 cat > "$TARGET/boot/loader/loader.conf" <<'EOF'
