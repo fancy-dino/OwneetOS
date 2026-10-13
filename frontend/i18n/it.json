@@ -386,5 +386,7 @@
   "steam.install.title": "Steam richiede il sistema installato",
   "steam.install.text": "In questa modalità di prova da chiavetta USB, Steam tiene i suoi file in memoria e questo PC ha meno di 12 GB. Installa OwneetOS per usare Steam.",
   "error.steam.needs_install": "Installa OwneetOS per usare Steam su questo PC.",
-  "controls.game.steam": "Steam e giochi Steam: il menu di Steam. Tieni premuto per 1 secondo per tornare alla console"
+  "controls.game.steam": "Steam e giochi Steam: il menu di Steam. Tieni premuto per 1 secondo per tornare alla console",
+  "prompt.capitals": "Maiuscole (tieni premuto)",
+  "controls.k.caps": "Tieni premuto: maiuscole"
 }

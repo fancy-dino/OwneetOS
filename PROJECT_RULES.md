@@ -213,17 +213,18 @@ same screen. New bindings are added here before they are implemented.
 | B / ○                       | Back / close. Where there is nothing to go back to (Home, Library, the list of Settings sections): the **quick menu** (power options, controls and features) |
 | X / □                       | Secondary action on the selected item (e.g. Details, Install)                                                            |
 | Y / △                       | Page-level option (e.g. Sort, Search)                                                                                    |
-| LB / RB (L1 / R1)           | Switch top-level section (Home, Library, Settings, …) — **reserved, never used for anything else**                       |
+| LB / RB (L1 / R1)           | Switch top-level section (Home, Library, Settings, …) — **reserved, never used for anything else** (except inside the on-screen keyboard, where no section can be switched: its pages of keys) |
 | LT / RT (L2 / R2)           | Switch filter inside the current page (e.g. Library: All / Installed / Favorites). There are no sub-tabs: tabs are only the sections on LB / RB |
 | Menu / Options              | Options menu for the selected item                                                                                       |
 | View / Create               | Reserved (screenshot in a later wave)                                                                                    |
 | Guide / PS                  | **Owned by the system daemon**: home / quick menu from anywhere, including in games. Apps and themes must never bind it. Prompt label: "Home". **Exception, Steam** (2026-10-12): while Steam or a Steam game is on screen, a short press is Steam's (its menu; its overlay in games) and **holding it for 1 second** comes back to the console (Steam and the game keep running). |
 | Right stick                 | Scrolls the page: fast scroll in long lists and grids, and the content of windows (e.g. Credits and licences)         |
 
-**On-screen keyboard** (demo 3.10, approved 2026-10-11): while it is open, A types the selected
-key, X deletes, Y types a space, LT / RT change the page of keys (letters, symbols, accented
-letters), Menu = Done, B closes the keyboard; the selection wraps around at every edge. These
-meanings hold only inside the keyboard; LB / RB, Guide and the right stick keep theirs.
+**On-screen keyboard** (demo 3.10, approved 2026-10-11; changed 2026-10-13): while it is open, A
+types the selected key, X deletes, Y types a space, **LB / RB change the page of keys** (letters,
+symbols, accented letters), **LT held = capital letters while it is held** (as on Steam's
+keyboard), RT does nothing, Menu = Done, B closes the keyboard; the selection wraps around at
+every edge. These meanings hold only inside the keyboard; Guide and the right stick keep theirs.
 
 While a game or app is running, the system intercepts **only** the Guide button; every other input
 goes to the game.
@@ -394,3 +395,5 @@ project is reviewed by someone experienced in open-source licensing.
 | 2026-10-11 | Demo 4.2 approved (with the generic store icon for Steam and no "Add games" in Favorites). **Distribution:** the ISO goes to SourceForge, the website to a `.org` domain on GitHub Pages, packages stay on GitHub (section 5). **Steam is in the ISO** with 32-bit drivers for every GPU (about +300 MiB, [multilib] from the same snapshot). |
 | 2026-10-11 | Steam in the **live session** (no installed disk: Steam's first download of about 2.4 GB is kept in RAM): only with at least **12 GB of RAM**; otherwise a clear message asks to install OwneetOS to use Steam. The **installed system's requirements do not change** (4 GB minimum, 8 GB recommended); Steam is started only when needed (C1 is measured with Steam closed). |
 | 2026-10-12 | After the owner's first Steam test (Guide fought over by owneetd and Steam): **while Steam or a Steam game is on screen, a short Guide press is Steam's; holding Guide for 1 second comes back to the console** (option A; section 9.1). "Exit Steam" in Steam's menu also comes back. Steam's own screens that matter (login, a game's launch progress) are shown automatically (section 8). |
+| 2026-10-13 | On-screen keyboard (owner's request): LT held = capital letters while it is held, as on Steam's keyboard; the pages of keys move to LB / RB (no section can be switched while the keyboard is open); RT does nothing there (section 9.1). |
+| 2026-10-13 | A Steam game whose Linux version cannot start (Steam: "Missing game executable") gets an automatic recovery, offered to the user: try the version for Windows with Proton (roadmap 4.5). |

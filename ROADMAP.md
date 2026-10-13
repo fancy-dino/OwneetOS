@@ -794,6 +794,9 @@ code is written (PROJECT_RULES.md section 9).
   hide, physical keyboard, Done → connected; `settings-network.txt`). Apps (Brave) get their
   keyboard later, through owneetd's virtual keyboard (2.4) and the extension (5.2).
   owneet-frontend 0.11.0.
+- **Change (owner, 2026-10-13):** LT held = capital letters while it is held (as on Steam's
+  keyboard); the pages of keys move to LB / RB; RT does nothing there. owneet-frontend 0.16.3;
+  preview `osk.txt` (the preview tool gained `press` / `release` steps to hold a button).
 
 ### [x] 3.11 Notifications
 
@@ -978,8 +981,9 @@ code is written (PROJECT_RULES.md section 9).
   "Preparing Steam" screen covers the start); Guide was fought over by owneetd and Steam (owner's
   choice, option A: over Steam a short press is Steam's, holding it 1 second comes back to the
   console; owneetd 0.11.6); a game installed in Steam did not start (Steam: missing executable; the test stick now
-  keeps Steam's logs, owneet-base 0.0.21); the other developer saw a green, then yellow, bar at
-  the bottom of the screen (details pending). To check on real hardware with the owner's account:
+  keeps Steam's logs, owneet-base 0.0.21; the logs show a broken Linux version of the game, see
+  4.5); the other developer's green, then yellow, bar at the bottom of the screen came from a
+  firmware setting ("Windows Compatible") on his PC, not from OwneetOS. To check on real hardware with the owner's account:
   login, installing and starting a game, Guide in a game, Steam's own reaction to the Guide
   button, closing a game from the home screen.
 - **Demo (2026-10-11):** `design/demos/4.2-library-add-games.html`, built on the approved demo
@@ -1012,6 +1016,13 @@ code is written (PROJECT_RULES.md section 9).
 - **Decided (owner, 2026-10-11):** Proton and its runtime (about 1 GB) stay out of the ISO:
   downloaded once, in the background, the first time the console is online; until
   then a Windows game says that it needs a one-time download (the only exception to C9).
+- **Broken Linux versions of Steam games (owner, 2026-10-13):** some Steam games ship a Linux
+  version that cannot start (e.g. Dragon's Wake, 399070: its Linux files lack the executable its
+  launch settings name; Steam says "Missing game executable"). owneetd notices the failed launch
+  in Steam's log and the console asks "This game's Linux version does not start. Try the version
+  for Windows?" [Try] [Cancel]; Try sets Proton for that game in Steam (Steam closed and reopened:
+  it saves the setting only while closed) and starts it again. Demo first; checked on real
+  hardware with the owner's account (it reads an undocumented Steam log).
 - **Note:** shader pre-compilation exists only for Steam games (Steam's own "Processing
   Vulkan shaders"); other games compile while they play, so the "preparing" screen covers the
   start only.

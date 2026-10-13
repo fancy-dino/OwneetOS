@@ -10,12 +10,18 @@ pad right a right a
 shot 02-typed-we
 pad x y
 shot 03-delete-space
-pad rt
+# LT held: capital letters until it is released (2026-10-13)
+press lt
+shot 03b-capitals-while-lt-held
+pad left a
+release lt
+shot 03c-typed-capital-then-released
+pad rb
 shot 04-symbols-page
 pad right a
-pad lt lt
+pad lb lb
 shot 05-accents-page
-pad lt
+pad lb
 # wrap around: up from the digits row goes to the bottom row
 pad up up
 shot 06-wrapped-to-bottom-row

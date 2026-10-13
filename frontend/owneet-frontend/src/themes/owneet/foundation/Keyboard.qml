@@ -4,8 +4,9 @@
 // cursor left / right, space, show / hide (password fields) and Done. Pages of keys: letters (the
 // layout of Settings → Language → Keyboard layout), symbols, accented letters of other languages.
 // Buttons (PROJECT_RULES.md section 9.1, on-screen keyboard): A types the selected key, X deletes,
-// Y types a space, LT / RT change the page, Menu = Done, B closes; the selection wraps around at
-// every edge. A keyboard plugged in keeps typing as usual.
+// Y types a space, LB / RB change the page, LT held = capital letters while it is held (as on
+// Steam's keyboard; owner, 2026-10-13), Menu = Done, B closes; the selection wraps around at every
+// edge. A keyboard plugged in keeps typing as usual.
 import QtQuick 2.15
 
 FocusScope {
@@ -33,12 +34,13 @@ FocusScope {
     readonly property var pages: ["abc", "sym", "acc"]
     property string page: "abc"
     property int shift: 0                 // 0 off, 1 the next letter, 2 caps lock
+    property bool held: false             // LT held: capital letters until it is released
     property int row: 1
     property int col: 0
 
     readonly property var rows: {
         const src = page === "abc" ? (letterRows[layout] || letterRows.us) : page === "sym" ? symbolRows : accentRows;
-        const upper = shift > 0 && page !== "sym";
+        const upper = (shift > 0 || held) && page !== "sym";
         const out = src.map(r => Array.from(r).map(c => ({ t: "char", c: upper ? c.toLocaleUpperCase() : c, w: 1 })));
         out[0].push({ t: "delete", w: 1.6 });
         out[out.length - 1].unshift({ t: "shift", w: 1.6 });
@@ -53,6 +55,7 @@ FocusScope {
         password = isPassword === true;
         page = "abc";
         shift = 0;
+        held = false;
         row = 1;
         col = 0;
         visible = true;
@@ -62,6 +65,7 @@ FocusScope {
         if (!visible)
             return;
         visible = false;
+        held = false;
         if (!quiet)
             Nav.feedback("sheet-close");
     }
@@ -155,6 +159,12 @@ FocusScope {
         Nav.feedback("move");
     }
 
+    Keys.onReleased: {
+        if (api.keys.isPageUp(event) && !event.isAutoRepeat) {
+            held = false;
+            event.accepted = true;
+        }
+    }
     Keys.onPressed: {
         // A keyboard plugged in types, deletes and confirms as usual
         // (controller buttons and Ctrl combinations carry no printable text)
@@ -166,14 +176,22 @@ FocusScope {
         }
         if (event.key === Qt.Key_Backspace) { deleteBack(); event.accepted = true; return; }
         if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { Nav.feedback("confirm"); done(); event.accepted = true; return; }
+        if (api.keys.isPageUp(event)) {        // LT: capitals while held (its repeats change nothing)
+            if (!event.isAutoRepeat && !held) {
+                held = true;
+                Nav.feedback("toggle-on");
+            }
+            event.accepted = true;
+            return;
+        }
         const a = Nav.action(event);
         if (Nav.isDirection(a)) move(a);
         else if (a === "accept") activate(rows[row][col]);
         else if (a === "back") { closed(); }
         else if (a === "secondary") deleteBack();
         else if (a === "page") typeText(" ");
-        else if (a === "filter-prev" || a === "filter-next")
-            setPage(pages[(pages.indexOf(page) + (a === "filter-next" ? 1 : pages.length - 1)) % pages.length]);
+        else if (a === "section-prev" || a === "section-next")
+            setPage(pages[(pages.indexOf(page) + (a === "section-next" ? 1 : pages.length - 1)) % pages.length]);
         else if (a === "options") { Nav.feedback("confirm"); done(); }
         else if (a !== "") Nav.feedback("edge");
         else return;
@@ -200,7 +218,7 @@ FocusScope {
             Row {
                 id: pageRow
                 spacing: Theme.px(6)
-                Glyph { button: "lt"; color: Theme.muted; anchors.verticalCenter: parent.verticalCenter; scale: 0.85 }
+                Glyph { button: "lb"; color: Theme.muted; anchors.verticalCenter: parent.verticalCenter; scale: 0.85 }
                 Repeater {
                     model: root.pages
                     Rectangle {
@@ -220,7 +238,7 @@ FocusScope {
                         }
                     }
                 }
-                Glyph { button: "rt"; color: Theme.muted; anchors.verticalCenter: parent.verticalCenter; scale: 0.85 }
+                Glyph { button: "rb"; color: Theme.muted; anchors.verticalCenter: parent.verticalCenter; scale: 0.85 }
             }
             Text {
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
@@ -249,7 +267,7 @@ FocusScope {
                             readonly property bool isKey: true
                             readonly property bool selected: root.row === keyRow.r && root.col === index
                             readonly property bool fn: modelData.t !== "char"
-                            readonly property bool lit: (modelData.t === "shift" && root.shift > 0) || (modelData.t === "eye" && root.showPassword)
+                            readonly property bool lit: (modelData.t === "shift" && (root.shift > 0 || root.held)) || (modelData.t === "eye" && root.showPassword)
                             width: keyColumn.unit * modelData.w + Theme.px(8) * (modelData.w - 1)
                             height: Theme.px(46)
                             radius: Theme.radiusS + Theme.px(1)
@@ -311,7 +329,8 @@ FocusScope {
             { buttons: ["a"], label: Tr.tr("prompt.type") },
             { buttons: ["x"], label: Tr.tr("prompt.delete") },
             { buttons: ["y"], label: Tr.tr("prompt.space") },
-            { buttons: ["lt", "rt"], label: Tr.tr("prompt.symbols") },
+            { buttons: ["lb", "rb"], label: Tr.tr("prompt.symbols") },
+            { buttons: ["lt"], label: Tr.tr("prompt.capitals") },
             { buttons: ["menu"], label: Tr.tr("prompt.done") },
             { buttons: ["b"], label: Tr.tr("prompt.close_keyboard") }
         ]

@@ -15,6 +15,8 @@
 #   pad BUTTON...    controller buttons: a b x y lb rb lt rt menu view up down left right
 #   stick STICK MS   hold a stick for MS ms: ls-up ls-down ls-left ls-right rs-up rs-down
 #   hold BUTTON MS   hold a button or trigger for MS ms (e.g. hold rt 1600)
+#   press BUTTON     press a button or trigger and keep it down (release BUTTON lets it go), e.g.
+#                    to take a screenshot while it is held
 #   shot NAME        screenshot: out/frontend-preview/NAME.png
 #   wait SECONDS     pause
 #   restart          restart the frontend (its settings are kept)
@@ -111,6 +113,13 @@ for line in open(sys.argv[1]):
             emit(e.EV_KEY, BUTTONS[b], 1, ms)
         else:
             emit(e.EV_ABS, AXES[b][0], AXES[b][1], ms)
+    elif words[0] in ("press", "release"):
+        b = words[1]
+        if b in BUTTONS:
+            ui.write(e.EV_KEY, BUTTONS[b], 1 if words[0] == "press" else 0)
+        else:
+            ui.write(e.EV_ABS, AXES[b][0], AXES[b][1] if words[0] == "press" else 0)
+        ui.syn(); time.sleep(0.12)
     elif words[0] == "stick":
         emit(e.EV_ABS, STICKS[words[1]][0], STICKS[words[1]][1], int(words[2]) / 1000)
     print("done", flush=True)
@@ -149,7 +158,7 @@ while IFS= read -r line; do
         key) shift; for k in "$@"; do xdotool key "$k"; sleep 0.3; done ;;
         type) shift; xdotool type --delay 60 "$*"; sleep 0.3 ;;
         event) shift; echo "$*" > /tmp/owneetd-events; sleep 0.5 ;;
-        pad|stick|hold) n=$(grep -c done /tmp/vpad.out); echo "$line" >&3
+        pad|stick|hold|press|release) n=$(grep -c done /tmp/vpad.out); echo "$line" >&3
                    while [ "$(grep -c done /tmp/vpad.out)" -le "$n" ]; do sleep 0.1; done; sleep 0.3 ;;
         shot) sleep 1; import -window root "/out/$2.png"; echo "$2.png" ;;
         wait) sleep "$2" ;;

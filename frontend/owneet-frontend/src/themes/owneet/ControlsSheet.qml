@@ -25,7 +25,7 @@ Sheet {
         ["controls.pages"],
         [["x"], "controls.x"], [["y"], "controls.y"], [["lt", "rt"], "controls.filters"], [["menu"], "controls.menu"],
         ["controls.keyboard"],
-        [["a"], "controls.k.a"], [["x"], "controls.k.x"], [["y"], "controls.k.y"], [["lt", "rt"], "controls.k.pages"],
+        [["a"], "controls.k.a"], [["x"], "controls.k.x"], [["y"], "controls.k.y"], [["lb", "rb"], "controls.k.pages"], [["lt"], "controls.k.caps"],
         [["menu"], "controls.k.done"], [["b"], "controls.k.b"],
         ["controls.games"],
         [["guide"], "controls.game.home"], [["guide"], "controls.game.steam"], [["guide"], "controls.game.cage"],
