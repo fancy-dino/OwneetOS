@@ -1087,7 +1087,9 @@ code is written (PROJECT_RULES.md section 9).
   background (X11's default), so a new window shows whatever its new memory held until Steam
   has drawn it all, and the NVIDIA driver does not clear that memory → owneetd gives every app
   window a background as soon as it is shown and clears it, asking the app to draw it again
-  (owneetd 0.11.12).
+  (owneetd 0.11.12). Not enough: glitches in 1 of 2 starts while Steam's side menu opened and
+  closed (one Steam window, never resized: parts of an already drawn window go wrong; a copy of
+  Steam's top bar lower down, a shrunken copy of the screen). Next: Xwayland without Glamor.
 
 ### [ ] 4.3 Local DRM-free games
 
