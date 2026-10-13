@@ -2,8 +2,8 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.23
-pkgrel=1
+pkgver=0.0.26
+pkgrel=2
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
 url="https://github.com/fancy-dino/OwneetOS"
@@ -19,17 +19,22 @@ install=owneet-base.install
 # (CREDITS.md at the root of the repository).
 source=('owneet-base-src.tar.gz' 'owneet-release' 'owneet-diagnostics' 'owneet-diagnostics.service' '50-owneet-base.preset'
         'owneet-testlog' 'owneet-testlog.service' 'owneet-tester-install' 'owneet-tester-install.service'
-        'getty-tty1-tester-install.conf')
+        'getty-tty1-tester-install.conf' 'owneet-update' 'owneet-update@.service'
+        'owneet-update-boot.service' '50-owneet-update.rules')
 sha256sums=('SKIP'
             '74f473c3e5cec980798421ac667c84f3938a1e93160b37112300a25aa2ea0400'
             'e739678148442c4770b5c7cf793df180bc475cd33cf1bcb347affdb978f84fc3'
             'dfcdb91edaa6fd46121f8f3a2ce95b0a8e461c5f04c6f9325a1babe45e53cdea'
-            '397595195c2c18c8765393aaf42a2857aadb4798bd6dea29895b77a0d57f4e9a'
+            '471544b748df8fd99f6ec426784a1c389ae9db8f829ef392fda862bd91cc4f49'
             '814e86bbecc0592aea5cdbf98a328d21d05c8d157d4ff3b52ed4f6ccd7f584f0'
             '21a26bf30666c8897ec0425f967e0a415352e22a92ba3a243e0d57fca3e55a9b'
             'e5afe6e4a203913c2cd3212904713dc50f12c581083d7dc8857633a763b1c6c6'
             '9aa02524ad29c812ce67973e7f01c811b7e559a5ace44ad5e4418db58373b001'
-            '999400330a130b34052529fd8ed5b0dc96b4e205b2b37f885aa8c8ee349a6b0e')
+            '999400330a130b34052529fd8ed5b0dc96b4e205b2b37f885aa8c8ee349a6b0e'
+            '5968d2b28a2a25b27a33fb248eb98fdf4dfde7cea8448fe04803e1490681e963'
+            'a04b21bb362ce4a73400ce4b2abd3fbd9fd8c4ff0f5f1db51e20452c17bf3344'
+            '22c307334b58ee15cb069af7b14861d4f828bd9fcf2634bf55bb56d5583d9b2b'
+            'dbb21f3c431a9cd4be2a5fcec6489b7d3c08136dcde9aaddd0f35a4c9ca9389b')
 
 package() {
   install -Dm644 owneet-release "$pkgdir/usr/share/owneet/owneet-release"
@@ -42,6 +47,9 @@ package() {
   install -Dm644 owneet-tester-install.service "$pkgdir/usr/lib/systemd/system/owneet-tester-install.service"
   install -Dm644 getty-tty1-tester-install.conf \
     "$pkgdir/usr/lib/systemd/system/getty@tty1.service.d/owneet-tester-install.conf"
+  install -Dm755 owneet-update "$pkgdir/usr/lib/owneet/owneet-update"
+  install -Dm644 owneet-update@.service owneet-update-boot.service -t "$pkgdir/usr/lib/systemd/system/"
+  install -Dm644 50-owneet-update.rules "$pkgdir/usr/share/polkit-1/rules.d/50-owneet-update.rules"
   install -Dm644 50-owneet-base.preset "$pkgdir/usr/lib/systemd/system-preset/50-owneet-base.preset"
   install -Dm644 CREDITS.md "$pkgdir/usr/share/doc/owneetos/CREDITS.md"
 }

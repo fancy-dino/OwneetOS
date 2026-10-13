@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Testers only: owneetd (the console user) checks and installs the updates of the update stick
+// (Settings → System). Only these two units, only start, only the console user in the active
+// local session; the units themselves refuse to run without the tester mark.
+polkit.addRule(function (action, subject) {
+    if (action.id === "org.freedesktop.systemd1.manage-units" &&
+            subject.user === "owneet" && subject.local && subject.active &&
+            /^owneet-update@(check|apply)\.service$/.test(action.lookup("unit")) &&
+            action.lookup("verb") === "start") {
+        return polkit.Result.YES;
+    }
+});

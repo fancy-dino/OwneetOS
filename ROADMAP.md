@@ -1017,7 +1017,7 @@ code is written (PROJECT_RULES.md section 9).
   `tools/build-iso` checks every file of the image against its package. `vm/test.sh boot --disk`
   starts the VM from its disks.
 
-### [ ] 4.2b Updates from a USB stick *(owner, 2026-10-13)*
+### [~] 4.2b Updates from a USB stick *(owner, 2026-10-13)*
 
 - **Deliverables:** OwneetOS packages copied by the owner into an `owneet-updates` folder on the
   OWNEETLOG stick (a command copies them from `out/repo`); a tester system applies them
@@ -1026,6 +1026,17 @@ code is written (PROJECT_RULES.md section 9).
   from OwneetOS's repositories (the same helper serves the optional apps, 5.0, and the updates,
   7.1). Unsigned OwneetOS packages are accepted only on systems with the tester mark and only
   from the stick; Arch packages keep coming from the pinned snapshot online. Nothing published.
+- **Outcome (2026-10-13):** `owneet-update` (root; check, apply, boot) with
+  `owneet-update@check|apply.service` (polkit `50-owneet-update.rules`: only these, only start, only
+  the console user) and `owneet-update-boot.service` (before the console), owneet-base 0.0.26;
+  owneetd 0.11.7 `/v1/update` and `update.changed`; Settings → System → Check for updates on
+  tester systems (owneet-frontend 0.16.4; tester-only, no demo: the users' updates get theirs in
+  7.1); `tools/make-update-stick`; `vm/test.sh boot --stick IMAGE`. Checked in the test VM with an
+  OWNEETLOG stick image: the installer does not offer the stick; Settings found and installed
+  owneet-base 0.0.24 → 0.0.25; at start-up 0.0.25 → 0.0.26 and, offline with no Arch package
+  lists, 0.0.26-1 → 0.0.26-2, the console starting afterwards. Fixed on the way: the test log
+  service mounts the stick at the same moment (the update uses its mount); pacman refused to
+  install without Arch's package lists (now the stick alone first, Arch online only if needed).
 
 ### [ ] 4.3 Local DRM-free games
 

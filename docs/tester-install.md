@@ -33,6 +33,23 @@ user ISO with the other test boot entries (roadmap 7.4).
 | Tester mark | `/etc/owneet/tester` (updates from a USB stick, step 4.2b) |
 | Log | `/var/log/owneet-tester-install.log` |
 
+## Updating a test PC (step 4.2b)
+
+No new USB stick to write: the new OwneetOS packages travel on the **OWNEETLOG** stick.
+
+1. On the developer's PC, with the OWNEETLOG stick plugged in:
+   `tools/make-update-stick /media/$USER/OWNEETLOG` (copies `out/repo/x86_64` into the stick's
+   `owneet-updates` folder). Unmount the stick.
+2. Plug it into the test PC:
+   - **at start-up**, newer packages are installed before the console starts (a message on the
+     start-up screen); this also fixes a console that no longer starts;
+   - or from **Settings → System → Check for updates**: the list of newer packages, Install, then
+     Restart.
+
+Only OwneetOS's own packages come from the stick (unsigned, accepted only by systems installed
+with this installer); Arch Linux packages come from the pinned snapshot online, when the new
+packages need any. The result of the last check is in `/run/owneet/update.json`.
+
 ## If something goes wrong
 
 - The installed system keeps the **diagnostics** boot entry (hold a key at start-up to see the

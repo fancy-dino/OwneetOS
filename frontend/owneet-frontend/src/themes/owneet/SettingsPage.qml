@@ -14,6 +14,8 @@ NavArea {
     readonly property var sections: ["network", "controllers", "audio", "display", "appearance", "language", "storage", "system"]
     property var network: null          // owneetd's network state (from the shell)
     property var controllers: []        // connected controllers (from the shell)
+    property bool updatesFromStick: false   // a tester's PC: updates from the USB stick (4.2b)
+    signal checkUpdates()
 
     signal openPalettes()
     signal openLanguages()
@@ -786,8 +788,8 @@ NavArea {
                         width: parent.width
                         kind: "picker"
                         text: Tr.tr("system.updates")
-                        detail: Tr.tr("system.updates.later")
-                        onActivated: page.notYet()
+                        detail: Tr.tr(page.updatesFromStick ? "system.updates.stick" : "system.updates.later")
+                        onActivated: page.updatesFromStick ? page.checkUpdates() : page.notYet()
                     }
                     Label { text: Tr.tr("system.power") }
                     Row {

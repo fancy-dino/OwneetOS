@@ -1,0 +1,154 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Testers only (roadmap 4.2b): updates the OwneetOS packages of a system installed with
+# owneet-tester-install from a USB stick, without publishing anything online. The stick is the
+# OWNEETLOG one (label OWNEETLOG) with a folder owneet-updates made by tools/make-update-stick
+# (a copy of the [owneet] repository built by tools/build-packages).
+#
+#   owneet-update check   which OwneetOS packages on the stick are newer than the installed ones
+#   owneet-update apply   install them
+#   owneet-update boot    at start-up, before the console: apply when there is something newer
+#
+# Runs as root, started through systemd only (owneet-update@check / @apply.service, which a polkit
+# rule lets the console user start; owneet-update-boot.service). The result is written to
+# /run/owneet/update.json for owneetd: {"state": …, "packages": [{"name", "from", "to"}], "message"}.
+# States: none, available, installing, done, failed, no_stick, not_tester.
+#
+# Only systems with the tester mark (/etc/owneet/tester) accept these unsigned packages (owner's
+# decision, PROJECT_RULES.md, 2026-10-13). Arch Linux packages keep coming from the pinned
+# snapshot online.
+
+set -uo pipefail
+
+MODE="${1:-check}"
+STATE=/run/owneet/update.json
+LABEL=OWNEETLOG
+WORK=/run/owneet-update
+mkdir -p /run/owneet "$WORK"
+
+json_string() { printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')"; }
+
+# write_state STATE MESSAGE [PACKAGES-FILE]: PACKAGES-FILE has "name from to" lines
+write_state() {
+    local packages="[]"
+    if [[ -n "${3:-}" && -s "$3" ]]; then
+        packages="[$(awk '{ printf "%s{\"name\":\"%s\",\"from\":\"%s\",\"to\":\"%s\"}", sep, $1, $2, $4; sep = "," }' "$3")]"
+    fi
+    printf '{"state":"%s","message":%s,"packages":%s,"time":"%s"}\n' \
+        "$1" "$(json_string "${2:-}")" "$packages" "$(date -u +%FT%TZ)" > "$STATE.tmp"
+    mv "$STATE.tmp" "$STATE"
+}
+
+plymouth_say() { plymouth display-message --text="$1" 2>/dev/null || true; }
+
+if [[ ! -f /etc/owneet/tester ]]; then
+    write_state not_tester "Updates from a USB stick are for systems installed by testers."
+    exit 0
+fi
+
+# ---- The stick: already mounted by owneet-testlog, or mounted here (read only)
+dev="/dev/disk/by-label/$LABEL"
+if [[ "$MODE" == boot ]]; then
+    for _ in 1 2 3 4 5; do [[ -e "$dev" ]] && break; sleep 1; done
+fi
+if [[ ! -e "$dev" ]]; then
+    write_state no_stick "No OWNEETLOG stick is plugged in."
+    exit 0
+fi
+# owneet-testlog may mount it at the same moment: then use its mount
+mounted_here=0
+stick=""
+for _ in 1 2 3 4 5; do
+    stick="$(findmnt -nfo TARGET "$(readlink -f "$dev")" 2>/dev/null | head -1)"
+    [[ -n "$stick" ]] && break
+    mkdir -p "$WORK/stick"
+    if mount -o ro "$dev" "$WORK/stick" 2>/dev/null; then
+        stick="$WORK/stick"
+        mounted_here=1
+        break
+    fi
+    sleep 1
+done
+[[ -n "$stick" ]] || { write_state failed "The OWNEETLOG stick cannot be read."; exit 1; }
+cleanup() { if (( mounted_here )); then umount "$stick" 2>/dev/null; fi; }
+trap cleanup EXIT
+
+repo="$stick/owneet-updates"
+if [[ ! -f "$repo/owneet.db" ]]; then
+    write_state no_stick "The OWNEETLOG stick has no owneet-updates folder."
+    exit 0
+fi
+
+# ---- pacman configurations: the stick's repository first (its packages win), then the system's
+stick_conf="$WORK/stick.conf"
+full_conf="$WORK/full.conf"
+cat > "$stick_conf" <<EOF
+[options]
+Architecture = auto
+SigLevel = Required DatabaseOptional
+LocalFileSigLevel = Optional
+
+[owneet]
+SigLevel = Optional TrustAll
+Server = file://$repo
+EOF
+awk -v repo="$repo" '
+    /^\[core\]/ && !done { print "[owneet]"; print "SigLevel = Optional TrustAll"; print "Server = file://" repo; print ""; done = 1 }
+    { print }
+' /etc/pacman.conf > "$full_conf"
+
+# The OwneetOS packages on the stick newer than the installed ones: "name from -> to" lines
+newer="$WORK/newer.txt"
+find_newer() {
+    pacman --config "$stick_conf" -Sy >/dev/null 2>&1 || return 1
+    pacman --config "$stick_conf" -Qu 2>/dev/null | grep -v '\[ignored\]' > "$newer"
+    return 0
+}
+
+if ! find_newer; then
+    write_state failed "The packages on the stick cannot be read."
+    exit 1
+fi
+count="$(wc -l < "$newer")"
+
+case "$MODE" in
+    check)
+        if (( count == 0 )); then write_state none "No newer OwneetOS packages on the stick."
+        else write_state available "$count newer OwneetOS packages on the stick." "$newer"; fi
+        ;;
+    apply|boot)
+        if (( count == 0 )); then
+            write_state none "No newer OwneetOS packages on the stick."
+            exit 0
+        fi
+        write_state installing "Installing $count packages." "$newer"
+        [[ "$MODE" == boot ]] && plymouth_say "Updating OwneetOS from the USB stick…"
+        echo "owneet-update: installing $(awk '{ printf "%s%s %s", sep, $1, $4; sep = ", " }' "$newer")"
+        # From the stick alone first: it works offline (e.g. at start-up, before the network) when
+        # the new packages need nothing new from Arch Linux; otherwise with Arch Linux's snapshot
+        # online for what they need
+        mapfile -t names < <(awk '{ print "owneet/" $1 }' "$newer")
+        installed=0
+        if pacman --config "$stick_conf" -S --needed --noconfirm "${names[@]}"; then
+            installed=1
+        else
+            echo "owneet-update: trying again with Arch Linux's repositories (internet)"
+            if pacman --config "$full_conf" -Sy && pacman --config "$full_conf" -S --needed --noconfirm "${names[@]}"; then
+                installed=1
+            fi
+        fi
+        if (( installed )); then
+            write_state "done" "Installed $count packages. Restart to use them." "$newer"
+            [[ "$MODE" == boot ]] && plymouth_say ""
+        else
+            write_state failed "The update could not be installed (internet may be needed for new parts)." "$newer"
+            [[ "$MODE" == boot ]] && plymouth_say "The update could not be installed."
+            exit 1
+        fi
+        ;;
+    *)
+        echo "usage: owneet-update check|apply|boot" >&2
+        exit 2
+        ;;
+esac

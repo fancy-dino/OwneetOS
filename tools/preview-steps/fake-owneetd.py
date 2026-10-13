@@ -78,6 +78,8 @@ state = {
     },
     "apps": [],
     # Steam (4.2): change it with the event line "fake.steam {...}" (e.g. {"allowed": false})
+    # testers' updates from a USB stick (4.2b)
+    "update": {"tester": True, "state": "", "packages": [], "running": False},
     "steam": {"installed": True, "allowed": True, "prepared": False, "running": False, "games": []},
     "audio": {"available": True, "output": "hdmi", "volume": 60, "muted": False,
               "outputs": [{"id": "hdmi", "name": "TV (HDMI)"}, {"id": "speakers", "name": "Speakers"}]},
@@ -201,6 +203,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/v1/status": {"session_mode": "cage", "owneetos_version": "preview"},
                 "/v1/apps": {"apps": state["apps"], "focus": "home"},
                 "/v1/steam": state["steam"],
+                "/v1/update": state["update"],
                 "/v1/controllers": {"controllers": state["controllers"]},
                 "/v1/network": state["network"],
                 "/v1/network/wifi": {"networks": state["networks"]},
@@ -265,6 +268,19 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(204)
         if path.startswith("/v1/power/"):
             return self.reply(204)
+        if path in ("/v1/update/check", "/v1/update/apply"):
+            pkgs = [{"name": "owneetd", "from": "0.11.7-1", "to": "0.11.8-1"},
+                    {"name": "owneet-frontend", "from": "0.16.4-1", "to": "0.16.5-1"}]
+            def result(st):
+                with lock:
+                    state["update"].update(st)
+                publish("update.changed", dict(state["update"]))
+            if path.endswith("check"):
+                later(1.5, lambda: result({"state": "available", "packages": pkgs, "running": False}))
+            else:
+                later(0.5, lambda: result({"state": "installing", "packages": pkgs, "running": True}))
+                later(3, lambda: result({"state": "done", "packages": pkgs, "running": False}))
+            return self.reply(202)
         if path == "/v1/steam":
             with lock:
                 steam = state["steam"]

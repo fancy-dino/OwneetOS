@@ -47,6 +47,8 @@ type Server struct {
 	Apps Apps
 	// Display is Settings → Display: screens, modes, brightness, keyboard layout (nil: not available).
 	Display Display
+	// Update is the testers' update from a USB stick (nil without a system bus).
+	Update Update
 
 	started time.Time
 }
@@ -97,6 +99,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/apps/{id}/close", s.handleAppAction(Apps.Close))
 	mux.HandleFunc("POST /v1/apps/{id}/kill", s.handleAppAction(Apps.Kill))
 	mux.HandleFunc("POST /v1/apps/{id}/focus", s.handleAppAction(Apps.FocusApp))
+	mux.HandleFunc("GET /v1/update", s.handleUpdate)
+	mux.HandleFunc("POST /v1/update/check", s.handleUpdateAction(Update.Check))
+	mux.HandleFunc("POST /v1/update/apply", s.handleUpdateAction(Update.Apply))
 	mux.HandleFunc("GET /v1/steam", s.handleSteamStatus)
 	mux.HandleFunc("POST /v1/steam", s.handleSteam)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

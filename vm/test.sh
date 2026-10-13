@@ -49,6 +49,7 @@ OwneetOS test VM (${MEM_MB} MB RAM, ${CPUS} CPUs, UEFI, Secure Boot off)
         --ssh                        live Arch ISO only: allow root SSH with the project test key
         --kargs "ARGS"               extra kernel command line (e.g. owneet.session=cage)
         --tools DIR                  test tools for the VM (a read-only disk, e.g. out/vm-tools)
+        --stick IMAGE                a disk image plugged in as a USB stick (e.g. an OWNEETLOG stick)
         --disk                       no ISO: start the system installed on the VM's disks
         --journal                    send the system journal to the serial log (vm/test.sh log)
         --debug-shell                root shell on the serial console, for vm/test.sh run (tests only)
@@ -100,7 +101,7 @@ cmd_create() {
 }
 
 cmd_boot() {
-    local iso="" headless=0 gamepad="auto" gl=0 audio=0 ssh=0 kargs="" tools="" disk=0
+    local iso="" headless=0 gamepad="auto" gl=0 audio=0 ssh=0 kargs="" tools="" disk=0 stick=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --headless) headless=1; shift ;;
@@ -110,6 +111,7 @@ cmd_boot() {
             --ssh)      ssh=1; shift ;;
             --kargs)    kargs+=" ${2:-}"; shift 2 ;;
             --tools)    tools="${2:-}"; shift 2 ;;
+            --stick)    stick="${2:-}"; shift 2 ;;
             --disk)     disk=1; shift ;;
             --debug-shell) kargs+=" systemd.debug_shell=hvc0 systemd.mask=serial-getty@hvc0.service"; shift ;;
             --journal)  kargs+=" console=ttyS0,115200 systemd.journald.forward_to_console=1 systemd.journald.max_level_console=info"; shift ;;
@@ -126,6 +128,7 @@ cmd_boot() {
     if (( gl )); then args+=(--gl); fi
     if (( audio )); then args+=(--audio); fi
     if [[ -n "$tools" ]]; then args+=(--tools "$tools"); fi
+    if [[ -n "$stick" ]]; then args+=(--stick "$stick"); fi
     if [[ -n "${kargs# }" ]]; then args+=(--kernel-args "${kargs# }"); info "extra kernel arguments:${kargs}"; fi
 
     case "$gamepad" in

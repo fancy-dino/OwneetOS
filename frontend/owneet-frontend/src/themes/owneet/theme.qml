@@ -185,6 +185,7 @@ FocusScope {
         refreshControllers();
         applyKeyboard();          // the on-screen keyboard and physical keyboards follow the chosen layout
         checkSteamGames();
+        owneetd.get("/v1/update", (status, data) => { if (status === 200) root.updateStatus = data; });
         checkDisplayPending();
     }
     Connections {
@@ -213,6 +214,9 @@ FocusScope {
                 root.pairingEvent(type, data);
             } else if (type.startsWith("display.")) {
                 root.displayEvent(type, data);
+            } else if (type === "update.changed") {
+                root.updateStatus = data;
+                root.showUpdate(data);
             }
         }
     }
@@ -425,6 +429,68 @@ FocusScope {
         dialog.open();
     }
     function notYet() { toast.show(Tr.tr("toast.later")); }
+
+    // ---- Updates from the USB stick (testers, 4.2b): check, install, restart
+    property var updateStatus: null
+    function checkUpdates() {
+        dialog.game = null;
+        dialog.mode = "update";
+        dialog.contentWidth = Theme.px(520);
+        dialog.title = Tr.tr("update.title");
+        dialog.text = "";
+        dialog.updateBusy = true;
+        dialog.updateLines = [];
+        dialog.updateNote = Tr.tr("update.checking");
+        dialog.buttons = [];
+        dialog.open();
+        owneetd.post("/v1/update/check", {}, (status, data) => {
+            if (status === 202) return;
+            const code = data && data.error ? data.error.code : "";
+            showUpdate({ state: "failed", message: Tr.tr(code === "update.busy" ? "update.busy" : "update.failed") });
+        });
+    }
+    function showUpdate(st) {
+        if (!dialog.visible || dialog.mode !== "update")
+            return;
+        const lines = (st.packages || []).map(p => p.name + "  " + p.from + "  →  " + p.to);
+        const ok = { text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() };
+        dialog.updateBusy = st.state === "installing";
+        dialog.updateLines = st.state === "available" || st.state === "installing" ? lines : [];
+        if (st.state === "available") {
+            dialog.updateNote = Tr.tr("update.available");
+            dialog.buttons = [
+                { text: Tr.tr("update.install"), style: "primary", action: () => {
+                    dialog.updateBusy = true;
+                    dialog.updateNote = Tr.tr("update.installing");
+                    dialog.buttons = [];
+                    owneetd.post("/v1/update/apply", {}, (status) => {
+                        if (status !== 202) showUpdate({ state: "failed", message: Tr.tr("update.failed") });
+                    });
+                } },
+                { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+            dialog.defaultIndex = 0;
+        } else if (st.state === "installing") {
+            dialog.updateNote = Tr.tr("update.installing");
+            dialog.buttons = [];
+        } else if (st.state === "done") {
+            Nav.feedback("notify");
+            dialog.updateNote = Tr.tr("update.done");
+            dialog.buttons = [
+                { text: Tr.tr("update.restart"), style: "primary", action: () => {
+                    dialog.close(true);
+                    owneetd.post("/v1/power/restart", {}, () => {});
+                } },
+                { text: Tr.tr("update.later"), action: () => dialog.close() }];
+            dialog.defaultIndex = 0;
+        } else {
+            if (st.state === "failed") Nav.feedback("error");
+            dialog.updateNote = Tr.tr(st.state === "none" ? "update.none" : st.state === "no_stick" ? "update.no_stick"
+                                      : st.state === "not_tester" ? "update.not_tester" : "update.failed");
+            dialog.buttons = [ok];
+            dialog.defaultIndex = 0;
+        }
+        Qt.callLater(dialog.focusDefault);
+    }
 
     // ---- Steam (4.2): its library or store; owneetd starts Steam when needed
     function openSteam(page) {
@@ -1125,6 +1191,8 @@ FocusScope {
             onPairController: root.pairController()
             onFailed: toast.show(Tr.tr(message))
             onChooseDisplay: root.chooseDisplay(what, state)
+            updatesFromStick: root.updateStatus !== null && root.updateStatus.tester === true
+            onCheckUpdates: root.checkUpdates()
             onQuickMenu: quick.openMenu()
         }
     }
@@ -1171,6 +1239,9 @@ FocusScope {
         property string pairState: ""       // pair: searching, pairing, failed, timeout
         property string pairName: ""
         property bool answered: false       // displayConfirm: Keep or Go back was chosen
+        property bool updateBusy: false     // update: checking or installing
+        property var updateLines: []        // update: "name  from  →  to"
+        property string updateNote: ""
         property int seconds: 0             // displayConfirm: until it goes back
         property real deadline: 0
         onSecondsChanged: if (mode === "displayConfirm") text = Tr.tr("display.keep.text", { n: seconds })
@@ -1188,6 +1259,37 @@ FocusScope {
             pairState = "";
             if (quick.visible) Qt.callLater(quick.refocus);    // back to the quick menu
             else root.backToPage();
+        }
+        Column {                          // update: what the stick has, and what is happening (4.2b)
+            visible: dialog.mode === "update"
+            width: Theme.px(520)
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(12)
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Theme.px(10)
+                Spinner { visible: dialog.updateBusy; anchors.verticalCenter: parent.verticalCenter }
+                Text {
+                    width: Math.min(implicitWidth, Theme.px(480))
+                    text: dialog.updateNote
+                    color: Theme.muted
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(17)
+                    wrapMode: Text.Wrap
+                }
+            }
+            Repeater {
+                model: dialog.updateLines
+                Text {
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    text: modelData
+                    color: Theme.fg
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(14.5)
+                    elide: Text.ElideRight
+                }
+            }
         }
         Row {                             // addGames: Steam, or games on a disk (demo 4.2)
             id: addChoices

@@ -37,6 +37,7 @@ OwneetOS VM manager
         --audio         two virtual sound cards (built-in HDA + USB), silent on the host
         --kernel-args S extra kernel command line, appended by systemd-boot (SMBIOS type 11)
         --tools DIR     a host folder seen by the guest as a small read-only FAT disk (test tools)
+        --stick IMAGE   a disk image plugged in as a USB stick (e.g. an OWNEETLOG stick)
   vm/vm.sh stop    NAME [--force]     Shut a VM down (ACPI, then forced after 60 s; --force: at once)
   vm/vm.sh destroy NAME               Stop a VM and delete all of its files
   vm/vm.sh add-disk NAME SIZE         Attach an extra blank disk (data-N.qcow2) to a VM
@@ -195,7 +196,7 @@ cmd_start() {
     local name="${1:-}"; shift || true
     check_name "$name"
     local iso="" headless=0 mem="$DEFAULT_MEM_MB" cpus="$DEFAULT_CPUS" net=1 ssh_port="" seed_url="" gl=0 audio=0
-    local evdevs=() kargs="" tools=""
+    local evdevs=() kargs="" tools="" stick=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --iso)      iso="${2:-}"; shift 2 ;;
@@ -210,6 +211,7 @@ cmd_start() {
             --audio)    audio=1; shift ;;
             --kernel-args) kargs="${2:-}"; shift 2 ;;
             --tools)    tools="${2:-}"; shift 2 ;;
+            --stick)    stick="${2:-}"; shift 2 ;;
             *) die "unknown option '$1' (see: vm/vm.sh help)" ;;
         esac
     done
@@ -259,6 +261,12 @@ cmd_start() {
         [[ -d "$tools" ]] || die "--tools: $tools is not a folder"
         # QEMU's virtual FAT: the folder, read-only, without creating an image
         args+=(-drive "file=fat:ro:$(realpath "$tools"),if=virtio,format=raw,readonly=on")
+    fi
+    if [[ -n "$stick" ]]; then
+        [[ -f "$stick" ]] || die "--stick: $stick is not a file"
+        # its own USB controller: seen by the guest as a removable USB disk
+        args+=(-device "qemu-xhci,id=stickbus" -drive "file=$(realpath "$stick"),if=none,id=stick,format=raw"
+               -device "usb-storage,bus=stickbus.0,drive=stick,removable=on")
     fi
     local dev
     for dev in "${evdevs[@]}"; do
