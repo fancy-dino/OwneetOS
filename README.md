@@ -30,6 +30,7 @@ with a gamepad. Mouse and keyboard are never required.
 
 | File | What it is |
 |------|------------|
+| [docs/setup.md](docs/setup.md) | **Start here:** requirements and setting up the workspace with the code and the knowledge base. |
 | `OwneetOS-knowledge-base` (separate repository, an Obsidian vault) | Every agreed requirement and decision, the step-by-step plan and its status, design documents. Source of truth. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to work on the project. |
 | [CREDITS.md](CREDITS.md) | The projects OwneetOS is built on, their authors and licences. |

@@ -1,8 +1,9 @@
 # Contributing to OwneetOS
 
-Read the knowledge base first (`OwneetOS-knowledge-base`, an Obsidian vault; start from its
-`README.md` and its `guards/`). It is the source of truth for requirements and
-decisions, and nothing in this file overrides it.
+Set up your workspace first, with this repository and the knowledge base side by side:
+[docs/setup.md](docs/setup.md). Then read the knowledge base (`OwneetOS-knowledge-base`, an
+Obsidian vault; start from its `INDEX.md` and its `guards/`). It is the source of truth for
+requirements and decisions, and nothing in this file overrides it.
 
 References written as `[[note-name]]` (in code comments and documents) are notes of the
 knowledge base, e.g. `[[controller-input-map]]` is `controller-input-map.md` in the vault.
