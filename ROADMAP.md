@@ -1068,7 +1068,13 @@ code is written (PROJECT_RULES.md section 9).
   shown above everything but never drawn (on NVIDIA its memory keeps old pictures); the test log
   lists the windows every 10 s when `owneet-xprobe` is on the stick (owneet-base 0.0.31). Also
   found: choosing the running game in the library said "another game is running" → it goes back
-  to the game, as on the home screen (owneet-frontend 0.16.6).
+  to the game, as on the home screen (owneet-frontend 0.16.6). Fifth test (5 starts): Steam
+  now closes cleanly at shutdown ("Verifying file sizes only"); glyphs in 3 of 5 starts, for
+  1–10 s after Steam appears and once when going back home; the window lists show only the
+  console and Steam's own window (32-bit, with transparency): no hidden window → most likely
+  Steam's window buffers shown before they are drawn (new memory is not cleared on NVIDIA).
+  Next try: `owneet.debug.gamescope_composite=off`. Also: Steam games with play time showed
+  "never played" (Steam gives no play count) → fixed (owneet-frontend 0.16.7).
 
 ### [ ] 4.3 Local DRM-free games
 
