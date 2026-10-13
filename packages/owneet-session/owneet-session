@@ -22,7 +22,8 @@
 #   owneet.debug.gamescope_explicit_sync=off  gamescope without explicit sync for its clients
 #                                             (drm_debug_disable_explicit_sync)
 #   owneet.debug.xwayland_glamor=gl|es|off    how Xwayland draws X11 windows with the GPU (OpenGL,
-#                                             OpenGL ES, or not at all), through owneet-xwayland
+#                                             OpenGL ES, or not at all), through owneet-xwayland;
+#                                             with off the console draws itself without the GPU
 #   owneet.debug.test_games=on                two test "games" (mpv test patterns), for testing
 #                                             launching, Guide and Resume on a live system
 
@@ -100,6 +101,8 @@ gamescope_args() {
     if [[ "$glamor" =~ ^(gl|es|off)$ ]]; then
         export WLR_XWAYLAND=/usr/lib/owneet/owneet-xwayland OWNEET_XWAYLAND_GLAMOR="$glamor"
         log "test: Xwayland -glamor $glamor"
+        # without Glamor, X11 programs get no OpenGL: the console draws itself in software
+        if [[ "$glamor" == off ]]; then export QT_QUICK_BACKEND=software QT_XCB_GL_INTEGRATION=none; fi
     fi
     case "$(debug_opt gamescope_composite)" in
         force) GAMESCOPE_ARGS+=(--force-composition) ;;

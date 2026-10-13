@@ -2,15 +2,15 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-session
-pkgver=0.0.17
-pkgrel=2
+pkgver=0.0.18
+pkgrel=1
 pkgdesc="OwneetOS console session: console user, autologin, compositor choice (gamescope or cage)"
 arch=('any')
 url="https://github.com/fancy-dino/OwneetOS"
 license=('GPL-3.0-or-later')
 depends=('bash' 'systemd' 'util-linux' 'gamescope' 'cage' 'mpv' 'vulkan-tools' 'ttf-dejavu')
 source=(owneet-session owneet-placeholder owneet-session-app owneet-xwayland owneet-session.profile.sh owneet-autologin.conf owneet.sysusers owneet.tmpfiles)
-sha256sums=('1b014af9e999521be45c5c7885a0b1eb25aabf687c198ea9f6dddc4206085bb7'
+sha256sums=('fb219be87567db710c2befd34a991cdb4f9a2602b33bfe8c610fdcc2dc19059f'
             '2c33520ec66ac211dd60a3cb5f6ab70529befa7d3867ba2456d9d3e3f57797bf'
             'ba2f8c1787d6f7c3922cf985be7ccece8e79e59b23ef36e0c4143850a4d42cb1'
             '899048ebc0b7fa851f8d8f970ca5a680774901b5509824a313490483dc35c933'

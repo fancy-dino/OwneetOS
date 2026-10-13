@@ -120,13 +120,28 @@ func TestSteamStartsInTheConsoleLanguage(t *testing.T) {
 		t.Fatal(err)
 	}
 	argv := strings.Join(units.argvs[0], " ")
-	if argv != "/usr/bin/env -u GAMESCOPE_WAYLAND_DISPLAY /usr/bin/steam -gamepadui -language italian steam://store" {
+	if argv != "/usr/bin/env -u GAMESCOPE_WAYLAND_DISPLAY /usr/bin/steam -gamepadui -language italian" {
 		t.Fatalf("argv %q", argv)
 	}
 	for tag, want := range map[string]string{"pt-BR": "brazilian", "pt-PT": "portuguese", "it-CH": "italian", "zh-Hant": "tchinese", "xx": ""} {
 		if got := steamLanguage(tag); got != want {
 			t.Errorf("steamLanguage(%q) = %q, want %q", tag, got, want)
 		}
+	}
+}
+
+func TestSteamInCageStartsOnTheAddress(t *testing.T) {
+	m, units, _, _ := newManager(t, "cage")
+	m.Procs = &fakeProcs{unit: map[int]string{}, cmd: map[int][]string{}, parent: map[int]int{}}
+	m.SteamDir = t.TempDir()
+	m.SteamAllowed = func() bool { return true }
+	m.NVIDIA = func() bool { return false }
+	m.FocusFor = func(Session) Focus { return nil } // cage: owneetd sees no windows
+	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {
+		t.Fatal(err)
+	}
+	if argv := strings.Join(units.argvs[0], " "); !strings.HasSuffix(argv, "-gamepadui steam://open/games") {
+		t.Fatalf("argv %q", argv)
 	}
 }
 
@@ -157,7 +172,7 @@ func TestSteamWithNVIDIADrawsPagesWithoutGPU(t *testing.T) {
 		t.Fatal(err)
 	}
 	argv := strings.Join(units.argvs[0], " ")
-	if argv != "/usr/bin/env -u GAMESCOPE_WAYLAND_DISPLAY /usr/bin/steam -gamepadui -cef-disable-gpu steam://open/games" {
+	if argv != "/usr/bin/env -u GAMESCOPE_WAYLAND_DISPLAY /usr/bin/steam -gamepadui -cef-disable-gpu" {
 		t.Fatalf("argv %q", argv)
 	}
 }
@@ -170,8 +185,9 @@ func TestSteamStartsWithoutGamescopeControl(t *testing.T) {
 	if len(units.started) != 1 || units.started[0] != UnitName(SteamID) {
 		t.Fatalf("started %v", units.started)
 	}
+	// Steam starts on its own home page: Back from the page asked for has somewhere to go
 	argv := strings.Join(units.argvs[0], " ")
-	if argv != "/usr/bin/env -u GAMESCOPE_WAYLAND_DISPLAY /usr/bin/steam -gamepadui steam://open/games" {
+	if argv != "/usr/bin/env -u GAMESCOPE_WAYLAND_DISPLAY /usr/bin/steam -gamepadui" {
 		t.Fatalf("argv %q", argv)
 	}
 	m.checkWindows()       // no window yet: nothing
@@ -193,11 +209,19 @@ func TestSteamStartsWithoutGamescopeControl(t *testing.T) {
 	if st := m.Status(); st.Focus != SteamID {
 		t.Fatalf("focus %q", st.Focus)
 	}
+	// shown: now the page asked for, once
+	if len(*forwarded) != 1 || !strings.HasSuffix((*forwarded)[0], "/usr/bin/steam steam://open/games") {
+		t.Fatalf("forwarded %v", *forwarded)
+	}
+	m.checkWindows()
+	if len(*forwarded) != 1 {
+		t.Fatalf("forwarded again: %v", *forwarded)
+	}
 	// Steam is running: the address goes to it, nothing new starts
 	if err := m.Steam(SteamRequest{Open: "store"}); err != nil {
 		t.Fatal(err)
 	}
-	if len(units.started) != 1 || len(*forwarded) != 1 || !strings.HasSuffix((*forwarded)[0], "/usr/bin/steam steam://store") {
+	if len(units.started) != 1 || len(*forwarded) != 2 || !strings.HasSuffix((*forwarded)[1], "/usr/bin/steam steam://store") {
 		t.Fatalf("started %v, forwarded %v", units.started, *forwarded)
 	}
 	for _, bad := range []SteamRequest{{}, {Open: "settings"}, {Run: "12a"}, {Open: "store", Run: "1"}} {
@@ -223,7 +247,7 @@ func TestSteamGameIsAGameOfItsOwn(t *testing.T) {
 	if err := m.Steam(SteamRequest{Run: "480", Name: "Spacewar"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasSuffix((*forwarded)[0], "steam://rungameid/480") {
+	if !strings.HasSuffix((*forwarded)[len(*forwarded)-1], "steam://rungameid/480") {
 		t.Fatalf("forwarded %v", *forwarded)
 	}
 	// Steam starts the game under its launcher, inside Steam's unit
