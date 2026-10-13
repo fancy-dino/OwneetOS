@@ -1076,11 +1076,12 @@ code is written (PROJECT_RULES.md section 9).
   Next try: `owneet.debug.gamescope_composite=off`. Also: Steam games with play time showed
   "never played" (Steam gives no play count) → fixed (owneet-frontend 0.16.7). **Open, blocks
   delivery (owner, 2026-10-13):** a few test starts prove nothing; the glyphs are not bound to
-  a time. With composition off (Steam's buffers sent straight to the screen) the glyphs were
-  almost constant: the pictures are already wrong in Xwayland's buffers, before gamescope →
-  suspected: Xwayland's GPU drawing (Glamor) with the NVIDIA driver. Test switch
-  `owneet.debug.xwayland_glamor=gl|es|off` (Xwayland through `owneet-xwayland`, gamescope's
-  `WLR_XWAYLAND`; owneet-session 0.0.17), tried with composition off, where the glyphs show most.
+  a time. With composition off (Steam's buffers sent straight to the screen) greenish rectangles
+  showed almost all the time: another NVIDIA symptom of that mode (like the RTX 4060's black
+  rectangles), not the glyphs. Suspected for the glyphs: Xwayland's GPU drawing (Glamor) with
+  the NVIDIA driver. Test switch `owneet.debug.xwayland_glamor=gl|es|off` (Xwayland through
+  `owneet-xwayland`, gamescope's `WLR_XWAYLAND`; owneet-session 0.0.17), with the normal
+  composition. The owner photographs every occurrence.
 
 ### [ ] 4.3 Local DRM-free games
 
