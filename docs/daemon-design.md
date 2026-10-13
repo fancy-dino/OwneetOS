@@ -245,7 +245,10 @@ at a time; apps such as the browser may run next to it), `apps.unknown_app` (404
 - **Steam (4.2):** the app `steam`, started as `env -u GAMESCOPE_WAYLAND_DISPLAY steam -gamepadui
   URL` (see below), with `-language` from the interface's language and, under the NVIDIA driver,
   `-cef-disable-gpu` (Steam's pages drawn with the GPU showed garbled, stale pictures inside
-  gamescope; games keep the GPU); when it already runs, owneetd hands it the `steam://` address. A game Steam
+  gamescope; games keep the GPU); when it already runs, owneetd hands it the `steam://` address.
+  Steam is closed cleanly (also at shutdown): its unit's stop asks Steam to exit through
+  `steam-runtime-steam-remote -shutdown` and waits for it, up to 20 s (killed with its processes,
+  Steam checks all its files at the next start). A game Steam
   starts runs inside Steam's unit under Steam's launcher (`reaper SteamLaunch AppId=N -- …`):
   owneetd finds it there (every second, and when one of its windows appears), lists it as the
   game `steam:N` (name from the interface, else from its `appmanifest`), tags its windows with an

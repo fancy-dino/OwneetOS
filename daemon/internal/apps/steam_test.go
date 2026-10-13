@@ -130,6 +130,26 @@ func TestSteamStartsInTheConsoleLanguage(t *testing.T) {
 	}
 }
 
+func TestSteamClosesItselfCleanly(t *testing.T) {
+	m, units, _, _, _, _ := newSteamManager(t)
+	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {
+		t.Fatal(err)
+	}
+	stop := units.stops[0]
+	if len(stop) != 4 || stop[0] != "/bin/sh" || !strings.Contains(stop[2], `"$0" -shutdown`) ||
+		!strings.Contains(stop[2], `kill -0 "$MAINPID"`) ||
+		stop[3] != filepath.Join(m.SteamDir, "ubuntu12_32/steam-runtime/amd64/usr/bin/steam-runtime-steam-remote") {
+		t.Fatalf("stop %q", stop)
+	}
+	// other apps are stopped as before
+	if _, err := m.Launch(LaunchRequest{ID: "game", Name: "Game", Kind: KindGame, Command: []string{"/bin/true"}}); err != nil {
+		t.Fatal(err)
+	}
+	if units.stops[1] != nil {
+		t.Fatalf("game stop %q", units.stops[1])
+	}
+}
+
 func TestSteamWithNVIDIADrawsPagesWithoutGPU(t *testing.T) {
 	m, units, _, _, _, _ := newSteamManager(t)
 	m.NVIDIA = func() bool { return true }

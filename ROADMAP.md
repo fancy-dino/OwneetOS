@@ -1055,7 +1055,10 @@ code is written (PROJECT_RULES.md section 9).
   console's language (`-language`, owneetd 0.11.8); garbled, stale pictures in Steam with the
   NVIDIA driver → Steam draws its pages without the GPU there (`-cef-disable-gpu`, owneetd 0.11.9;
   games keep the GPU); Steam built the `en_US.UTF-8` locale again at every start → the system
-  has it (and `it_IT.UTF-8`, owneet-base 0.0.28). To check on the FrankenPC.
+  has it (and `it_IT.UTF-8`, owneet-base 0.0.28). Second test: Italian confirmed, no glitches
+  this time, about 30 s to start: Steam had been killed at shutdown and checked all its files
+  (7 s) → owneetd closes Steam cleanly, at shutdown too (owneetd 0.11.10). To check on the
+  FrankenPC.
 
 ### [ ] 4.3 Local DRM-free games
 

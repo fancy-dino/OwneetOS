@@ -2,8 +2,8 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneetd
-pkgver=0.11.9
-pkgrel=2
+pkgver=0.11.10
+pkgrel=1
 pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps, display) and owneetctl"
 arch=('x86_64')
 url="https://github.com/fancy-dino/OwneetOS"

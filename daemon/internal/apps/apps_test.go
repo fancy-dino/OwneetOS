@@ -24,9 +24,10 @@ type fakeUnits struct {
 	failAt   string
 	workdirs []string
 	argvs    [][]string
+	stops    [][]string
 }
 
-func (f *fakeUnits) Start(unit, desc string, argv, env []string, workdir string) error {
+func (f *fakeUnits) Start(unit, desc string, argv, stop, env []string, workdir string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if unit == f.failAt {
@@ -35,6 +36,7 @@ func (f *fakeUnits) Start(unit, desc string, argv, env []string, workdir string)
 	f.started = append(f.started, unit)
 	f.workdirs = append(f.workdirs, workdir)
 	f.argvs = append(f.argvs, argv)
+	f.stops = append(f.stops, stop)
 	return nil
 }
 func (f *fakeUnits) Stop(unit string) error {

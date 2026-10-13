@@ -175,6 +175,17 @@ func (m *Manager) steamGPUArgs() []string {
 	return nil
 }
 
+// steamStop closes Steam cleanly: Steam killed with its processes (e.g. at shutdown) checks
+// every one of its files at the next start (7 s on the FrankenPC). Steam's own remote control
+// asks the running Steam to exit (it never starts Steam, unlike the steam command), then the stop
+// waits for Steam's main process; the rest of the unit is stopped afterwards.
+func (m *Manager) steamStop() []string {
+	remote := filepath.Join(m.SteamDir, "ubuntu12_32", "steam-runtime", "amd64", "usr", "bin", "steam-runtime-steam-remote")
+	return []string{"/bin/sh", "-c",
+		`"$0" -shutdown >/dev/null 2>&1 || exit 0; while kill -0 "$MAINPID" 2>/dev/null; do sleep 0.5; done`,
+		remote}
+}
+
 // steamArgv starts the steam program without gamescope's control socket (see above).
 func (m *Manager) steamArgv(args ...string) ([]string, error) {
 	path, err := m.LookPath("steam")
@@ -231,7 +242,7 @@ func (m *Manager) Steam(req SteamRequest) error {
 		if err != nil {
 			return err
 		}
-		_, err = m.Launch(LaunchRequest{ID: SteamID, Name: "Steam", Kind: KindApp, Command: argv})
+		_, err = m.Launch(LaunchRequest{ID: SteamID, Name: "Steam", Kind: KindApp, Command: argv, Stop: m.steamStop()})
 		return err
 	}
 	sess, err := m.Session()
