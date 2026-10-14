@@ -38,6 +38,8 @@ type Gamescope struct {
 	watchOnce sync.Once
 	stop      chan struct{}
 	written   []written // owneetd's recent writes of GAMESCOPECTRL_BASELAYER_APPID
+
+	repaintStop chan struct{} // the overlay that keeps gamescope composing runs (repaint.go)
 }
 
 // written is a value owneetd wrote: its change notification is not someone else's request.
@@ -231,6 +233,10 @@ func (g *Gamescope) Close() {
 	if g.stop != nil {
 		close(g.stop)
 		g.stop = nil
+	}
+	if g.repaintStop != nil {
+		close(g.repaintStop)
+		g.repaintStop = nil
 	}
 }
 

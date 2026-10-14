@@ -164,6 +164,9 @@ type Manager struct {
 	// NVIDIA tells whether the NVIDIA driver runs the screen (Steam then draws its pages
 	// without the GPU, see steamGPUArgs).
 	NVIDIA func() bool
+	// SteamRepaint: keep gamescope composing every frame while Steam's window is on screen
+	// (repaint.go; NVIDIA and the test switch owneet.debug.steam_repaint=on by default).
+	SteamRepaint func() bool
 
 	mu       sync.Mutex
 	apps     map[string]*App // by id
@@ -219,6 +222,9 @@ func (m *Manager) init() {
 	}
 	if m.NVIDIA == nil {
 		m.NVIDIA = nvidiaDriver
+	}
+	if m.SteamRepaint == nil {
+		m.SteamRepaint = m.steamRepaint
 	}
 	if m.steamNames == nil {
 		m.steamNames = map[string]string{}
@@ -279,6 +285,7 @@ func (m *Manager) tag(pid int) uint32 {
 // focusChanged sends "focus.changed" when what is on screen changed: the interface reads the
 // controllers only while it is on screen.
 func (m *Manager) focusChanged(id string) {
+	m.updateRepaint(id) // NVIDIA test: gamescope composing while Steam's window is on screen
 	m.mu.Lock()
 	same := id == m.lastFocus
 	m.lastFocus = id

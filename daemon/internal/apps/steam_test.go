@@ -646,3 +646,37 @@ func TestSteamShownForAGameThatAsks(t *testing.T) {
 		t.Fatalf("ask with run: %v", err)
 	}
 }
+
+// Repainter: a Focus that records the changing overlay asked for
+type repaintFocus struct {
+	*fakeFocus
+	calls []bool
+}
+
+func (r *repaintFocus) Repaint(on bool) { r.calls = append(r.calls, on) }
+
+// NVIDIA test switch: the overlay runs while Steam's own window is on screen, not over the home
+// screen or a game
+func TestSteamRepaintWhileSteamIsShown(t *testing.T) {
+	m, _, focus, _, _, _ := newSteamManager(t)
+	rf := &repaintFocus{fakeFocus: focus}
+	m.FocusFor = func(Session) Focus { return rf }
+	m.SteamRepaint = func() bool { return true }
+	if err := m.Steam(SteamRequest{Open: "store"}); err != nil {
+		t.Fatal(err)
+	}
+	focus.openWindow(1001)
+	settle(m)
+	if len(rf.calls) == 0 || !rf.calls[len(rf.calls)-1] {
+		t.Fatalf("no overlay with Steam on screen: %v", rf.calls)
+	}
+	m.backHome()
+	if rf.calls[len(rf.calls)-1] {
+		t.Fatalf("overlay left on over the home screen: %v", rf.calls)
+	}
+	m.SteamRepaint = func() bool { return false } // switch off (or not NVIDIA)
+	m.FocusApp(SteamID)
+	if rf.calls[len(rf.calls)-1] {
+		t.Fatalf("overlay without the switch: %v", rf.calls)
+	}
+}
