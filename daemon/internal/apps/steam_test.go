@@ -421,3 +421,187 @@ func TestCageFocusFollowsTheNewestApp(t *testing.T) {
 		t.Fatalf("after exit %v", d)
 	}
 }
+
+// writeFile writes a test file, with its folders.
+func writeFile(t *testing.T, path, text string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// steamManifestText is an appmanifest with these StateFlags and bytes downloaded / to download.
+func steamManifestText(id string, flags, done, total int) string {
+	return fmt.Sprintf("\"AppState\"\n{\n\t\"appid\"\t\t\"%s\"\n\t\"StateFlags\"\t\t\"%d\"\n"+
+		"\t\"BytesToDownload\"\t\t\"%d\"\n\t\"BytesDownloaded\"\t\t\"%d\"\n}\n", id, flags, total, done)
+}
+
+// Installing and uninstalling: Steam shows its confirmation; once Steam acts on it (the game's
+// appmanifest appears, or goes), the home screen comes back by itself
+// ([[step-4.2c-steam-without-its-interface]])
+func TestSteamConfirmationsComeBackHome(t *testing.T) {
+	m, _, focus, _, forwarded, ch := newSteamManager(t)
+	if err := m.Steam(SteamRequest{Open: "store"}); err != nil {
+		t.Fatal(err)
+	}
+	focus.openWindow(1001)
+	settle(m)
+	m.backHome() // Guide held: the console
+	if err := m.Steam(SteamRequest{Install: "480"}); err != nil {
+		t.Fatal(err)
+	}
+	if last := (*forwarded)[len(*forwarded)-1]; !strings.HasSuffix(last, "steam://install/480") {
+		t.Fatalf("forwarded %v", *forwarded)
+	}
+	if st := m.Status(); st.Focus != SteamID {
+		t.Fatalf("Steam's confirmation not shown: %q", st.Focus)
+	}
+	m.watchSteam() // nothing yet: Steam stays on screen
+	if st := m.Status(); st.Focus != SteamID {
+		t.Fatalf("home too early: %q", st.Focus)
+	}
+	if e := next(t, ch, "steam.changed"); len(e.Data.(SteamStatus).Downloads) != 0 {
+		t.Fatalf("first steam.changed %+v", e.Data)
+	}
+	manifest := filepath.Join(m.SteamDir, "steamapps", "appmanifest_480.acf")
+	writeFile(t, manifest, steamManifestText("480", 1026, 0, 1000))
+	m.watchSteam()
+	if st := m.Status(); st.Focus != "home" {
+		t.Fatalf("after confirming: %q", st.Focus)
+	}
+	if e := next(t, ch, "steam.changed"); len(e.Data.(SteamStatus).Downloads) != 1 {
+		t.Fatalf("steam.changed %+v", e.Data)
+	}
+	// Guide from the home screen does not bring Steam's own window back
+	m.Guide(true)
+	m.Guide(false)
+	if st := m.Status(); st.Focus != "home" {
+		t.Fatalf("Guide brought Steam back: %q", st.Focus)
+	}
+	// cancelling the download: steam://uninstall, home once the manifest goes
+	if err := m.Steam(SteamRequest{Uninstall: "480"}); err != nil {
+		t.Fatal(err)
+	}
+	if last := (*forwarded)[len(*forwarded)-1]; !strings.HasSuffix(last, "steam://uninstall/480") {
+		t.Fatalf("forwarded %v", *forwarded)
+	}
+	os.Remove(manifest)
+	m.watchSteam()
+	if st := m.Status(); st.Focus != "home" {
+		t.Fatalf("after uninstalling: %q", st.Focus)
+	}
+	for _, bad := range []SteamRequest{{Install: "x"}, {Install: "1", Uninstall: "2"}, {Run: "1", Install: "1"}} {
+		if err := m.Steam(bad); !errors.Is(err, ErrInvalid) {
+			t.Errorf("%+v: %v", bad, err)
+		}
+	}
+}
+
+// Running a game keeps Steam's window hidden when an account has signed in: the home screen stays
+// until the game's window; Steam is shown if no game comes (it may wait for the user)
+func TestSteamStartsGamesHidden(t *testing.T) {
+	m, _, focus, procs, forwarded, _ := newSteamManager(t)
+	writeFile(t, filepath.Join(m.SteamDir, "config", "loginusers.vdf"),
+		"\"users\"\n{\n\t\"76561190000000001\"\n\t{\n\t\t\"AccountName\"\t\t\"someone\"\n\t}\n}\n")
+	if err := m.Steam(SteamRequest{Run: "480", Name: "Spacewar"}); err != nil {
+		t.Fatal(err)
+	}
+	focus.openWindow(1001)
+	settle(m)
+	if st := m.Status(); st.Focus != "home" {
+		t.Fatalf("Steam shown while starting a game: %q", st.Focus)
+	}
+	if last := (*forwarded)[len(*forwarded)-1]; !strings.HasSuffix(last, "steam://rungameid/480") {
+		t.Fatalf("forwarded %v", *forwarded)
+	}
+	// no game: Steam is shown (as steamAskAfter would)
+	m.steamAskNow()
+	if st := m.Status(); st.Focus != SteamID {
+		t.Fatalf("Steam not shown when no game came: %q", st.Focus)
+	}
+	// the next game, Steam running: still hidden, the game's window comes to the front
+	m.backHome()
+	if err := m.Steam(SteamRequest{Run: "570"}); err != nil {
+		t.Fatal(err)
+	}
+	if st := m.Status(); st.Focus != "home" {
+		t.Fatalf("Steam shown for the second game: %q", st.Focus)
+	}
+	unit := UnitName(SteamID)
+	procs.add(2000, 1001, unit, "/s/reaper", "SteamLaunch", "AppId=570", "--", "/g/dota")
+	procs.add(2001, 2000, unit, "/g/dota")
+	m.scanSteam()
+	focus.openWindow(2001)
+	if st := m.Status(); st.Focus != "steam:570" {
+		t.Fatalf("game not shown: %q", st.Focus)
+	}
+	m.mu.Lock()
+	asking := m.steamAsk != nil
+	m.mu.Unlock()
+	if asking {
+		t.Fatal("Steam still to be shown after the game started")
+	}
+}
+
+// The status lists downloads (the one moving first), games on a disk not connected with its
+// name, whether someone signed in, and when the licences were written
+func TestSteamStatusDownloadsAndDisks(t *testing.T) {
+	m, _, _, _, _, _ := newSteamManager(t)
+	dir := m.SteamDir
+	gone := "/run/media/someone/GamesSSD/SteamLibrary"
+	writeFile(t, filepath.Join(dir, "steamapps", "libraryfolders.vdf"), "\"libraryfolders\"\n{\n"+
+		"\t\"0\"\n\t{\n\t\t\"path\"\t\t\""+dir+"\"\n\t\t\"apps\"\n\t\t{\n\t\t\t\"480\"\t\t\"1\"\n\t\t}\n\t}\n"+
+		"\t\"1\"\n\t{\n\t\t\"path\"\t\t\""+gone+"\"\n\t\t\"label\"\t\t\"\"\n\t\t\"apps\"\n\t\t{\n\t\t\t\"700\"\t\t\"5\"\n\t\t}\n\t}\n"+
+		"\t\"2\"\n\t{\n\t\t\"path\"\t\t\"/mnt/elsewhere\"\n\t\t\"label\"\t\t\"Big disk\"\n\t\t\"apps\"\n\t\t{\n\t\t\t\"710\"\t\t\"5\"\n\t\t}\n\t}\n}\n")
+	man := func(id string, flags, done, total int) {
+		writeFile(t, filepath.Join(dir, "steamapps", "appmanifest_"+id+".acf"), steamManifestText(id, flags, done, total))
+	}
+	man("480", 4, 0, 0)         // installed
+	man("500", 1026, 0, 4000)   // waiting for its turn
+	man("510", 1026, 100, 2000) // will move
+	man("520", 6, 0, 50)        // installed, an update waiting: playable, not listed
+	man("530", 3078, 10, 100)   // uninstalling: not listed
+	st := m.SteamStatus()
+	if len(st.Downloads) != 2 || st.Downloads[0].State != "queued" || st.Downloads[1].State != "queued" {
+		t.Fatalf("first look %+v", st.Downloads)
+	}
+	man("510", 1026, 900, 2000)
+	man("480", 4|stateUpdateRunning, 30, 60)
+	st = m.SteamStatus()
+	got := []string{}
+	for _, d := range st.Downloads {
+		got = append(got, d.AppID+":"+d.State)
+	}
+	if strings.Join(got, ",") != "480:updating,510:downloading,500:queued" && strings.Join(got, ",") != "510:downloading,480:updating,500:queued" {
+		t.Fatalf("downloads %v", got)
+	}
+	for _, d := range st.Downloads {
+		if d.AppID == "510" && (d.Done != 900 || d.Total != 2000 || d.Rate <= 0) {
+			t.Fatalf("510: %+v", d)
+		}
+	}
+	if st.Away["700"] != "GamesSSD" || st.Away["710"] != "Big disk" || len(st.Away) != 2 {
+		t.Fatalf("away %v", st.Away)
+	}
+	if st.Account || st.Licences != 0 {
+		t.Fatalf("account %v, licences %d", st.Account, st.Licences)
+	}
+	writeFile(t, filepath.Join(dir, "config", "loginusers.vdf"), "\"users\"\n{\n\t\"76561190000000001\"\n\t{\n\t}\n}\n")
+	writeFile(t, filepath.Join(dir, "appcache", "packageinfo.vdf"), "x")
+	if st = m.SteamStatus(); !st.Account || st.Licences == 0 {
+		t.Fatalf("account %v, licences %d", st.Account, st.Licences)
+	}
+}
+
+func TestKeyValuesText(t *testing.T) {
+	kv := kvText("\"AppState\"\n{\n\t\"appid\"\t\"480\" // comment\n\t\"Name\"\t\"Space \\\"war\\\"\"\n\t\"x\"\n\t{\n\t}\n}\n")
+	if kvGet(kv, "appstate", "APPID") != "480" || kvGet(kv, "AppState", "name") != "Space \"war\"" {
+		t.Fatalf("%v", kv)
+	}
+	if mountName("/media/u/Disk/Steam") != "Disk" || mountName("/home/u/Steam") != "" {
+		t.Fatal("mount names")
+	}
+}

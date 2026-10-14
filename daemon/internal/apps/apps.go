@@ -179,6 +179,15 @@ type Manager struct {
 	steamPending string
 	shown        []uint32 // what owneetd last asked gamescope to show
 	lastFocus    string   // the last "focus.changed" sent
+	// Steam hidden while it starts a game; shown later if it seems to wait for the user (steam.go)
+	steamHidden  bool
+	steamAsk     *time.Timer
+	steamConfirm *steamConfirm // an installation or uninstallation Steam shows (steam.go)
+
+	steamMu      sync.Mutex
+	steamSamples map[string]*steamSample // downloads: bytes at the last check (steamlib.go)
+	steamLast    string                  // the last status sent as "steam.changed"
+	steamRunning bool                    // Steam ran at the last check
 }
 
 func (m *Manager) init() {
@@ -314,8 +323,8 @@ func (m *Manager) checkWindows() {
 			if a.steady++; a.steady < settleChecks {
 				continue
 			}
-			// still wanted: nothing else was chosen meanwhile
-			if len(m.shown) == 0 || m.shown[0] == HomeAppID {
+			// still wanted: nothing else was chosen meanwhile; Steam starting a game stays hidden
+			if (len(m.shown) == 0 || m.shown[0] == HomeAppID) && !(a.ID == SteamID && m.steamHidden) {
 				bring = append(bring, a.appID)
 			}
 		}
@@ -331,6 +340,12 @@ func (m *Manager) checkWindows() {
 	}
 	if pending != "" {
 		m.forwardSteam(pending, sess)
+		m.mu.Lock()
+		hidden := m.steamHidden
+		m.mu.Unlock()
+		if hidden {
+			m.steamAskLater()
+		}
 	}
 	for _, id := range ready {
 		m.Broker.Publish("app.window", map[string]string{"id": id})
@@ -375,6 +390,7 @@ func (m *Manager) Run(stop <-chan struct{}) {
 			m.watchSession()
 			m.scanSteam()
 			m.checkWindows()
+			m.watchSteam()
 		}
 	}
 }
@@ -548,6 +564,12 @@ func (m *Manager) forget(id string) {
 	}
 	if id == SteamID {
 		m.steamPending = ""
+		m.steamHidden = false
+		m.steamConfirm = nil
+		if m.steamAsk != nil {
+			m.steamAsk.Stop()
+			m.steamAsk = nil
+		}
 	}
 }
 
@@ -864,9 +886,13 @@ func (m *Manager) toggle(sess Session) {
 	}
 	target := m.lastApp
 	if _, ok := m.apps[target]; !ok {
+		// the newest app; never Steam's own window, which stays hidden unless it was on screen
+		// ([[step-4.2c-steam-without-its-interface]])
 		target = ""
-		if len(m.order) > 0 {
-			target = m.order[len(m.order)-1]
+		for i := len(m.order) - 1; i >= 0 && target == ""; i-- {
+			if m.order[i] != SteamID {
+				target = m.order[i]
+			}
 		}
 	}
 	m.mu.Unlock()

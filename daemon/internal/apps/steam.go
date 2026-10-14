@@ -5,6 +5,7 @@ package apps
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -40,11 +41,14 @@ const SteamLiveMinRAM = 11 << 30
 // ErrSteamNeedsInstall: the live system has too little memory for Steam's files.
 var ErrSteamNeedsInstall = errors.New("Steam needs the installed system: the live system has too little memory for its files")
 
-// SteamRequest is the body of POST /v1/steam: open a page of Steam, or run a game.
+// SteamRequest is the body of POST /v1/steam: open a page of Steam, run a game, or ask Steam to
+// install or uninstall one (Steam shows its confirmation; [[step-4.2c-steam-without-its-interface]]).
 type SteamRequest struct {
-	Open string `json:"open,omitempty"` // "library" or "store"
-	Run  string `json:"run,omitempty"`  // a Steam app id
-	Name string `json:"name,omitempty"` // the game's name (shown while it runs)
+	Open      string `json:"open,omitempty"`      // "library" or "store"
+	Run       string `json:"run,omitempty"`       // a Steam app id
+	Install   string `json:"install,omitempty"`   // a Steam app id
+	Uninstall string `json:"uninstall,omitempty"` // a Steam app id (also cancels its download)
+	Name      string `json:"name,omitempty"`      // the game's name (shown while it runs)
 	// The console's language tag ("it", "pt-BR"…): Steam starts in the same language
 	Language string `json:"language,omitempty"`
 }
@@ -76,9 +80,19 @@ type SteamStatus struct {
 	Allowed   bool `json:"allowed"`   // false in a live system with too little memory
 	Prepared  bool `json:"prepared"`  // Steam has started once (no long first download)
 	Running   bool `json:"running"`
-	// Games are the Steam app ids installed completely, on every library folder present: when
-	// they change (a game installed or removed in Steam) the interface reads its games again
+	// Games are the Steam app ids installed completely, on every library folder present
 	Games []string `json:"games"`
+	// Downloads: the games Steam is installing or updating, the one it works on first (4.2c)
+	Downloads []SteamDownload `json:"downloads"`
+	// Away: games installed on a disk that is not connected, with the disk's name ("" unknown)
+	Away map[string]string `json:"away"`
+	// Account: someone has signed in to Steam on this computer (else Steam asks first, online)
+	Account bool `json:"account"`
+	// Licences: when Steam last wrote the account's licences (Unix time): a game bought since
+	// the interface read its games makes it read them again
+	Licences int64 `json:"licences"`
+	// NVIDIA: Steam's window may show display errors (the interface says so before showing it)
+	NVIDIA bool `json:"nvidia"`
 }
 
 // Procs reads and signals processes (/proc by default).
@@ -211,18 +225,35 @@ func (m *Manager) steamArgv(args ...string) ([]string, error) {
 
 var appIDPattern = regexp.MustCompile(`^[0-9]{1,10}$`)
 
-// Steam opens Steam's library or store, or runs a Steam game; Steam starts if needed.
+// Steam opens Steam's library or store, runs a Steam game, or asks Steam to install or
+// uninstall one; Steam starts if needed. Running a game keeps Steam's window hidden
+// ([[step-4.2c-steam-without-its-interface]]): it is shown only if Steam seems to need the user
+// (no game after steamAskAfter, or nobody has signed in yet). Its pages and confirmations are
+// shown; after a confirmation, the home screen comes back once Steam has acted on it.
 func (m *Manager) Steam(req SteamRequest) error {
 	var url string
+	given := 0
+	for _, f := range []string{req.Open, req.Run, req.Install, req.Uninstall} {
+		if f != "" {
+			given++
+		}
+	}
 	switch {
-	case req.Open == "" && appIDPattern.MatchString(req.Run):
+	case given != 1:
+		url = ""
+	case appIDPattern.MatchString(req.Run):
 		url = "steam://rungameid/" + req.Run
-	case req.Run == "" && req.Open == "library":
+	case appIDPattern.MatchString(req.Install):
+		url = "steam://install/" + req.Install
+	case appIDPattern.MatchString(req.Uninstall):
+		url = "steam://uninstall/" + req.Uninstall
+	case req.Open == "library":
 		url = "steam://open/games"
-	case req.Run == "" && req.Open == "store":
+	case req.Open == "store":
 		url = "steam://store"
-	default:
-		return fmt.Errorf("%w: open (library, store) or run (a Steam app id)", ErrInvalid)
+	}
+	if url == "" {
+		return fmt.Errorf("%w: one of open (library, store), run, install, uninstall (a Steam app id)", ErrInvalid)
 	}
 	m.mu.Lock()
 	m.init()
@@ -245,12 +276,23 @@ func (m *Manager) Steam(req SteamRequest) error {
 		}
 	}
 	_, running := m.apps[SteamID]
+	dir := m.SteamDir
 	m.mu.Unlock()
 
 	sess, err := m.Session()
 	if err != nil {
 		return ErrNoSession
 	}
+	// Steam's window stays hidden while it starts a game, unless nobody has signed in yet
+	hidden := req.Run != "" && steamAccount(dir)
+	m.mu.Lock()
+	m.steamHidden = hidden
+	m.steamConfirm = nil
+	if id := req.Install + req.Uninstall; id != "" {
+		flags, has := steamManifest(dir, id)
+		m.steamConfirm = &steamConfirm{appid: id, flags: flags, has: has, at: time.Now()}
+	}
+	m.mu.Unlock()
 	if !running {
 		args := append([]string{"-gamepadui"}, m.steamGPUArgs()...)
 		if lang := steamLanguage(req.Language); lang != "" {
@@ -277,6 +319,10 @@ func (m *Manager) Steam(req SteamRequest) error {
 	}
 	if err := m.forwardSteam(url, sess); err != nil {
 		return err
+	}
+	if hidden {
+		m.steamAskLater()
+		return nil
 	}
 	// Steam's window comes to the front (a game's window takes over once it appears)
 	if err := m.FocusApp(SteamID); errors.Is(err, ErrNoWindow) {
@@ -305,8 +351,120 @@ func (m *Manager) SteamStatus() SteamStatus {
 	m.mu.Unlock()
 	_, err := m.LookPath("steam")
 	_, prepared := os.Stat(filepath.Join(dir, "ubuntu12_32", "steam"))
+	m.steamMu.Lock()
+	if m.steamSamples == nil {
+		m.steamSamples = map[string]*steamSample{}
+	}
+	downloads := steamDownloads(dir, m.steamSamples, time.Now())
+	m.steamMu.Unlock()
 	return SteamStatus{Installed: err == nil, Allowed: allowed(), Prepared: prepared == nil, Running: running,
-		Games: installedSteamGames(dir)}
+		Games: installedSteamGames(dir), Downloads: downloads, Away: steamAway(dir), Account: steamAccount(dir),
+		Licences: steamLicences(dir), NVIDIA: m.NVIDIA()}
+}
+
+// steamAskAfter: a game asked of a hidden Steam that has not started by then probably waits for
+// the user (a licence to accept, a cloud conflict, launch options): Steam is shown.
+const steamAskAfter = 20 * time.Second
+
+// steamConfirm is an installation or uninstallation Steam asks the user to confirm.
+type steamConfirm struct {
+	appid string
+	flags int64 // the app's StateFlags before
+	has   bool  // it had an appmanifest before
+	at    time.Time
+}
+
+// steamConfirmWait: after this long without Steam acting, the confirmation is forgotten (cancelled).
+const steamConfirmWait = 10 * time.Minute
+
+func (m *Manager) steamAskLater() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.steamAsk != nil {
+		m.steamAsk.Stop()
+	}
+	m.steamAsk = time.AfterFunc(steamAskAfter, m.steamAskNow)
+}
+
+func (m *Manager) steamAskNow() {
+	m.mu.Lock()
+	m.steamAsk = nil
+	m.steamHidden = false
+	game := false
+	for _, a := range m.apps {
+		game = game || a.reaper != 0
+	}
+	_, running := m.apps[SteamID]
+	m.mu.Unlock()
+	if game || !running {
+		return
+	}
+	m.Log.Info("no Steam game yet: Steam may be waiting for the user, shown")
+	if err := m.FocusApp(SteamID); err != nil {
+		m.Log.Debug("cannot show Steam", "err", err)
+	}
+}
+
+// watchSteam (every second, while Steam runs, and once after it stopped): sends "steam.changed" with the status
+// when Steam's games or downloads change, and brings the home screen back once Steam has acted on
+// a confirmation it showed.
+func (m *Manager) watchSteam() {
+	m.mu.Lock()
+	m.init()
+	_, running := m.apps[SteamID]
+	confirm, dir := m.steamConfirm, m.SteamDir
+	m.mu.Unlock()
+	m.steamMu.Lock()
+	was := m.steamRunning // once more after Steam stopped: its downloads stopped too
+	m.steamRunning = running
+	m.steamMu.Unlock()
+	if !running && !was && confirm == nil {
+		return
+	}
+	st := m.SteamStatus()
+	key, _ := json.Marshal([]any{st.Games, st.Downloads, st.Away, st.Running})
+	m.steamMu.Lock()
+	changed := string(key) != m.steamLast
+	m.steamLast = string(key)
+	m.steamMu.Unlock()
+	if changed {
+		m.Broker.Publish("steam.changed", st)
+	}
+	if confirm == nil {
+		return
+	}
+	flags, has := steamManifest(dir, confirm.appid)
+	acted := has != confirm.has || flags != confirm.flags
+	if !acted && time.Since(confirm.at) < steamConfirmWait {
+		return
+	}
+	m.mu.Lock()
+	if m.steamConfirm == confirm {
+		m.steamConfirm = nil
+	}
+	m.mu.Unlock()
+	if acted {
+		m.Log.Info("Steam acted on its confirmation: home screen", "appid", confirm.appid)
+		m.backHome()
+	}
+}
+
+// backHome shows the home screen if Steam is on screen (its window is not used any more).
+func (m *Manager) backHome() {
+	sess, err := m.Session()
+	if err != nil || !m.steamOnScreen(sess) {
+		return
+	}
+	f := m.focus(sess)
+	if f == nil {
+		return
+	}
+	m.mu.Lock()
+	m.lastApp = ""
+	m.mu.Unlock()
+	if err := m.show(f, []uint32{HomeAppID}); err == nil {
+		m.focusChanged("home")
+	}
 }
 
 var manifestFlags = regexp.MustCompile(`(?m)^\s*"StateFlags"\s+"([0-9]+)"`)
@@ -425,6 +583,11 @@ func (m *Manager) steamGame(appid string, reaper int, unit string) *App {
 	}
 	app := &App{ID: id, Name: name, Kind: KindGame, Started: time.Now(), unit: unit, appID: m.newAppID(id), reaper: reaper}
 	m.apps[id] = app
+	if m.steamAsk != nil { // the game started: Steam did not need the user
+		m.steamAsk.Stop()
+		m.steamAsk = nil
+	}
+	m.steamHidden = false
 	m.order = append(m.order, id)
 	steam := uint32(0)
 	if s, ok := m.apps[SteamID]; ok {
