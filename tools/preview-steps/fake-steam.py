@@ -25,17 +25,21 @@ APPS = {
     2010: ("Sunken Bell", "game", True),
     2011: ("Orchard", "game", False),
     2012: ("Brass Comet", "game", False),
+    2013: ("Rust Harbor", "game", False),       # a free weekend that ended: not owned
+    2014: ("Velvet Tide", "game", False),       # given for free, no longer offered: owned
     2101: ("Glass Canyon Soundtrack", "music", False),
     2102: ("Paper Comets: Extra Levels", "dlc", False),
     2103: ("Iron Tundra Demo", "demo", False),
 }
-# packages: id → (status, app ids); package 0 is everyone's and left out by the console
+# packages: id → (status, app ids, extended); package 0 is everyone's and free weekends have
+# ended: both left out by the console. "status" is whether the store still offers the package.
 PACKAGES = {
-    0: (0, [7, 2001]),
-    3001: (0, [2001, 2101]),
-    3002: (0, [2002, 2102]),
-    3003: (0, [2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2103]),
-    3004: (2, [2099]),                         # an inactive licence: not owned
+    0: (0, [7, 2001], {}),
+    3001: (0, [2001, 2101], {}),
+    3002: (0, [2002, 2102], {}),
+    3003: (0, [2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2103], {}),
+    3004: (2, [2014], {}),
+    3005: (0, [2013], {"freeweekend": 1, "expirytime": 1588870800}),
 }
 
 
@@ -61,8 +65,9 @@ def kv_text(value, keys=None):
 
 def packageinfo():
     out = struct.pack("<II", 0x06565528, 1)
-    for pid, (status, apps) in PACKAGES.items():
-        body = {str(pid): {"packageid": pid, "status": status, "appids": {str(i): a for i, a in enumerate(apps)}}}
+    for pid, (status, apps, extended) in PACKAGES.items():
+        body = {str(pid): {"packageid": pid, "status": status, "appids": {str(i): a for i, a in enumerate(apps)},
+                           "extended": extended}}
         out += struct.pack("<I", pid) + b"\0" * 20 + struct.pack("<I", 1) + struct.pack("<Q", 0)
         out += kv_text(body) + b"\x08"
     return out + struct.pack("<I", 0xFFFFFFFF)
