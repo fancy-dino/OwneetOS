@@ -326,6 +326,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(202)
         if path == "/v1/steam":
             req = body
+            if req.get("ask"):     # 4.2c: the next start asks the user first (Steam shown at once)
+                return self.reply(202)
             with lock:
                 steam = state["steam"]
                 if not steam["allowed"]:

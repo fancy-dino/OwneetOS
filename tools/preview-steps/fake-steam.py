@@ -31,6 +31,8 @@ APPS = {
     2102: ("Paper Comets: Extra Levels", "dlc", False),
     2103: ("Iron Tundra Demo", "demo", False),
 }
+# games with a licence agreement Steam asks to accept at the first start (not accepted yet)
+AGREEMENTS = {2010}
 # packages: id → (status, app ids, extended); package 0 is everyone's and free weekends have
 # ended: both left out by the console. "status" is whether the store still offers the package.
 PACKAGES = {
@@ -77,7 +79,11 @@ def appinfo():
     keys = []
     entries = b""
     for appid, (name, kind, _) in APPS.items():
-        body = kv_text({"appinfo": {"appid": appid, "common": {"name": name, "type": kind.capitalize()}}}, keys) + b"\x08"
+        common = {"name": name, "type": kind.capitalize()}
+        if appid in AGREEMENTS:     # as Steam writes them: http and a double slash
+            common["eulas"] = {"0": {"id": "%d_eula_0" % appid, "name": name + " EULA",
+                                     "url": "http://store.steampowered.com//eula/%d_eula_0" % appid}}
+        body = kv_text({"appinfo": {"appid": appid, "common": common}}, keys) + b"\x08"
         head = struct.pack("<IIQ", 2, 0, 0) + b"\0" * 20 + struct.pack("<I", 1) + b"\0" * 20
         entries += struct.pack("<II", appid, len(head) + len(body)) + head + body
     entries += struct.pack("<I", 0)
