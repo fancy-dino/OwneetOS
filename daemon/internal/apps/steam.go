@@ -48,7 +48,10 @@ type SteamRequest struct {
 	Run       string `json:"run,omitempty"`       // a Steam app id
 	Install   string `json:"install,omitempty"`   // a Steam app id
 	Uninstall string `json:"uninstall,omitempty"` // a Steam app id (also cancels its download)
-	Name      string `json:"name,omitempty"`      // the game's name (shown while it runs)
+	// Ask: the next start of this Steam app id asks the user first (a licence agreement to
+	// accept): Steam's window is shown at once for it, not kept hidden
+	Ask  string `json:"ask,omitempty"`
+	Name string `json:"name,omitempty"` // the game's name (shown while it runs)
 	// The console's language tag ("it", "pt-BR"…): Steam starts in the same language
 	Language string `json:"language,omitempty"`
 }
@@ -233,7 +236,7 @@ var appIDPattern = regexp.MustCompile(`^[0-9]{1,10}$`)
 func (m *Manager) Steam(req SteamRequest) error {
 	var url string
 	given := 0
-	for _, f := range []string{req.Open, req.Run, req.Install, req.Uninstall} {
+	for _, f := range []string{req.Open, req.Run, req.Install, req.Uninstall, req.Ask} {
 		if f != "" {
 			given++
 		}
@@ -241,6 +244,13 @@ func (m *Manager) Steam(req SteamRequest) error {
 	switch {
 	case given != 1:
 		url = ""
+	case appIDPattern.MatchString(req.Ask):
+		// the next start of this game asks the user first (a licence agreement): Steam is
+		// shown at once then, not after steamAskAfter
+		m.mu.Lock()
+		m.steamAskFor = req.Ask
+		m.mu.Unlock()
+		return nil
 	case appIDPattern.MatchString(req.Run):
 		url = "steam://rungameid/" + req.Run
 	case appIDPattern.MatchString(req.Install):
@@ -253,7 +263,7 @@ func (m *Manager) Steam(req SteamRequest) error {
 		url = "steam://store"
 	}
 	if url == "" {
-		return fmt.Errorf("%w: one of open (library, store), run, install, uninstall (a Steam app id)", ErrInvalid)
+		return fmt.Errorf("%w: one of open (library, store), run, install, uninstall, ask (a Steam app id)", ErrInvalid)
 	}
 	m.mu.Lock()
 	m.init()
@@ -283,8 +293,15 @@ func (m *Manager) Steam(req SteamRequest) error {
 	if err != nil {
 		return ErrNoSession
 	}
-	// Steam's window stays hidden while it starts a game, unless nobody has signed in yet
-	hidden := req.Run != "" && steamAccount(dir)
+	// Steam's window stays hidden while it starts a game, unless nobody has signed in yet or the
+	// game asks the user first (ask)
+	m.mu.Lock()
+	asks := req.Run != "" && req.Run == m.steamAskFor
+	if req.Run != "" {
+		m.steamAskFor = ""
+	}
+	m.mu.Unlock()
+	hidden := req.Run != "" && steamAccount(dir) && !asks
 	m.mu.Lock()
 	m.steamHidden = hidden
 	m.steamConfirm = nil

@@ -618,3 +618,31 @@ func TestKeyValuesText(t *testing.T) {
 		t.Fatal("mount names")
 	}
 }
+
+// A game whose licence agreement Steam will ask to accept: the interface says so first (ask), and
+// Steam's window is shown at once for that start only
+func TestSteamShownForAGameThatAsks(t *testing.T) {
+	m, _, focus, _, _, _ := newSteamManager(t)
+	writeFile(t, filepath.Join(m.SteamDir, "config", "loginusers.vdf"), "\"users\"\n{\n\t\"76561190000000001\"\n\t{\n\t}\n}\n")
+	if err := m.Steam(SteamRequest{Ask: "208650"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Steam(SteamRequest{Run: "208650"}); err != nil {
+		t.Fatal(err)
+	}
+	focus.openWindow(1001)
+	settle(m)
+	if st := m.Status(); st.Focus != SteamID {
+		t.Fatalf("Steam not shown for a game that asks: %q", st.Focus)
+	}
+	m.backHome()
+	if err := m.Steam(SteamRequest{Run: "208650"}); err != nil { // the next start: hidden again
+		t.Fatal(err)
+	}
+	if st := m.Status(); st.Focus != "home" {
+		t.Fatalf("Steam shown again: %q", st.Focus)
+	}
+	if err := m.Steam(SteamRequest{Ask: "1", Run: "1"}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("ask with run: %v", err)
+	}
+}

@@ -183,6 +183,7 @@ type Manager struct {
 	steamHidden  bool
 	steamAsk     *time.Timer
 	steamConfirm *steamConfirm // an installation or uninstallation Steam shows (steam.go)
+	steamAskFor  string        // the next start of this app id asks the user first (steam.go)
 
 	steamMu      sync.Mutex
 	steamSamples map[string]*steamSample // downloads: bytes at the last check (steamlib.go)
