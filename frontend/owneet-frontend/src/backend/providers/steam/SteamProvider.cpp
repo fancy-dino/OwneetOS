@@ -235,7 +235,8 @@ Provider& SteamProvider::run(SearchContext& sctx)
     for (const auto& entry : appid_game_map)
         mark(*entry.second, entry.first, true);
     int not_installed = 0;
-    for (const OwnedApp& owned : read_owned_games(steamdir_path)) {
+    const std::vector<OwnedApp> owned_games = read_owned_games(steamdir_path);
+    for (const OwnedApp& owned : owned_games) {
         if (appid_game_map.find(owned.appid) != appid_game_map.cend())
             continue;
         const QString steam_uri = QStringLiteral("steam:") + owned.appid;
@@ -260,6 +261,22 @@ Provider& SteamProvider::run(SearchContext& sctx)
 
     // OwneetOS: play time and last played as Steam counts them ([[step-4.1-steam-library]])
     const HashMap<QString, PlayStats> playtime = read_playtime(steamdir_path);
+
+    // OwneetOS: a licence agreement Steam will ask to accept at the first start: the interface
+    // shows its address before (Steam's window may not be readable, 4.2c)
+    int with_eula = 0;
+    for (const OwnedApp& owned : owned_games) {
+        const auto game = appid_game_map.find(owned.appid);
+        if (owned.eula_id.isEmpty() || game == appid_game_map.cend())
+            continue;
+        const auto stats = playtime.find(owned.appid);
+        if (stats != playtime.cend() && stats->second.eulas.contains(owned.eula_id.toLower()))
+            continue;
+        game->second->extraMapMut().insert(QStringLiteral("steam.eula.name"), owned.eula_name);
+        game->second->extraMapMut().insert(QStringLiteral("steam.eula.url"), owned.eula_url);
+        with_eula++;
+    }
+    Log::info(display_name(), LOGMSG("%1 games with a licence agreement not accepted yet").arg(QString::number(with_eula)));
     int with_playtime = 0;
     for (const auto& entry : appid_game_map) {
         const auto it = playtime.find(entry.first);

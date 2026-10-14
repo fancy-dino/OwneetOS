@@ -74,6 +74,7 @@ Licences are given as [SPDX](https://spdx.org/licenses/) identifiers, as declare
 |---|---|---|---|
 | [Pegasus Frontend](https://pegasus-frontend.org) | Mátyás Mustoha and contributors | GPL-3.0-or-later, with additional terms | The base of the OwneetOS interface (`owneet-frontend`) |
 | [SortFilterProxyModel](https://github.com/oKcerG/SortFilterProxyModel) | Pierre-Yves Siret | MIT | Sorting and filtering of lists in the interface |
+| [QR Code generator library](https://www.nayuki.io/page/qr-code-generator-library) | Project Nayuki | MIT | The code that shows a game's licence agreement on a phone |
 | [Qt](https://www.qt.io) | The Qt Company, KDE and Qt Project contributors | LGPL-3.0 / GPL-3.0 | The toolkit the interface is written with |
 
 OwneetOS's interface is a modified version of Pegasus Frontend. As its licence requires, it does

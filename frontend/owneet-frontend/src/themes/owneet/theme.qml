@@ -261,6 +261,9 @@ FocusScope {
             root.noticeFor(type, data);
             if (type === "app.started" || type === "app.exited") {
                 root.refreshApps();
+                // a Steam game started: its licence agreement, if any, has been accepted
+                if (type === "app.started" && String(data.id).startsWith("steam:"))
+                    root.agreementAccepted(String(data.id).slice(6));
                 if (type === "app.exited" && (data.id === "steam" || String(data.id).startsWith("steam:")))
                     root.refreshSteam(true);
                 if (type === "app.exited")
@@ -433,14 +436,16 @@ FocusScope {
     }
 
     // ---- Games: launch, details, options
-    function launch(game) {
+    function launch(game, agreementShown) {
         // Steam (4.2c): a game not installed is installed first; one being downloaded or on a disk
-        // that is not connected shows its details; Steam's first start needs the internet
+        // that is not connected shows its details; Steam's first start needs the internet; a
+        // licence agreement Steam asks to accept at the first start is shown here first
         if (GameInfo.isSteam(game)) {
             const s = GameInfo.steamState(game);
             if (s === "none") { askInstall(game); return; }
             if (s !== "installed" && s !== "updating") { showDetails(game); return; }
             if (!(runningGame && runningGame.name === game.title) && steamOffline("play")) return;
+            if (!agreementShown && !runningGame && agreementPending(game)) { showAgreement(game); return; }
         }
         // the game already running (same title, as on the home screen): back to it
         if (runningGame && owneetd.connected && runningGame.name === game.title) {
@@ -690,7 +695,8 @@ FocusScope {
     // harmless. The store gets the second part only.
     function withSteamNotice(next, kind) {
         const nvidia = GameInfo.steam !== null && GameInfo.steam.nvidia;
-        if ((!kind && !nvidia) || api.memory.has("steamNoticeHidden")) {
+        // its own memory since it says what to press (a tick given to the earlier notice does not count)
+        if ((!kind && !nvidia) || api.memory.has("steamConfirmNoticeHidden")) {
             next();
             return;
         }
@@ -704,9 +710,42 @@ FocusScope {
         noticeNever.checked = false;
         dialog.buttons = [
             { text: Tr.tr("steam.notice.go"), style: "primary", action: () => {
-                if (noticeNever.checked) api.memory.set("steamNoticeHidden", true);
+                if (noticeNever.checked) api.memory.set("steamConfirmNoticeHidden", true);
                 dialog.close(true);
                 next();
+            } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    // A licence agreement Steam asks to accept at the first start (owner, 2026-10-14): Steam's
+    // window may not be readable, and its selection starts on "Decline". The console shows the
+    // agreement's official address as a code to read on a phone, and what to press; owneetd shows
+    // Steam at once for that start (ask). Known from Steam's caches; remembered here once the game
+    // has started (it was accepted).
+    function agreementPending(game) {
+        const id = GameInfo.appid(game);
+        return id !== "" && !!game.extra["steam.eula.url"] && !api.memory.has("steamEulaDone." + id);
+    }
+    function agreementAccepted(appid) {
+        const g = steamGame(appid);
+        if (g && g.extra["steam.eula.url"] && !api.memory.has("steamEulaDone." + appid))
+            api.memory.set("steamEulaDone." + appid, true);
+    }
+    function showAgreement(game) {
+        const id = GameInfo.appid(game);
+        dialog.game = null;
+        dialog.mode = "agreement";
+        // Steam's caches give "http://store.steampowered.com//eula/…": the secure address, one slash
+        dialog.agreementUrl = String(game.extra["steam.eula.url"]).replace(/^http:/, "https:").replace(/([^:\/])\/\/+/g, "$1/");
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.title = Tr.tr("eula.title", { title: game.title });
+        dialog.text = Tr.tr("eula.text");
+        dialog.buttons = [
+            { text: Tr.tr("steam.notice.go"), style: "primary", action: () => {
+                dialog.close(true);
+                owneetd.post("/v1/steam", { ask: id }, () => root.launch(game, true));
             } },
             { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
         dialog.defaultIndex = 0;
@@ -1480,6 +1519,7 @@ FocusScope {
         property bool updateBusy: false     // update: checking or installing
         property var updateLines: []        // update: "name  from  →  to"
         property string updateNote: ""
+        property string agreementUrl: ""    // agreement: the licence agreement's address (4.2c)
         property int seconds: 0             // displayConfirm: until it goes back
         property real deadline: 0
         onSecondsChanged: if (mode === "displayConfirm") text = Tr.tr("display.keep.text", { n: seconds })
@@ -1724,6 +1764,23 @@ FocusScope {
                 color: Theme.muted
                 font.family: Theme.textFont
                 font.pixelSize: Theme.fs(14.5)
+            }
+        }
+        Column {                          // agreement: the licence agreement's address, as a code (4.2c)
+            visible: dialog.mode === "agreement"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(8)
+            QrCode {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Theme.px(200); height: width
+                text: dialog.mode === "agreement" ? dialog.agreementUrl : ""
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: dialog.agreementUrl.replace(/^https?:\/\//, "")
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(12.5)
             }
         }
         SettingRow {                      // steamNotice: "Don't show again" (4.2c)

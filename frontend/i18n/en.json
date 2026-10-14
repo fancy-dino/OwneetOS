@@ -454,5 +454,7 @@
   "home.notice.more": "+{n} waiting",
   "home.notice.paused": "Downloads paused: no internet connection.",
   "steam.notice.keys.install": "Press A to confirm the download, B to cancel, then hold Home to leave Steam.",
-  "steam.notice.keys.uninstall": "Press A to confirm the uninstallation, B to cancel, then hold Home to leave Steam."
+  "steam.notice.keys.uninstall": "Press A to confirm the uninstallation, B to cancel, then hold Home to leave Steam.",
+  "eula.title": "{title}: licence agreement",
+  "eula.text": "The first time, Steam asks you to accept the game's licence agreement. Read it on your phone by scanning the code. Then, in Steam's window, press Left and then A to accept: the game starts."
 }

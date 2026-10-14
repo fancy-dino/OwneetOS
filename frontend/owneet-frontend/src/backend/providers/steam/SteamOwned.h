@@ -14,6 +14,11 @@ namespace steam {
 struct OwnedApp {
     QString appid;
     QString name;
+    // The licence agreement Steam asks to accept at the first start, if any (appinfo → common →
+    // eulas, the first one for every country): its id ("208650_eula_1"), name and official address
+    QString eula_id;
+    QString eula_name;
+    QString eula_url;
 };
 
 // The games of the account's licences: appcache/packageinfo.vdf (binary, versions 27 and 28)

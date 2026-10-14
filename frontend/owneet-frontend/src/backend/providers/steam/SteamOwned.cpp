@@ -207,8 +207,20 @@ std::vector<OwnedApp> read_owned_games(const QString& steam_datadir)
             const QVariantMap common = app.value(QStringLiteral("common")).toMap();
             const QString name = common.value(QStringLiteral("name")).toString();
             if (r.ok() && common.value(QStringLiteral("type")).toString().compare(QLatin1String("game"), Qt::CaseInsensitive) == 0
-                    && !name.isEmpty())
-                out.push_back({id, name});
+                    && !name.isEmpty()) {
+                OwnedApp owned {id, name, {}, {}, {}};
+                const QVariantMap eulas = common.value(QStringLiteral("eulas")).toMap();
+                for (const QVariant& e : eulas) {
+                    const QVariantMap eula = e.toMap();
+                    if (eula.contains(QStringLiteral("countries")))
+                        continue;                   // for some countries only
+                    owned.eula_id = eula.value(QStringLiteral("id")).toString();
+                    owned.eula_name = eula.value(QStringLiteral("name")).toString();
+                    owned.eula_url = eula.value(QStringLiteral("url")).toString();
+                    break;
+                }
+                out.push_back(owned);
+            }
         }
         r.seek(next);
     }
