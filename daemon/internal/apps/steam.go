@@ -363,8 +363,20 @@ func (m *Manager) SteamStatus() SteamStatus {
 }
 
 // steamAskAfter: a game asked of a hidden Steam that has not started by then probably waits for
-// the user (a licence to accept, a cloud conflict, launch options): Steam is shown.
+// the user (a licence to accept, a cloud conflict, launch options): Steam is shown. Not while
+// Steam prepares the game's shaders (fossilize_replay, up to a minute or more the first time:
+// FrankenPC, 2026-10-14): the wait starts again when that ends.
 const steamAskAfter = 20 * time.Second
+
+// steamPreparingShaders: Steam is preparing a game's shaders (its fossilize_replay processes).
+func (m *Manager) steamPreparingShaders(unit string) bool {
+	for _, pid := range m.Procs.InUnit(unit) {
+		if argv := m.Procs.Cmdline(pid); len(argv) > 0 && strings.HasPrefix(filepath.Base(argv[0]), "fossilize_replay") {
+			return true
+		}
+	}
+	return false
+}
 
 // steamConfirm is an installation or uninstallation Steam asks the user to confirm.
 type steamConfirm struct {
@@ -394,9 +406,17 @@ func (m *Manager) steamAskNow() {
 	for _, a := range m.apps {
 		game = game || a.reaper != 0
 	}
-	_, running := m.apps[SteamID]
+	steam, running := m.apps[SteamID]
 	m.mu.Unlock()
 	if game || !running {
+		return
+	}
+	if m.steamPreparingShaders(steam.unit) {
+		m.Log.Info("Steam is preparing the game's shaders: still hidden")
+		m.mu.Lock()
+		m.steamHidden = true
+		m.mu.Unlock()
+		m.steamAskLater()
 		return
 	}
 	m.Log.Info("no Steam game yet: Steam may be waiting for the user, shown")

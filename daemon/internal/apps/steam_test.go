@@ -517,6 +517,19 @@ func TestSteamStartsGamesHidden(t *testing.T) {
 	if last := (*forwarded)[len(*forwarded)-1]; !strings.HasSuffix(last, "steam://rungameid/480") {
 		t.Fatalf("forwarded %v", *forwarded)
 	}
+	// Steam preparing the game's shaders: still hidden, the wait starts again
+	procs.add(1500, 1001, UnitName(SteamID), "/s/ubuntu12_64/fossilize_replay", "--master-process")
+	m.steamAskNow()
+	if st := m.Status(); st.Focus != "home" {
+		t.Fatalf("Steam shown while preparing shaders: %q", st.Focus)
+	}
+	m.mu.Lock()
+	again := m.steamAsk != nil
+	m.mu.Unlock()
+	if !again {
+		t.Fatal("no new wait after the shaders")
+	}
+	procs.remove(1500)
 	// no game: Steam is shown (as steamAskAfter would)
 	m.steamAskNow()
 	if st := m.Status(); st.Focus != SteamID {
