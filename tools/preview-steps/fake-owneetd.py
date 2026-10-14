@@ -80,7 +80,8 @@ state = {
     # Steam (4.2): change it with the event line "fake.steam {...}" (e.g. {"allowed": false})
     # testers' updates from a USB stick (4.2b)
     "update": {"tester": True, "state": "", "packages": [], "running": False},
-    "steam": {"installed": True, "allowed": True, "prepared": False, "running": False, "games": []},
+    "steam": {"installed": True, "allowed": True, "prepared": False, "running": False, "games": [],
+              "downloads": [], "away": {}, "account": False, "licences": 0, "nvidia": False},
     "audio": {"available": True, "output": "hdmi", "volume": 60, "muted": False,
               "outputs": [{"id": "hdmi", "name": "TV (HDMI)"}, {"id": "speakers", "name": "Speakers"}]},
 }
@@ -94,6 +95,48 @@ def publish(kind, data=None):
 
 def later(seconds, fn):
     threading.Timer(seconds, fn).start()
+
+
+# Steam's downloads (4.2c): the first one moves, the others wait; about 20 seconds a game
+def steam_publish():
+    with lock:
+        data = json.loads(json.dumps(state["steam"]))
+    publish("steam.changed", data)
+
+
+def steam_install(appid):
+    with lock:
+        ds = state["steam"]["downloads"]
+        if any(d["appid"] == appid for d in ds):
+            return
+        ds.append({"appid": appid, "state": "queued", "done": 0, "total": 4_200_000_000, "rate": 0})
+        start = len(ds) == 1
+    steam_publish()
+    if start:
+        later(0.5, steam_tick)
+
+
+def steam_tick():
+    with lock:
+        ds = state["steam"]["downloads"]
+        if not ds:
+            return
+        d = ds[0]
+        d["state"], d["rate"] = "downloading", 41_600_000
+        d["done"] = min(d["total"], d["done"] + d["total"] // 40)
+        if d["done"] >= d["total"]:
+            ds.pop(0)
+            state["steam"]["games"].append(d["appid"])
+    steam_publish()
+    later(0.5, steam_tick)
+
+
+def steam_uninstall(appid):
+    with lock:
+        st = state["steam"]
+        st["downloads"] = [d for d in st["downloads"] if d["appid"] != appid]
+        st["games"] = [g for g in st["games"] if g != appid]
+    steam_publish()
 
 
 def set_connected(ssid):
@@ -282,10 +325,16 @@ class Handler(BaseHTTPRequestHandler):
                 later(3, lambda: result({"state": "done", "packages": pkgs, "running": False}))
             return self.reply(202)
         if path == "/v1/steam":
+            req = body
             with lock:
                 steam = state["steam"]
                 if not steam["allowed"]:
                     return self.error(409, "steam.needs_install")
+                # 4.2c: Steam's confirmation is accepted at once; downloads move on by themselves
+                if req.get("install"):
+                    later(1.5, lambda: steam_install(req["install"]))
+                elif req.get("uninstall"):
+                    later(1.5, lambda: steam_uninstall(req["uninstall"]))
                 starting = not steam["running"]
                 steam["running"] = True
                 if starting:
@@ -391,7 +440,7 @@ def read_events(path):
                 with lock:            # games and apps announced by events are "running"
                     if kind == "fake.steam":
                         state["steam"].update(payload)
-                        continue
+                        kind, payload = "steam.changed", json.loads(json.dumps(state["steam"]))
                     if kind == "app.started":
                         state["apps"].append(payload)
                     elif kind == "app.exited":
@@ -401,6 +450,9 @@ def read_events(path):
 
 if __name__ == "__main__":
     sock = sys.argv[1]
+    if os.environ.get("FAKE_STEAM"):   # the invented Steam folder of fake-steam.py
+        state["steam"].update({"prepared": True, "account": True, "nvidia": True, "games": ["2001", "2002", "2010"],
+                               "away": {"2003": "Games SSD"}})
     if len(sys.argv) > 2:
         threading.Thread(target=read_events, args=(sys.argv[2],), daemon=True).start()
     if os.path.exists(sock):

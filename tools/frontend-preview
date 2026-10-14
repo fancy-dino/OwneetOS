@@ -23,6 +23,9 @@
 #   @nogames         (first line) start with no games, as on a new system
 #   @owneetd         (first line) with a pretend owneetd: invented networks, controllers and
 #                    Bluetooth devices (tools/preview-steps/fake-owneetd.py)
+#   @steam           (with @owneetd) an invented Steam folder with owned games, installed or not
+#                    (tools/preview-steps/fake-steam.py); the pretend owneetd installs and
+#                    uninstalls them, with downloads
 #   event TYPE JSON  (with @owneetd) the pretend owneetd sends an event, e.g.
 #                    event controller.battery {"id":"aa:bb:cc:dd:ee:01","name":"Xbox","battery":12}
 #   # …              comment
@@ -59,6 +62,7 @@ sudo systemd-nspawn -q -D "$BOX" sh -c \
 sudo cp "$STEPS" "$BOX/steps.txt"
 sudo cp "$ROOT/CREDITS.md" "$BOX/CREDITS.md"   # installed by owneet-base on the console
 sudo cp "$ROOT/tools/preview-steps/fake-owneetd.py" "$BOX/fake-owneetd.py"
+sudo cp "$ROOT/tools/preview-steps/fake-steam.py" "$BOX/fake-steam.py"
 
 # Virtual controller: an "Xbox 360 pad" (SDL maps it with SDL_GameControllerDB), driven
 # through a FIFO.
@@ -138,6 +142,10 @@ if ! grep -q '^@nogames' /steps.txt; then
     done
 fi
 echo "$HOME/games" > "$HOME/.config/owneet-frontend/game_dirs.txt"
+if grep -q '^@steam' /steps.txt; then
+    python3 /fake-steam.py "$HOME/Steam"
+    export OWNEET_STEAM_DIR="$HOME/Steam" FAKE_STEAM=1
+fi
 
 if grep -q '^@owneetd' /steps.txt; then
     mkfifo /tmp/owneetd-events
