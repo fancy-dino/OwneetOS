@@ -10,9 +10,9 @@ url="https://github.com/fancy-dino/OwneetOS"
 license=('GPL-3.0-or-later')
 depends=('bash' 'systemd' 'util-linux' 'gamescope' 'cage' 'mpv' 'vulkan-tools' 'ttf-dejavu')
 source=(owneet-session owneet-placeholder owneet-session-app owneet-xwayland owneet-session.profile.sh owneet-autologin.conf owneet.sysusers owneet.tmpfiles)
-sha256sums=('d939daf98e4d66b6380e52739f217e346d44941cc896e33202c9e0dc7e62050c'
-            '823be65a7a7867213e9c98d6735aeddedc630eb6f726440f40b3f0a72791231f'
-            '51a9154107b923a6a29b2bea04ecf2b643120490063434adcf6a7f10b5b110fe'
+sha256sums=('fb219be87567db710c2befd34a991cdb4f9a2602b33bfe8c610fdcc2dc19059f'
+            '2c33520ec66ac211dd60a3cb5f6ab70529befa7d3867ba2456d9d3e3f57797bf'
+            'ba2f8c1787d6f7c3922cf985be7ccece8e79e59b23ef36e0c4143850a4d42cb1'
             '899048ebc0b7fa851f8d8f970ca5a680774901b5509824a313490483dc35c933'
             '8ad352c32ba71d1b9f1867dd6e53ca56c7a960e771bf10950a7e201230a9bd0c'
             '9d99b689604e901a5b47f58ed8d436a7d88f4b9d24274982acccb14831fa0971'

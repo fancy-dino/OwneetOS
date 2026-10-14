@@ -6,7 +6,7 @@
 #   - every message is a string, or plural forms with at least "other";
 #   - every message the theme uses (Tr.tr / Tr.trn with a literal key, palette names) is in en.json;
 #   - translations use only the {placeholders} of the English message and no unknown keys;
-#   - the complete languages (English and Italian, PROJECT_RULES.md section 9) miss no message.
+#   - the complete languages (English and Italian, [[languages]]) miss no message.
 # Other languages may be partial (English is shown for missing messages): they are reported only.
 #
 #   tools/i18n-check            (also run by tools/lint)

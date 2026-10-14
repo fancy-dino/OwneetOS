@@ -3,7 +3,7 @@
 
 pkgname=owneet-xone
 pkgver=0.5.8
-pkgrel=2
+pkgrel=3
 pkgdesc="Xbox wireless dongle driver (xone) built for the OwneetOS kernel, and the firmware download helper"
 arch=('x86_64')
 url="https://github.com/dlundqvist/xone"
@@ -16,7 +16,7 @@ makedepends=('linux-headers')
 source=("xone-$pkgver.tar.gz::https://github.com/dlundqvist/xone/archive/refs/tags/v$pkgver.tar.gz"
         'owneet-xone-firmware' 'xone.modprobe.conf' '70-owneet-xone.rules')
 sha256sums=('f1905d5046ce79b94df0501045008203c4ae4ce6f43dbcf8bd04d7c944bf420e'
-            'bea212d5b9f20d990985f9076e14b16c93b152284c13fbd3bcdd2c758c2a6377'
+            '94e0dc2c5bfa3105d37f351c18799d6af69e2c5d29e869b75f6d892e376bad86'
             '83f0f7c4fbb83e1d0fe9f09698b753ed349ae0f7eb5b32e6551a5fba180b3507'
             'e799d4e25f44e38920dc6361473872c5a219a7a45e1299fee45ee931ed680a46')
 

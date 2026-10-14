@@ -226,7 +226,7 @@ Provider& SteamProvider::run(SearchContext& sctx)
         return *this;
 
 
-    // OwneetOS: play time and last played as Steam counts them (roadmap 4.1)
+    // OwneetOS: play time and last played as Steam counts them ([[step-4.1-steam-library]])
     const HashMap<QString, PlayStats> playtime = read_playtime(steamdir_path);
     int with_playtime = 0;
     for (const auto& entry : appid_game_map) {

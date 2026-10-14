@@ -5,9 +5,9 @@ that makes it boot, draw, play sound, talk to controllers and run games was writ
 software community, often by volunteers, over decades. **Thank you.**
 
 This page names the projects OwneetOS is built on and how they are licensed. The complete list of
-every package in an OwneetOS image, with its licence, is generated from the system itself (roadmap
-step 3.9, "About → Credits and licences"); every package's licence texts are installed in
-`/usr/share/licenses`.
+every package in an OwneetOS image, with its licence, is generated from the system itself
+([[step-3.9-settings]], "About → Credits and licences"); every package's licence texts are installed
+in `/usr/share/licenses`.
 
 Licences are given as [SPDX](https://spdx.org/licenses/) identifiers, as declared by each package.
 "And contributors" is meant literally: these projects are the work of many people.
@@ -68,7 +68,7 @@ Licences are given as [SPDX](https://spdx.org/licenses/) identifiers, as declare
 | [jfreymuth/pulse](https://github.com/jfreymuth/pulse) | Johann Freymuth | MIT | Talks to PipeWire for volume and outputs |
 | [jezek/xgb](https://github.com/jezek/xgb) | The XGB Authors (originally by Andrew Gallant), maintained by jezek | BSD-3-Clause | Talks to gamescope to choose what is on screen |
 
-## The console interface (from roadmap phase 3)
+## The console interface (from [[phase-3-frontend]])
 
 | Project | Who | Licence | What it does in OwneetOS |
 |---|---|---|---|
@@ -92,9 +92,9 @@ by `tools/branding/make-fonts` (Qt 5 cannot select variation axes); their licenc
 installed in `/usr/share/licenses/owneet-frontend/`.
 
 Interface sounds: made by the OwneetOS project owner with FL Studio (GPL-3.0-or-later). Sounds
-still to be delivered use placeholders (until roadmap 7.7) by [Kenney](https://kenney.nl)
-(Kenney Vleugels), "Interface Sounds" and "Music Jingles" packs, CC0 1.0 (public
-domain); sources listed in `frontend/sounds/SOURCES.md`.
+still to be delivered use placeholders (until [[step-7.7-final-interface-sounds]]) by
+[Kenney](https://kenney.nl) (Kenney Vleugels), "Interface Sounds" and "Music Jingles" packs, CC0 1.0
+(public domain); sources listed in `frontend/sounds/SOURCES.md`.
 
 ## Inspiration
 

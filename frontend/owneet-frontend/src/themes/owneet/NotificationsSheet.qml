@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The Notifications window (roadmap 3.11, approved demo design/demos/3.11-notifications.html),
-// opened with Y on the home screen: newest first, with the time and, where there is one, where A
-// takes you; X removes one, Y clears all, B closes.
+// The Notifications window ([[step-3.11-notifications]], approved demo
+// design/demos/3.11-notifications.html), opened with Y on the home screen: newest first, with the
+// time and, where there is one, where A takes you; X removes one, Y clears all, B closes.
 import QtQuick 2.15
 import "foundation"
 

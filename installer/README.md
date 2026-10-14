@@ -7,6 +7,6 @@ The **gamepad-driven installer**:
   bootloader, and configures the first boot.
 
 Wave 1 offers "Use the whole disk". Dual boot is considered in the design but is not required
-(PROJECT_RULES.md section 6). Tested only on virtual disks.
+([[installer-and-firmware]]). Tested only on virtual disks.
 
-Roadmap: phase 6.
+Plan: [[phase-6-first-boot-installer-disks]].

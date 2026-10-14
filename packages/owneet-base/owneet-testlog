@@ -1,11 +1,11 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Testers only (leaves the user ISO with the test boot entries, roadmap 7.4). When a USB stick
-# with a partition labelled OWNEETLOG (FAT32 or exFAT) is plugged in at boot, the system log and a
-# hardware report (every 10 s) are written there while the system runs, so that they survive a forced
-# power-off; Steam's own logs too (they name the tester's Steam account: the stick is theirs).
-# Nothing happens without that stick.
+# Testers only (leaves the user ISO with the test boot entries,
+# [[step-7.4-hardware-testing-and-v0.1.0]]). When a USB stick with a partition labelled OWNEETLOG
+# (FAT32 or exFAT) is plugged in at boot, the system log and a hardware report (every 10 s) are
+# written there while the system runs, so that they survive a forced power-off; Steam's own logs too
+# (they name the tester's Steam account: the stick is theirs). Nothing happens without that stick.
 
 set -u
 

@@ -3,7 +3,7 @@
 #
 # Firmware for the Xbox wireless dongle (xone driver). The firmware belongs to Microsoft and may
 # not be redistributed, so OwneetOS downloads it on the user's PC, from Microsoft's Windows Update
-# servers, only after the user has accepted Microsoft's terms (PROJECT_RULES.md section 7).
+# servers, only after the user has accepted Microsoft's terms ([[xbox-wireless-dongle]]).
 #
 #   owneet-xone-firmware status
 #       Connected dongles and whether their firmware is installed. Exit code 3 if some is missing.

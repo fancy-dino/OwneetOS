@@ -24,7 +24,7 @@ source=('owneetd-src.tar.gz' 'owneetd.service' '50-owneetd.preset'
         "gamecontrollerdb-$_sdldb.txt::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/gamecontrollerdb.txt"
         "gamecontrollerdb-LICENSE-$_sdldb::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/LICENSE")
 sha256sums=('SKIP'
-            '96c8efc684cfb759ade0fbab2b438655e46380d6a8476489df6b7cf00f00425c'
+            'fb009505ebefa5dea078102c8b53950a8f0ace98b0d91ae5cedf2454d874d858'
             '2a0b34565694c894f522721980ee014d8ada9e5ca6e77be199aaf845e87170fb'
             '05704193de80d2e0de3f1fe137d3b189b9c29986a2976ae87c5b6da1d64642c8'
             '31a567f64e305e209a81c69a5d00593eb0a6a9f82248a6627ab0066d272a2ea8'

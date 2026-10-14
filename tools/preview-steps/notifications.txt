@@ -1,5 +1,5 @@
 @owneetd
-# Notifications (step 3.11), with events from the pretend owneetd.
+# Notifications ([[step-3.11-notifications]]), with events from the pretend owneetd.
 wait 1
 event controller.battery {"id":"aa:bb:cc:dd:ee:01","name":"Xbox Wireless Controller","battery":12}
 event controller.added {"id":"aa:bb:cc:dd:ee:05","name":"DualSense Wireless Controller","battery":64}

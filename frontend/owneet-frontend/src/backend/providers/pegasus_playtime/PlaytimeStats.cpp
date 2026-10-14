@@ -284,7 +284,8 @@ void PlaytimeStats::onGameFinished(model::GameFile* const gamefile)
     Q_ASSERT(gamefile);
     Q_ASSERT(m_last_launch_time.isValid());
 
-    // OwneetOS: Steam counts the play time of its games (read from its files, roadmap 4.1)
+    // OwneetOS: Steam counts the play time of its games (read from its files,
+    // [[step-4.1-steam-library]])
     if (gamefile->uri().startsWith(QLatin1String("steam:")))
         return;
 

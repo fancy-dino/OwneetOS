@@ -10,7 +10,7 @@ VM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGES_DIR="$VM_DIR/images"
 RUN_DIR="$VM_DIR/run"
 
-DEFAULT_DISK_SIZE="32G"   # matches the minimum disk size in PROJECT_RULES.md section 3
+DEFAULT_DISK_SIZE="32G"   # matches the minimum disk size in [[system-requirements]]
 DEFAULT_MEM_MB="4096"     # matches the minimum RAM target
 DEFAULT_CPUS="4"
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Settings → System → Credits and licences (PROJECT_RULES.md section 12): the projects OwneetOS is
+// Settings → System → Credits and licences ([[legal-compliance]]): the projects OwneetOS is
 // built on (CREDITS.md), then every installed package with its licence. The right stick (or
 // up / down) scrolls the list.
 import QtQuick 2.15

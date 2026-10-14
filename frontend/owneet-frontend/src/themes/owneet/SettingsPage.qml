@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Settings (roadmap 3.9, approved demo design/demos/3.9-settings.html): the sections in a list on
-// the left, the panel of the selected one on the right (it follows the selection). Right or A
-// enters the panel, B or left at its edge goes back to the list; the right stick scrolls it.
+// Settings ([[step-3.9-settings]], approved demo design/demos/3.9-settings.html): the sections in a
+// list on the left, the panel of the selected one on the right (it follows the selection). Right or
+// A enters the panel, B or left at its edge goes back to the list; the right stick scrolls it.
 // Built in parts: Sound, Appearance, Language, Storage and System first; Network, Controllers and
 // Bluetooth second; Display third. Rows that come from owneetd (networks, controllers, devices)
 // have a `key`, so the selection stays on the same one when the lists change.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// OwneetOS interface translations (roadmap step 3.4, docs/translating.md).
+// OwneetOS interface translations ([[step-3.4-internationalisation]], docs/translating.md).
 //
 // Each language is one JSON file named after its language tag (en.json, it.json, pt-BR.json…)
 // in one of the language folders; a new language needs no code change. English is the default

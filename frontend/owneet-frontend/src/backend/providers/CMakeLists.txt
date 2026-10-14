@@ -53,7 +53,7 @@ endfunction()
 
 
 # OwneetOS: only local game data. Not built: android_apps (Play Store pages), es2, gog (GOG
-# API), launchbox, logiqx, lutris, playnite, skraper (not needed). docs/frontend-architecture.md
+# API), launchbox, logiqx, lutris, playnite, skraper (not needed). [[frontend-architecture]]
 add_subdirectory(pegasus_favorites)
 add_subdirectory(pegasus_media)
 add_subdirectory(pegasus_metadata)

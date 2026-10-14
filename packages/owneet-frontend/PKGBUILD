@@ -3,7 +3,7 @@
 
 pkgname=owneet-frontend
 pkgver=0.16.7
-pkgrel=1
+pkgrel=2
 pkgdesc="OwneetOS console interface, a modified version of Pegasus Frontend by Mátyás Mustoha and contributors"
 arch=('x86_64')
 url="https://github.com/fancy-dino/OwneetOS"
@@ -13,7 +13,7 @@ url="https://github.com/fancy-dino/OwneetOS"
 license=('GPL-3.0-or-later' 'MIT' 'OFL-1.1' 'Zlib' 'CC0-1.0')
 depends=('qt5-base' 'qt5-declarative' 'qt5-multimedia' 'qt5-svg' 'sdl2-compat' 'libxcb'
          'owneet-branding')
-# ffmpeg: the interface sounds are converted when the package is built (design/sounds.md)
+# ffmpeg: the interface sounds are converted when the package is built ([[interface-sounds-spec]])
 makedepends=('cmake' 'ninja' 'qt5-tools' 'ffmpeg')
 # !lto: Qt's two-pass resource compiler (rcc, big resources) fails with LTO objects.
 options=('!debug' '!lto')
@@ -29,8 +29,8 @@ build() {
     -DOWNEET_DATE="$(date -u -d "@${SOURCE_DATE_EPOCH:-0}" +%F)"
   ninja -C build
 
-  # Interface sounds (design/sounds.md): the delivered files stay as made; here they become WAV
-  # 16-bit, 48 kHz (PipeWire's own rate), mono, without silence at the start or at the end.
+  # Interface sounds ([[interface-sounds-spec]]): the delivered files stay as made; here they become
+  # WAV 16-bit, 48 kHz (PipeWire's own rate), mono, without silence at the start or at the end.
   mkdir -p build/sounds
   local wav
   for wav in frontend/sounds/*.wav; do

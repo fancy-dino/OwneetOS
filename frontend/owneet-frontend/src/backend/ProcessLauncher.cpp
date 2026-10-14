@@ -317,8 +317,9 @@ void ProcessLauncher::runWithDaemon(const QString& command, const QStringList& a
     });
 }
 
-// OwneetOS: a Steam game is started by Steam (owneetd starts Steam when needed, roadmap 4.2);
-// owneetd lists it as "steam:APPID" once Steam has launched it, and its end is app.exited too.
+// OwneetOS: a Steam game is started by Steam (owneetd starts Steam when needed,
+// [[step-4.2-steam-integration]]); owneetd lists it as "steam:APPID" once Steam has launched it,
+// and its end is app.exited too.
 void ProcessLauncher::runSteamGame()
 {
     const QString id = QStringLiteral("steam:") + m_steam_appid;

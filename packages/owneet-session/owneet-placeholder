@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Fullscreen placeholder shown by owneet-session until the real console UI exists (roadmap 3.2).
-# Shows the OwneetOS background colour and which session mode is running.
+# Fullscreen placeholder shown by owneet-session until the real console UI exists
+# ([[step-3.2-build-and-package-the-frontend]]). Shows the OwneetOS background colour and which
+# session mode is running.
 #
 # Test hooks (kernel command line):
 #   owneet.debug.placeholder_exit=SECONDS   quit after SECONDS (session restart and fallback logic)
@@ -32,5 +33,5 @@ esac
 exit_after="$(grep -oE '(^| )owneet\.debug\.placeholder_exit=[0-9]+' /proc/cmdline | tail -1 | cut -d= -f2 || true)"
 if [[ -n "$exit_after" ]]; then args+=(--length="$exit_after"); args=("${args[@]/--keep-open=yes/--keep-open=no}"); fi
 
-# Deep navy background of the approved design (PROJECT_RULES.md section 9).
+# Deep navy background of the approved design ([[design-direction]]).
 exec mpv "${args[@]}" 'av://lavfi:color=c=0x0E1424:s=1280x720:r=2'

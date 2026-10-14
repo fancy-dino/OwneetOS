@@ -1,5 +1,6 @@
 @owneetd
-# Settings (step 3.9, part 2): Network, Controllers and Bluetooth, with the pretend owneetd.
+# Settings ([[step-3.9-settings]], part 2): Network, Controllers and Bluetooth, with the pretend
+# owneetd.
 pad lb
 wait 2
 shot 01-network

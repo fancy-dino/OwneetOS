@@ -1,6 +1,7 @@
 @owneetd
-# Library with "Add games" (step 4.2, approved demo 4.2): the grid's last place, the choice of
-# sources, the guide to games on a disk, Steam starting, and Steam in a live system without memory.
+# Library with "Add games" ([[step-4.2-steam-integration]], approved demo 4.2): the grid's last
+# place, the choice of sources, the guide to games on a disk, Steam starting, and Steam in a live
+# system without memory.
 pad rb
 key Next Next Next Next
 shot 01-add-games-place

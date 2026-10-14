@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// While Steam starts (roadmap 4.2): Steam shows nothing until its window is ready, which takes a
-// few minutes the first time (it downloads about 2.4 GB). The shell closes this screen when
-// Steam's or the game's window appears, or when Steam stops; B hides it and Steam goes on.
+// While Steam starts ([[step-4.2-steam-integration]]): Steam shows nothing until its window is
+// ready, which takes a few minutes the first time (it downloads about 2.4 GB). The shell closes
+// this screen when Steam's or the game's window appears, or when Steam stops; B hides it and Steam
+// goes on.
 import QtQuick 2.15
 import "foundation"
 

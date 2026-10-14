@@ -64,7 +64,7 @@ HashMap<KeyEvent, QVector<QKeySequence>, EnumHash> default_keymap()
         { KeyEvent::RIGHT, { Qt::Key_Right }},
         { KeyEvent::UP, { Qt::Key_Up }},
         { KeyEvent::DOWN, { Qt::Key_Down }},
-        // OwneetOS input map (PROJECT_RULES.md section 9.1), keyboard as an optional fallback
+        // OwneetOS input map ([[controller-input-map]]), keyboard as an optional fallback
         { KeyEvent::ACCEPT, { Qt::Key_Return, Qt::Key_Enter, Qt::Key_Space, GamepadKeyId::A }},
         { KeyEvent::CANCEL, { Qt::Key_Escape, Qt::Key_Backspace, GamepadKeyId::B }},
         { KeyEvent::DETAILS, { Qt::Key_X, GamepadKeyId::X }},              // secondary action

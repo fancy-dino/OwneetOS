@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package bluetooth manages Bluetooth through BlueZ: device list, connect/disconnect/forget and
-// automatic gamepad pairing with no input (PROJECT_RULES.md section 7): while auto-pair is on,
+// automatic gamepad pairing with no input ([[controllers-and-pairing]]): while auto-pair is on,
 // every device that identifies as a gamepad is paired, trusted and connected by itself.
 package bluetooth
 

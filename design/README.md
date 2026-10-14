@@ -6,7 +6,7 @@ Mockups and design assets.
   boot, home, library, settings). Open it in a browser; it can be driven with the keyboard or a gamepad.
 
 - [`demos/`](demos/): interactive demos, one per screen or building block, shown to the owner
-  before the code is written (PROJECT_RULES.md section 9). Open them in a browser and drive them
+  before the code is written ([[demo-before-code]]). Open them in a browser and drive them
   with a gamepad or the keyboard:
   - [`3.3-theme-foundations.html`](demos/3.3-theme-foundations.html): type scale, palette tokens
     with live contrast check, focus ring, components, text sizes, button prompts (Xbox /
@@ -23,10 +23,11 @@ Mockups and design assets.
     and pairing, sound with sliders, display with several screens, appearance, language, disks,
     system with power and credits).
 
-- [`sounds.md`](sounds.md): the interface sounds (list, length, file format), provided by the
-  owner (roadmap 3.12).
+- The interface sounds (list, length, file format), provided by the owner
+  ([[step-3.12-interface-sounds]]): [[interface-sounds-spec]].
 
-Design rules (palettes as tokens, fonts, TV safe area, input map) are in PROJECT_RULES.md section 9.
+Design rules (palettes as tokens, fonts, TV safe area, input map) are in [[design-direction]],
+[[design-tokens]] and [[controller-input-map]].
 
 ## Fonts
 

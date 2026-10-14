@@ -1,10 +1,10 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Testers only (roadmap 4.2b): updates the OwneetOS packages of a system installed with
-# owneet-tester-install from a USB stick, without publishing anything online. The stick is the
-# OWNEETLOG one (label OWNEETLOG) with a folder owneet-updates made by tools/make-update-stick
-# (a copy of the [owneet] repository built by tools/build-packages).
+# Testers only ([[step-4.2b-updates-from-a-usb-stick]]): updates the OwneetOS packages of a system
+# installed with owneet-tester-install from a USB stick, without publishing anything online. The
+# stick is the OWNEETLOG one (label OWNEETLOG) with a folder owneet-updates made by
+# tools/make-update-stick (a copy of the [owneet] repository built by tools/build-packages).
 #
 #   owneet-update check   which OwneetOS packages on the stick are newer than the installed ones
 #   owneet-update apply   install them
@@ -12,11 +12,11 @@
 #
 # Runs as root, started through systemd only (owneet-update@check / @apply.service, which a polkit
 # rule lets the console user start; owneet-update-boot.service). The result is written to
-# /run/owneet/update.json for owneetd: {"state": …, "packages": [{"name", "from", "to"}], "message"}.
-# States: none, available, installing, done, failed, no_stick, not_tester.
+# /run/owneet/update.json for owneetd: {"state": …, "packages": [{"name", "from", "to"}],
+# "message"}. States: none, available, installing, done, failed, no_stick, not_tester.
 #
 # Only systems with the tester mark (/etc/owneet/tester) accept these unsigned packages (owner's
-# decision, PROJECT_RULES.md, 2026-10-13). Arch Linux packages keep coming from the pinned
+# decision, [[test-pcs]], 2026-10-13). Arch Linux packages keep coming from the pinned
 # snapshot online.
 
 set -uo pipefail

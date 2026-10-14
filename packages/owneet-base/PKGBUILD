@@ -3,7 +3,7 @@
 
 pkgname=owneet-base
 pkgver=0.0.31
-pkgrel=1
+pkgrel=2
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
 url="https://github.com/fancy-dino/OwneetOS"
@@ -26,12 +26,12 @@ sha256sums=('SKIP'
             'e739678148442c4770b5c7cf793df180bc475cd33cf1bcb347affdb978f84fc3'
             'dfcdb91edaa6fd46121f8f3a2ce95b0a8e461c5f04c6f9325a1babe45e53cdea'
             '471544b748df8fd99f6ec426784a1c389ae9db8f829ef392fda862bd91cc4f49'
-            '829643916b981d95b061d8a9969d43e7b0c0788f8215e00020ec6894da203d09'
+            '8c2c40042e66beebbf2cef53f13ffc13274ce217b54795b671bd90ebe4b4f05a'
             '21a26bf30666c8897ec0425f967e0a415352e22a92ba3a243e0d57fca3e55a9b'
-            '5619af6ca53f36204715895ad444ab335a2ab0e38c281e25fe8a0dd8e3ff93f4'
+            'c1380a518174ea5d23be5afa65ddb4d53ae89da705ac7a643f0587dec659579a'
             '9aa02524ad29c812ce67973e7f01c811b7e559a5ace44ad5e4418db58373b001'
             '999400330a130b34052529fd8ed5b0dc96b4e205b2b37f885aa8c8ee349a6b0e'
-            'b8a67e592fe0f3c4b6d2eccd94c2ff82646327430228df2b699f6c3115897820'
+            '9c4efd23ee441a99659eac4504d38d8d1064662efe207f2b432b5d94167ac766'
             'a04b21bb362ce4a73400ce4b2abd3fbd9fd8c4ff0f5f1db51e20452c17bf3344'
             '22c307334b58ee15cb069af7b14861d4f828bd9fcf2634bf55bb56d5583d9b2b'
             'dbb21f3c431a9cd4be2a5fcec6489b7d3c08136dcde9aaddd0f35a4c9ca9389b')
@@ -40,7 +40,7 @@ package() {
   install -Dm644 owneet-release "$pkgdir/usr/share/owneet/owneet-release"
   install -Dm755 owneet-diagnostics "$pkgdir/usr/lib/owneet/owneet-diagnostics"
   install -Dm644 owneet-diagnostics.service "$pkgdir/usr/lib/systemd/system/owneet-diagnostics.service"
-  # Testers only (roadmap 7.4): log to a USB stick labelled OWNEETLOG
+  # Testers only ([[step-7.4-hardware-testing-and-v0.1.0]]): log to a USB stick labelled OWNEETLOG
   install -Dm755 owneet-testlog "$pkgdir/usr/lib/owneet/owneet-testlog"
   install -Dm644 owneet-testlog.service "$pkgdir/usr/lib/systemd/system/owneet-testlog.service"
   install -Dm755 owneet-tester-install "$pkgdir/usr/lib/owneet/owneet-tester-install"

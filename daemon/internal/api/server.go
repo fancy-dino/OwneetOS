@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package api serves the owneetd HTTP + JSON API on a Unix socket (docs/daemon-design.md).
+// Package api serves the owneetd HTTP + JSON API on a Unix socket ([[owneetd-design]]).
 package api
 
 import (

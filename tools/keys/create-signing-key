@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Creates the OwneetOS package signing key (PROJECT_RULES.md section 5). Run ONCE, by the owner,
+# Creates the OwneetOS package signing key ([[package-signing]]). Run ONCE, by the owner,
 # on their own computer:
 #
 #   tools/keys/create-signing-key EMAIL [OUTPUT_DIR]

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// OwneetOS design tokens and scale (PROJECT_RULES.md section 9; approved demo
+// OwneetOS design tokens and scale ([[design-tokens]]; approved demo
 // design/demos/3.3-theme-foundations.html). A screen never contains a hard-coded color or size:
 // it uses these.
 pragma Singleton
@@ -21,7 +21,7 @@ QtObject {
     property real textScale: 1.0                         // 0.9, 1.0, 1.2, 1.4
     property bool reduceMotion: false
     property bool showSafeArea: false                    // dashed outline of the TV safe area
-    property bool uiSounds: true                         // interface sounds (step 3.12)
+    property bool uiSounds: true                         // [[step-3.12-interface-sounds]]
     property int uiSoundsVolume: 70
     property string keyboardSetting: "same"              // "same" as the language, or a layout
     readonly property int motionMs: reduceMotion ? 0 : 160

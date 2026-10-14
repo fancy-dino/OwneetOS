@@ -18,11 +18,11 @@ import (
 	"time"
 )
 
-// Steam (roadmap 4.2) runs as the app "steam". It is started without GAMESCOPE_WAYLAND_DISPLAY:
-// with it, Steam takes over gamescope's control of what is on screen and its own window stays
-// hidden (docs/daemon-design.md). A game started by Steam runs inside Steam's unit, under Steam's
-// launcher ("reaper SteamLaunch AppId=N -- …"): owneetd lists it as the game "steam:N", tags its
-// windows with an app id of its own and closes it without closing Steam.
+// Steam ([[step-4.2-steam-integration]]) runs as the app "steam". It is started without
+// GAMESCOPE_WAYLAND_DISPLAY: with it, Steam takes over gamescope's control of what is on screen and
+// its own window stays hidden ([[owneetd-design]]). A game started by Steam runs inside Steam's
+// unit, under Steam's launcher ("reaper SteamLaunch AppId=N -- …"): owneetd lists it as the game
+// "steam:N", tags its windows with an app id of its own and closes it without closing Steam.
 
 // SteamID is the id of the Steam app.
 const SteamID = "steam"
@@ -33,7 +33,8 @@ const steamGamePrefix = "steam:"
 const steamUIAppID = 769
 
 // SteamLiveMinRAM is the memory Steam needs in the live system, where its first download (about
-// 2.4 GB) is kept in RAM: 12 GB of RAM, as the kernel reports it (PROJECT_RULES.md, 2026-10-11).
+// 2.4 GB) is kept in RAM: 12 GB of RAM, as the kernel reports it ([[steam-integration]],
+// 2026-10-11).
 const SteamLiveMinRAM = 11 << 30
 
 // ErrSteamNeedsInstall: the live system has too little memory for Steam's files.

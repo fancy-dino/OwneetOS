@@ -9,7 +9,8 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/update"
 )
 
-// Update is implemented by *update.Manager (testers' updates from a USB stick, roadmap 4.2b).
+// Update is implemented by *update.Manager (testers' updates from a USB stick,
+// [[step-4.2b-updates-from-a-usb-stick]]).
 type Update interface {
 	Status() update.Status
 	Check() error

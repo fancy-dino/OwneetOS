@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package update lets testers update the OwneetOS packages of an installed test PC from a USB
-// stick (roadmap 4.2b): owneetd starts the root units owneet-update@check / @apply.service (a polkit
-// rule allows only these to the console user), which write their result to /run/owneet/update.json;
-// owneetd reads it and sends "update.changed". The OwneetOS updates of every user come later (7.1).
+// stick ([[step-4.2b-updates-from-a-usb-stick]]): owneetd starts the root units owneet-update@check
+// / @apply.service (a polkit rule allows only these to the console user), which write their result
+// to /run/owneet/update.json; owneetd reads it and sends "update.changed". The OwneetOS updates of
+// every user come later (7.1).
 package update
 
 import (

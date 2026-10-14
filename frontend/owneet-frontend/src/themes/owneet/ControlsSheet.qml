@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Quick menu → Controls and features (roadmap 3.13): a read-only guide to every button
-// (PROJECT_RULES.md section 9.1), scrolled like Credits and licences (right stick, or up / down).
+// Quick menu → Controls and features ([[step-3.13-start-up-animation-and-power-options]]): a
+// read-only guide to every button ([[controller-input-map]]), scrolled like Credits and licences
+// (right stick, or up / down).
 import QtQuick 2.15
 import "foundation"
 

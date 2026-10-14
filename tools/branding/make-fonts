@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Generates the static fonts of the OwneetOS interface from the variable fonts of the approved
-# design (PROJECT_RULES.md section 9), pinned to a Google Fonts commit and checked by SHA-256.
+# design ([[design-direction]]), pinned to a Google Fonts commit and checked by SHA-256.
 # Qt 5 cannot select variation axes (e.g. width 80), so each weight becomes its own file.
 # Runs in the builder VM (needs python-fonttools and network access):
 #

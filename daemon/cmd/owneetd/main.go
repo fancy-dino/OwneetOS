@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // owneetd is the OwneetOS system daemon. It runs as a systemd user service of the console user
-// and serves its API on a Unix socket (docs/daemon-design.md).
+// and serves its API on a Unix socket ([[owneetd-design]]).
 package main
 
 import (
@@ -97,7 +97,7 @@ func run(configPath string) error {
 
 	pads := &gamepad.Manager{Broker: broker, Log: log, DB: db, BluetoothName: bt.Name}
 	if appsAPI != nil {
-		// The Guide button belongs to the system (PROJECT_RULES.md section 9.1).
+		// The Guide button belongs to the system ([[controller-input-map]]).
 		pads.OnGuide = func(_ string, down bool) { appsMgr.Guide(down) }
 	}
 	bt.Controllers = func() int { return len(pads.List()) }
@@ -178,7 +178,7 @@ func run(configPath string) error {
 	}
 	go screen.Run(ctx)
 
-	// Testers' updates from a USB stick (roadmap 4.2b)
+	// Testers' updates from a USB stick ([[step-4.2b-updates-from-a-usb-stick]])
 	var updateAPI api.Update
 	if starter, err := update.NewSystemdStarter(); err == nil {
 		defer starter.Close()

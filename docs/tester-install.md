@@ -1,8 +1,9 @@
 # Installing OwneetOS on a test PC
 
-For **testers only** (roadmap step 4.2a). The user installer, used with the controller and with the
-console's look, is step 6.4. This one is a text screen used with a keyboard, and it leaves the
-user ISO with the other test boot entries (roadmap 7.4).
+For **testers only** ([[step-4.2a-tester-installer]]). The user installer, used with the controller
+and with the console's look, is [[step-6.4-installer-ui]]. This one is a text screen used with a
+keyboard, and it leaves the user ISO with the other test boot entries
+([[step-7.4-hardware-testing-and-v0.1.0]]).
 
 ## Before you start
 
@@ -33,10 +34,10 @@ user ISO with the other test boot entries (roadmap 7.4).
 | Boot | systemd-boot, hidden menu (hold a key at start-up): OwneetOS, diagnostics, fallback start-up image |
 | System | the same files as the USB stick that was tested; initramfs without the live hooks |
 | pacman | the same Arch Linux Archive snapshot as the stick |
-| Tester mark | `/etc/owneet/tester` (updates from a USB stick, step 4.2b) |
+| Tester mark | `/etc/owneet/tester` (updates from a USB stick, [[step-4.2b-updates-from-a-usb-stick]]) |
 | Log | `/var/log/owneet-tester-install.log` |
 
-## Updating a test PC (step 4.2b)
+## Updating a test PC ([[step-4.2b-updates-from-a-usb-stick]])
 
 No new USB stick to write: the new OwneetOS packages travel on the **OWNEETLOG** stick.
 

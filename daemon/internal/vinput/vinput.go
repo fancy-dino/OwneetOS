@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package vinput provides the virtual keyboard and mouse that the on-screen keyboard and other
-// gamepad features use to type text and press keys in the focused app (roadmap step 2.4).
+// gamepad features use to type text and press keys in the focused app
+// ([[step-2.4-virtual-input-uinput]]).
 package vinput
 
 import (

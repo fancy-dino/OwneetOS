@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Client of owneetd, the OwneetOS system daemon (roadmap 3.8, docs/daemon-design.md): HTTP + JSON
-// over its Unix socket ($XDG_RUNTIME_DIR/owneetd.sock), and its event stream (/v1/events), which
-// reconnects by itself. QML sees it as `owneetd`:
+// Client of owneetd, the OwneetOS system daemon ([[step-3.8-frontend-daemon-bridge]],
+// [[owneetd-design]]): HTTP + JSON over its Unix socket ($XDG_RUNTIME_DIR/owneetd.sock), and its
+// event stream (/v1/events), which reconnects by itself. QML sees it as `owneetd`:
 //   owneetd.get("/v1/apps", (status, data) => …)     also post(path, body, cb), put, remove
 //   owneetd.event(type, data)                        every event of the stream
 //   owneetd.connected                                the event stream is up

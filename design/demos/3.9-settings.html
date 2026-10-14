@@ -1,9 +1,9 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
-<!-- OwneetOS — interactive demo for roadmap step 3.9 (Settings). Open in a browser; drive it with
-     a gamepad or the keyboard. Fonts come from Google Fonts for the demo only (the console bundles
-     them); sounds come from sounds.js (frontend/sounds/). Networks, controllers, outputs, screens
-     and disks are invented: the console gets them from owneetd. -->
+<!-- OwneetOS — interactive demo for [[step-3.9-settings]] (Settings). Open in a browser; drive it
+     with a gamepad or the keyboard. Fonts come from Google Fonts for the demo only (the console
+     bundles them); sounds come from sounds.js (frontend/sounds/). Networks, controllers, outputs,
+     screens and disks are invented: the console gets them from owneetd. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -792,7 +792,7 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
   focus = function (el, silent) { _focus(el, silent); if (sheetOpen && el && el.dataset.pal) applyPalette(el.dataset.pal); };
 
   /* ---------- Gamepad ---------- */
-  // Right stick: scrolls the page or the list in a window (PROJECT_RULES.md section 9.1)
+  // Right stick: scrolls the page or the list in a window ([[controller-input-map]])
   function scrollPage(dir) {
     const box = sheetOpen ? $('#sheet .scroll') : section === 'settings' ? $('#panel') : null;
     if (!box) { feedback('edge'); return; }

@@ -2,7 +2,7 @@
 
 The OwneetOS interface is translated with one **JSON file per language** in
 [`frontend/i18n/`](../frontend/i18n/). Adding a language needs no code change: add its file, and
-it appears in **Appearance → Language** (Settings → Language from step 3.9).
+it appears in **Appearance → Language** (Settings → Language from [[step-3.9-settings]]).
 
 - **English** (`en.json`) is the default language and the reference: every message exists there
   first. When a message is missing in a language, the English one is shown.

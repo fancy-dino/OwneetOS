@@ -1,4 +1,4 @@
-# Settings (step 3.9, part 1): sections, panels, sliders, pickers, power, credits.
+# Settings ([[step-3.9-settings]], part 1): sections, panels, sliders, pickers, power, credits.
 pad lb
 shot 00-settings-network-no-owneetd
 pad down down

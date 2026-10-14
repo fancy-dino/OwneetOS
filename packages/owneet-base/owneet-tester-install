@@ -1,10 +1,11 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Testers only (leaves the user ISO with the test boot entries, roadmap 7.4): installs OwneetOS from
-# the live USB stick onto a whole internal disk, when the system is started from the boot entry
-# "Install OwneetOS (testers)" (kernel argument owneet.tester_install). Text screen on tty1, used
-# with a keyboard. The user installer, with the console's look and the controller, is step 6.4.
+# Testers only (leaves the user ISO with the test boot entries,
+# [[step-7.4-hardware-testing-and-v0.1.0]]): installs OwneetOS from the live USB stick onto a whole
+# internal disk, when the system is started from the boot entry "Install OwneetOS (testers)" (kernel
+# argument owneet.tester_install). Text screen on tty1, used with a keyboard. The user installer,
+# with the console's look and the controller, is [[step-6.4-installer-ui]].
 #
 # What it does (docs/tester-install.md):
 #   - lists the internal disks (never the USB stick it runs from, never other USB disks) and asks
@@ -21,7 +22,7 @@ LOG=/run/owneet-tester-install.log
 TARGET=/mnt/owneet-target
 SOURCE=/mnt/owneet-source
 BOOTMNT=/run/archiso/bootmnt
-MIN_BYTES=$((30 * 1000 * 1000 * 1000))   # the 32 GB minimum (PROJECT_RULES.md section 3), with margin
+MIN_BYTES=$((30 * 1000 * 1000 * 1000))   # the 32 GB minimum ([[system-requirements]]), with margin
 
 exec > >(tee -a "$LOG") 2>&1
 

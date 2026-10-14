@@ -44,7 +44,7 @@ first if it is missing.
 ## Signing
 
 Packages and the repository database are signed with the OwneetOS signing subkey
-(PROJECT_RULES.md section 5). Public key: [`owneet-keyring/owneet.gpg`](owneet-keyring/owneet.gpg),
+([[package-signing]]). Public key: [`owneet-keyring/owneet.gpg`](owneet-keyring/owneet.gpg),
 primary key fingerprint `B3BD F4E3 E477 2D3F 7E86  1A87 8D02 23BC EE51 456E`.
 
 | Who | Command | When |

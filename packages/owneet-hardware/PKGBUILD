@@ -3,7 +3,7 @@
 
 pkgname=owneet-hardware
 pkgver=0.0.5
-pkgrel=1
+pkgrel=2
 pkgdesc="OwneetOS hardware support: firmware, GPU drivers (AMD, Intel, NVIDIA), audio, network, Bluetooth"
 arch=('any')
 url="https://github.com/fancy-dino/OwneetOS"
@@ -29,7 +29,7 @@ sha256sums=('2b93ae8686f0f3d192198e7ff94b0790f4ade9314a6f138cdac958872cfff70d'
             '2c0da903acbed5a54ef471002dbc61422604153a4d537a32a90237063d008f00'
             '3bf736a7d5438a7cfeccd88d26515791b16f9e7dd8b978bcec264fcc6c3bd412'
             '88f23a401cc32eeadacfb8ff7bb5bc7b5c608c3926382ba164f29f7a5b69ac24'
-            '8cf2c195b8eaad647c591a2b1e65d7f71d79093406c2f2de2b45e0b4f7d858c2'
+            '4d1e5cbfd6d79f174a414697564fbbfdc030778dad1444661b92acebf70e8093'
             '2af13c1829a66561198e1ebfb8b948319e418bae09fa09865ff8180814dd7c19'
             'a3a127e7237dac4c751883b11deca681349ac3658210970071e3a1e34961d686')
 

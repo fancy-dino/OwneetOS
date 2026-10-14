@@ -1,8 +1,9 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
-<!-- OwneetOS — interactive demo for roadmap step 3.10 (on-screen keyboard). Open in a browser;
-     drive it with a gamepad or the keyboard. Fonts come from Google Fonts for the demo only (the
-     console bundles them); sounds come from sounds.js (frontend/sounds/). Networks are invented. -->
+<!-- OwneetOS — interactive demo for [[step-3.10-on-screen-keyboard]] (on-screen keyboard). Open in
+     a browser; drive it with a gamepad or the keyboard. Fonts come from Google Fonts for the demo
+     only (the console bundles them); sounds come from sounds.js (frontend/sounds/). Networks are
+     invented. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -238,7 +239,7 @@ A Wi-Fi password needs 8 to 63 characters; "wrongpassword" is refused. Address: 
     eyeoff: `<svg viewBox="0 0 24 24" ${S}><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>`,
   };
 
-  /* ---------- Sounds: the "click" for every key and delete (design/sounds.md) ---------- */
+  /* ---------- Sounds: the "click" for every key and delete ([[interface-sounds-spec]]) ------- */
   let soundOn = true, ctx = null;
   const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', notify: 'notify', error: 'error' };
   const buffers = {};

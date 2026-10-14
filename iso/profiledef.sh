@@ -11,7 +11,7 @@ iso_publisher="OwneetOS <https://github.com/fancy-dino/OwneetOS>"
 iso_application="OwneetOS"
 iso_version="$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y.%m.%d)"
 install_dir="owneet"
-# UEFI only, booted by systemd-boot (PROJECT_RULES.md section 4).
+# UEFI only, booted by systemd-boot ([[boot-experience]]).
 bootmodes=('uefi.systemd-boot')
 pacman_conf="pacman.conf"
 airootfs_image_type="squashfs"

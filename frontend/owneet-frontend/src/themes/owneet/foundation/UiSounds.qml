@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The interface sounds (roadmap 3.12, design/sounds.md): one per button press, the most specific
-// one (Nav.feedback picks it). Every sound is loaded at start, so it plays at once. Settings →
-// Sound turns them on or off and sets their volume; they are silent while a game is on screen.
-// A silent sound loops from the start, so the sound output (e.g. a TV over HDMI) is running and in
-// sync before the first real sound: otherwise the first one after boot is lost while the TV
-// picks up the audio (owner's NiPoGi test, 2026-10-11).
+// The interface sounds ([[step-3.12-interface-sounds]], [[interface-sounds-spec]]): one per button
+// press, the most specific one (Nav.feedback picks it). Every sound is loaded at start, so it plays
+// at once. Settings → Sound turns them on or off and sets their volume; they are silent while a
+// game is on screen. A silent sound loops from the start, so the sound output (e.g. a TV over HDMI)
+// is running and in sync before the first real sound: otherwise the first one after boot is lost
+// while the TV picks up the audio (owner's NiPoGi test, 2026-10-11).
 import QtQuick 2.15
 import QtMultimedia 5.15
 

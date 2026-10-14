@@ -9,4 +9,4 @@
 
 Installed automatically through Brave's managed policies. No third-party logos are bundled.
 
-Roadmap: phase 5.
+Plan: [[phase-5-streaming-apps-and-media]].

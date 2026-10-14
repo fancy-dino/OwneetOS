@@ -5,7 +5,7 @@ console. Everything — installation, first setup, games, streaming apps, settin
 with a gamepad. Mouse and keyboard are never required.
 
 > **Status: pre-alpha.** Nothing is usable yet. The project is in its foundation phase; see
-> [ROADMAP.md](ROADMAP.md) for where we are.
+> [[wave-1]] in the knowledge base for where we are.
 
 ## Goals
 
@@ -30,8 +30,8 @@ with a gamepad. Mouse and keyboard are never required.
 
 | File | What it is |
 |------|------------|
-| [PROJECT_RULES.md](PROJECT_RULES.md) | Every agreed requirement and decision. Source of truth. |
-| [ROADMAP.md](ROADMAP.md) | Step-by-step plan and current status. |
+| [docs/setup.md](docs/setup.md) | **Start here:** requirements and setting up the workspace with the code and the knowledge base. |
+| `OwneetOS-knowledge-base` (separate repository, an Obsidian vault) | Every agreed requirement and decision, the step-by-step plan and its status, design documents. Source of truth. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to work on the project. |
 | [CREDITS.md](CREDITS.md) | The projects OwneetOS is built on, their authors and licences. |
 | [design/mockups/wave1-mockups.html](design/mockups/wave1-mockups.html) | Approved UI mockups (open in a browser). |

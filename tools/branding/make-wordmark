@@ -7,7 +7,7 @@
 #   tools/build-in-vm 'tools/branding/make-wordmark FONT.ttf out/owneetos-wordmark.svg'
 #
 # FONT.ttf is Bricolage Grotesque (variable, SIL Open Font License 1.1), the display face of
-# the approved design (PROJECT_RULES.md section 9). The OFL allows using its outlines in a logo.
+# the approved design ([[design-direction]]). The OFL allows using its outlines in a logo.
 
 import sys
 
