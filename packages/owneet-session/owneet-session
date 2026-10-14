@@ -24,6 +24,10 @@
 #   owneet.debug.xwayland_glamor=gl|es|off    how Xwayland draws X11 windows with the GPU (OpenGL,
 #                                             OpenGL ES, or not at all), through owneet-xwayland;
 #                                             with off the console draws itself without the GPU
+#   owneet.debug.xwayland_protocol=sync       Xwayland's Wayland requests about buffers and their
+#                                             synchronisation, to the journal (owneet-xwayland)
+#   owneet.debug.nv_explicit_sync=off         the NVIDIA driver without explicit sync
+#                                             (__NV_DISABLE_EXPLICIT_SYNC=1)
 #   owneet.debug.test_games=on                two test "games" (mpv test patterns), for testing
 #                                             launching, Guide and Resume on a live system
 
@@ -95,6 +99,14 @@ gamescope_args() {
     if [[ "$(debug_opt gamescope_explicit_sync)" == off ]]; then
         export gamescope_drm_debug_disable_explicit_sync=true
         log "test: explicit sync off"
+    fi
+    if [[ "$(debug_opt nv_explicit_sync)" == off ]]; then
+        export __NV_DISABLE_EXPLICIT_SYNC=1
+        log "test: NVIDIA driver without explicit sync"
+    fi
+    if [[ "$(debug_opt xwayland_protocol)" == sync ]]; then
+        export WLR_XWAYLAND=/usr/lib/owneet/owneet-xwayland OWNEET_XWAYLAND_PROTOCOL=sync
+        log "test: Xwayland's buffer requests to the journal"
     fi
     local glamor
     glamor="$(debug_opt xwayland_glamor)"

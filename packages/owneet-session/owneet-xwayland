@@ -1,9 +1,21 @@
-#!/bin/sh
+#!/bin/bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Xwayland as gamescope starts it (through WLR_XWAYLAND), with the Glamor setting of the
-# test switch owneet.debug.xwayland_glamor (gl, es or off; see owneet-session).
+# Xwayland as gamescope starts it (through WLR_XWAYLAND), with the test switches of
+# owneet-session:
+#   OWNEET_XWAYLAND_GLAMOR=gl|es|off   Xwayland's -glamor setting
+#   OWNEET_XWAYLAND_PROTOCOL=sync      Xwayland's Wayland requests about buffers and their
+#                                      synchronisation (the first 400) go to the journal
+#                                      (journalctl -t owneet-xwayland); its other messages are lost
+args=()
 case "${OWNEET_XWAYLAND_GLAMOR:-}" in
-    gl|es|off) exec /usr/bin/Xwayland -glamor "$OWNEET_XWAYLAND_GLAMOR" "$@" ;;
-    *)         exec /usr/bin/Xwayland "$@" ;;
+    gl|es|off) args=(-glamor "$OWNEET_XWAYLAND_GLAMOR") ;;
 esac
+if [[ "${OWNEET_XWAYLAND_PROTOCOL:-}" == sync ]]; then
+    export WAYLAND_DEBUG=client
+    # awk keeps reading after its last line, so Xwayland never writes into a closed pipe
+    exec /usr/bin/Xwayland "${args[@]}" "$@" 2> >(grep --line-buffered -E \
+        'syncobj|acquire_point|release_point|zwp_linux_buffer_params|wl_shm|wl_buffer@[0-9]+\.release' \
+        | awk 'NR <= 400 { print; fflush() }' | systemd-cat -t owneet-xwayland)
+fi
+exec /usr/bin/Xwayland "${args[@]}" "$@"
