@@ -78,7 +78,7 @@ QtObject {
     readonly property color onAccent: current.c[7]
     // "Running": a game or web app open behind the home screen (demo 3.6), the same in every palette
     readonly property color running: "#4ADE80"
-    readonly property color onRunning: "#062010"
+    readonly property color runningInk: "#062010"
 
     // ---- Shapes
     readonly property real radiusS: px(10)

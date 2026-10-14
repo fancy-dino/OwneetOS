@@ -62,7 +62,7 @@ Item {
             id: runningText
             anchors.centerIn: parent
             text: Tr.tr("game.running")
-            color: Theme.onRunning
+            color: Theme.runningInk
             font.family: Theme.textFont
             font.weight: Font.DemiBold
             font.pixelSize: Theme.fs(12.5)
