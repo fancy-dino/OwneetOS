@@ -23,6 +23,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 )
 
@@ -108,6 +109,12 @@ type Manager struct {
 	FreeMiB func() int64
 	Poll    time.Duration
 	Timeout time.Duration
+	// Opening the web apps (open.go, [[step-5.1-brave-in-the-os]]): the running apps, the console
+	// session, the web apps' profiles and the console's browser extension
+	Apps         Launcher
+	Session      func() (apps.Session, error)
+	ProfilesDir  string // $XDG_DATA_HOME/owneet/webapps: one folder per web app
+	ExtensionDir string // /usr/share/owneet/extension
 
 	mu         sync.Mutex
 	busyID     string
@@ -302,7 +309,8 @@ func (m *Manager) Install(id string) error {
 	return nil
 }
 
-// Remove removes the web app id, and the engines no other installed web app needs.
+// Remove removes the web app id (closed first if it is open, its data deleted), and the engines
+// no other installed web app needs.
 func (m *Manager) Remove(id string) error {
 	m.mu.Lock()
 	cat, err := m.load()
@@ -314,6 +322,14 @@ func (m *Manager) Remove(id string) error {
 		m.mu.Unlock()
 		return ErrUnknown
 	}
+	if m.busyID != "" {
+		m.mu.Unlock()
+		return ErrBusy
+	}
+	m.mu.Unlock()
+	// outside the lock: closing the web app can take a few seconds
+	m.closeAndForget(id)
+	m.mu.Lock()
 	if m.busyID != "" {
 		m.mu.Unlock()
 		return ErrBusy

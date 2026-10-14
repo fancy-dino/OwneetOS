@@ -87,7 +87,7 @@
   "apps.install.requirements": "Usage requirements",
   "apps.install.internet": "Internet needed",
   "apps.remove.title": "Remove {app}?",
-  "apps.remove.text": "You can install it again at any time. Your account stays as it is.",
+  "apps.remove.text": "Your account stays as it is, but if you install it again you will have to sign in again.",
   "apps.ram.title": "Install OwneetOS to add apps",
   "apps.ram.text": "Without an installation, apps are kept in the PC’s memory, and there is not enough (at least 12 GB is needed). Install OwneetOS on this PC to add them.",
   "apps.disk.title": "Not enough space",
@@ -97,6 +97,8 @@
   "toast.app.installed": "{app} installed",
   "toast.app.removed": "{app} removed",
   "toast.app.wait": "Wait for the installation to finish",
+  "toast.app.open": "Opening {app}…",
+  "toast.app.busy": "{name} is open: close it first.",
   "error.apps.remove": "The app could not be removed.",
   "how.title": "How to add games",
   "how.steam": "Steam: open the Steam Store, sign in and install your games.",
@@ -153,6 +155,15 @@
     "one": "Playing for {n} min",
     "other": "Playing for {n} min"
   },
+  "home.open": "Open now",
+  "home.open.time": {
+    "one": "Open for {n} min",
+    "other": "Open for {n} min"
+  },
+  "home.closeapp": "Close",
+  "closeapp.text": "Whatever is playing stops.",
+  "error.apps.open": "The app could not open.",
+  "error.apps.not_installed": "Install the app first.",
   "game.running": "Running",
   "close.title": "Close {title}?",
   "close.text": "Unsaved progress may be lost.",

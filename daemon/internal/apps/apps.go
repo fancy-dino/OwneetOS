@@ -40,7 +40,13 @@ const HoldToHome = time.Second
 const (
 	KindGame = "game"
 	KindApp  = "app"
+	// KindWebApp is a web app (Netflix, YouTube…, [[step-5.1-brave-in-the-os]]): treated like a
+	// game, one game or web app at a time
+	KindWebApp = "webapp"
 )
+
+// exclusive kinds run one at a time: a game or a web app.
+func exclusive(kind string) bool { return kind == KindGame || kind == KindWebApp }
 
 // App is a running game or app.
 type App struct {
@@ -91,7 +97,7 @@ var (
 	ErrInvalid          = errors.New("invalid launch request")
 	ErrNoSession        = errors.New("the console session is not running")
 	ErrAlreadyRunning   = errors.New("this app is already running")
-	ErrGameRunning      = errors.New("another game is running: close it first")
+	ErrGameRunning      = errors.New("another game or web app is running: close it first")
 	ErrUnknownApp       = errors.New("this app is not running")
 	ErrNotFound         = errors.New("program not found")
 	ErrFocusUnsupported = errors.New("the reduced (cage) session shows one app at a time")
@@ -472,8 +478,8 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 	if req.Kind == "" {
 		req.Kind = KindApp
 	}
-	if req.Kind != KindGame && req.Kind != KindApp {
-		return App{}, fmt.Errorf("%w: kind is %q or %q", ErrInvalid, KindGame, KindApp)
+	if req.Kind != KindGame && req.Kind != KindApp && req.Kind != KindWebApp {
+		return App{}, fmt.Errorf("%w: kind is %q, %q or %q", ErrInvalid, KindGame, KindApp, KindWebApp)
 	}
 	if req.Name == "" {
 		req.Name = req.ID
@@ -498,9 +504,9 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 		m.mu.Unlock()
 		return App{}, ErrAlreadyRunning
 	}
-	if req.Kind == KindGame {
+	if exclusive(req.Kind) {
 		for _, a := range m.apps {
-			if a.Kind == KindGame {
+			if exclusive(a.Kind) {
 				m.mu.Unlock()
 				return App{}, ErrGameRunning
 			}

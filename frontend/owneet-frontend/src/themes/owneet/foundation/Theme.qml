@@ -76,6 +76,9 @@ QtObject {
     readonly property color muted: current.c[5]
     readonly property color accent: current.c[6]
     readonly property color onAccent: current.c[7]
+    // "Running": a game or web app open behind the home screen (demo 3.6), the same in every palette
+    readonly property color running: "#4ADE80"
+    readonly property color onRunning: "#062010"
 
     // ---- Shapes
     readonly property real radiusS: px(10)

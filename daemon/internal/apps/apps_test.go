@@ -215,6 +215,10 @@ func TestLaunchRules(t *testing.T) {
 	if _, err := m.Launch(LaunchRequest{ID: "game:2", Kind: KindGame, Command: []string{"two"}}); !errors.Is(err, ErrGameRunning) {
 		t.Errorf("second game: %v", err)
 	}
+	// a web app is treated like a game: one at a time ([[step-5.1-brave-in-the-os]])
+	if _, err := m.Launch(LaunchRequest{ID: "web:netflix", Kind: KindWebApp, Command: []string{"env"}}); !errors.Is(err, ErrGameRunning) {
+		t.Errorf("web app next to a game: %v", err)
+	}
 	if _, err := m.Launch(LaunchRequest{ID: "browser", Command: []string{"brave"}}); err != nil {
 		t.Errorf("an app next to a game: %v", err)
 	}

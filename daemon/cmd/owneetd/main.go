@@ -193,12 +193,25 @@ func run(configPath string) error {
 		if stateDir == "" {
 			stateDir = filepath.Join(os.Getenv("HOME"), ".local", "state")
 		}
-		catalogAPI = &catalog.Manager{Broker: broker, Log: log, Units: starter,
+		dataDir := os.Getenv("XDG_DATA_HOME")
+		if dataDir == "" {
+			dataDir = filepath.Join(os.Getenv("HOME"), ".local", "share")
+		}
+		// the web apps open in the console session ([[step-5.1-brave-in-the-os]])
+		var launcher catalog.Launcher
+		if appsAPI != nil {
+			launcher = appsMgr
+		}
+		webApps := &catalog.Manager{Broker: broker, Log: log, Units: starter,
 			CatalogFile: "/usr/share/owneet/apps.json", StateFile: "/run/owneet/apps.json",
 			ChosenFile: filepath.Join(stateDir, "owneetd", "webapps.json"),
 			PacmanDB:   "/var/lib/pacman/local",
 			Allowed:    func() bool { return live.Allowed(live.MinRAM) },
 			FreeMiB:    func() int64 { return catalog.DiskFreeMiB("/") }}
+		webApps.Apps, webApps.Session = launcher, appsMgr.Session
+		webApps.ProfilesDir = filepath.Join(dataDir, "owneet", "webapps")
+		webApps.ExtensionDir = "/usr/share/owneet/extension"
+		catalogAPI = webApps
 	}
 
 	srv := &api.Server{

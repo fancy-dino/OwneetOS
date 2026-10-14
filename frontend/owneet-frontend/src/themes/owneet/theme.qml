@@ -171,6 +171,14 @@ FocusScope {
                 return apps[i];
         return null;
     }
+    // An open web app (5.1): treated like a game, one game or web app at a time
+    readonly property var runningWebApp: apps.find(a => a.kind === "webapp") || null
+    // The name of what is open, for "{name} is open: close it first."
+    function openName() {
+        if (runningGame) return runningGame.name;
+        const w = runningWebApp ? webApps.find(a => "web:" + a.id === runningWebApp.id) : null;
+        return w ? Tr.tr(w.nameKey) : (runningWebApp ? runningWebApp.name : "");
+    }
     function refreshApps() {
         owneetd.get("/v1/apps", (status, data) => {
             if (status === 200) { apps = data.apps || []; focusedApp = data.focus || ""; }
@@ -245,13 +253,14 @@ FocusScope {
         });
     }
     function confirmClose(app) {
+        const web = app.kind === "webapp";
         dialog.game = null;
         dialog.mode = "close";
         dialog.contentWidth = 0;
-        dialog.title = Tr.tr("close.title", { title: app.name });
-        dialog.text = Tr.tr("close.text");
+        dialog.title = Tr.tr("close.title", { title: web ? openName() : app.name });
+        dialog.text = Tr.tr(web ? "closeapp.text" : "close.text");
         dialog.buttons = [
-            { text: Tr.tr("home.close"), action: () => {
+            { text: Tr.tr(web ? "home.closeapp" : "home.close"), action: () => {
                 dialog.close();
                 closingApps[app.id] = true;          // closed on purpose: not "closed unexpectedly"
                 owneetd.post("/v1/apps/" + encodeURIComponent(app.id) + "/close", {}, (status) => {
@@ -278,7 +287,7 @@ FocusScope {
     function quietNetwork() { quietNetUntil = Date.now() + 15000; }
     // While a game is on screen nothing is drawn over it (the overlay comes in Wave 2) and no
     // sound plays: the notification waits in the list, the bell counts it
-    readonly property bool gameOnScreen: runningGame !== null && focusedApp !== "home"
+    readonly property bool gameOnScreen: (runningGame !== null || runningWebApp !== null) && focusedApp !== "home"
     function notify(n) {
         n.time = Date.now();
         noticeList = [n].concat(noticeList).slice(0, 30);
@@ -376,6 +385,11 @@ FocusScope {
             root.resume(runningGame);
             return;
         }
+        if (runningWebApp && owneetd.connected) {   // one game or web app at a time (5.1)
+            toast.show(Tr.tr("toast.app.busy", { name: openName() }));
+            Nav.feedback("edge");
+            return;
+        }
         if (runningGame && owneetd.connected) {     // one game at a time
             toast.show(Tr.tr("error.apps.game_running"));
             Nav.feedback("edge");
@@ -464,7 +478,29 @@ FocusScope {
     function openWebApp(app) {
         if (app.busy) toast.show(Tr.tr("toast.app.wait"));
         else if (!app.installed) confirmInstall(app);
-        else notYet();                        // opened from step 5.1
+        else startWebApp(app);
+    }
+    // Opens an installed web app ([[step-5.1-brave-in-the-os]]): owneetd starts it like a game, or
+    // brings it back when it is already open
+    function startWebApp(app) {
+        const open = runningWebApp !== null && runningWebApp.id === "web:" + app.id;
+        if (!open && (runningGame || runningWebApp)) {
+            toast.show(Tr.tr("toast.app.busy", { name: openName() }));
+            Nav.feedback("edge");
+            return;
+        }
+        Nav.feedback("launch");
+        if (!open)
+            toast.show(Tr.tr("toast.app.open", { app: Tr.tr(app.nameKey) }));
+        owneetd.post("/v1/apps/catalog/" + encodeURIComponent(app.id) + "/open", {}, (status, data) => {
+            if (status === 204 || status === 200)
+                return;
+            const code = data && data.error ? data.error.code : "";
+            if (code === "apps.game_running")
+                toast.show(Tr.tr("toast.app.busy", { name: openName() }));
+            else
+                toast.show(Tr.tr(code === "apps.not_installed" ? "error.apps.not_installed" : "error.apps.open"));
+        });
     }
     function confirmInstall(app) {
         dialog.game = null;
@@ -520,7 +556,7 @@ FocusScope {
         dialog.title = Tr.tr(app.nameKey);
         dialog.text = "";
         dialog.buttons = app.installed
-            ? [{ text: Tr.tr("prompt.open"), style: "primary", action: () => { dialog.close(true); root.notYet(); } },
+            ? [{ text: Tr.tr("prompt.open"), style: "primary", action: () => { dialog.close(true); root.startWebApp(app); } },
                { text: Tr.tr("apps.remove"), action: () => { dialog.close(true); root.confirmRemove(app); } }]
             : [{ text: Tr.tr("apps.install"), style: "primary", action: () => { dialog.close(true); root.confirmInstall(app); } }];
         dialog.defaultIndex = 0;
@@ -1266,7 +1302,7 @@ FocusScope {
             onOpenLibrary: root.goSection("library")
             onHowToAdd: root.showHowToAdd()
             onOpenStore: root.openSteam("store")
-            running: root.runningGame
+            running: root.runningGame || root.runningWebApp
             canResume: root.sessionMode === "gamescope"
             onResume: root.resume(app)
             onCloseApp: root.confirmClose(app)

@@ -15,6 +15,8 @@ type Catalog interface {
 	Status() catalog.Status
 	Install(id string) error
 	Remove(id string) error
+	// Open opens an installed web app ([[step-5.1-brave-in-the-os]]).
+	Open(id string) error
 }
 
 func (s *Server) catalogAvailable(w http.ResponseWriter) bool {
@@ -56,5 +58,24 @@ func (s *Server) handleCatalogAction(action func(Catalog, string) error) http.Ha
 			s.Log.Warn("optional app failed to start", "err", err)
 			WriteError(w, http.StatusBadGateway, "apps.failed", err.Error())
 		}
+	}
+}
+
+// handleCatalogOpen opens an installed web app, or brings it back when it is open (204). It runs
+// like a game: one game or web app at a time.
+func (s *Server) handleCatalogOpen(w http.ResponseWriter, r *http.Request) {
+	if !s.catalogAvailable(w) {
+		return
+	}
+	err := s.Catalog.Open(r.PathValue("id"))
+	switch {
+	case err == nil:
+		w.WriteHeader(http.StatusNoContent)
+	case errors.Is(err, catalog.ErrUnknown):
+		WriteError(w, http.StatusNotFound, "apps.unknown", err.Error())
+	case errors.Is(err, catalog.ErrNotInstalled):
+		WriteError(w, http.StatusConflict, "apps.not_installed", err.Error())
+	default:
+		s.appsError(w, err)
 	}
 }

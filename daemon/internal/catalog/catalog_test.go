@@ -90,15 +90,6 @@ func newManager(t *testing.T) (*Manager, *fakeHelper) {
 	return m, h
 }
 
-func app(st Status, id string) App {
-	for _, a := range st.Apps {
-		if a.ID == id {
-			return a
-		}
-	}
-	return App{}
-}
-
 // waitIdle waits for the running installation or removal to end.
 func waitIdle(t *testing.T, m *Manager) {
 	t.Helper()

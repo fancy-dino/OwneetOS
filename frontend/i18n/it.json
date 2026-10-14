@@ -87,7 +87,7 @@
   "apps.install.requirements": "Requisiti d’uso",
   "apps.install.internet": "Serve internet",
   "apps.remove.title": "Rimuovere {app}?",
-  "apps.remove.text": "Puoi installarla di nuovo quando vuoi. Il tuo account resta com’è.",
+  "apps.remove.text": "Il tuo account resta com’è, ma se la installi di nuovo dovrai accedere di nuovo.",
   "apps.ram.title": "Installa OwneetOS per aggiungere app",
   "apps.ram.text": "Senza installazione le app restano nella memoria del PC, che ne ha poca (servono almeno 12 GB). Installa OwneetOS su questo PC per aggiungerle.",
   "apps.disk.title": "Spazio insufficiente",
@@ -97,6 +97,8 @@
   "toast.app.installed": "{app} installata",
   "toast.app.removed": "{app} rimossa",
   "toast.app.wait": "Attendi la fine dell’installazione",
+  "toast.app.open": "Apertura di {app}…",
+  "toast.app.busy": "{name} è aperto: chiudilo prima.",
   "error.apps.remove": "Non è stato possibile rimuovere l’app.",
   "how.title": "Come aggiungere giochi",
   "how.steam": "Steam: apri lo Steam Store, accedi e installa i tuoi giochi.",
@@ -153,6 +155,15 @@
     "one": "In gioco da {n} min",
     "other": "In gioco da {n} min"
   },
+  "home.open": "Aperta",
+  "home.open.time": {
+    "one": "Aperta da {n} min",
+    "other": "Aperta da {n} min"
+  },
+  "home.closeapp": "Chiudi",
+  "closeapp.text": "Quello che sta riproducendo si ferma.",
+  "error.apps.open": "Non è stato possibile aprire l’app.",
+  "error.apps.not_installed": "Prima installa l’app.",
   "game.running": "In corso",
   "close.title": "Chiudere {title}?",
   "close.text": "I progressi non salvati potrebbero andare persi.",

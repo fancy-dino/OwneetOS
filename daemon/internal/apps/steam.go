@@ -218,7 +218,7 @@ func (m *Manager) Steam(req SteamRequest) error {
 	m.mu.Lock()
 	if req.Run != "" {
 		for _, a := range m.apps {
-			if a.Kind == KindGame {
+			if exclusive(a.Kind) {
 				m.mu.Unlock()
 				return ErrGameRunning
 			}

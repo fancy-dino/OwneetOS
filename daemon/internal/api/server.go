@@ -101,6 +101,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/apps/catalog", s.handleCatalog)
 	mux.HandleFunc("POST /v1/apps/catalog/{id}/install", s.handleCatalogAction(Catalog.Install))
 	mux.HandleFunc("POST /v1/apps/catalog/{id}/remove", s.handleCatalogAction(Catalog.Remove))
+	mux.HandleFunc("POST /v1/apps/catalog/{id}/open", s.handleCatalogOpen)
 	mux.HandleFunc("POST /v1/apps/{id}/close", s.handleAppAction(Apps.Close))
 	mux.HandleFunc("POST /v1/apps/{id}/kill", s.handleAppAction(Apps.Kill))
 	mux.HandleFunc("POST /v1/apps/{id}/focus", s.handleAppAction(Apps.FocusApp))
