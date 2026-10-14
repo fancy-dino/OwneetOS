@@ -240,7 +240,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     <div class="prompts t-s sheet-prompts" id="sheet-prompts"></div>
   </div>
 </div></div>
-<p class="help"><b>New in 4.2c:</b> every Steam game you own is in the Library; the ones not installed are dimmed with a download mark (A installs them). Filter <b>Installed</b> is back. Menu on a Steam game: <b>Uninstall</b>, or <b>Cancel installation</b> while it downloads. Downloads run much faster than in reality.<br>
+<p class="help"><b>New in 4.2c:</b> every Steam game you own is in the Library; the ones not installed are dimmed with a download mark (A installs them). Filter <b>Installed</b> is back; in “Recently played” downloads come first. Menu on a Steam game: <b>Uninstall</b>, or <b>Cancel installation</b> while it downloads. Downloads run much faster than in reality.<br>
 <b>Gamepad / keyboard</b> as in demo 4.2 (A play / install, X details, Menu options); in Steam's windows A confirms, B cancels; <b>H</b> or Guide = Home.<br>
 <b>Demo only:</b> V this PC's display (<span id="gpu-state">with display errors</span>), I internet (<span id="net-state">on</span>), S Steam (<span id="steam-state">running hidden</span>), F Steam set up (<span id="first-state">yes</span>), R show the notice again, D disks (1, 2, 4: with 4 the “Games SSD” is connected), P palette, T text size, G prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#gpu=amd&amp;net=off&amp;steam=off&amp;first=1&amp;disks=4&amp;filter=installed&amp;lang=it&amp;open=install|notice|steam|uninstall|details|offline|store|add</code></p>
 
@@ -550,15 +550,15 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   const totalTime = g => g.total < 60 ? tr('time.min', { m: g.total }) : tr('time.total', { h: Math.floor(g.total / 60), m: g.total % 60 });
   const matches = (g, f) => visible(g) && (f === 'all' || (f === 'installed' && (g.src === 'local' || g.state === 'installed' || g.state === 'updating'))
     || (f === 'favorites' && g.fav) || (f === 'steam' && g.src === 'Steam') || (f === 'local' && g.src === 'local'));
-  // "Recently played": installed games first (by last played), then downloads in Steam's order, then the others by name
-  const rank = g => g.state === 'installed' || (g.state === 'updating') ? 0 : g.state === 'none' ? 2 : 1;
+  // "Recently played": downloads first (in Steam's order), then installed games (by last played), then the others by name
+  const rank = g => queue.includes(g.id) ? 0 : g.state === 'installed' ? 1 : 2;
   function shown() {
     const list = GAMES.filter(g => matches(g, filter));
     const byName = (a, b) => a.title.localeCompare(b.title);
     if (sort === 'name') list.sort(byName);
     else if (sort === 'time') list.sort((a, b) => b.total - a.total || byName(a, b));
-    else list.sort((a, b) => rank(a) - rank(b) || (rank(a) === 1 ? queue.indexOf(a.id) - queue.indexOf(b.id) : 0)
-      || (rank(a) === 0 ? (a.last < 0) - (b.last < 0) || a.last - b.last : 0) || byName(a, b));
+    else list.sort((a, b) => rank(a) - rank(b) || (rank(a) === 0 ? queue.indexOf(a.id) - queue.indexOf(b.id) : 0)
+      || (rank(a) === 1 ? (a.last < 0) - (b.last < 0) || a.last - b.last : 0) || byName(a, b));
     return list;
   }
 
