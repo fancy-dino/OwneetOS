@@ -121,7 +121,7 @@ QByteArray read_file(const QString& path)
     return file.readAll();
 }
 
-// The apps of the account's active licences (package 0 left out)
+// The apps of the account's licences (package 0 and free weekends left out)
 QSet<QString> licensed_apps(const QString& path)
 {
     QSet<QString> apps;
@@ -143,7 +143,8 @@ QSet<QString> licensed_apps(const QString& path)
         if (!r.ok())
             break;
         const QVariantMap info = root.isEmpty() ? QVariantMap() : root.first().toMap();
-        if (package == 0 || info.value(QStringLiteral("status")).toInt() != 0)
+        const QVariantMap extended = info.value(QStringLiteral("extended")).toMap();
+        if (package == 0 || extended.value(QStringLiteral("freeweekend")).toInt() != 0)
             continue;
         const QVariantMap ids = info.value(QStringLiteral("appids")).toMap();
         for (const QVariant& id : ids)

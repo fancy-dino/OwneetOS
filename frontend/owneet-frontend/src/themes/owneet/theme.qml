@@ -458,7 +458,8 @@ FocusScope {
         if (GameInfo.isSteam(game) && owneetd.connected) {
             // Steam starts the game; while Steam itself starts, the console says so
             owneetd.get("/v1/steam", (status, st) => {
-                if (status === 200 && st.allowed && !st.running) steamPrep.start(!st.prepared, game.title);
+                // also when Steam runs: it stays hidden, e.g. while it prepares the game's shaders
+                if (status === 200 && st.allowed) steamPrep.start(!st.prepared, game.title);
             });
         }
         game.launch();                    // through owneetd, [[step-3.8-frontend-daemon-bridge]]
@@ -683,10 +684,13 @@ FocusScope {
         dialog.open(true);
         return true;
     }
-    // Before Steam's window on PCs where it shows display errors (NVIDIA's driver): every time,
-    // until "Don't show again" (owner, 2026-10-14)
-    function withSteamNotice(next) {
-        if (!GameInfo.steam || !GameInfo.steam.nvidia || api.memory.has("steamNoticeHidden")) {
+    // Before Steam's window, every time until "Don't show again" (owner, 2026-10-14): what to
+    // press in Steam's confirmation (install, uninstall: on every PC, after the FrankenPC test)
+    // and, on PCs where Steam's window shows display errors (NVIDIA's driver), that they are
+    // harmless. The store gets the second part only.
+    function withSteamNotice(next, kind) {
+        const nvidia = GameInfo.steam !== null && GameInfo.steam.nvidia;
+        if ((!kind && !nvidia) || api.memory.has("steamNoticeHidden")) {
             next();
             return;
         }
@@ -695,7 +699,8 @@ FocusScope {
         dialog.contentWidth = 0;
         dialog.icon = "warning";
         dialog.title = Tr.tr("steam.notice.title");
-        dialog.text = Tr.tr("steam.notice.text");
+        dialog.text = [kind ? Tr.tr("steam.notice.keys." + kind) : "", nvidia ? Tr.tr("steam.notice.text") : ""]
+            .filter(t => t !== "").join("\n\n");
         noticeNever.checked = false;
         dialog.buttons = [
             { text: Tr.tr("steam.notice.go"), style: "primary", action: () => {
@@ -723,7 +728,7 @@ FocusScope {
                     const asked = Object.assign({}, root.steamAsked);
                     asked[id] = { title: game.title, kind: "install" };
                     root.steamAsked = asked;
-                }));
+                }), "install");
             } },
             { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
         dialog.defaultIndex = 0;
@@ -746,7 +751,7 @@ FocusScope {
                     const asked = Object.assign({}, root.steamAsked);
                     asked[id] = { title: game.title, kind: cancelling ? "cancel" : "uninstall" };
                     root.steamAsked = asked;
-                }));
+                }), "uninstall");
             } },
             { text: Tr.tr(cancelling ? "cancelinst.keep" : "prompt.cancel"), style: "primary", action: () => dialog.close() }];
         dialog.defaultIndex = 1;             // keep it: nothing removed by accident

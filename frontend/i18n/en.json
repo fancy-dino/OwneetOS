@@ -452,5 +452,7 @@
   "home.notice.download": "Downloading {title} · {p}%",
   "home.notice.update": "Updating {title} · {p}%",
   "home.notice.more": "+{n} waiting",
-  "home.notice.paused": "Downloads paused: no internet connection."
+  "home.notice.paused": "Downloads paused: no internet connection.",
+  "steam.notice.keys.install": "Press A to confirm the download, B to cancel, then hold Home to leave Steam.",
+  "steam.notice.keys.uninstall": "Press A to confirm the uninstallation, B to cancel, then hold Home to leave Steam."
 }

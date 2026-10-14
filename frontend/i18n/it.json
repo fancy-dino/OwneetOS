@@ -452,5 +452,7 @@
   "home.notice.download": "Download di {title} · {p}%",
   "home.notice.update": "Aggiornamento di {title} · {p}%",
   "home.notice.more": "+{n} in attesa",
-  "home.notice.paused": "Download in pausa: niente connessione a internet."
+  "home.notice.paused": "Download in pausa: niente connessione a internet.",
+  "steam.notice.keys.install": "Premi A per confermare il download, B per annullare, poi tieni premuto Home per uscire da Steam.",
+  "steam.notice.keys.uninstall": "Premi A per confermare la disinstallazione, B per annullare, poi tieni premuto Home per uscire da Steam."
 }
