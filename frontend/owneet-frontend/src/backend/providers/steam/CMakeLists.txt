@@ -6,6 +6,8 @@ pegasus_add_provider(
         SteamGamelist.h
         SteamMetadata.cpp
         SteamMetadata.h
+        SteamOwned.cpp
+        SteamOwned.h
         SteamPlaytime.cpp
         SteamPlaytime.h
         SteamProvider.cpp

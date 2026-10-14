@@ -23,6 +23,7 @@
 #include "providers/SearchContext.h"
 #include "providers/steam/SteamGamelist.h"
 #include "providers/steam/SteamMetadata.h"
+#include "providers/steam/SteamOwned.h"
 #include "providers/steam/SteamPlaytime.h"
 #include "model/gaming/Game.h"
 #include "utils/StdHelpers.h"
@@ -222,6 +223,37 @@ Provider& SteamProvider::run(SearchContext& sctx)
     }
 
     Log::info(display_name(), LOGMSG("%1 games found").arg(QString::number(appid_game_map.size())));
+
+    // OwneetOS: every game of the account, installed or not ([[step-4.2c-steam-without-its-interface]]):
+    // the ones not installed are started the same way (Steam installs them first, asked by the
+    // interface). Every Steam game carries its app id; whether it is installed now, being
+    // downloaded or on a disk that is not connected comes from owneetd while the interface runs.
+    const auto mark = [](model::Game& game, const QString& appid, bool installed) {
+        game.extraMapMut().insert(QStringLiteral("steam.appid"), appid);
+        game.extraMapMut().insert(QStringLiteral("steam.installed"), installed);
+    };
+    for (const auto& entry : appid_game_map)
+        mark(*entry.second, entry.first, true);
+    int not_installed = 0;
+    for (const OwnedApp& owned : read_owned_games(steamdir_path)) {
+        if (appid_game_map.find(owned.appid) != appid_game_map.cend())
+            continue;
+        const QString steam_uri = QStringLiteral("steam:") + owned.appid;
+        model::Game* game_ptr = sctx.game_by_uri(steam_uri);
+        if (!game_ptr) {
+            game_ptr = sctx.create_game_for(collection);
+            sctx.game_add_uri(*game_ptr, steam_uri);
+        }
+        sctx.game_add_to(*game_ptr, collection);
+        (*game_ptr)
+            .setTitle(owned.name)
+            .setSortBy(owned.name)
+            .setLaunchCmd(steam_call % QLatin1String(" steam://rungameid/") % owned.appid);
+        mark(*game_ptr, owned.appid, false);
+        appid_game_map.emplace(owned.appid, game_ptr);
+        not_installed++;
+    }
+    Log::info(display_name(), LOGMSG("%1 games owned but not installed").arg(QString::number(not_installed)));
     if (appid_game_map.empty())
         return *this;
 

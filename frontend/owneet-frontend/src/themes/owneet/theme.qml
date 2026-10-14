@@ -102,26 +102,91 @@ FocusScope {
     }
     Component.onDestruction: Theme.previewKey = ""
 
-    // ---- Games, most recently played first (shared by the sections)
+    // ---- Games, most recently played first (shared by the sections); the home screen shows the
+    // installed ones only (every owned Steam game is in the library, 4.2c)
     property var games: []
     function refreshGames() { games = GameInfo.recent(api.allGames); }
-    // Steam's installed games, as owneetd last listed them: a game installed or removed in Steam
-    // makes the console read its games again when you come back from Steam (4.2)
-    property var steamGamesKey: null
-    function checkSteamGames() {
+    readonly property var homeGames: GameInfo.sorted(games.filter(g => GameInfo.installed(g)), "played")
+
+    // ---- Steam's games as owneetd sees them (4.2c): installed, downloading, on a disk that is not
+    // connected (GET /v1/steam and "steam.changed"). The console reads its games again when you
+    // come back to the home screen and Steam has a game it does not list (e.g. a free game
+    // installed from the store), or the licences changed after a visit to the store.
+    readonly property bool online: network === null || (network.available !== false
+        && ((network.ethernet && network.ethernet.connected) || (network.wifi && network.wifi.state === "connected")))
+    Binding { target: GameInfo; property: "online"; value: root.online }
+    property var steamBaseline: null          // app ids Steam had when the games were read
+    property real steamLicencesSeen: 0
+    property bool storeVisited: false
+    property var steamAsked: ({})             // app id → { title, kind: install / uninstall / cancel }
+    function steamIds(st) { return (st.games || []).concat((st.downloads || []).map(d => d.appid)); }
+    function steamGame(appid) { return games.find(g => GameInfo.appid(g) === appid) || null; }
+    function refreshSteam(check) {
         if (!owneetd.connected) return;
         owneetd.get("/v1/steam", (status, st) => {
-            if (status !== 200 || !st.games) return;
-            const key = st.games.join(",");
-            if (root.steamGamesKey !== null && key !== root.steamGamesKey) {
-                console.log("Steam's games changed: reading the games again");
-                // reading the games again rebuilds the interface: it comes back where it was
-                api.memory.set("rescanReturn", [Date.now(), root.section,
-                    root.section === "library" && library.addGamesSelected ? "add" : ""].join("|"));
-                Internal.settings.reloadProviders();
-            }
-            root.steamGamesKey = key;
+            if (status !== 200) return;
+            root.steamChanged(st);
+            if (check) root.checkSteamGames();
         });
+    }
+    function checkSteamGames() {
+        const st = GameInfo.steam;
+        if (!st) return;
+        const known = {};
+        games.forEach(g => { const id = GameInfo.appid(g); if (id) known[id] = true; });
+        const fresh = steamIds(st).filter(id => !steamBaseline[id] && !known[id]);
+        const bought = storeVisited && (st.licences || 0) > steamLicencesSeen;
+        if (fresh.length === 0 && !bought)
+            return;
+        console.log("Steam has games the console does not list yet: reading the games again");
+        // reading the games again rebuilds the interface: it comes back where it was
+        api.memory.set("rescanReturn", [Date.now(), root.section,
+            root.section === "library" && library.addGamesSelected ? "add" : ""].join("|"));
+        Internal.settings.reloadProviders();
+    }
+    // What changed: a download asked here has started, a game is ready, a game is gone
+    function steamChanged(st) {
+        const before = GameInfo.steam;
+        GameInfo.steam = st;
+        if (steamBaseline === null) {
+            const base = {};
+            steamIds(st).forEach(id => { base[id] = true; });
+            steamBaseline = base;
+            steamLicencesSeen = st.licences || 0;
+        }
+        if (!before) return;
+        const has = (list, id) => (list || []).indexOf(id) >= 0;
+        const downloading = s => (s.downloads || []).map(d => d.appid);
+        const asked = Object.assign({}, steamAsked);
+        Object.keys(asked).forEach(id => {
+            const a = asked[id];
+            if (a.kind === "install" && has(downloading(st), id)) {
+                toast.show(Tr.tr("toast.steam.queued", { title: a.title }));
+                delete asked[id];
+            } else if (a.kind !== "install" && !has(st.games, id) && !has(downloading(st), id)) {
+                toast.show(Tr.tr(a.kind === "cancel" ? "toast.steam.cancelled" : "toast.steam.uninstalled", { title: a.title }));
+                delete asked[id];
+            }
+        });
+        steamAsked = asked;
+        downloading(before).forEach(id => {
+            if (!has(downloading(st), id) && has(st.games, id)) {
+                const g = steamGame(id);
+                if (g) notify({ key: "notices.steam.ready", args: { name: g.title }, icon: "check", kind: "info",
+                                action: "play", game: g.title });
+            }
+        });
+    }
+    // The downloads notice on the home screen: the game Steam works on, and how many wait
+    readonly property var steamNotices: {
+        const ds = GameInfo.steam && GameInfo.steam.downloads ? GameInfo.steam.downloads : [];
+        const g = ds.length > 0 ? steamGame(ds[0].appid) : null;
+        if (!g) return [];
+        const p = ds[0].total > 0 ? Math.floor(ds[0].done * 100 / ds[0].total) : 0;
+        const text = !online ? Tr.tr("home.notice.paused")
+            : Tr.tr(ds[0].state === "updating" ? "home.notice.update" : "home.notice.download", { title: g.title, p: p })
+              + (ds.length > 1 ? "  ·  " + Tr.tr("home.notice.more", { n: ds.length - 1 }) : "");
+        return [{ text: text, game: g }];
     }
     Connections {
         target: api.allGames
@@ -185,7 +250,7 @@ FocusScope {
         refreshApps();
         refreshControllers();
         applyKeyboard();          // the on-screen keyboard and physical keyboards follow the chosen layout
-        checkSteamGames();
+        refreshSteam(false);
         owneetd.get("/v1/update", (status, data) => { if (status === 200) root.updateStatus = data; });
         checkDisplayPending();
     }
@@ -197,11 +262,11 @@ FocusScope {
             if (type === "app.started" || type === "app.exited") {
                 root.refreshApps();
                 if (type === "app.exited" && (data.id === "steam" || String(data.id).startsWith("steam:")))
-                    root.checkSteamGames();
+                    root.refreshSteam(true);
                 if (type === "app.exited")
                     refreshTimer.restart();       // play time and "last played" have changed
             } else if (type === "focus.changed") {
-                if (data.focus === "home") root.checkSteamGames();
+                if (data.focus === "home") root.refreshSteam(true);
                 // Guide brings the home screen over a running game: the "launch" sound, the other way
                 const fromGame = root.gameOnScreen;
                 root.focusedApp = data.focus;
@@ -215,6 +280,8 @@ FocusScope {
                 root.pairingEvent(type, data);
             } else if (type.startsWith("display.")) {
                 root.displayEvent(type, data);
+            } else if (type === "steam.changed") {
+                root.steamChanged(data);
             } else if (type === "update.changed") {
                 root.updateStatus = data;
                 root.showUpdate(data);
@@ -367,6 +434,14 @@ FocusScope {
 
     // ---- Games: launch, details, options
     function launch(game) {
+        // Steam (4.2c): a game not installed is installed first; one being downloaded or on a disk
+        // that is not connected shows its details; Steam's first start needs the internet
+        if (GameInfo.isSteam(game)) {
+            const s = GameInfo.steamState(game);
+            if (s === "none") { askInstall(game); return; }
+            if (s !== "installed" && s !== "updating") { showDetails(game); return; }
+            if (!(runningGame && runningGame.name === game.title) && steamOffline("play")) return;
+        }
         // the game already running (same title, as on the home screen): back to it
         if (runningGame && owneetd.connected && runningGame.name === game.title) {
             Nav.feedback("launch");
@@ -383,31 +458,63 @@ FocusScope {
         if (GameInfo.isSteam(game) && owneetd.connected) {
             // Steam starts the game; while Steam itself starts, the console says so
             owneetd.get("/v1/steam", (status, st) => {
-                if (status === 200 && st.allowed && !st.running) steamPrep.start(!st.prepared);
+                if (status === 200 && st.allowed && !st.running) steamPrep.start(!st.prepared, game.title);
             });
         }
         game.launch();                    // through owneetd, [[step-3.8-frontend-daemon-bridge]]
         refreshTimer.restart();           // "last played" changes once the game has started
     }
     Timer { id: refreshTimer; interval: 3000; onTriggered: root.refreshGames() }
+    // Details: Play an installed game, Install one that is not, otherwise Close; the facts follow
+    // the download while the window is open (4.2c)
     function showDetails(game) {
+        const s = GameInfo.steamState(game);
         dialog.game = game;
         dialog.mode = "details";
         dialog.contentWidth = 0;
         dialog.title = game.title;
         dialog.text = "";
-        dialog.buttons = [{ text: Tr.tr("home.play"), style: "primary", action: () => { dialog.close(true); root.launch(game); } }];
+        dialog.buttons = [s === "installed" || s === "updating"
+            ? { text: Tr.tr("home.play"), style: "primary", action: () => { dialog.close(true); root.launch(game); } }
+            : s === "none"
+            ? { text: Tr.tr("options.install"), style: "primary", action: () => { dialog.close(true); root.askInstall(game); } }
+            : { text: Tr.tr("prompt.close"), style: "primary", action: () => dialog.close() }];
         dialog.defaultIndex = 0;
         dialog.open();
     }
+    function detailsFacts(game) {
+        const facts = [[Tr.tr("details.source"), GameInfo.source(game)]];
+        const s = GameInfo.steamState(game), d = GameInfo.download(game);
+        if (GameInfo.isSteam(game))
+            facts.push([Tr.tr("details.state"), s === "installed" ? Tr.tr("steam.state.installed") : GameInfo.stateText(game)]);
+        if (d && (s === "downloading" || s === "updating" || s === "paused"))
+            facts.push([Tr.tr("details.done"), Tr.tr("details.done.value", { done: GameInfo.size1(d.done), total: GameInfo.size1(d.total) })]);
+        if (d && (s === "downloading" || s === "updating") && d.rate > 0) {
+            const left = (d.total - d.done) / d.rate;
+            facts.push([Tr.tr("details.speed"), Number(d.rate / 1e6).toLocaleString(Qt.locale(), "f", 1) + " MB/s"],
+                       [Tr.tr("details.left"), left < 60 ? Tr.tr("details.left.less") : Tr.tr("details.left.minutes", { n: Math.round(left / 60) })]);
+        }
+        if (s === "queued") {
+            const first = (GameInfo.steam.downloads || [])[0];
+            const g = first && first.appid !== GameInfo.appid(game) ? steamGame(first.appid) : null;
+            if (g) facts.push([Tr.tr("details.done"), Tr.tr("details.queue", { title: g.title })]);
+        }
+        facts.push([Tr.tr("details.last"), GameInfo.lastPlayed(game)],
+                   [Tr.tr("details.time"), GameInfo.played(game) ? GameInfo.playTime(game) : "\u2014"]);
+        return facts;
+    }
     function showOptions(game) {
+        const s = GameInfo.steamState(game), steam = GameInfo.isSteam(game);
         dialog.game = game;
         dialog.mode = "options";
         dialog.contentWidth = 0;
         dialog.title = game.title;
         dialog.text = "";
-        dialog.buttons = [
-            { text: Tr.tr("home.play"), style: "primary", action: () => { dialog.close(true); root.launch(game); } },
+        dialog.buttons = (s === "installed"
+            ? [{ text: Tr.tr("home.play"), style: "primary", action: () => { dialog.close(true); root.launch(game); } }]
+            : s === "none"
+            ? [{ text: Tr.tr("options.install"), style: "primary", action: () => { dialog.close(true); root.askInstall(game); } }]
+            : []).concat([
             { text: Tr.tr("home.details"), action: () => { dialog.close(true); root.showDetails(game); } },
             { text: Tr.tr(game.favorite ? "options.unfavorite" : "options.favorite"), action: () => {
                 game.favorite = !game.favorite;
@@ -415,7 +522,12 @@ FocusScope {
                 dialog.close();
                 toast.show(Tr.tr(game.favorite ? "toast.favorite" : "toast.unfavorite"));
             } }
-        ];
+        ]);
+        // a Steam game can always be uninstalled, and its download cancelled, without Steam's interface
+        if (steam && (s === "installed" || s === "updating"))
+            dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.uninstall"), action: () => { dialog.close(true); root.askUninstall(game, false); } }]);
+        if (steam && (s === "downloading" || s === "queued" || s === "paused"))
+            dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.cancel_install"), action: () => { dialog.close(true); root.askUninstall(game, true); } }]);
         if (section !== "library")
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.library"), action: () => {
                 dialog.close(true);
@@ -499,8 +611,17 @@ FocusScope {
         Qt.callLater(dialog.focusDefault);
     }
 
-    // ---- Steam (4.2): its library or store; owneetd starts Steam when needed
+    // ---- Steam (4.2, 4.2c): its store, installing and uninstalling; owneetd starts Steam when
+    // needed. Steam's window shows only for its store and its confirmations.
     function openSteam(page) {
+        if (steamOffline(page === "store" ? "store" : "play")) return;
+        withSteamNotice(() => {
+            if (page === "store") root.storeVisited = true;
+            steamRequest({ open: page }, null);
+        });
+    }
+    // Asks owneetd; Steam starts if needed (its first start: "Preparing Steam")
+    function steamRequest(body, done) {
         if (!owneetd.connected) {
             toast.show(Tr.tr("error.daemon.unavailable"));
             Nav.feedback("error");
@@ -517,9 +638,10 @@ FocusScope {
                 return;
             }
             Nav.feedback("launch");
-            owneetd.post("/v1/steam", { open: page, language: Tr.language }, (status2, data) => {
+            owneetd.post("/v1/steam", Object.assign({ language: Tr.language }, body), (status2, data) => {
                 if (status2 === 202) {
-                    if (!st.running) steamPrep.start(!st.prepared);
+                    if (!st.running) steamPrep.start(!st.prepared, "");
+                    if (done) done();
                     return;
                 }
                 const code = data && data.error ? data.error.code : "";
@@ -528,6 +650,107 @@ FocusScope {
                 Nav.feedback("error");
             });
         });
+    }
+    // Without internet, what needs it stops here with a clear message (owner, 2026-10-14):
+    // installing, the store, and Steam's first start or sign-in ("play" when Steam is ready
+    // needs nothing). True when blocked.
+    function steamOffline(kind) {
+        if (online)
+            return false;
+        const st = GameInfo.steam;
+        const ready = st !== null && st.prepared && st.account;
+        if (kind === "play" && ready)
+            return false;
+        if (kind === "play" || (kind === "store" && !ready))
+            kind = "first";
+        dialog.game = null;
+        dialog.mode = "offline";
+        dialog.contentWidth = 0;
+        dialog.icon = "wifi";
+        dialog.iconCrossed = true;
+        dialog.iconAttention = true;
+        dialog.title = Tr.tr("offline.title");
+        dialog.text = Tr.tr("offline." + kind);
+        dialog.buttons = [
+            { text: Tr.tr("offline.network"), style: "primary", action: () => {
+                dialog.close(true);
+                settings.section = "network";
+                root.goSection("settings");
+            } },
+            { text: Tr.tr("prompt.close"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        Nav.feedback("notify-error");
+        dialog.open(true);
+        return true;
+    }
+    // Before Steam's window on PCs where it shows display errors (NVIDIA's driver): every time,
+    // until "Don't show again" (owner, 2026-10-14)
+    function withSteamNotice(next) {
+        if (!GameInfo.steam || !GameInfo.steam.nvidia || api.memory.has("steamNoticeHidden")) {
+            next();
+            return;
+        }
+        dialog.game = null;
+        dialog.mode = "steamNotice";
+        dialog.contentWidth = 0;
+        dialog.icon = "warning";
+        dialog.title = Tr.tr("steam.notice.title");
+        dialog.text = Tr.tr("steam.notice.text");
+        noticeNever.checked = false;
+        dialog.buttons = [
+            { text: Tr.tr("steam.notice.go"), style: "primary", action: () => {
+                if (noticeNever.checked) api.memory.set("steamNoticeHidden", true);
+                dialog.close(true);
+                next();
+            } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function askInstall(game) {
+        if (steamOffline("install")) return;
+        const id = GameInfo.appid(game);
+        dialog.game = null;
+        dialog.mode = "install";
+        dialog.contentWidth = 0;
+        dialog.icon = "download";
+        dialog.title = Tr.tr("install.title", { title: game.title });
+        dialog.text = Tr.tr("install.text");
+        dialog.buttons = [
+            { text: Tr.tr("install.go"), style: "primary", action: () => {
+                dialog.close(true);
+                root.withSteamNotice(() => root.steamRequest({ install: id }, () => {
+                    const asked = Object.assign({}, root.steamAsked);
+                    asked[id] = { title: game.title, kind: "install" };
+                    root.steamAsked = asked;
+                }));
+            } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    // Uninstalling, and cancelling a download: Steam's steam://uninstall, after the console asks
+    function askUninstall(game, cancelling) {
+        const id = GameInfo.appid(game);
+        const k = cancelling ? "cancelinst" : "uninstall";
+        dialog.game = null;
+        dialog.mode = "uninstall";
+        dialog.contentWidth = 0;
+        dialog.icon = "trash";
+        dialog.title = Tr.tr(k + ".title", { title: game.title });
+        dialog.text = Tr.tr(k + ".text");
+        dialog.buttons = [
+            { text: Tr.tr(k + ".go"), action: () => {
+                dialog.close(true);
+                root.withSteamNotice(() => root.steamRequest({ uninstall: id }, () => {
+                    const asked = Object.assign({}, root.steamAsked);
+                    asked[id] = { title: game.title, kind: cancelling ? "cancel" : "uninstall" };
+                    root.steamAsked = asked;
+                }));
+            } },
+            { text: Tr.tr(cancelling ? "cancelinst.keep" : "prompt.cancel"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 1;             // keep it: nothing removed by accident
+        dialog.open();
     }
     // The live system keeps Steam's files in RAM: with less than 12 GB, install first
     function showSteamNeedsInstall() {
@@ -557,7 +780,7 @@ FocusScope {
     function addFrom(source) {
         if (source === "steam") {
             dialog.close(true);
-            root.openSteam("library");
+            root.openSteam("store");            // owned games are in the library already (4.2c)
         } else {
             showDiskGuide();
         }
@@ -1149,7 +1372,9 @@ FocusScope {
             anchors.fill: parent
             visible: root.section === "home"
             focus: visible
-            games: root.games
+            games: root.homeGames
+            notices: root.steamNotices
+            onOpenNotice: if (notice.game) root.showDetails(notice.game)
             onLaunch: root.launch(game)
             onDetails: root.showDetails(game)
             onOptions: root.showOptions(game)
@@ -1454,23 +1679,55 @@ FocusScope {
                 }
             }
         }
-        Column {                          // details: facts about the game
+        Column {                          // details: facts about the game (Steam: its download, 4.2c)
             visible: dialog.mode === "details" && dialog.game !== null
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Theme.px(6)
-            Repeater {
-                model: dialog.game ? [
-                    [Tr.tr("details.source"), GameInfo.source(dialog.game)],
-                    [Tr.tr("details.last"), GameInfo.lastPlayed(dialog.game)],
-                    [Tr.tr("details.time"), GameInfo.played(dialog.game) ? GameInfo.playTime(dialog.game) : "\u2014"]
-                ] : []
-                Row {
-                    spacing: Theme.px(18)
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    Text { text: modelData[0]; color: Theme.muted; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
-                    Text { text: modelData[1]; color: Theme.fg; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
+            Grid {
+                anchors.horizontalCenter: parent.horizontalCenter
+                columns: 2
+                columnSpacing: Theme.px(18)
+                rowSpacing: Theme.px(6)
+                Repeater {
+                    model: dialog.game && dialog.mode === "details" ? root.detailsFacts(dialog.game).reduce((a, f) => a.concat(f), []) : []
+                    Text {
+                        text: modelData
+                        color: index % 2 === 0 ? Theme.muted : Theme.fg
+                        font.family: Theme.textFont
+                        font.pixelSize: Theme.fs(14.5)
+                    }
                 }
             }
+            Rectangle {                   // the download's progress
+                readonly property string s: dialog.game ? GameInfo.steamState(dialog.game) : ""
+                visible: s === "downloading" || s === "updating" || s === "queued" || s === "paused"
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Theme.px(420); height: Theme.px(8); radius: height / 2
+                color: Theme.raised
+                Rectangle {
+                    width: parent.width * (dialog.game ? GameInfo.progress(dialog.game) : 0) / 100
+                    height: parent.height; radius: height / 2
+                    color: Theme.accent
+                    Behavior on width { NumberAnimation { duration: Theme.motionMs } }
+                }
+            }
+            Text {                        // on a disk that is not connected
+                visible: dialog.game !== null && GameInfo.steamState(dialog.game) === "away"
+                anchors.horizontalCenter: parent.horizontalCenter
+                readonly property string disk: dialog.game ? GameInfo.awayDisk(dialog.game) : ""
+                text: disk !== "" ? Tr.tr("details.away", { disk: disk }) : Tr.tr("details.away.unnamed")
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(14.5)
+            }
+        }
+        SettingRow {                      // steamNotice: "Don't show again" (4.2c)
+            id: noticeNever
+            visible: dialog.mode === "steamNotice"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(360)
+            text: Tr.tr("steam.notice.never")
+            onActivated: checked = !checked
         }
         Column {                          // connect: password, what went wrong, "Connecting…"
             visible: dialog.mode === "connect"
@@ -1788,7 +2045,10 @@ FocusScope {
         function onEvent(type, data) {
             if (!steamPrep.visible || !data) return;
             const id = data.id || "";
-            if ((type === "app.window" && (id === "steam" || id.startsWith("steam:")))
+            // started for a game, Steam stays hidden: wait for the game (or Steam, if it needs the user)
+            const steamWindow = id === "steam" && steamPrep.gameTitle === "";
+            if ((type === "app.window" && (steamWindow || id.startsWith("steam:")))
+                    || (type === "app.started" && id.startsWith("steam:"))
                     || (type === "app.exited" && id === "steam")
                     || (type === "focus.changed" && data.focus !== "home"))
                 steamPrep.close(true);

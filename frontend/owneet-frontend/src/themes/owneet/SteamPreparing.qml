@@ -2,7 +2,9 @@
 // While Steam starts ([[step-4.2-steam-integration]]): Steam shows nothing until its window is
 // ready, which takes a few minutes the first time (it downloads about 2.4 GB). The shell closes
 // this screen when Steam's or the game's window appears, or when Steam stops; B hides it and Steam
-// goes on.
+// goes on. Started for a game, Steam stays hidden ([[step-4.2c-steam-without-its-interface]]): the
+// screen says the game is starting and waits for the game (or for Steam, if it needs the user).
+// It is never shown without internet when Steam needs it (the shell says so instead).
 import QtQuick 2.15
 import "foundation"
 
@@ -14,9 +16,11 @@ NavArea {
     backFeedback: ""
 
     property bool firstTime: false          // Steam has never started here: the long download
+    property string gameTitle: ""           // started for this game: Steam stays hidden
 
-    function start(first) {
+    function start(first, title) {
         firstTime = first;
+        gameTitle = title || "";
         if (!visible)
             Nav.feedback("sheet-open");
         visible = true;
@@ -46,7 +50,7 @@ NavArea {
         Text {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: Tr.tr("steam.prep.title")
+            text: root.gameTitle !== "" ? Tr.tr("toast.launch", { title: root.gameTitle }) : Tr.tr("steam.prep.title")
             color: Theme.fg
             font.family: Theme.displayFont
             font.weight: Font.Bold
@@ -54,6 +58,7 @@ NavArea {
             wrapMode: Text.Wrap
         }
         Text {
+            visible: root.firstTime || root.gameTitle === ""
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             text: Tr.tr(root.firstTime ? "steam.prep.first" : "steam.prep.text")

@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The library ([[step-3.7-library-screen]], approved demo design/demos/3.7-library.html): every
 // game in one grid, filters on LT / RT, sort on Y, the disks with their free space (up from the
-// first row; A opens the Disks window). Every game shown is installed (4.1); the last place of the
-// grid is "Add games" (approved demo design/demos/4.2-library-add-games.html), not in Favorites, a
-// personal list.
+// first row; A opens the Disks window). The last place of the grid is "Add games" (approved demo
+// design/demos/4.2-library-add-games.html), not in Favorites, a personal list. Every owned Steam
+// game is here, installed or not, with its download (approved demo
+// design/demos/4.2c-steam-library.html): A plays an installed game, installs one that is not, and
+// shows the details of the others; the filter "Installed" is back.
 import QtQuick 2.15
 import "foundation"
 
@@ -18,7 +20,7 @@ FocusScope {
     signal quickMenu()                          // B: nothing to go back to here (3.13)
     signal addGames()
 
-    readonly property var filters: ["all", "favorites", "steam", "local"]
+    readonly property var filters: ["all", "installed", "favorites", "steam", "local"]
     property string filter: "all"
     property string sort: "recent"             // saved by the shell
     readonly property int columns: 7
@@ -35,6 +37,17 @@ FocusScope {
     function count(f) { const r = favoritesRevision; return games.filter(g => matches(g, f)).length; }
     // the grid's places: the games, then "Add games"
     readonly property var places: filter === "favorites" ? shown : shown.concat([{ addGames: true }])
+    // The selection stays on its game when the places change order (e.g. a download starts and
+    // the game moves first, 4.2c)
+    property var selected: null
+    function remember() { selected = grid.currentItem ? grid.currentItem.game : null; }
+    function keepSelected() {
+        const i = selected ? places.indexOf(selected) : -1;
+        if (i >= 0 && i !== grid.currentIndex) {
+            grid.currentIndex = i;
+            grid.positionViewAtIndex(i, GridView.Contain);
+        }
+    }
 
     // Disks: refreshed whenever the library is shown (mounting arrives with
     // [[step-6.5-automatic-disk-mounting]])
@@ -50,8 +63,15 @@ FocusScope {
             return [P(["a"], "prompt.disks")].concat(page);
         if (grid.currentItem && grid.currentItem.addTile)
             return [P(["a"], "prompt.add_games")].concat(page);
-        if (grid.count > 0)
-            return [P(["a"], "prompt.play"), P(["x"], "prompt.details"), P(["menu"], "prompt.options")].concat(page);
+        const game = grid.currentItem ? grid.currentItem.game : null;
+        if (game) {
+            const s = GameInfo.steamState(game);
+            if (s === "installed")
+                return [P(["a"], "prompt.play"), P(["x"], "prompt.details"), P(["menu"], "prompt.options")].concat(page);
+            if (s === "none")
+                return [P(["a"], "prompt.install"), P(["x"], "prompt.details"), P(["menu"], "prompt.options")].concat(page);
+            return [P(["a"], "prompt.details"), P(["menu"], "prompt.options")].concat(page);
+        }
         return page;
     }
     readonly property bool addGamesSelected: grid.currentItem !== null && grid.currentItem.addTile === true
@@ -60,7 +80,7 @@ FocusScope {
     property bool startOnAddGames: false
     onStartOnAddGamesChanged: if (startOnAddGames) addGamesHold.restart()
     Timer { id: addGamesHold; interval: 4000; onTriggered: page.startOnAddGames = false }
-    onPlacesChanged: if (startOnAddGames) Qt.callLater(selectAddGames)
+    onPlacesChanged: Qt.callLater(startOnAddGames ? selectAddGames : keepSelected)
     function selectAddGames() {
         if (grid.count === 0 || filter === "favorites")
             return;
@@ -76,6 +96,7 @@ FocusScope {
         filter = "all";
         const i = shown.indexOf(game);
         if (i >= 0) grid.currentIndex = i;
+        remember();
         grid.forceActiveFocus();
     }
     function setFilter(step) {
@@ -85,6 +106,7 @@ FocusScope {
         const i = keep ? shown.indexOf(keep) : -1;
         grid.currentIndex = i >= 0 ? i : 0;
         grid.positionViewAtIndex(grid.currentIndex, GridView.Contain);
+        remember();
     }
 
     // Filters, sort and the quick menu: for the whole page, wherever the selection is
@@ -265,6 +287,7 @@ FocusScope {
                 Nav.feedback("move");
                 disks.forceActiveFocus();       // from the first row up to the disks
             } else if (Nav.listKeys(grid, a)) {
+                page.remember();
             } else if (a === "accept" && currentItem && currentItem.addTile) {
                 Nav.feedback("confirm");
                 page.addGames();

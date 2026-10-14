@@ -3,13 +3,17 @@
 // optional text or content, and round buttons in a centred row, chosen with left / right
 // (approved in demo 3.6). B closes it. Buttons: [{ text, style, action }], `defaultIndex` is the
 // button selected first (e.g. Cancel in a confirmation), unless `initialItem` (an item of the
-// window's own content, e.g. a text field) is set.
+// window's own content, e.g. a text field) is set. `icon` (optional) is drawn above the title,
+// on the accent colour when `iconAttention` (e.g. no internet, demo 4.2c).
 import QtQuick 2.15
 
 NavArea {
     id: root
     property string title: ""
     property string text: ""
+    property string icon: ""
+    property bool iconAttention: false
+    property bool iconCrossed: false
     property var buttons: []
     property int defaultIndex: 0
     property Item initialItem: null
@@ -59,6 +63,9 @@ NavArea {
         visible = false;
         initialItem = null;             // the next window starts from the defaults
         backAction = null;
+        icon = "";
+        iconAttention = false;
+        iconCrossed = false;
         prompts = Qt.binding(() => defaultPrompts);
     }
     onCancelled: {
@@ -100,6 +107,20 @@ NavArea {
             anchors { top: parent.top; topMargin: Theme.px(22); horizontalCenter: parent.horizontalCenter }
             width: box.width - Theme.px(48)
             spacing: Theme.px(14)
+            Rectangle {
+                visible: root.icon !== ""
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Theme.px(52); height: width
+                radius: Theme.radiusM
+                color: root.iconAttention ? Theme.accent : Theme.raised
+                Icon {
+                    anchors.centerIn: parent
+                    width: Theme.px(28); height: width
+                    name: root.icon
+                    crossed: root.iconCrossed
+                    color: root.iconAttention ? Theme.onAccent : Theme.fg
+                }
+            }
             Text {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter

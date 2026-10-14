@@ -38,26 +38,105 @@ QtObject {
         return Tr.tr("game.time.hours", { h: Math.floor(minutes / 60), m: minutes % 60 });
     }
 
-    // Owned but not installed games (Steam) arrive with the Steam integration (4.x): until then
-    // every game in the list is installed.
-    function installed(game) { return game !== null && game !== undefined; }
+    // ---- Steam games owned but not installed ([[step-4.2c-steam-without-its-interface]])
+    // The Steam provider lists every owned game with its app id (extra "steam.appid") and whether
+    // it was installed when the games were read; while the interface runs, owneetd says what is
+    // installed, downloading, or on a disk that is not connected (GET /v1/steam, "steam.changed").
+    property var steam: null                    // owneetd's Steam status, null without owneetd
+    property bool online: true                  // the console has an internet connection
+    function appid(game) { return game && game.extra ? String(game.extra["steam.appid"] || "") : ""; }
+    // What is installed, downloading (in which order) or away changes rarely; the bytes of a
+    // download every second. Lists are sorted and filtered on the first only, so that a download
+    // moving on does not rebuild them (covers follow the bytes by themselves).
+    property var steamStates: null              // { games: {id}, downloads: {id: {state, order}}, away: {id: disk} }
+    property string steamKey: ""
+    onSteamChanged: {
+        const st = steam;
+        const ds = st ? (st.downloads || []) : [];
+        const key = st ? JSON.stringify([st.games, ds.map(d => [d.appid, d.state]), st.away]) : "";
+        if (key === steamKey)
+            return;
+        steamKey = key;
+        if (!st) {
+            steamStates = null;
+            return;
+        }
+        const games = {}, downloads = {};
+        (st.games || []).forEach(id => { games[id] = true; });
+        ds.forEach((d, i) => { downloads[d.appid] = { state: d.state, order: i }; });
+        steamStates = { games: games, downloads: downloads, away: st.away || {} };
+    }
+    readonly property var downloads: {          // app id → download, with its bytes now
+        const out = {};
+        ((steam && steam.downloads) || []).forEach(d => { out[d.appid] = d; });
+        return out;
+    }
+    // "installed", "none", "downloading", "updating", "queued" (waiting for its turn), "paused"
+    // (waiting, no internet), "away" (installed on a disk that is not connected)
+    function steamState(game) {
+        const id = appid(game);
+        if (!id || !isSteam(game))
+            return "installed";
+        const st = steamStates;
+        if (!st)
+            return game.extra["steam.installed"] === false ? "none" : "installed";
+        const d = st.downloads[id];
+        if (d)
+            return !online && d.state !== "updating" ? "paused" : d.state;
+        if (st.games[id])
+            return "installed";
+        return st.away[id] !== undefined ? "away" : "none";
+    }
+    function download(game) { return downloads[appid(game)] || null; }
+    function progress(game) {                   // 0…100
+        const d = download(game);
+        return d && d.total > 0 ? Math.min(100, Math.floor(d.done * 100 / d.total)) : 0;
+    }
+    function awayDisk(game) { return steamStates ? (steamStates.away[appid(game)] || "") : ""; }
+    // Can be played now (an update running counts: Steam finishes it first)
+    function installed(game) {
+        if (game === null || game === undefined)
+            return false;
+        const s = steamState(game);
+        return s === "installed" || s === "updating";
+    }
+    // The state line under a game's title: "" for an installed game
+    function stateText(game) {
+        const s = steamState(game);
+        if (s === "installed")
+            return "";
+        if (s === "downloading" || s === "updating")
+            return Tr.tr("steam.state." + s, { p: progress(game) });
+        return Tr.tr("steam.state." + s);
+    }
 
-    // Sorting: "recent" (last played, most recent first), "name", "time" (most played)
+    // Sorting: "recent" (downloads first, in Steam's order; then installed games, last played
+    // first; then the others by name), "played" (last played first only: the home screen),
+    // "name", "time" (most played)
     function sorted(list, by) {
         const out = list.slice();
         const byName = (a, b) => a.sortBy.localeCompare(b.sortBy);
         const last = g => played(g) ? g.lastPlayed.getTime() : 0;
+        const queued = g => steamStates ? steamStates.downloads[appid(g)] : undefined;
+        const rank = g => queued(g) ? 0 : installed(g) ? 1 : 2;
+        const order = g => { const d = queued(g); return d ? d.order : 0; };
         if (by === "name")
             out.sort(byName);
         else if (by === "time")
             out.sort((a, b) => b.playTime - a.playTime || byName(a, b));
-        else
+        else if (by === "played")
             out.sort((a, b) => last(b) - last(a) || byName(a, b));
+        else
+            out.sort((a, b) => rank(a) - rank(b) || order(a) - order(b)
+                                || (rank(a) === 1 ? last(b) - last(a) : 0) || byName(a, b));
         return out;
     }
     function recent(model) { return sorted(model.toVarArray(), "recent"); }
 
     // Sizes for people: "212 GB", "1.1 TB" (decimal units, as disks are sold)
+    function size1(bytes) {                    // "2.4 GB": downloads, with one decimal
+        return Number(bytes / 1e9).toLocaleString(Qt.locale(), "f", 1) + " GB";
+    }
     function size(bytes) {
         const gb = bytes / 1e9;
         if (gb >= 1000)

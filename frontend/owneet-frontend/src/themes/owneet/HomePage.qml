@@ -14,7 +14,7 @@ NavArea {
     readonly property var hero: games.length > 0 ? games[0] : null
     // with a game running, the hero shows it and the row starts from the most recent game
     readonly property var recent: running ? games.slice(0, 6) : games.slice(1, 7)
-    property var notices: []                   // [{ text }], from owneetd later (3.11)
+    property var notices: []                   // [{ text, game }]: Steam's downloads (4.2c)
     property var running: null                 // the running game: { id, name, started }
     property bool canResume: true
     // The Pegasus game of the running one (same title), for its art and source
@@ -39,6 +39,7 @@ NavArea {
     signal notYet()                            // a feature of a later step
     signal quickMenu()                         // B: nothing to go back to here (3.13)
     signal openStore()                         // Steam's store (4.2)
+    signal openNotice(var notice)              // the downloads notice: the game's details (4.2c)
     onCancelled: quickMenu()
     backFeedback: ""                           // the quick menu plays its own sound
 
@@ -80,7 +81,8 @@ NavArea {
         else if (k === "resume") resume(running);
         else if (k === "close") closeApp(running);
         else if (k === "store" || item.steamStore) openStore();
-        else notYet();                         // apps and notices (later steps)
+        else if (k === "notice" && page.notices.length > 0) openNotice(page.notices[0]);
+        else notYet();                         // apps (later steps)
     }
     onOtherAction: {
         const game = gameOf(current);
@@ -301,7 +303,7 @@ NavArea {
                         }
                     }
                 }
-                Repeater {                      // the latest notice (3.11), A opens, X dismisses
+                Repeater {                      // Steam's downloads (4.2c), A opens the game's details
                     model: page.notices.length > 0 ? 1 : 0
                     Rectangle {
                         readonly property bool navigable: true
