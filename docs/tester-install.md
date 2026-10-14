@@ -60,7 +60,9 @@ The session's test switches (the `owneet.debug.*` kernel options listed at the t
 `owneet-session`) can also be written, one per line, in a file **`owneet-debug.txt`** at the top of
 the OWNEETLOG stick, e.g. `owneet.debug.gamescope_explicit_sync=off`: they apply at every start
 while the stick is plugged in, with no boot menu to edit. The hardware report on the stick lists
-the switches that were set.
+the switches that were set. owneetd reads one of its own the same way:
+`owneet.debug.steam_repaint=on` keeps gamescope composing every frame while Steam's window is on
+screen, on NVIDIA only (a test against parts of Steam's window left stale).
 
 To see which windows are on screen (e.g. pictures that should not be there), copy the test tool
 `owneet-xprobe` (`out/vm-tools/`, built with `go build ./cmd/owneet-xprobe`) to the top of the
