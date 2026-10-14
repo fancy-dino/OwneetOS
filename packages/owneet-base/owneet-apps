@@ -1,0 +1,91 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Installs and removes the engines of the optional apps ([[step-5.0.0-optional-web-apps]]): today
+# Brave, the hidden engine behind the web apps. The packages come from the offline repository the
+# ISO carries (/usr/share/owneet/bundled/): no internet, no USB stick.
+#
+#   owneet-apps install ID    install the packages of the engine ID
+#   owneet-apps remove ID     remove them (and the dependencies nothing else needs)
+#
+# Runs as root, started through systemd only (owneet-apps-install@ID / owneet-apps-remove@ID
+# .service, which a polkit rule lets the console user start). Only the engines listed in
+# /usr/share/owneet/apps.json are accepted. The result is written to /run/owneet/apps.json for
+# owneetd: {"state": installing|removing|done|failed, "action", "id", "message", "time"}.
+
+set -uo pipefail
+
+ACTION="${1:-}"
+ID="${2:-}"
+CATALOG=/usr/share/owneet/apps.json
+BUNDLE=/usr/share/owneet/bundled
+STATE=/run/owneet/apps.json
+WORK=/run/owneet-apps
+mkdir -p /run/owneet "$WORK"
+
+json_string() { printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')"; }
+
+# write_state STATE MESSAGE
+write_state() {
+    printf '{"state":"%s","action":"%s","id":"%s","message":%s,"time":"%s"}\n' \
+        "$1" "$ACTION" "$ID" "$(json_string "${2:-}")" "$(date -u +%FT%TZ)" > "$STATE.tmp"
+    mv "$STATE.tmp" "$STATE"
+}
+
+if [[ "$ACTION" != install && "$ACTION" != remove ]] || [[ ! "$ID" =~ ^[a-z0-9-]+$ ]]; then
+    echo "usage: owneet-apps install|remove ID" >&2
+    exit 2
+fi
+
+# The engine's packages: its line of the catalogue (one app per line), "kind": "engine" only
+line="$(grep -F "\"id\": \"$ID\"," "$CATALOG" | grep -F '"kind": "engine"' | head -1)"
+mapfile -t packages < <(printf '%s' "$line" | sed -n 's/.*"packages": \[\([^]]*\)\].*/\1/p' \
+                        | tr ',' '\n' | tr -d ' "' | grep -E '^[a-z0-9@._+-]+$')
+if [[ -z "$line" || ${#packages[@]} -eq 0 ]]; then
+    write_state failed "Not an app of the catalogue: $ID."
+    exit 1
+fi
+
+case "$ACTION" in
+    install)
+        if [[ ! -f "$BUNDLE/bundled.db" ]]; then
+            write_state failed "This system carries no bundled apps."
+            exit 1
+        fi
+        write_state installing "Installing ${packages[*]}."
+        # The bundle only: whatever it installs comes from the ISO itself. Development builds
+        # carry it unsigned; a signed bundle (bundled.db.sig) is verified ([[package-signing]]).
+        siglevel="Optional TrustAll"
+        [[ -f "$BUNDLE/bundled.db.sig" ]] && siglevel="Required DatabaseRequired"
+        conf="$WORK/bundled.conf"
+        cat > "$conf" <<CONF
+[options]
+Architecture = auto
+CheckSpace
+
+[bundled]
+SigLevel = $siglevel
+Server = file://$BUNDLE
+CONF
+        # Only [bundled] is known to this configuration: its list joins pacman's sync folder
+        # (bundled.db), which the system's own pacman.conf never reads
+        if pacman --config "$conf" -Sy >/dev/null 2>&1 &&
+                pacman --config "$conf" -S --needed --noconfirm "${packages[@]}"; then
+            write_state "done" "Installed ${packages[*]}."
+        else
+            write_state failed "The installation failed (not enough space?)."
+            exit 1
+        fi
+        ;;
+    remove)
+        write_state removing "Removing ${packages[*]}."
+        installed=()
+        for p in "${packages[@]}"; do pacman -Q "$p" >/dev/null 2>&1 && installed+=("$p"); done
+        if (( ${#installed[@]} == 0 )) || pacman -Rns --noconfirm "${installed[@]}"; then
+            write_state "done" "Removed ${packages[*]}."
+        else
+            write_state failed "The removal failed."
+            exit 1
+        fi
+        ;;
+esac

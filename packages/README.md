@@ -26,6 +26,7 @@ first if it is missing.
 | [`owneet-branding`](owneet-branding/) | OwneetOS wordmark ("Owneet" + coral "OS", SVG outlines) and the Plymouth boot splash `owneet` (wordmark + coral spinner on deep navy). |
 | [`owneetd`](owneetd/) | The system daemon and `owneetctl`, built from [`daemon/`](../daemon/); systemd **user** service enabled for the console user. |
 | [`owneet-xone`](owneet-xone/) | Xbox wireless dongle driver ([xone](https://github.com/dlundqvist/xone) 0.5.8) built for the ISO's exact kernel, without `xone_wired` (wired controllers stay on the kernel's `xpad`); loads before `mt76x2u` so USB Wi-Fi adapters keep working; `owneet-xone-firmware` downloads Microsoft's firmware only with consent. **Rebuilt for every kernel change.** |
+| [`brave-bin`](brave-bin/) | Brave's official Linux build (unmodified), the hidden engine behind the web apps. Not installed by default: the ISO carries it, with the dependencies the system lacks, in the offline repository `/usr/share/owneet/bundled/`, installed when the user picks a web app ([[step-5.0.0-optional-web-apps]]). |
 | [`owneet-session`](owneet-session/) | Console user `owneet`, autologin on tty1, `owneet-session` (gamescope or cage, restarts, fallback) and the fullscreen placeholder shown until the real UI exists. |
 
 ## Rules

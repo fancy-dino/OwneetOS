@@ -187,6 +187,7 @@ FocusScope {
         applyKeyboard();          // the on-screen keyboard and physical keyboards follow the chosen layout
         checkSteamGames();
         owneetd.get("/v1/update", (status, data) => { if (status === 200) root.updateStatus = data; });
+        refreshCatalog();
         checkDisplayPending();
     }
     Connections {
@@ -218,6 +219,8 @@ FocusScope {
             } else if (type === "update.changed") {
                 root.updateStatus = data;
                 root.showUpdate(data);
+            } else if (type === "apps.catalog.changed") {
+                root.catalogChanged(data);
             }
         }
     }
@@ -436,6 +439,113 @@ FocusScope {
         dialog.open();
     }
     function notYet() { toast.show(Tr.tr("toast.later")); }
+
+    // ---- Optional web apps (5.0.0, approved demo design/demos/5.0.0-optional-apps.html): installed
+    // and removed from the home screen's Apps grid. The engine behind them is never named.
+    property var webApps: []                  // owneetd's catalogue: { id, nameKey, icon, installed, busy, sizeMiB }
+    function refreshCatalog() {
+        owneetd.get("/v1/apps/catalog", (status, data) => { if (status === 200) webApps = data.apps || []; });
+    }
+    function catalogChanged(data) {
+        webApps = data.apps || [];
+        const r = data.result;
+        if (!r)
+            return;
+        const app = webApps.find(a => a.id === r.id);
+        const name = app ? Tr.tr(app.nameKey) : r.id;
+        if (r.ok) {
+            if (r.action === "install") Nav.feedback("notify");
+            toast.show(Tr.tr(r.action === "install" ? "toast.app.installed" : "toast.app.removed", { app: name }));
+        } else if (app) {
+            Nav.feedback("notify");
+            appMessage(Tr.tr("apps.fail.title", { app: name }), Tr.tr("apps.fail.text"), () => root.installApp(app));
+        }
+    }
+    function openWebApp(app) {
+        if (app.busy) toast.show(Tr.tr("toast.app.wait"));
+        else if (!app.installed) confirmInstall(app);
+        else notYet();                        // opened from step 5.1
+    }
+    function confirmInstall(app) {
+        dialog.game = null;
+        dialog.mode = "app";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("apps.install.title", { app: Tr.tr(app.nameKey) });
+        dialog.text = "";
+        dialog.facts = [
+            [Tr.tr("apps.install.space"), app.sizeMiB > 0 ? Tr.tr("apps.install.space.about", { mb: app.sizeMiB })
+                                                          : Tr.tr("apps.install.space.small")],
+            [Tr.tr("apps.install.requirements"), Tr.tr("apps.install.internet")]
+        ];
+        dialog.buttons = [
+            { text: Tr.tr("apps.install"), style: "primary", action: () => { dialog.close(true); root.installApp(app); } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }
+        ];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function installApp(app) {
+        owneetd.post("/v1/apps/catalog/" + encodeURIComponent(app.id) + "/install", {}, (status, data) => {
+            if (status === 202)
+                return;
+            const code = data && data.error ? data.error.code : "";
+            const name = Tr.tr(app.nameKey);
+            if (code === "apps.needs_install")
+                appMessage(Tr.tr("apps.ram.title"), Tr.tr("apps.ram.text"));
+            else if (code === "apps.no_space")
+                appMessage(Tr.tr("apps.disk.title"), Tr.tr("apps.disk.text", { app: name, mb: app.sizeMiB }));
+            else if (code === "apps.busy")
+                toast.show(Tr.tr("toast.app.wait"));
+            else
+                appMessage(Tr.tr("apps.fail.title", { app: name }), Tr.tr("apps.fail.text"), () => root.installApp(app));
+        });
+    }
+    // A message about an app, with "Try again" when retry is given
+    function appMessage(title, text, retry) {
+        dialog.game = null;
+        dialog.mode = "appMessage";
+        dialog.contentWidth = Theme.px(560);
+        dialog.title = title;
+        dialog.text = text;
+        const ok = { text: Tr.tr("prompt.ok"), style: retry ? "" : "primary", action: () => dialog.close() };
+        dialog.buttons = retry ? [{ text: Tr.tr("prompt.retry"), style: "primary", action: () => { dialog.close(true); retry(); } }, ok]
+                               : [ok];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function webAppOptions(app) {
+        dialog.game = null;
+        dialog.mode = "appOptions";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr(app.nameKey);
+        dialog.text = "";
+        dialog.buttons = app.installed
+            ? [{ text: Tr.tr("prompt.open"), style: "primary", action: () => { dialog.close(true); root.notYet(); } },
+               { text: Tr.tr("apps.remove"), action: () => { dialog.close(true); root.confirmRemove(app); } }]
+            : [{ text: Tr.tr("apps.install"), style: "primary", action: () => { dialog.close(true); root.confirmInstall(app); } }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function confirmRemove(app) {
+        dialog.game = null;
+        dialog.mode = "appRemove";
+        dialog.contentWidth = Theme.px(560);
+        dialog.title = Tr.tr("apps.remove.title", { app: Tr.tr(app.nameKey) });
+        dialog.text = Tr.tr("apps.remove.text");
+        dialog.buttons = [
+            { text: Tr.tr("apps.remove"), action: () => {
+                dialog.close(true);
+                owneetd.post("/v1/apps/catalog/" + encodeURIComponent(app.id) + "/remove", {}, (status, data) => {
+                    if (status === 202) return;
+                    const code = data && data.error ? data.error.code : "";
+                    toast.show(Tr.tr(code === "apps.busy" ? "toast.app.wait" : "error.apps.remove"));
+                });
+            } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }
+        ];
+        dialog.defaultIndex = 1;             // Cancel first: nothing removed by accident
+        dialog.open();
+    }
 
     // ---- Updates from the USB stick (testers, 4.2b): check, install, restart
     property var updateStatus: null
@@ -1162,6 +1272,9 @@ FocusScope {
             onCloseApp: root.confirmClose(app)
             onNotYet: root.notYet()
             onQuickMenu: quick.openMenu()
+            webApps: root.webApps
+            onOpenWebApp: root.openWebApp(app)
+            onWebAppOptions: root.webAppOptions(app)
         }
         LibraryPage {
             id: library
@@ -1250,6 +1363,7 @@ FocusScope {
         property bool updateBusy: false     // update: checking or installing
         property var updateLines: []        // update: "name  from  →  to"
         property string updateNote: ""
+        property var facts: []              // app: [label, value] lines
         property int seconds: 0             // displayConfirm: until it goes back
         property real deadline: 0
         onSecondsChanged: if (mode === "displayConfirm") text = Tr.tr("display.keep.text", { n: seconds })
@@ -1451,6 +1565,20 @@ FocusScope {
                         }
                     }
                     FocusFrame {}
+                }
+            }
+        }
+        Column {                          // app: what installing it takes (5.0.0)
+            visible: dialog.mode === "app"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(6)
+            Repeater {
+                model: dialog.mode === "app" ? dialog.facts : []
+                Row {
+                    spacing: Theme.px(18)
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    Text { text: modelData[0]; color: Theme.muted; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
+                    Text { text: modelData[1]; color: Theme.fg; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
                 }
             }
         }

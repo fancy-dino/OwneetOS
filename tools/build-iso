@@ -74,6 +74,31 @@ awk -v repo="$repo_dir" -v siglevel="$siglevel" '
     { print }
 ' "$ROOT/iso/pacman.conf" > "$profile/pacman.conf"
 
+# Optional apps carried by the ISO but not installed ([[step-5.0.0-optional-web-apps]]): the
+# packages below, with the dependencies the ISO lacks, go into a small offline repository
+# /usr/share/owneet/bundled/ that owneet-apps installs from when the user picks a web app.
+BUNDLED=(brave-bin)
+bundle_dir="$profile/airootfs/usr/share/owneet/bundled"
+echo "==> bundling ${BUNDLED[*]} with the dependencies the ISO lacks"
+dbpath="$(mktemp -d /var/tmp/owneet-bundle-db.XXXXXX)"
+sudo pacman --config "$profile/pacman.conf" --dbpath "$dbpath" -Sy >/dev/null
+mapfile -t iso_pkgs < <(grep -vE '^\s*(#|$)' "$ROOT/iso/packages.x86_64")
+# Everything a fresh system needs for the ISO alone, and for the ISO plus the bundle: the
+# difference is the bundle
+resolve() { sudo pacman --config "$profile/pacman.conf" --dbpath "$dbpath" -Sp --noconfirm --print-format '%n' "$@"; }
+mapfile -t bundle < <(comm -13 <(resolve "${iso_pkgs[@]}" | sort -u) \
+                               <(resolve "${iso_pkgs[@]}" "${BUNDLED[@]}" | sort -u))
+(( ${#bundle[@]} )) || die "nothing to bundle: are ${BUNDLED[*]} in the ISO already?"
+mkdir -p "$bundle_dir"
+# pacman checks every package's signature (Arch) while downloading
+sudo pacman --config "$profile/pacman.conf" --dbpath "$dbpath" --cachedir "$bundle_dir" \
+    -Sw --noconfirm -dd "${bundle[@]}" >/dev/null
+sudo rm -rf "$dbpath"
+sudo repo-add --quiet "$bundle_dir/bundled.db.tar.gz" "$bundle_dir"/*.pkg.tar.zst
+# mkarchiso makes the files root's in the image; here they stay removable with the profile copy
+sudo chown -R "$(id -u):$(id -g)" "$bundle_dir"
+echo "==> bundled $(printf '%s ' "${bundle[@]}")($(du -sm "$bundle_dir" | cut -f1) MiB)"
+
 echo "==> building the ISO (work dir: $WORK_DIR)"
 sudo mkarchiso -v -r -w "$WORK_DIR" -o "$ROOT/out" "$profile"
 

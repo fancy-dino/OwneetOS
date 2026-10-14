@@ -3,7 +3,6 @@
 package apps
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -16,6 +15,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/fancy-dino/OwneetOS/daemon/internal/live"
 )
 
 // Steam ([[step-4.2-steam-integration]]) runs as the app "steam". It is started without
@@ -33,9 +34,8 @@ const steamGamePrefix = "steam:"
 const steamUIAppID = 769
 
 // SteamLiveMinRAM is the memory Steam needs in the live system, where its first download (about
-// 2.4 GB) is kept in RAM: 12 GB of RAM, as the kernel reports it ([[steam-integration]],
-// 2026-10-11).
-const SteamLiveMinRAM = 11 << 30
+// 2.4 GB) is kept in RAM ([[steam-integration]], 2026-10-11): the rule of package live.
+const SteamLiveMinRAM = live.MinRAM
 
 // ErrSteamNeedsInstall: the live system has too little memory for Steam's files.
 var ErrSteamNeedsInstall = errors.New("Steam needs the installed system: the live system has too little memory for its files")
@@ -131,24 +131,7 @@ func (procFS) Parent(pid int) int {
 func (procFS) Signal(pid int, sig syscall.Signal) error { return syscall.Kill(pid, sig) }
 
 // steamAllowed: always in the installed system; in the live system (/run/archiso) with enough RAM.
-func steamAllowed() bool {
-	if _, err := os.Stat("/run/archiso"); err != nil {
-		return true
-	}
-	f, err := os.Open("/proc/meminfo")
-	if err != nil {
-		return false
-	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		if rest, ok := strings.CutPrefix(sc.Text(), "MemTotal:"); ok {
-			kb, _ := strconv.ParseInt(strings.TrimSuffix(strings.TrimSpace(rest), " kB"), 10, 64)
-			return kb*1024 >= SteamLiveMinRAM
-		}
-	}
-	return false
-}
+func steamAllowed() bool { return live.Allowed(SteamLiveMinRAM) }
 
 // forward hands a steam:// address to the Steam already running (the command returns at once).
 func forward(argv, env []string) error {

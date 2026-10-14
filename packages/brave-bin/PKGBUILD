@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
+#
+# Brave, the engine behind the web apps (Netflix, YouTube, Spotify): Brave's official Linux build,
+# unmodified, adapted from the AUR package brave-bin. It is never shown to the user under its name
+# ([[step-5.0.0-optional-web-apps]]): the ISO carries it as a package file and installs it only
+# when the user picks a web app. Its policies, profile and launch come in [[step-5.1-brave-in-the-os]].
+
+pkgname=brave-bin
+pkgver=1.97.57
+pkgrel=1
+pkgdesc="Brave web browser, the engine behind the OwneetOS web apps (official binary build)"
+arch=('x86_64')
+url="https://brave.com"
+# Brave: MPL-2.0; Chromium: BSD-3-Clause; bundled components: various (see the credits page in
+# Brave itself)
+license=('MPL-2.0' 'BSD-3-Clause' 'LicenseRef-custom')
+# ttf-dejavu is already in the system (owneet-session) and provides the fonts Brave needs
+depends=('gtk3' 'nss' 'alsa-lib' 'libxss' 'ttf-dejavu')
+provides=('brave' 'brave-browser')
+conflicts=('brave' 'brave-browser')
+options=('!strip' '!debug')
+source=("https://github.com/brave/brave-browser/releases/download/v$pkgver/brave-browser-$pkgver-linux-amd64.zip")
+noextract=("brave-browser-$pkgver-linux-amd64.zip")
+# Brave's published checksum (brave-browser-$pkgver-linux-amd64.zip.sha256 next to the release)
+sha256sums=('8a08822ca82528b30c6f553988ec7214e6999ef362f6eff148d386f0053f903c')
+
+package() {
+  install -dm755 "$pkgdir/opt/brave-bin"
+  bsdtar -xf "brave-browser-$pkgver-linux-amd64.zip" -C "$pkgdir/opt/brave-bin"
+  chmod -R u=rwX,go=rX "$pkgdir/opt/brave-bin"
+  # The sandbox uses unprivileged user namespaces (on in Arch's kernel): no setuid helper needed
+  chmod 755 "$pkgdir/opt/brave-bin/chrome-sandbox"
+  install -dm755 "$pkgdir/usr/bin"
+  ln -s /opt/brave-bin/brave "$pkgdir/usr/bin/brave"
+  # No desktop file and no icons: OwneetOS starts Brave itself and never shows it by name
+}

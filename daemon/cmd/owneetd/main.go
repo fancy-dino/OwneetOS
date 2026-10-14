@@ -20,10 +20,12 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/audio"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/bluetooth"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/catalog"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/config"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/display"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/live"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/network"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/power"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/sdldb"
@@ -179,11 +181,24 @@ func run(configPath string) error {
 	go screen.Run(ctx)
 
 	// Testers' updates from a USB stick ([[step-4.2b-updates-from-a-usb-stick]])
+	// and the optional apps, installed from the ISO's bundled repository
+	// ([[step-5.0.0-optional-web-apps]]): both start root units that polkit allows
 	var updateAPI api.Update
+	var catalogAPI api.Catalog
 	if starter, err := update.NewSystemdStarter(); err == nil {
 		defer starter.Close()
 		updateAPI = &update.Manager{Broker: broker, Log: log, Units: starter,
 			StateFile: "/run/owneet/update.json", TesterMark: "/etc/owneet/tester"}
+		stateDir := os.Getenv("XDG_STATE_HOME")
+		if stateDir == "" {
+			stateDir = filepath.Join(os.Getenv("HOME"), ".local", "state")
+		}
+		catalogAPI = &catalog.Manager{Broker: broker, Log: log, Units: starter,
+			CatalogFile: "/usr/share/owneet/apps.json", StateFile: "/run/owneet/apps.json",
+			ChosenFile: filepath.Join(stateDir, "owneetd", "webapps.json"),
+			PacmanDB:   "/var/lib/pacman/local",
+			Allowed:    func() bool { return live.Allowed(live.MinRAM) },
+			FreeMiB:    func() int64 { return catalog.DiskFreeMiB("/") }}
 	}
 
 	srv := &api.Server{
@@ -199,6 +214,7 @@ func run(configPath string) error {
 		Apps:            appsAPI,
 		Display:         screen,
 		Update:          updateAPI,
+		Catalog:         catalogAPI,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

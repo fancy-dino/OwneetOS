@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Installs the engine %i of the optional apps (owneet-apps, [[step-5.0.0-optional-web-apps]]).
+# Started by owneetd from the home screen's Apps grid (polkit rule 50-owneet-apps.rules: only
+# these units, only start, only the console user); owneet-apps accepts only the catalogue's engines.
+[Unit]
+Description=OwneetOS optional app: install %i
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/owneet/owneet-apps install %i
+TimeoutStartSec=15min

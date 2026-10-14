@@ -9,7 +9,9 @@
 #   - auto-pair on: after 3 s a "DualSense Wireless Controller" pairs;
 #   - scan: wifi.scan_done after 1.5 s;
 #   - display: two screens, modes of the TV, brightness; a change waits for "Keep" (screen 30 s,
-#     mode 15 s).
+#     mode 15 s);
+#   - optional web apps (5.0.0): none installed; the first install takes 3 s (the engine), the next
+#     ones and the removals are immediate; the last removal takes 1.5 s.
 #
 # Steps can send it events (tools/frontend-preview "event TYPE JSON"): one line each in the FIFO
 # given as second argument.
@@ -81,6 +83,10 @@ state = {
     # testers' updates from a USB stick (4.2b)
     "update": {"tester": True, "state": "", "packages": [], "running": False},
     "steam": {"installed": True, "allowed": True, "prepared": False, "running": False, "games": []},
+    # optional web apps (5.0.0)
+    "catalog": {"allowed": True, "apps": [
+        {"id": i, "nameKey": "app." + i, "icon": i[0].upper(), "url": "", "installed": False, "sizeMiB": 500}
+        for i in ("netflix", "youtube", "spotify")]},
     "audio": {"available": True, "output": "hdmi", "volume": 60, "muted": False,
               "outputs": [{"id": "hdmi", "name": "TV (HDMI)"}, {"id": "speakers", "name": "Speakers"}]},
 }
@@ -204,6 +210,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/v1/apps": {"apps": state["apps"], "focus": "home"},
                 "/v1/steam": state["steam"],
                 "/v1/update": state["update"],
+                "/v1/apps/catalog": state["catalog"],
                 "/v1/controllers": {"controllers": state["controllers"]},
                 "/v1/network": state["network"],
                 "/v1/network/wifi": {"networks": state["networks"]},
@@ -280,6 +287,36 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 later(0.5, lambda: result({"state": "installing", "packages": pkgs, "running": True}))
                 later(3, lambda: result({"state": "done", "packages": pkgs, "running": False}))
+            return self.reply(202)
+        if path.startswith("/v1/apps/catalog/"):
+            _, _, _, _, app_id, action = path.split("/")
+            catalog = state["catalog"]
+            app = next((a for a in catalog["apps"] if a["id"] == app_id), None)
+            if not app:
+                return self.error(404, "apps.unknown")
+            if any(a.get("busy") for a in catalog["apps"]):
+                return self.error(409, "apps.busy")
+            installed = [a for a in catalog["apps"] if a["installed"]]
+
+            def finish():
+                with lock:
+                    app.pop("busy", None)
+                    app["installed"] = action == "install"
+                    engine = any(a["installed"] for a in catalog["apps"])
+                    for a in catalog["apps"]:
+                        a["sizeMiB"] = 0 if engine else 500
+                    data = json.loads(json.dumps(catalog))
+                data["result"] = {"id": app_id, "action": action, "ok": True}
+                publish("apps.catalog.changed", data)
+            slow = (action == "install" and not installed) or (action == "remove" and installed == [app])
+            if not slow:
+                finish()
+                return self.reply(202)
+            with lock:
+                app["busy"] = action
+                data = json.loads(json.dumps(catalog))
+            publish("apps.catalog.changed", data)
+            later(3 if action == "install" else 1.5, finish)
             return self.reply(202)
         if path == "/v1/steam":
             with lock:
