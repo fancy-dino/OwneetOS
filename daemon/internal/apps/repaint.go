@@ -14,14 +14,16 @@ import (
 	"github.com/jezek/xgb/xproto"
 )
 
-// Repainting Steam's window on NVIDIA (test, [[step-4.2c-steam-without-its-interface]]): with
-// NVIDIA's driver, parts of Steam's window stay stale or unfinished inside gamescope while games
-// are fine (FrankenPC). Another console session saw the same and found that a layer over the
-// screen that changes every frame (MangoHud's, made transparent) makes gamescope compose every
-// frame again, and the stale parts go. owneetd does that without MangoHud: while Steam's own
-// window is on screen, a window of one all but transparent pixel, marked as an external overlay
-// for gamescope (as mangoapp's), changes every frame. Test switch owneet.debug.steam_repaint=on
-// (kernel command line or owneet-debug.txt on the OWNEETLOG stick).
+// Repainting Steam's window on NVIDIA ([[step-4.2c-steam-without-its-interface]]): with NVIDIA's
+// driver, parts of Steam's window stay stale or unfinished inside gamescope while games are fine
+// (FrankenPC). Another console session saw the same and found that a layer over the screen that
+// changes every frame (MangoHud's, made transparent) makes gamescope compose every frame again,
+// and the stale parts go. owneetd does that without MangoHud: while Steam's own window is on
+// screen, a window of one all but transparent pixel, marked as an external overlay for gamescope
+// (as mangoapp's), changes every frame. Steam's window gets a little slower. On every NVIDIA PC
+// since the FrankenPC test (owner, 2026-10-15), until Valve fixes it; test switch
+// owneet.debug.steam_repaint=off turns it off (kernel command line or owneet-debug.txt on the
+// OWNEETLOG stick).
 
 // repaintFrame: how often the overlay changes (about 60 times a second).
 const repaintFrame = 16 * time.Millisecond
@@ -158,9 +160,9 @@ func DebugOption(name string) string {
 	return value
 }
 
-// steamRepaint: the test switch is on and NVIDIA's driver runs the screen.
+// steamRepaint: NVIDIA's driver runs the screen, and the test switch does not turn it off.
 func (m *Manager) steamRepaint() bool {
-	return m.NVIDIA() && DebugOption("steam_repaint") == "on"
+	return m.NVIDIA() && DebugOption("steam_repaint") != "off"
 }
 
 // updateRepaint keeps gamescope composing while Steam's own window is on screen (not its games).

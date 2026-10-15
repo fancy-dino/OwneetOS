@@ -165,7 +165,7 @@ type Manager struct {
 	// without the GPU, see steamGPUArgs).
 	NVIDIA func() bool
 	// SteamRepaint: keep gamescope composing every frame while Steam's window is on screen
-	// (repaint.go; NVIDIA and the test switch owneet.debug.steam_repaint=on by default).
+	// (repaint.go; by default on NVIDIA, unless the test switch owneet.debug.steam_repaint=off).
 	SteamRepaint func() bool
 
 	mu       sync.Mutex
