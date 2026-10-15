@@ -27,7 +27,7 @@ Window {
     width: Screen.width
     height: Screen.height
     title: "OwneetOS"
-    color: "#0E1424"
+    color: "#000000"            // OwneetOS: as the boot splash, neutral for every palette
 
     visibility: Internal.settings.fullscreen
                 ? Window.FullScreen : Window.AutomaticVisibility

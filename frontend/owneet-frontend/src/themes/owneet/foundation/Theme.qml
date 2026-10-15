@@ -29,6 +29,11 @@ QtObject {
     property string padKind: "xbox"                      // from the connected controller
     readonly property string glyphs: glyphSetting === "auto" ? padKind : glyphSetting
 
+    // ---- Before the start-up animation (boot splash, loading screen): white on black, the same
+    // for every palette (owner, 2026-10-15); the animation brings the palette's colours
+    readonly property color splashBg: "#000000"
+    readonly property color splashFg: "#FFFFFF"
+
     // ---- Fonts (bundled, SIL Open Font License)
     readonly property string displayFont: "Bricolage Grotesque"
     readonly property string textFont: "Lexend"

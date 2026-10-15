@@ -16,7 +16,8 @@
 
 // OwneetOS: the loading screen looks exactly like the boot splash (Plymouth theme "owneet",
 // package owneet-branding): same background, wordmark and spinner at the same places, so the
-// handover from the boot splash to the interface is invisible.
+// handover from the boot splash to the interface is invisible. White on black, neutral for every
+// palette (owner, 2026-10-15): the palette's colours come with the start-up animation.
 
 import QtQuick 2.15
 import QtQuick.Shapes 1.15
@@ -24,7 +25,7 @@ import QtQuick.Shapes 1.15
 
 Rectangle {
     id: root
-    color: "#0E1424"
+    color: "#000000"
     anchors.fill: parent
 
     // Kept for main.qml (Pegasus's loading progress); not shown.
@@ -51,13 +52,13 @@ Rectangle {
         layer.samples: 4
 
         ShapePath {
-            strokeColor: Qt.rgba(1.0, 0.541, 0.357, 0.18)
+            strokeColor: Qt.rgba(1.0, 1.0, 1.0, 0.18)
             strokeWidth: 4
             fillColor: "transparent"
             PathAngleArc { centerX: 24; centerY: 24; radiusX: 18; radiusY: 18; startAngle: 0; sweepAngle: 360 }
         }
         ShapePath {
-            strokeColor: "#FF8A5B"
+            strokeColor: "#FFFFFF"
             strokeWidth: 4
             fillColor: "transparent"
             capStyle: ShapePath.RoundCap
