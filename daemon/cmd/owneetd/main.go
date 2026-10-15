@@ -32,6 +32,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/update"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/vinput"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/webapps"
 )
 
 func main() {
@@ -211,7 +212,14 @@ func run(configPath string) error {
 		webApps.Apps, webApps.Session = launcher, appsMgr.Session
 		webApps.ProfilesDir = filepath.Join(dataDir, "owneet", "webapps")
 		webApps.ExtensionDir = "/usr/share/owneet/extension"
+		webApps.BridgePath = "/usr/lib/owneet/owneet-bridge"
 		catalogAPI = webApps
+	}
+
+	// The console's Brave extension and the interface ([[extension-design]])
+	hub := &webapps.Hub{Broker: broker, Log: log}
+	if appsAPI != nil {
+		hub.Screen = appsMgr
 	}
 
 	srv := &api.Server{
@@ -228,6 +236,7 @@ func run(configPath string) error {
 		Display:         screen,
 		Update:          updateAPI,
 		Catalog:         catalogAPI,
+		WebApps:         hub,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

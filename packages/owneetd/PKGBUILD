@@ -2,9 +2,9 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneetd
-pkgver=0.11.18
+pkgver=0.12.0
 pkgrel=1
-pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps, display) and owneetctl"
+pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps, display, web apps) and owneetctl"
 arch=('x86_64')
 url="https://github.com/fancy-dino/OwneetOS"
 # owneetd: GPL-3.0-or-later; SDL_GameControllerDB: Zlib; vendored Go modules (daemon/vendor/):
@@ -45,6 +45,7 @@ build() {
   go build -ldflags "$(_ldflags)" -o owneetd ./cmd/owneetd
   go build -ldflags "$(_ldflags)" -o owneetctl ./cmd/owneetctl
   go build -ldflags "$(_ldflags)" -o owneet-screens-off ./cmd/owneet-screens-off
+  go build -ldflags "$(_ldflags)" -o owneet-bridge ./cmd/owneet-bridge
 }
 
 check() {
@@ -54,7 +55,8 @@ check() {
 
 package() {
   install -Dm755 daemon/owneetd daemon/owneetctl -t "$pkgdir/usr/bin/"
-  install -Dm755 daemon/owneet-screens-off -t "$pkgdir/usr/lib/owneet/"
+  # owneet-screens-off; owneet-bridge, started by Brave for the console's extension ([[extension-design]])
+  install -Dm755 daemon/owneet-screens-off daemon/owneet-bridge -t "$pkgdir/usr/lib/owneet/"
   install -Dm644 owneet-screens-off@.service -t "$pkgdir/usr/lib/systemd/system/"
   install -Dm644 50-owneet-screens.rules "$pkgdir/usr/share/polkit-1/rules.d/50-owneet-screens.rules"
   install -Dm644 owneetd.service "$pkgdir/usr/lib/systemd/user/owneetd.service"

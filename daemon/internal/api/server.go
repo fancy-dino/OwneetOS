@@ -51,6 +51,8 @@ type Server struct {
 	Update Update
 	// Catalog installs and removes the optional apps (nil without a system bus).
 	Catalog Catalog
+	// WebApps connects the console's Brave extension with the interface (nil: not available).
+	WebApps WebApps
 
 	started time.Time
 }
@@ -102,6 +104,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/apps/catalog/{id}/install", s.handleCatalogAction(Catalog.Install))
 	mux.HandleFunc("POST /v1/apps/catalog/{id}/remove", s.handleCatalogAction(Catalog.Remove))
 	mux.HandleFunc("POST /v1/apps/catalog/{id}/open", s.handleCatalogOpen)
+	mux.HandleFunc("GET /v1/webapps/look", s.handleWebAppsLook)
+	mux.HandleFunc("GET /v1/webapps/keyboard", s.handleWebAppsKeyboardState)
+	mux.HandleFunc("POST /v1/webapps/keyboard", s.handleWebAppsKeyboard)
+	mux.HandleFunc("POST /v1/webapps/text", s.handleWebAppsText)
+	mux.HandleFunc("POST /v1/webapps/ask-close", s.handleWebAppsAskClose)
 	mux.HandleFunc("POST /v1/apps/{id}/close", s.handleAppAction(Apps.Close))
 	mux.HandleFunc("POST /v1/apps/{id}/kill", s.handleAppAction(Apps.Kill))
 	mux.HandleFunc("POST /v1/apps/{id}/focus", s.handleAppAction(Apps.FocusApp))

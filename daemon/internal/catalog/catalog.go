@@ -115,6 +115,7 @@ type Manager struct {
 	Session      func() (apps.Session, error)
 	ProfilesDir  string // $XDG_DATA_HOME/owneet/webapps: one folder per web app
 	ExtensionDir string // /usr/share/owneet/extension
+	BridgePath   string // /usr/lib/owneet/owneet-bridge (the extension's way to owneetd)
 
 	mu         sync.Mutex
 	busyID     string

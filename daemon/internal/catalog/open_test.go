@@ -178,3 +178,37 @@ func TestRemoveClosesTheWebAppAndDeletesItsData(t *testing.T) {
 		t.Errorf("youtube's profile still there (%v)", err)
 	}
 }
+
+// The extension reaches owneetd through owneet-bridge: each profile lists it as a native-messaging
+// host that only the console's extension may start ([[extension-design]]).
+func TestOpenLetsTheExtensionReachTheBridge(t *testing.T) {
+	if id := ExtensionID("/usr/share/owneet/extension"); id != "jlekhdampjopkpjhbgilolchffjpdjcn" {
+		t.Errorf("extension id %s", id)
+	}
+	m, _ := newOpenManager(t, ":0")
+	m.BridgePath = "/usr/lib/owneet/owneet-bridge"
+	if err := m.Install("netflix"); err != nil {
+		t.Fatal(err)
+	}
+	waitIdle(t, m)
+	if err := m.Open("netflix"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(m.ProfilesDir, "netflix", "NativeMessagingHosts", BridgeHost+".json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var host struct {
+		Name    string   `json:"name"`
+		Path    string   `json:"path"`
+		Type    string   `json:"type"`
+		Origins []string `json:"allowed_origins"`
+	}
+	if err := json.Unmarshal(data, &host); err != nil {
+		t.Fatal(err)
+	}
+	want := "chrome-extension://" + ExtensionID(m.ExtensionDir) + "/"
+	if host.Name != BridgeHost || host.Path != m.BridgePath || host.Type != "stdio" || !slices.Equal(host.Origins, []string{want}) {
+		t.Errorf("host manifest: %s", data)
+	}
+}

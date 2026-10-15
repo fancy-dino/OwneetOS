@@ -788,6 +788,24 @@ func (m *Manager) FocusApp(id string) error {
 	return ErrNoWindow
 }
 
+// ShowHome brings the home screen to the front (gamescope only); the app keeps running, e.g. a web
+// app while the console's keyboard types into it ([[extension-design]]).
+func (m *Manager) ShowHome() error {
+	sess, err := m.Session()
+	if err != nil {
+		return ErrNoSession
+	}
+	f := m.focus(sess)
+	if f == nil {
+		return ErrFocusUnsupported
+	}
+	if err := m.show(f, []uint32{HomeAppID}); err != nil {
+		return err
+	}
+	m.focusChanged("home")
+	return nil
+}
+
 // Guide handles the Guide button (from any controller).
 func (m *Manager) Guide(down bool) {
 	sess, err := m.Session()

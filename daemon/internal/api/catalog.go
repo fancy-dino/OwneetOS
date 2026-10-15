@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/catalog"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/webapps"
 )
 
 // Catalog is implemented by *catalog.Manager (the optional apps,
@@ -62,10 +63,21 @@ func (s *Server) handleCatalogAction(action func(Catalog, string) error) http.Ha
 }
 
 // handleCatalogOpen opens an installed web app, or brings it back when it is open (204). It runs
-// like a game: one game or web app at a time.
+// like a game: one game or web app at a time. The body may carry the look for the extension:
+// {"accent": "#FF8A5B", "language": "it"}.
 func (s *Server) handleCatalogOpen(w http.ResponseWriter, r *http.Request) {
 	if !s.catalogAvailable(w) {
 		return
+	}
+	// Optional body: the look the console's extension draws with ([[extension-design]])
+	if r.ContentLength != 0 {
+		var look webapps.Look
+		if !decode(w, r, &look) {
+			return
+		}
+		if s.WebApps != nil {
+			s.WebApps.SetLook(look)
+		}
 	}
 	err := s.Catalog.Open(r.PathValue("id"))
 	switch {

@@ -9,6 +9,8 @@ package catalog
 // (/etc/brave/policies/managed/owneet.json).
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
@@ -16,6 +18,7 @@ import (
 	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/atomicfile"
 )
 
 // ErrNotInstalled: the web app must be installed before it is opened.
@@ -90,6 +93,46 @@ func (m *Manager) braveCommand(e Entry, profile string, sess apps.Session) []str
 	return append(argv, e.URL)
 }
 
+// BridgeHost is the native-messaging name of owneet-bridge, the program through which the
+// console's extension talks to owneetd ([[extension-design]]).
+const BridgeHost = "org.owneet.bridge"
+
+// ExtensionID is the id Brave gives an extension loaded unpacked from dir: the first 32 hex digits
+// of the SHA-256 of its absolute path, written with the letters a-p. The extension is always
+// loaded from the same folder, so its id never changes and no key pair is needed.
+func ExtensionID(dir string) string {
+	sum := sha256.Sum256([]byte(dir))
+	id := []byte(hex.EncodeToString(sum[:16]))
+	for i, c := range id {
+		if c <= '9' {
+			id[i] = 'a' + (c - '0')
+		} else {
+			id[i] = 'a' + 10 + (c - 'a')
+		}
+	}
+	return string(id)
+}
+
+// writeBridgeHost lets the extension start owneet-bridge: Brave reads the native-messaging hosts
+// of a profile from its NativeMessagingHosts folder. Written at every start (the profile may
+// predate it, or the extension's folder may change).
+func (m *Manager) writeBridgeHost(profile string) error {
+	if m.ExtensionDir == "" || m.BridgePath == "" {
+		return nil
+	}
+	data, err := json.MarshalIndent(map[string]any{
+		"name":            BridgeHost,
+		"description":     "OwneetOS: the console's extension talks to owneetd",
+		"path":            m.BridgePath,
+		"type":            "stdio",
+		"allowed_origins": []string{"chrome-extension://" + ExtensionID(m.ExtensionDir) + "/"},
+	}, "", "  ")
+	if err != nil {
+		return err
+	}
+	return atomicfile.Write(filepath.Join(profile, "NativeMessagingHosts", BridgeHost+".json"), data, 0o644)
+}
+
 func (m *Manager) profile(id string) string { return filepath.Join(m.ProfilesDir, id) }
 
 func (m *Manager) running(id string) bool {
@@ -134,6 +177,9 @@ func (m *Manager) Open(id string) error {
 	}
 	if err := seedProfile(m.profile(id)); err != nil {
 		return err
+	}
+	if err := m.writeBridgeHost(m.profile(id)); err != nil {
+		m.Log.Warn("the extension cannot reach owneetd", "id", id, "err", err)
 	}
 	_, err = m.Apps.Launch(apps.LaunchRequest{ID: AppID(id), Name: id, Kind: apps.KindWebApp,
 		Command: m.braveCommand(e, m.profile(id), sess)})
