@@ -110,6 +110,11 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .lab-row { display: flex; gap: 10px; }
 .lab-row .lab-tile { flex: 0 0 170px; }
 .lab-banner { height: 80px; width: 100%; }
+.lab-cards { display: flex; gap: 16px; }
+.lab-card { flex: 0 0 230px; display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; }
+.lab-card .thumb { grid-column: 1 / 3; height: 110px; border-radius: 8px; background: #2b2b44; display: grid; place-items: center; color: #b4b4c0; }
+.lab-card .title { color: #f2f2f5; font-size: 14px; } .lab-card .chan { color: #a8a8b4; font-size: 13px; grid-column: 1; }
+.lab-card .dots { grid-row: 2 / 4; grid-column: 2; align-self: start; padding: 2px 8px; border-radius: 50%; color: #c9c9d3; }
 .lab-narrow { display: grid; grid-template-columns: 160px 1fr; gap: 10px 400px; }
 
 /* The extension's ring: one box drawn over the selected element (the site's styles are not touched).
@@ -242,6 +247,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
           <div class="lab-row" id="lab-row1"></div>
           <button class="lb lab-banner">Banner</button>
           <div class="lab-row" id="lab-row2"></div>
+          <h2>Cards with several buttons, as on YouTube <small>(right from a picture: the &#8942; of the same card, or the next picture?)</small></h2>
+          <div class="lab-cards" id="lab-cards"></div>
           <h2>Nothing in line <small>(down from "Left": the diagonal one, since nothing is below it)</small></h2>
           <div class="lab-narrow"><button class="lb">Left</button><span></span><span></span><button class="lb">Right, lower</button></div>
         </div>
@@ -300,7 +307,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 <p class="help"><b>Gamepad:</b> D-pad / stick move the ring, A press, B back (full screen → the page before → "Close Streamly?"), right stick scroll.
 In the keyboard: A type, X delete, Y space, LB / RB pages of keys, LT held capitals, Menu done, B close the keyboard.
 <b>Keyboard (emulates the gamepad):</b> arrows, Enter = A, Esc = B, X, Y, Q / E = LB / RB, Z held = LT, M = Menu, Page Up / Down = right stick.<br>
-<b>Demo only:</b> V navigation rules: <span id="rules">page order (owner)</span> (try the Layouts page in the site's menu); F session: <span id="sess">gamescope (keyboard over the page)</span>; L language; K keyboard layout; P palette; N sounds (<span id="snd-state">on</span>).
+<b>Demo only:</b> V navigation rules: <span id="rules">container, then page order (owner)</span> (try the Layouts page in the site's menu); F session: <span id="sess">gamescope (keyboard over the page)</span>; L language; K keyboard layout; P palette; N sounds (<span id="snd-state">on</span>).
 Address: <code>#session=fallback&amp;lang=it&amp;pal=tide</code></p>
 
 <script src="sounds.js"></script>
@@ -410,6 +417,8 @@ Address: <code>#session=fallback&amp;lang=it&amp;pal=tide</code></p>
     .map(t => `<a href="#" class="lb">${t}</a>`).join('');
   $('#lab-grid').innerHTML = Array.from({ length: 12 }, (_, i) => `<div class="lab-tile" tabindex="-1">Video ${i + 1}</div>`).join('');
   ['#lab-row1', '#lab-row2'].forEach((r, k) => { $(r).innerHTML = Array.from({ length: 5 }, (_, i) => `<div class="lab-tile" tabindex="-1">${k ? 'Below' : 'Above'} ${i + 1}</div>`).join(''); });
+  $('#lab-cards').innerHTML = Array.from({ length: 4 }, (_, i) => `<div class="lab-card"><a href="#" class="thumb">Video ${i + 1}</a>
+    <a href="#" class="title">Video title ${i + 1}</a><button class="dots" aria-label="More">&#8942;</button><a href="#" class="chan">Channel ${i + 1}</a></div>`).join('');
   $('#eps').innerHTML = Array.from({ length: 6 }, (_, i) => `<a href="#" class="s-ep" data-go="player"><b>${i + 1}</b><span>Episode ${i + 1}</span></a>`).join('');
 
   let pageName = 'browse', history = [], fullscreen = false;
@@ -513,7 +522,7 @@ Address: <code>#session=fallback&amp;lang=it&amp;pal=tide</code></p>
     }
   }
   // V switches the rules: page order (the owner's, 2026-10-16), structure first, old (nearest box)
-  const RULES = { order: 'page order (owner)', structure: 'structure first', old: 'old (nearest box)' };
+  const RULES = { order: 'container, then page order (owner)', structure: 'structure first', old: 'old (nearest box)' };
   let current = null, anchor = null, rules = 'order';
   function ringTo(el) { current = el; if (el) { el.focus({ preventScroll: true }); reveal(el); } }
   function move(dir) {

@@ -13,8 +13,9 @@
 //     (https://www.w3.org/TR/css-nav-1/, 2019): euclidean + displacement - alignment - sqrt(overlap).
 //  4. The column (or row) is remembered: going down and back up returns to the same place.
 //
-// A second set of rules, the owner's (2026-10-16), is compared with these in the demo: the page's
-// order decides, geometry only checks (pickInOrder, nextInOrder).
+// A second set of rules, the owner's (2026-10-16), is compared with these in the demo: the
+// container first, then the page's order, geometry only checks (pickInGroup, pickInOrder,
+// nextInOrder).
 //
 // The geometry (pick, pickInOrder) works on plain rectangles so that it can be tested without a browser
 // (test/spatnav.test.js).
@@ -122,6 +123,26 @@ var OwneetNav = (() => {
       if (best >= 0) return best;
     }
     return -1;
+  }
+
+  // The owner's rules, with the container first (2026-10-16). The container is the smallest box
+  // holding the current element and another target: rects[s..e] (a container's targets follow each
+  // other in page order). In it, the nearest target past the current one (by starting point) wins,
+  // whatever is nearer outside. With none: left / right go to the target just before / after the
+  // container, wherever it is; up / down walk the page's order (pickInOrder).
+  function pickInGroup(c, rects, from, dir, s, e) {
+    const ahead = r => dir === 'down' ? r.top > c.top : dir === 'up' ? r.top < c.top
+      : dir === 'right' ? r.left > c.left : r.left < c.left;
+    let best = -1, bestD = Infinity;
+    for (let i = s; i <= e; i++) {
+      if (i === from || !ahead(rects[i])) continue;
+      const d = Math.hypot(rects[i].left - c.left, rects[i].top - c.top);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    if (best >= 0) return best;
+    if (dir === 'left') return s - 1;
+    if (dir === 'right') return e + 1 < rects.length ? e + 1 : -1;
+    return pickInOrder(c, rects, from, dir);
   }
 
   // Reading order: line by line (centres closer than 20 px share a line), then left to right.
@@ -239,12 +260,35 @@ var OwneetNav = (() => {
     return i < 0 ? null : list[i];
   }
 
-  // The owner's rules: the next target from origin (an element) in dir, by the page's order.
+  // Does box contain el, across shadow roots?
+  function within(box, el) {
+    for (let p = el; p; p = up(p)) if (p === box) return true;
+    return false;
+  }
+
+  // The range of list (in page order) inside the smallest box that holds list[from] and another
+  // target. Its targets are consecutive, so a neighbour in the list tells whether a box holds one.
+  function group(list, from) {
+    for (let box = up(list[from]); box; box = up(box)) {
+      const before = from > 0 && within(box, list[from - 1]);
+      const after = from < list.length - 1 && within(box, list[from + 1]);
+      if (!before && !after) continue;
+      let s = from, e = from;
+      while (s > 0 && within(box, list[s - 1])) s--;
+      while (e < list.length - 1 && within(box, list[e + 1])) e++;
+      return [s, e];
+    }
+    return [from, from];
+  }
+
+  // The owner's rules: the next target from origin (an element) in dir: its container first, then
+  // the page's order.
   function nextInOrder(root, origin, dir, skip) {
     const list = targets(root, skip, true);
     const from = list.indexOf(origin);
     if (from < 0) return next(root, origin, dir, skip);
-    const i = pickInOrder(rectOf(origin), list.map(rectOf), from, dir);
+    const [s, e] = group(list, from);
+    const i = pickInGroup(rectOf(origin), list.map(rectOf), from, dir, s, e);
     return i < 0 ? null : list[i];
   }
 
@@ -264,7 +308,7 @@ var OwneetNav = (() => {
     return axis === 'v' ? { axis, at: c.left + c.width / 2, size: c.width } : { axis, at: c.top + c.height / 2, size: c.height };
   }
 
-  return { SELECTOR, pick, pickInOrder, nextInOrder, distance, anchored, anchorAfter, readingOrder, rectOf, usable, targets, scroller, next, first, up };
+  return { SELECTOR, pick, pickInOrder, pickInGroup, nextInOrder, distance, anchored, anchorAfter, readingOrder, rectOf, usable, targets, scroller, next, first, up };
 })();
 
 if (typeof module !== 'undefined') module.exports = OwneetNav;
