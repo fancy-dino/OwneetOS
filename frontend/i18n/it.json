@@ -461,5 +461,19 @@
   "steam.close.go": "Chiudi Steam",
   "steam.close.failed": "Non è stato possibile chiudere Steam.",
   "steam.return.title": "Come tornare da Steam",
-  "steam.return.text": "In Steam, tieni premuto Home in qualsiasi momento per tornare alla console. Se una pagina di Steam resta in caricamento, tieni premuto Home e chiudi Steam: premi Menu sul riquadro Steam e scegli “Chiudi Steam”."
+  "steam.return.text": "In Steam, tieni premuto Home in qualsiasi momento per tornare alla console. Se una pagina di Steam resta in caricamento, tieni premuto Home e chiudi Steam: premi Menu sul riquadro Steam e scegli “Chiudi Steam”.",
+  "details.disk": "Installato su",
+  "options.choose_file": "Scegli il file da avviare",
+  "choose.title": "Quale file avvia {title}?",
+  "choose.text": "La console ne ha trovati diversi. Ricorda la tua scelta; puoi cambiarla dalle Opzioni.",
+  "choose.file.top": "nella cartella del gioco",
+  "choose.file.in": "in {folder}",
+  "toast.chosen": "{title} partirà con {file}",
+  "notices.disk.plugged": "Disco USB collegato",
+  "notices.disk.plugged.detail": {
+    "one": "{n} gioco trovato e aggiunto alla tua Libreria.",
+    "other": "{n} giochi trovati e aggiunti alla tua Libreria."
+  },
+  "notices.disk.unplugged": "Disco USB scollegato",
+  "notices.disk.unplugged.detail": "I suoi giochi tornano quando lo ricolleghi."
 }

@@ -53,6 +53,8 @@ FocusScope {
         }
         refreshGames();
         refreshDaemon();          // owneetd may have connected before the theme was loaded
+        knownVolumes = volumeKeys();
+        diskNotices();            // a disk plugged in or out made the games be read again (4.3)
     }
     function save(key, value) {
         if (loaded && api.memory.get(key) !== value)
@@ -447,6 +449,11 @@ FocusScope {
             if (!(runningGame && runningGame.name === game.title) && steamOffline("play")) return;
             if (!agreementShown && !runningGame && agreementPending(game)) { showAgreement(game); return; }
         }
+        // a game on a disk with several files to start: which one, asked once (4.3)
+        if (GameInfo.onDisk(game) && diskGames.chosen(game) === "" && !(runningGame && runningGame.name === game.title)) {
+            chooseFile(game, true);
+            return;
+        }
         // the game already running (same title, as on the home screen): back to it
         if (runningGame && owneetd.connected && runningGame.name === game.title) {
             Nav.feedback("launch");
@@ -507,6 +514,8 @@ FocusScope {
         }
         facts.push([Tr.tr("details.last"), GameInfo.lastPlayed(game)],
                    [Tr.tr("details.time"), GameInfo.played(game) ? GameInfo.playTime(game) : "\u2014"]);
+        if (GameInfo.onDisk(game))
+            facts.push([Tr.tr("details.disk"), diskName(GameInfo.diskRoot(game))]);
         return facts;
     }
     function showOptions(game) {
@@ -534,6 +543,8 @@ FocusScope {
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.uninstall"), action: () => { dialog.close(true); root.askUninstall(game, false); } }]);
         if (steam && (s === "downloading" || s === "queued" || s === "paused"))
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.cancel_install"), action: () => { dialog.close(true); root.askUninstall(game, true); } }]);
+        if (GameInfo.diskFiles(game).length > 1)
+            dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.choose_file"), action: () => { dialog.close(true); root.chooseFile(game, false); } }]);
         if (section !== "library")
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.library"), action: () => {
                 dialog.close(true);
@@ -554,6 +565,87 @@ FocusScope {
         dialog.open();
     }
     function notYet() { toast.show(Tr.tr("toast.later")); }
+
+    // ---- Games on a disk (4.3, approved demo design/demos/4.3-games-on-disk.html)
+    // "Which file starts {title}?": every file the console could start, with its folder; the
+    // choice is remembered (diskGames) and changed from Options
+    function chooseFile(game, thenStart) {
+        const files = GameInfo.diskFiles(game);
+        dialog.game = game;
+        dialog.mode = "chooseFile";
+        dialog.files = files;
+        dialog.thenStart = thenStart;
+        dialog.contentWidth = Theme.px(560);
+        dialog.title = Tr.tr("choose.title", { title: game.title });
+        dialog.text = Tr.tr("choose.text");
+        dialog.buttons = [];
+        dialog.initialItem = fileRepeater.itemAt(Math.max(0, files.indexOf(diskGames.chosen(game))));
+        dialog.open();
+    }
+    function fileChosen(file) {
+        const game = dialog.game, thenStart = dialog.thenStart;
+        if (!diskGames.choose(game, file)) {
+            dialog.close();
+            return;
+        }
+        dialog.close(true);
+        if (thenStart)
+            root.launch(game);
+        else
+            toast.show(Tr.tr("toast.chosen", { title: game.title, file: file.split("/").pop() }));
+    }
+    // A disk's name for people: its label, or "Internal disk" for the console's own
+    function diskName(root) {
+        if (root === "internal")
+            return Tr.tr("disk.internal");
+        const v = storage.volumes().find(v => v.key === root);
+        return v && v.name ? v.name : root.split("/").pop();
+    }
+    // A disk plugged in or out: its games come and go (the games are read again) and a notice
+    // says so; disks without a Games folder change nothing. While a game runs, the reading waits
+    // for the game's end. The notice survives the reading, which rebuilds the interface.
+    property var knownVolumes: []
+    property bool disksPending: false
+    onRunningGameChanged: if (disksPending && !runningGame) checkDisks()
+    function volumeKeys() { return storage.volumes().map(v => v.key).filter(k => k !== "internal"); }
+    function checkDisks() {
+        const now = volumeKeys();
+        const plugged = now.filter(k => knownVolumes.indexOf(k) < 0 && diskGames.hasGames(k));
+        const unplugged = knownVolumes.filter(k => now.indexOf(k) < 0 && games.some(g => GameInfo.diskRoot(g) === k));
+        knownVolumes = now;
+        if (plugged.length > 0 || unplugged.length > 0) {
+            const prev = api.memory.has("diskNotice") ? JSON.parse(api.memory.get("diskNotice")) : { plugged: [], unplugged: [] };
+            api.memory.set("diskNotice", JSON.stringify({ time: Date.now(), plugged: prev.plugged.concat(plugged),
+                                                          unplugged: prev.unplugged.concat(unplugged) }));
+            disksPending = true;
+        }
+        if (!disksPending || runningGame)
+            return;
+        disksPending = false;
+        console.log("Disks changed: reading the games again");
+        api.memory.set("rescanReturn", [Date.now(), root.section,
+            root.section === "library" && library.addGamesSelected ? "add" : ""].join("|"));
+        Internal.settings.reloadProviders();
+    }
+    function diskNotices() {
+        if (!api.memory.has("diskNotice"))
+            return;
+        const d = JSON.parse(api.memory.get("diskNotice"));
+        api.memory.unset("diskNotice");
+        if (Date.now() - d.time > 600000)
+            return;
+        d.plugged.forEach(k => {
+            const n = games.filter(g => GameInfo.diskRoot(g) === k).length;
+            if (n > 0)
+                notify({ key: "notices.disk.plugged", args: { n: n }, icon: "usb", kind: "info" });
+        });
+        if (d.unplugged.length > 0)
+            notify({ key: "notices.disk.unplugged", args: {}, icon: "usb", crossed: true, kind: "info" });
+    }
+    Connections {
+        target: storage
+        function onVolumesChanged() { root.checkDisks(); }
+    }
 
     // ---- Updates from the USB stick (testers, 4.2b): check, install, restart
     property var updateStatus: null
@@ -1572,6 +1664,8 @@ FocusScope {
         property var updateLines: []        // update: "name  from  →  to"
         property string updateNote: ""
         property string agreementUrl: ""    // agreement: the licence agreement's address (4.2c)
+        property var files: []              // chooseFile: what the game on a disk can start (4.3)
+        property bool thenStart: false      // chooseFile: the game starts once chosen
         property int seconds: 0             // displayConfirm: until it goes back
         property real deadline: 0
         onSecondsChanged: if (mode === "displayConfirm") text = Tr.tr("display.keep.text", { n: seconds })
@@ -1816,6 +1910,52 @@ FocusScope {
                 color: Theme.muted
                 font.family: Theme.textFont
                 font.pixelSize: Theme.fs(14.5)
+            }
+        }
+        Column {                          // chooseFile: the files a game on a disk can start (demo 4.3)
+            visible: dialog.mode === "chooseFile"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(560)
+            spacing: Theme.px(10)
+            Repeater {
+                id: fileRepeater
+                model: dialog.mode === "chooseFile" ? dialog.files : []
+                Rectangle {
+                    readonly property bool navigable: true
+                    readonly property bool current: dialog.game !== null && diskGames.chosen(dialog.game) === modelData
+                    signal activated()
+                    onActivated: root.fileChosen(modelData)
+                    width: parent.width
+                    height: fileColumn.height + Theme.px(24)
+                    radius: Theme.radiusM
+                    color: Theme.surface
+                    border.color: current ? Theme.accent : Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                    Column {
+                        id: fileColumn
+                        anchors { left: parent.left; leftMargin: Theme.px(18); right: parent.right; rightMargin: Theme.px(18)
+                                  verticalCenter: parent.verticalCenter }
+                        spacing: Theme.px(2)
+                        Text {
+                            width: parent.width
+                            text: modelData.split("/").pop()
+                            color: Theme.fg
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(17)
+                            elide: Text.ElideMiddle
+                        }
+                        Text {
+                            readonly property string folder: modelData.indexOf("/") < 0 ? "" : modelData.slice(0, modelData.lastIndexOf("/"))
+                            width: parent.width
+                            text: folder === "" ? Tr.tr("choose.file.top") : Tr.tr("choose.file.in", { folder: folder })
+                            color: Theme.muted
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(12.5)
+                            elide: Text.ElideMiddle
+                        }
+                    }
+                    FocusFrame {}
+                }
             }
         }
         Column {                          // agreement: the licence agreement's address, as a code (4.2c)

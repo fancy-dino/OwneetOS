@@ -34,6 +34,9 @@
 #ifdef WITH_COMPAT_GOG
   #include "providers/gog/GogProvider.h"
 #endif
+#ifdef WITH_COMPAT_OWNEET_DISK
+  #include "providers/owneet_disk/DiskGamesProvider.h"
+#endif
 #ifdef WITH_COMPAT_ANDROIDAPPS
   #include "providers/android_apps/AndroidAppsProvider.h"
 #endif
@@ -107,6 +110,9 @@ std::vector<std::unique_ptr<providers::Provider>> create_providers()
         MKENTRY(media::MediaProvider)
 #ifdef WITH_COMPAT_STEAM
         MKENTRY(steam::SteamProvider)
+#endif
+#ifdef WITH_COMPAT_OWNEET_DISK
+        MKENTRY(owneet_disk::DiskGamesProvider)
 #endif
 #ifdef WITH_COMPAT_GOG
         MKENTRY(gog::GogProvider)

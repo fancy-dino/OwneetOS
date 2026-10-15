@@ -116,7 +116,10 @@ QString I18n::tr(const QString& key, const QVariantMap& args) const
         const QJsonValue value = lang->messages.value(key);
         if (value.isString())
             return format(value.toString(), args);
-        if (value.isObject()) // a plural message used without a number
+        // a plural message: its number is the argument n (e.g. a notice's detail), else "other"
+        if (value.isObject() && args.contains(QStringLiteral("n")))
+            return trn(key, args.value(QStringLiteral("n")).toInt(), args);
+        if (value.isObject())
             return format(value.toObject().value(QStringLiteral("other")).toString(key), args);
     }
     return key;

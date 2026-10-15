@@ -3,6 +3,8 @@
 target_sources(pegasus-backend PRIVATE
     Daemon.cpp
     Daemon.h
+    DiskGames.cpp
+    DiskGames.h
     I18n.cpp
     I18n.h
     Storage.cpp

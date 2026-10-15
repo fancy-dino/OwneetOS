@@ -46,11 +46,12 @@ Canvas {
         ctx.save();
         rounded(ctx, w, h, Math.min(radius, w / 2, h / 2));
         ctx.clip();
-        const img = imageReady ? ctx.createImageData(image) : null;
+        // (the Canvas functions take the image's address as text, not as a url)
+        const img = imageReady ? ctx.createImageData(image.toString()) : null;
         if (img && img.width > 0) {
             const s = Math.max(w / img.width, h / img.height);   // crop to fill
             const iw = img.width * s, ih = img.height * s;
-            ctx.drawImage(image, (w - iw) / 2, (h - ih) / 2, iw, ih);
+            ctx.drawImage(image.toString(), (w - iw) / 2, (h - ih) / 2, iw, ih);
         } else {
             let g = ctx.createLinearGradient(0, 0, w, h);
             g.addColorStop(0, hsl(hue, 0.45, 0.26));

@@ -59,6 +59,7 @@ add_subdirectory(pegasus_media)
 add_subdirectory(pegasus_metadata)
 add_subdirectory(pegasus_playtime)
 add_subdirectory(steam)
+add_subdirectory(owneet_disk)  # games in the disks' "Games" folders, step 4.3
 
 
 if(USE_JSON_CACHE)

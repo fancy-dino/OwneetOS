@@ -1,0 +1,34 @@
+@nogames
+@owneetd
+@disk
+# Games on a disk ([[step-4.3-local-drm-free-games]], approved demo 4.3): the disk's games in
+# the library (folder names, Starfall's cover.jpg; the Windows-only and installer-only folders are
+# not listed), "Which file starts Lantern Keep?", Options → "Choose the file to start", the disk
+# in the details, the disk unplugged and plugged in again with its notices.
+pad rb
+shot 01-library-disk-games
+pad right right
+shot 02-lantern-keep-selected
+pad a
+shot 03-which-file
+pad down
+pad a
+shot 04-started
+wait 2
+pad menu
+shot 05-options-choose-file
+pad b
+pad x
+shot 06-details-disk
+pad b
+unplug
+wait 1
+shot 07-unplugged-notice
+wait 6
+plug
+wait 1
+shot 08-plugged-notice
+wait 6
+pad lb
+pad y
+shot 09-notices-list

@@ -16,6 +16,13 @@ QtObject {
     }
     function source(game) { return game ? (isSteam(game) ? "Steam" : Tr.tr("game.source.local")) : ""; }
 
+    // ---- Games on a disk ([[step-4.3-local-drm-free-games]]): the provider gives each one its
+    // folder ("disk.dir"), its disk ("disk.root": the mount folder, "internal" for the console's own
+    // disk) and the files it can start ("disk.files", relative to its folder)
+    function onDisk(game) { return !!game && !!game.extra && !!game.extra["disk.dir"]; }
+    function diskRoot(game) { return onDisk(game) ? String(game.extra["disk.root"] || "") : ""; }
+    function diskFiles(game) { return onDisk(game) ? (game.extra["disk.files"] || []) : []; }
+
     // Steam gives the play time and the last time played, not how many times: either counts
     function played(game) {
         return !!game && !!game.lastPlayed && !isNaN(game.lastPlayed.getTime()) && (game.playCount > 0 || game.playTime > 0);

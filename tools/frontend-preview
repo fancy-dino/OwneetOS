@@ -26,6 +26,10 @@
 #   @steam           (with @owneetd) an invented Steam folder with owned games, installed or not
 #                    (tools/preview-steps/fake-steam.py); the pretend owneetd installs and
 #                    uninstalls them, with downloads
+#   @disk            an invented USB disk "SSD-256GB-D" with a Giochi folder (games on a disk, 4.3):
+#                    scripts, programs, an AppImage with a cover, a Windows-only game and an
+#                    installer-only folder (both not listed yet)
+#   unplug / plug    (with @disk) the invented disk is unplugged / plugged in again
 #   event TYPE JSON  (with @owneetd) the pretend owneetd sends an event, e.g.
 #                    event controller.battery {"id":"aa:bb:cc:dd:ee:01","name":"Xbox","battery":12}
 #   # …              comment
@@ -40,7 +44,7 @@ OUT="$ROOT/out/frontend-preview"
 
 die() { echo "error: $*" >&2; exit 1; }
 
-[[ $# -ge 1 && $# -le 2 ]] || { sed -n '4,27p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+[[ $# -ge 1 && $# -le 2 ]] || { sed -n '4,36p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 STEPS="$(realpath "$1")"
 SIZE="${2:-1280x720}"
 [[ -f "$STEPS" ]] || die "$1 not found"
@@ -147,6 +151,25 @@ if grep -q '^@steam' /steps.txt; then
     export OWNEET_STEAM_DIR="$HOME/Steam" FAKE_STEAM=1
 fi
 
+if grep -q '^@disk' /steps.txt; then
+    disk=/tmp/disks/SSD-256GB-D; g="$disk/Giochi"
+    rm -rf /tmp/disks /tmp/unplugged; mkdir -p /tmp/unplugged
+    prog() { mkdir -p "$(dirname "$1")"; cp /usr/bin/true "$1"; chmod +x "$1"; }
+    script() { mkdir -p "$(dirname "$1")"; printf '#!/bin/bash\nexec true\n' > "$1"; chmod +x "$1"; }
+    script "$g/Beneath a steel sky/start.sh"; script "$g/Beneath a steel sky/support/xdg-open.sh"
+    mkdir -p "$g/Beneath a steel sky/docs"
+    script "$g/Cayne/start.sh"; prog "$g/Cayne/game/Cayne.x86_64"; prog "$g/Cayne/game/Cayne_Data/Plugins/helper"
+    prog "$g/Lantern Keep/bin/lantern.x86_64"; script "$g/Lantern Keep/launcher.sh"
+    prog "$g/Lantern Keep/tools/editor.x86_64"; script "$g/Lantern Keep/uninstall.sh"
+    prog "$g/Starfall/Starfall.AppImage"
+    magick -size 600x900 gradient:'#1d3557-#e76f51' "$g/Starfall/cover.jpg" 2>/dev/null \
+        || convert -size 600x900 gradient:'#1d3557-#e76f51' "$g/Starfall/cover.jpg"
+    mkdir -p "$g/Windows only"; : > "$g/Windows only/game.exe"
+    mkdir -p "$g/Installer only"; printf '#!/bin/sh\n# This script was generated using Makeself 2.4.0\n' > "$g/Installer only/gog_game.sh"
+    ls -l "$g/Starfall" >> /out/log.txt
+    export OWNEET_DISKS="$disk"
+fi
+
 if grep -q '^@owneetd' /steps.txt; then
     mkfifo /tmp/owneetd-events
     python3 /fake-owneetd.py "$OWNEETD_SOCKET" /tmp/owneetd-events >> /out/log.txt 2>&1 &
@@ -171,6 +194,8 @@ while IFS= read -r line; do
         shot) sleep 1; import -window root "/out/$2.png"; echo "$2.png" ;;
         wait) sleep "$2" ;;
         restart) kill "$FE"; wait "$FE" 2>/dev/null; start ;;
+        unplug) mv /tmp/disks/SSD-256GB-D /tmp/unplugged/; sleep 1 ;;
+        plug) mv /tmp/unplugged/SSD-256GB-D /tmp/disks/; sleep 1 ;;
         *) echo "unknown step: $line" ;;
     esac
 done < /steps.txt

@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include "DiskGames.h"
+
+#include "Log.h"
+#include "Paths.h"
+#include "model/gaming/Game.h"
+
+#include <QDir>
+#include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSaveFile>
+
+
+namespace {
+// The user's choices: { "<game folder>": "<file, relative to it>" }
+QString choices_path()
+{
+    return paths::writableConfigDir() + QStringLiteral("/disk-games.json");
+}
+
+QJsonObject read_choices()
+{
+    QFile file(choices_path());
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    return QJsonDocument::fromJson(file.readAll()).object();
+}
+
+// A path as one argument of a launch command (the tokenizer understands both quotes)
+QString quoted(const QString& path)
+{
+    const QChar quote = path.contains(QChar('"')) ? QChar('\'') : QChar('"');
+    return quote + path + quote;
+}
+} // namespace
+
+
+namespace owneet {
+
+DiskGames::DiskGames(QObject* parent)
+    : QObject(parent)
+{}
+
+const QStringList& DiskGames::folderNames()
+{
+    static const QStringList names {
+        QStringLiteral("games"),
+        QStringLiteral("giochi"),
+    };
+    return names;
+}
+
+QString DiskGames::savedChoice(const QString& game_dir)
+{
+    return read_choices().value(game_dir).toString();
+}
+
+void DiskGames::applyChoice(model::Game& game, const QString& game_dir, const QString& file)
+{
+    game.extraMapMut().insert(QStringLiteral("disk.start"), file);
+    if (file.isEmpty()) {
+        game.setLaunchCmd(QString()).setLaunchWorkdir(QString());
+        return;
+    }
+    const QFileInfo finfo(QDir(game_dir), file);
+    const QString path = finfo.absoluteFilePath();
+    const QString suffix = finfo.suffix().toLower();
+    // Scripts run with bash and AppImages unpack themselves (no FUSE in the system): neither
+    // needs anything written on the disk, which is mounted read only
+    QString cmd;
+    if (suffix == QLatin1String("sh"))
+        cmd = QStringLiteral("/usr/bin/bash ") + quoted(path);
+    else if (suffix == QLatin1String("appimage"))
+        cmd = QStringLiteral("/usr/bin/env APPIMAGE_EXTRACT_AND_RUN=1 ") + quoted(path);
+    else
+        cmd = quoted(path);
+    game.setLaunchCmd(cmd).setLaunchWorkdir(finfo.absolutePath());
+}
+
+bool DiskGames::hasGames(const QString& root) const
+{
+    const QStringList dirs = QDir(root).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString& name : dirs) {
+        if (folderNames().contains(name.toLower()))
+            return true;
+    }
+    return false;
+}
+
+QString DiskGames::chosen(QObject* game_obj) const
+{
+    const auto* game = qobject_cast<model::Game*>(game_obj);
+    return game ? game->extraMap().value(QStringLiteral("disk.start")).toString() : QString();
+}
+
+bool DiskGames::choose(QObject* game_obj, const QString& file)
+{
+    auto* game = qobject_cast<model::Game*>(game_obj);
+    if (!game)
+        return false;
+    const QVariantMap& extra = game->extraMap();
+    const QString game_dir = extra.value(QStringLiteral("disk.dir")).toString();
+    if (game_dir.isEmpty() || !extra.value(QStringLiteral("disk.files")).toStringList().contains(file))
+        return false;
+
+    applyChoice(*game, game_dir, file);
+
+    QJsonObject choices = read_choices();
+    choices.insert(game_dir, file);
+    QDir().mkpath(paths::writableConfigDir());
+    QSaveFile out(choices_path());
+    if (!out.open(QIODevice::WriteOnly)) {
+        Log::warning(LOGMSG("Cannot save the file chosen for `%1`").arg(game_dir));
+        return true;
+    }
+    out.write(QJsonDocument(choices).toJson());
+    if (!out.commit())
+        Log::warning(LOGMSG("Cannot save the file chosen for `%1`").arg(game_dir));
+    return true;
+}
+
+} // namespace owneet

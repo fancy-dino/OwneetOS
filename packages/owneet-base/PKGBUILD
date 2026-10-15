@@ -2,8 +2,8 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.31
-pkgrel=5
+pkgver=0.0.32
+pkgrel=1
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
 url="https://github.com/fancy-dino/OwneetOS"
@@ -20,7 +20,8 @@ install=owneet-base.install
 source=('owneet-base-src.tar.gz' 'owneet-release' 'owneet-diagnostics' 'owneet-diagnostics.service' '50-owneet-base.preset'
         'owneet-testlog' 'owneet-testlog.service' 'owneet-tester-install' 'owneet-tester-install.service'
         'getty-tty1-tester-install.conf' 'owneet-update' 'owneet-update@.service'
-        'owneet-update-boot.service' '50-owneet-update.rules')
+        'owneet-update-boot.service' '50-owneet-update.rules'
+        'owneet-mount-ro' 'owneet-mount-ro@.service' '90-owneet-usb-disks.rules')
 sha256sums=('SKIP'
             '74f473c3e5cec980798421ac667c84f3938a1e93160b37112300a25aa2ea0400'
             'e739678148442c4770b5c7cf793df180bc475cd33cf1bcb347affdb978f84fc3'
@@ -34,7 +35,10 @@ sha256sums=('SKIP'
             '9c4efd23ee441a99659eac4504d38d8d1064662efe207f2b432b5d94167ac766'
             'a04b21bb362ce4a73400ce4b2abd3fbd9fd8c4ff0f5f1db51e20452c17bf3344'
             '22c307334b58ee15cb069af7b14861d4f828bd9fcf2634bf55bb56d5583d9b2b'
-            'dbb21f3c431a9cd4be2a5fcec6489b7d3c08136dcde9aaddd0f35a4c9ca9389b')
+            'dbb21f3c431a9cd4be2a5fcec6489b7d3c08136dcde9aaddd0f35a4c9ca9389b'
+            '7735866ea379018ed106f4dc1b0f964376ddff2d4e7c922af8ea081a08b77131'
+            '25fd1c3c58527e17a0b9922fcb1b0966f10712719f372707b9176ddd1af127b1'
+            '284a806bafb3501cf5f45c6adf42f6188f1e7955bea80733b2ac3fc94c08bcd7')
 
 package() {
   install -Dm644 owneet-release "$pkgdir/usr/share/owneet/owneet-release"
@@ -50,6 +54,10 @@ package() {
   install -Dm755 owneet-update "$pkgdir/usr/lib/owneet/owneet-update"
   install -Dm644 owneet-update@.service owneet-update-boot.service -t "$pkgdir/usr/lib/systemd/system/"
   install -Dm644 50-owneet-update.rules "$pkgdir/usr/share/polkit-1/rules.d/50-owneet-update.rules"
+  # USB disks mounted read only for the games on them ([[step-4.3-local-drm-free-games]])
+  install -Dm755 owneet-mount-ro "$pkgdir/usr/lib/owneet/owneet-mount-ro"
+  install -Dm644 owneet-mount-ro@.service -t "$pkgdir/usr/lib/systemd/system/"
+  install -Dm644 90-owneet-usb-disks.rules "$pkgdir/usr/lib/udev/rules.d/90-owneet-usb-disks.rules"
   install -Dm644 50-owneet-base.preset "$pkgdir/usr/lib/systemd/system-preset/50-owneet-base.preset"
   install -Dm644 CREDITS.md "$pkgdir/usr/share/doc/owneetos/CREDITS.md"
 }
