@@ -50,9 +50,10 @@ report() {
     # Steam's controller settings only (Steam Input; step 4.2c bugs): config.vdf also holds
     # sign-in data, which never leaves the PC, so only these lines are copied
     echo "--- Steam controller settings"
-    grep -h -i -E '"[^"]*(steamcontroller|steaminput|usesteamcontrollerconfig|xboxsupport|pssupport|switchsupport|genericgamepad)[^"]*"[[:space:]]+"[^"]*"' \
-        /home/owneet/.local/share/Steam/config/config.vdf \
-        /home/owneet/.local/share/Steam/userdata/*/config/localconfig.vdf 2>/dev/null | sort | uniq -c | head -60
+    grep -H -i -E '"[^"]*(steamcontroller|steaminput|usesteamcontrollerconfig|xboxsupport|pssupport|switchsupport|genericgamepad|gamepad)[^"]*"[[:space:]]+"[^"]*"' \
+        /home/owneet/.local/share/Steam/config/*.vdf \
+        /home/owneet/.local/share/Steam/userdata/*/config/*.vdf \
+        /home/owneet/.steam/registry.vdf 2>/dev/null | sed 's|^/home/owneet/||' | sort | uniq -c | head -80
 }
 
 # Steam's logs (launches, Proton, downloads; its interface's pages: cef_log, webhelper; its
