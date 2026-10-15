@@ -32,6 +32,8 @@ public:
     /// $XDG_RUNTIME_DIR/owneet): the start-up sound plays once per boot, not after the interface
     /// restarts (e.g. when the console moves to another screen)
     Q_INVOKABLE bool firstStartThisBoot() const;
+    /// The same for anything else, by name (e.g. a notice shown once per boot)
+    Q_INVOKABLE bool onceThisBoot(const QString& name) const;
     // A QR code of a text (e.g. an address to open on a phone): its rows of modules, "1" dark,
     // "0" light, without the quiet zone; empty when the text is too long (4.2c)
     Q_INVOKABLE QStringList qrCode(const QString& text) const;

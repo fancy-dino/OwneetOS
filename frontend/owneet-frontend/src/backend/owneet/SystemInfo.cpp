@@ -57,11 +57,16 @@ QString SystemInfo::soundsDir() const
 
 bool SystemInfo::firstStartThisBoot() const
 {
+    return onceThisBoot(QStringLiteral("interface-started"));
+}
+
+bool SystemInfo::onceThisBoot(const QString& name) const
+{
     const QString runtime = qEnvironmentVariable("XDG_RUNTIME_DIR");
-    if (runtime.isEmpty())
+    if (runtime.isEmpty() || name.isEmpty() || name.contains(QLatin1Char('/')))
         return true;
     const QString dir = runtime + QStringLiteral("/owneet");
-    const QString mark = dir + QStringLiteral("/interface-started");
+    const QString mark = dir + QLatin1Char('/') + name;
     if (QFile::exists(mark))
         return false;
     QDir().mkpath(dir);

@@ -694,6 +694,34 @@ FocusScope {
     // (owner, 2026-10-14). Since Steam's window is readable there (repaint overlay, 2026-10-15) it
     // no longer says what to press (owner, 2026-10-15).
     function withSteamNotice(next) {
+        withSteamReturn(() => nvidiaNotice(next));
+    }
+    // How to come back from Steam (owner, 2026-10-15): at the first time Steam's window opens
+    // after each start of the console, until "Don't show again". Hold Home comes back; a Steam
+    // page that keeps loading is left by holding Home and closing Steam (Menu on its tile).
+    function withSteamReturn(next) {
+        if (api.memory.has("steamReturnNoticeHidden") || !systemInfo.onceThisBoot("steam-return-notice")) {
+            next();
+            return;
+        }
+        dialog.game = null;
+        dialog.mode = "steamReturn";
+        dialog.contentWidth = 0;
+        dialog.icon = "controller";
+        dialog.title = Tr.tr("steam.return.title");
+        dialog.text = Tr.tr("steam.return.text");
+        noticeNever.checked = false;
+        dialog.buttons = [
+            { text: Tr.tr("steam.notice.go"), style: "primary", action: () => {
+                if (noticeNever.checked) api.memory.set("steamReturnNoticeHidden", true);
+                dialog.close(true);
+                next();
+            } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function nvidiaNotice(next) {
         const nvidia = GameInfo.steam !== null && GameInfo.steam.nvidia;
         if (!nvidia || api.memory.has("steamConfirmNoticeHidden")) {
             next();
@@ -743,7 +771,7 @@ FocusScope {
         dialog.buttons = [
             { text: Tr.tr("steam.notice.go"), style: "primary", action: () => {
                 dialog.close(true);
-                owneetd.post("/v1/steam", { ask: id }, () => root.launch(game, true));
+                root.withSteamReturn(() => owneetd.post("/v1/steam", { ask: id }, () => root.launch(game, true)));
             } },
             { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
         dialog.defaultIndex = 0;
@@ -1809,7 +1837,7 @@ FocusScope {
         }
         SettingRow {                      // steamNotice: "Don't show again" (4.2c)
             id: noticeNever
-            visible: dialog.mode === "steamNotice"
+            visible: dialog.mode === "steamNotice" || dialog.mode === "steamReturn"
             anchors.horizontalCenter: parent.horizontalCenter
             width: Theme.px(360)
             text: Tr.tr("steam.notice.never")

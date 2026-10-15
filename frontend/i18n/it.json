@@ -459,5 +459,7 @@
   "steam.close.text": "I download di Steam si fermano finché Steam non riparte.",
   "steam.close.game": "Anche {title} viene chiuso.",
   "steam.close.go": "Chiudi Steam",
-  "steam.close.failed": "Non è stato possibile chiudere Steam."
+  "steam.close.failed": "Non è stato possibile chiudere Steam.",
+  "steam.return.title": "Come tornare da Steam",
+  "steam.return.text": "In Steam, tieni premuto Home in qualsiasi momento per tornare alla console. Se una pagina di Steam resta in caricamento, tieni premuto Home e chiudi Steam: premi Menu sul riquadro Steam e scegli “Chiudi Steam”."
 }

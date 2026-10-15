@@ -459,5 +459,7 @@
   "steam.close.text": "Steam's downloads stop until Steam starts again.",
   "steam.close.game": "{title} closes too.",
   "steam.close.go": "Close Steam",
-  "steam.close.failed": "Steam could not be closed."
+  "steam.close.failed": "Steam could not be closed.",
+  "steam.return.title": "How to come back from Steam",
+  "steam.return.text": "In Steam, hold Home at any time to come back to the console. If a Steam page keeps loading, hold Home, then close Steam: press Menu on the Steam tile and choose “Close Steam”."
 }
