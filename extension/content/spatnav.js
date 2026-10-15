@@ -12,7 +12,11 @@
 //  3. Inside a group, the distance of the W3C draft "CSS Spatial Navigation Level 1"
 //     (https://www.w3.org/TR/css-nav-1/, 2019): euclidean + displacement - alignment - sqrt(overlap).
 //  4. The column (or row) is remembered: going down and back up returns to the same place.
-// The geometry (pick) works on plain rectangles so that it can be tested without a browser
+//
+// A second set of rules, the owner's (2026-10-16), is compared with these in the demo: the page's
+// order decides, geometry only checks (pickInOrder, nextInOrder).
+//
+// The geometry (pick, pickInOrder) works on plain rectangles so that it can be tested without a browser
 // (test/spatnav.test.js).
 
 'use strict';
@@ -98,6 +102,28 @@ var OwneetNav = (() => {
     return -1;
   }
 
+  // The owner's rules (2026-10-16): walking the page's order from the current element (forward for
+  // down / right, backward for up / left) in batches of `batch`, a candidate counts when its starting
+  // point (top-left corner) is past the current one's in the direction; the nearest of a batch wins
+  // (distance between starting points); a batch without one gives way to the next. rects: in page
+  // order; from: the current element's index. Returns an index or -1.
+  function pickInOrder(c, rects, from, dir, batch = 5) {
+    const step = dir === 'down' || dir === 'right' ? 1 : -1;
+    const ahead = r => dir === 'down' ? r.top > c.top : dir === 'up' ? r.top < c.top
+      : dir === 'right' ? r.left > c.left : r.left < c.left;
+    for (let start = from + step; start >= 0 && start < rects.length; start += step * batch) {
+      let best = -1, bestD = Infinity;
+      for (let i = start, n = 0; n < batch && i >= 0 && i < rects.length; i += step, n++) {
+        const r = rects[i];
+        if (!ahead(r)) continue;
+        const d = Math.hypot(r.left - c.left, r.top - c.top);
+        if (d < bestD) { bestD = d; best = i; }
+      }
+      if (best >= 0) return best;
+    }
+    return -1;
+  }
+
   // Reading order: line by line (centres closer than 20 px share a line), then left to right.
   function readingOrder(a, b) {
     const ca = a.top + a.height / 2, cb = b.top + b.height / 2;
@@ -132,6 +158,22 @@ var OwneetNav = (() => {
     return true;
   }
 
+  // Every element matching the selector in page order, with the contents of open shadow roots and
+  // same-origin frames where their host element is.
+  function collectInOrder(root, out) {
+    for (let el = root.firstElementChild; el; el = el.nextElementSibling) {
+      if (el.matches(SELECTOR)) out.push(el);
+      if (el.shadowRoot) collectInOrder(el.shadowRoot, out);
+      if (el.tagName === 'IFRAME' || el.tagName === 'FRAME') {
+        let doc = null;
+        try { doc = el.contentDocument; } catch (_) { /* cross-origin */ }
+        if (doc && doc.documentElement) collectInOrder(doc, out);
+      }
+      collectInOrder(el, out);
+    }
+    return out;
+  }
+
   // Every element matching the selector in root, its open shadow roots and same-origin frames.
   function collect(root, out) {
     root.querySelectorAll(SELECTOR).forEach(el => out.push(el));
@@ -146,10 +188,11 @@ var OwneetNav = (() => {
     return out;
   }
 
-  // The targets of the D-pad inside root (a document or an element); a container that holds other
-  // targets loses to them (the smallest wins). skip: an element of the extension's own (the ring).
-  function targets(root, skip) {
-    const all = collect(root, []).filter(el => el !== skip && el.tagName !== 'IFRAME' && el.tagName !== 'FRAME' && usable(el));
+  // The targets of the D-pad inside root (a document or an element), in page order when ordered; a
+  // container that holds other targets loses to them (the smallest wins). skip: an element of the
+  // extension's own (the ring).
+  function targets(root, skip, ordered) {
+    const all = (ordered ? collectInOrder(root, []) : collect(root, [])).filter(el => el !== skip && el.tagName !== 'IFRAME' && el.tagName !== 'FRAME' && usable(el));
     const set = new Set(all), containers = new Set();
     for (const el of all) {
       for (let p = up(el); p; p = up(p)) {
@@ -196,6 +239,15 @@ var OwneetNav = (() => {
     return i < 0 ? null : list[i];
   }
 
+  // The owner's rules: the next target from origin (an element) in dir, by the page's order.
+  function nextInOrder(root, origin, dir, skip) {
+    const list = targets(root, skip, true);
+    const from = list.indexOf(origin);
+    if (from < 0) return next(root, origin, dir, skip);
+    const i = pickInOrder(rectOf(origin), list.map(rectOf), from, dir);
+    return i < 0 ? null : list[i];
+  }
+
   // The first target on screen in reading order.
   function first(root, skip) {
     const view = root.getBoundingClientRect ? root.getBoundingClientRect() : { top: 0, bottom: innerHeight };
@@ -212,7 +264,7 @@ var OwneetNav = (() => {
     return axis === 'v' ? { axis, at: c.left + c.width / 2, size: c.width } : { axis, at: c.top + c.height / 2, size: c.height };
   }
 
-  return { SELECTOR, pick, distance, anchored, anchorAfter, readingOrder, rectOf, usable, targets, scroller, next, first, up };
+  return { SELECTOR, pick, pickInOrder, nextInOrder, distance, anchored, anchorAfter, readingOrder, rectOf, usable, targets, scroller, next, first, up };
 })();
 
 if (typeof module !== 'undefined') module.exports = OwneetNav;

@@ -76,3 +76,28 @@ test('reading order: line by line, then left to right', () => {
   const nav = box(200, 26, 60, 20), search = box(1000, 20, 34, 34), play = box(60, 300, 120, 40);
   assert.deepStrictEqual([play, search, nav].sort(Nav.readingOrder), [nav, search, play]);
 });
+
+// ---------- The owner's rules: page order decides, geometry checks (pickInOrder) ----------
+
+test('page order: the owner\'s example', () => {
+  const order = [el1, el2, el3, el4, el5];
+  assert.strictEqual(Nav.pickInOrder(el4, order, 3, 'up'), 1);      // el3 is not above: el2
+  assert.strictEqual(Nav.pickInOrder(el3, order, 2, 'down'), 4);    // el4 is not below: el5
+  assert.strictEqual(Nav.pickInOrder(el3, order, 2, 'right'), 3);
+  assert.strictEqual(Nav.pickInOrder(el4, order, 3, 'left'), 2);
+});
+
+test('page order: a sticky bar at the top is not "the nearest above"', () => {
+  // the bar comes first in the page and stays on screen above the scrolled rows
+  const bar = box(0, 0, 1280, 50), row2 = box(0, 60, 300, 150), row3 = box(0, 230, 300, 150);
+  assert.strictEqual(Nav.pickInOrder(row3, [bar, row2, row3], 2, 'up'), 1);
+});
+
+test('page order: the nearest of a batch wins, the next batch only when one has none', () => {
+  const c = box(0, 0, 100, 50);
+  const order = [c, box(0, 300, 100, 50), box(0, 100, 100, 50), ...Array(3).fill(box(0, -100, 100, 50)), box(0, 60, 100, 50)];
+  assert.strictEqual(Nav.pickInOrder(c, order, 0, 'down'), 2);      // index 6 is nearer, but in the next batch
+  const none = [c, ...Array(5).fill(box(0, -100, 100, 50)), box(0, 400, 100, 50)];
+  assert.strictEqual(Nav.pickInOrder(c, none, 0, 'down'), 6);
+  assert.strictEqual(Nav.pickInOrder(c, [c], 0, 'down'), -1);
+});
