@@ -1,0 +1,18 @@
+@owneetd
+@steam
+# Closing Steam from the home screen (Menu on the Steam tile while Steam runs) and the library's
+# selection going round vertically: down from the last row to the first, up from the first row to
+# the disks, up from the disks to the last row (owner, 2026-10-15).
+event app.started {"id": "steam", "name": "Steam", "kind": "app"}
+pad right right down right right
+shot 01-steam-tile-running
+pad menu
+shot 02-close-steam
+pad b
+pad rb
+pad up
+shot 03-up-to-disks
+pad up
+shot 04-up-from-disks-to-last-row
+pad down
+shot 05-down-from-last-row-to-first

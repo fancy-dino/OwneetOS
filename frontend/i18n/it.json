@@ -454,5 +454,10 @@
   "home.notice.more": "+{n} in attesa",
   "home.notice.paused": "Download in pausa: niente connessione a internet.",
   "eula.title": "{title}: contratto di licenza",
-  "eula.text": "La prima volta Steam ti chiede di accettare il contratto di licenza del gioco. Leggilo sul telefono inquadrando il codice. Poi, nella finestra di Steam, premi Sinistra e poi A per accettare: il gioco parte."
+  "eula.text": "La prima volta Steam ti chiede di accettare il contratto di licenza del gioco. Leggilo sul telefono inquadrando il codice. Poi, nella finestra di Steam, premi Sinistra e poi A per accettare: il gioco parte.",
+  "steam.close.title": "Chiudere Steam?",
+  "steam.close.text": "I download di Steam si fermano finché Steam non riparte.",
+  "steam.close.game": "Anche {title} viene chiuso.",
+  "steam.close.go": "Chiudi Steam",
+  "steam.close.failed": "Non è stato possibile chiudere Steam."
 }

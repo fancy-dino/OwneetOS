@@ -806,6 +806,30 @@ FocusScope {
         Nav.feedback("error");
         dialog.open(true);
     }
+    // Closing Steam from the console (owner, 2026-10-15): Menu on the Steam tile of the home screen
+    // while Steam runs, also to leave a Steam page that never finishes loading. Downloads stop; a
+    // Steam game running closes too. Cancel first.
+    function confirmCloseSteam() {
+        const game = runningGame && String(runningGame.id).startsWith("steam:") ? runningGame : null;
+        dialog.game = null;
+        dialog.mode = "closeSteam";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("steam.close.title");
+        dialog.text = Tr.tr("steam.close.text") + (game ? "\n\n" + Tr.tr("steam.close.game", { title: game.name }) : "");
+        dialog.buttons = [
+            { text: Tr.tr("steam.close.go"), action: () => {
+                dialog.close();
+                closingApps["steam"] = true;             // closed on purpose: no "closed unexpectedly"
+                if (game) closingApps[game.id] = true;
+                owneetd.post("/v1/apps/steam/close", {}, (status) => {
+                    if (status >= 300 || status === 0) toast.show(Tr.tr("steam.close.failed"));
+                });
+            } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }
+        ];
+        dialog.defaultIndex = 1;
+        dialog.open();
+    }
     // Library → Add games (approved demo 4.2): where games come from
     function showAddGames(selectDisk, quiet) {
         dialog.game = null;
@@ -1417,6 +1441,8 @@ FocusScope {
             games: root.homeGames
             notices: root.steamNotices
             onOpenNotice: if (notice.game) root.showDetails(notice.game)
+            steamRunning: root.apps.some(a => a.id === "steam")
+            onSteamOptions: root.confirmCloseSteam()
             onLaunch: root.launch(game)
             onDetails: root.showDetails(game)
             onOptions: root.showOptions(game)

@@ -454,5 +454,10 @@
   "home.notice.more": "+{n} waiting",
   "home.notice.paused": "Downloads paused: no internet connection.",
   "eula.title": "{title}: licence agreement",
-  "eula.text": "The first time, Steam asks you to accept the game's licence agreement. Read it on your phone by scanning the code. Then, in Steam's window, press Left and then A to accept: the game starts."
+  "eula.text": "The first time, Steam asks you to accept the game's licence agreement. Read it on your phone by scanning the code. Then, in Steam's window, press Left and then A to accept: the game starts.",
+  "steam.close.title": "Close Steam?",
+  "steam.close.text": "Steam's downloads stop until Steam starts again.",
+  "steam.close.game": "{title} closes too.",
+  "steam.close.go": "Close Steam",
+  "steam.close.failed": "Steam could not be closed."
 }

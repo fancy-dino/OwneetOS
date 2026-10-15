@@ -189,6 +189,16 @@ FocusScope {
             Keys.onPressed: {
                 const a = Nav.action(event);
                 if (a === "down" && grid.count > 0) { Nav.feedback("move"); grid.forceActiveFocus(); }
+                else if (a === "up" && grid.count > 0) {
+                    // round: up from the disks to the last row, same column (owner, 2026-10-15)
+                    Nav.feedback("move");
+                    const col = grid.currentIndex % page.columns;
+                    const lastRow = grid.count - 1 - (grid.count - 1) % page.columns;
+                    grid.currentIndex = Math.min(lastRow + col, grid.count - 1);
+                    grid.positionViewAtIndex(grid.currentIndex, GridView.Contain);
+                    page.remember();
+                    grid.forceActiveFocus();
+                }
                 else if (a === "up" || a === "left" || a === "right" || a === "down") Nav.feedback("edge");
                 else if (a === "accept") { Nav.feedback("confirm"); page.openDisks(page.volumes); }
                 else return;
@@ -290,6 +300,13 @@ FocusScope {
             if (a === "up" && currentIndex < page.columns && disks.visible) {
                 Nav.feedback("move");
                 disks.forceActiveFocus();       // from the first row up to the disks
+            } else if (a === "down" && currentIndex + page.columns > count - 1
+                       && currentIndex - currentIndex % page.columns === count - 1 - (count - 1) % page.columns
+                       && count > page.columns) {
+                // round: down from the last row to the first, same column (owner, 2026-10-15)
+                Nav.feedback("move");
+                currentIndex = currentIndex % page.columns;   // the view follows, as for any move
+                page.remember();
             } else if ((a === "right" && currentIndex === rowEnd && rowEnd > rowStart)
                        || (a === "left" && currentIndex === rowStart && rowEnd > rowStart)) {
                 Nav.feedback("move");

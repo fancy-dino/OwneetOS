@@ -40,6 +40,8 @@ NavArea {
     signal quickMenu()                         // B: nothing to go back to here (3.13)
     signal openStore()                         // Steam's store (4.2)
     signal openNotice(var notice)              // the downloads notice: the game's details (4.2c)
+    property bool steamRunning: false           // Steam runs (hidden or not): Menu on its tile closes it
+    signal steamOptions()
     onCancelled: quickMenu()
     backFeedback: ""                           // the quick menu plays its own sound
 
@@ -58,6 +60,8 @@ NavArea {
             return [P("a", "prompt.play"), P("x", "prompt.details"), P("menu", "prompt.options")];
         if (k === "details")
             return [P("a", "prompt.details"), P("menu", "prompt.options")];
+        if (k === "app" && current.steamStore && steamRunning)
+            return [P("a", "prompt.open"), P("menu", "prompt.options")];
         if (k === "app" || k === "all" || k === "notice" || k === "store")
             return [P("a", "prompt.open")];
         return k ? [P("a", "prompt.select")] : [];
@@ -88,6 +92,7 @@ NavArea {
         const game = gameOf(current);
         if (action === "secondary" && game && current.kind !== "details") { details(game); event.accepted = true; }
         else if (action === "options" && game) { options(game); event.accepted = true; }
+        else if (action === "options" && current && current.steamStore && steamRunning) { steamOptions(); event.accepted = true; }
     }
 
     // ---- Top: hero (2/3) and side column (1/3)
