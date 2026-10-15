@@ -56,7 +56,8 @@
     @media (prefers-reduced-motion: reduce) { div { transition: none; } }
   </style><div></div>`;
   const ring = shadow.querySelector('div');
-  let current = null, lastRect = null, lastInput = 0, drawn = '';
+  // anchor: the column (or row) kept while moving on one axis (OwneetNav.anchorAfter)
+  let current = null, lastRect = null, lastInput = 0, drawn = '', anchor = null;
 
   function attachRing() {
     // In full screen only the full-screen element's subtree is shown (not a <video>: no children)
@@ -123,12 +124,17 @@
   function move(dir) {
     if (!settle()) {
       // Gone (or never chosen): continue from where the last one was, else from the first one
-      const el = lastRect ? Nav.next(document, lastRect, dir, ringHost) : null;
+      const el = lastRect ? Nav.next(document, lastRect, dir, ringHost, anchor) : null;
       moveTo(el || Nav.first(document, ringHost));
       return;
     }
-    const el = Nav.next(document, current, dir, ringHost);
-    if (el) { moveTo(el); return; }
+    const from = Nav.rectOf(current);
+    const el = Nav.next(document, current, dir, ringHost, anchor);
+    if (el) {
+      anchor = Nav.anchorAfter(anchor, from, dir);
+      moveTo(el);
+      return;
+    }
     // Nothing in that direction: the row (sideways) or the page scrolls one step
     const horiz = dir === 'left' || dir === 'right';
     const s = horiz ? Nav.scroller(current) : document.scrollingElement;
@@ -146,6 +152,7 @@
   }
 
   function press() {
+    anchor = null;
     if (!settle()) { moveTo(Nav.first(document, ringHost)); return; }
     const el = current;
     if (isTextField(el)) { el.focus({ preventScroll: true }); Keyboard.open(el); return; }

@@ -95,6 +95,23 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .s-sign .go { background: #7c5cff; color: #fff; padding: 11px; border-radius: 6px; font-weight: 600; text-align: center; }
 .s-sign .help-link { color: #a8a8b4; font-size: 14px; justify-self: start; }
 
+/* Layouts page: test layouts for the spatial navigation (demo only) */
+.lab { padding: 10px 56px 60px; display: grid; gap: 10px; }
+.lab h2 { margin: 18px 0 4px; font: 600 17px/1.2 system-ui, sans-serif; color: #c9c9d3; }
+.lab h2 small { font-weight: 400; color: #8a8a96; }
+.lb { background: #1f1f27; border: 1px solid #34343f; border-radius: 6px; padding: 10px 14px; color: #f2f2f5; font: 500 15px system-ui, sans-serif; text-align: left; }
+.lab-ex { display: grid; gap: 8px; width: 700px; }
+.lab-box { display: flex; gap: 8px; border: 1px dashed #4a4a58; border-radius: 8px; padding: 6px; }
+.lab-box .grow { flex: 1; }
+.lab-sg { display: grid; grid-template-columns: 200px 1fr; gap: 24px; }
+.lab-side { display: grid; gap: 6px; align-content: start; }
+.lab-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.lab-tile { height: 70px; border-radius: 8px; background: #26263a; display: grid; place-items: center; color: #b4b4c0; }
+.lab-row { display: flex; gap: 10px; }
+.lab-row .lab-tile { flex: 0 0 170px; }
+.lab-banner { height: 80px; width: 100%; }
+.lab-narrow { display: grid; grid-template-columns: 160px 1fr; gap: 10px 400px; }
+
 /* The extension's ring: one box drawn over the selected element (the site's styles are not touched).
    Colour = the palette's accent, handed over by the bridge. */
 .ring { position: absolute; pointer-events: none; z-index: 5; border-radius: 10px; display: none;
@@ -181,7 +198,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       <section data-page="browse" class="on">
         <header class="s-head">
           <span class="s-logo">Streamly</span>
-          <nav><a href="#" data-go="browse">Home</a><a href="#" data-go="browse">Series</a><a href="#" data-go="browse">Films</a><a href="#" data-go="browse">My list</a></nav>
+          <nav><a href="#" data-go="browse">Home</a><a href="#" data-go="browse">Series</a><a href="#" data-go="browse">Films</a><a href="#" data-go="browse">My list</a><a href="#" data-go="lab">Layouts</a></nav>
           <div class="s-right">
             <span class="s-icon" role="button" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></span>
             <a href="#" class="s-btn" data-go="signin">Sign in</a>
@@ -209,6 +226,24 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
             <div class="s-actions"><button class="s-play" data-go="player">&#9654; Play</button><div class="s-more" role="button" data-toast="Added to My list">+ My list</div></div>
             <div class="s-eps" id="eps"></div>
           </div>
+        </div>
+      </section>
+      <section data-page="lab">
+        <div class="lab">
+          <h2>Your example <small>(the dashed line is &lt;box&gt;)</small></h2>
+          <div class="lab-ex">
+            <button class="lb">el1</button><button class="lb">el2</button>
+            <div class="lab-box"><button class="lb">el3</button><button class="lb grow">el4</button></div>
+            <button class="lb">el5</button>
+          </div>
+          <h2>Sidebar and grid <small>(right from a low sidebar item: the tile at its height)</small></h2>
+          <div class="lab-sg"><nav class="lab-side" id="lab-side"></nav><div class="lab-grid" id="lab-grid"></div></div>
+          <h2>A banner between two rows <small>(down, down, up, up: back to the same card)</small></h2>
+          <div class="lab-row" id="lab-row1"></div>
+          <button class="lb lab-banner">Banner</button>
+          <div class="lab-row" id="lab-row2"></div>
+          <h2>Nothing in line <small>(down from "Left": the diagonal one, since nothing is below it)</small></h2>
+          <div class="lab-narrow"><button class="lb">Left</button><span></span><span></span><button class="lb">Right, lower</button></div>
         </div>
       </section>
       <section data-page="signin">
@@ -265,10 +300,11 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 <p class="help"><b>Gamepad:</b> D-pad / stick move the ring, A press, B back (full screen → the page before → "Close Streamly?"), right stick scroll.
 In the keyboard: A type, X delete, Y space, LB / RB pages of keys, LT held capitals, Menu done, B close the keyboard.
 <b>Keyboard (emulates the gamepad):</b> arrows, Enter = A, Esc = B, X, Y, Q / E = LB / RB, Z held = LT, M = Menu, Page Up / Down = right stick.<br>
-<b>Demo only:</b> F session: <span id="sess">gamescope (keyboard over the page)</span>; L language; K keyboard layout; P palette; N sounds (<span id="snd-state">on</span>).
+<b>Demo only:</b> V navigation rules: <span id="rules">new (structure first)</span> (try the Layouts page in the site's menu); F session: <span id="sess">gamescope (keyboard over the page)</span>; L language; K keyboard layout; P palette; N sounds (<span id="snd-state">on</span>).
 Address: <code>#session=fallback&amp;lang=it&amp;pal=tide</code></p>
 
 <script src="sounds.js"></script>
+<script src="../../extension/content/spatnav.js"></script>
 <script>
 (() => {
   const $ = (s, r = document) => r.querySelector(s);
@@ -370,6 +406,10 @@ Address: <code>#session=fallback&amp;lang=it&amp;pal=tide</code></p>
       return `<div class="s-card" tabindex="-1" data-go="details" data-title="${TITLES[k]}"><div class="art" style="background:linear-gradient(135deg,hsl(${HUES[k]} 45% 35%),hsl(${(HUES[k] + 60) % 360} 50% 22%))"></div><span>${TITLES[k]}</span></div>`;
     }).join('');
   });
+  $('#lab-side').innerHTML = ['Home', 'Shorts', 'Subscriptions', 'History', 'Playlists', 'Watch later', 'Liked', 'Downloads']
+    .map(t => `<a href="#" class="lb">${t}</a>`).join('');
+  $('#lab-grid').innerHTML = Array.from({ length: 12 }, (_, i) => `<div class="lab-tile" tabindex="-1">Video ${i + 1}</div>`).join('');
+  ['#lab-row1', '#lab-row2'].forEach((r, k) => { $(r).innerHTML = Array.from({ length: 5 }, (_, i) => `<div class="lab-tile" tabindex="-1">${k ? 'Below' : 'Above'} ${i + 1}</div>`).join(''); });
   $('#eps').innerHTML = Array.from({ length: 6 }, (_, i) => `<a href="#" class="s-ep" data-go="player"><b>${i + 1}</b><span>Episode ${i + 1}</span></a>`).join('');
 
   let pageName = 'browse', history = [], fullscreen = false;
@@ -390,6 +430,7 @@ Address: <code>#session=fallback&amp;lang=it&amp;pal=tide</code></p>
     if (el.matches('input[type=email], input[type=password]')) { openKeyboard(el); return; }
     if (el.matches('input[type=checkbox]')) { el.checked = !el.checked; return; }
     if (el.closest('.check')) { const c = el.closest('.check').querySelector('input'); c.checked = !c.checked; return; }
+    anchor = null;
     const go = el.dataset.go, t = el.dataset.toast;
     if (t) toast(t);
     if (el.matches('[data-fs]')) { fullscreen = !fullscreen; $('#player').classList.toggle('windowed', !fullscreen); return; }
@@ -471,11 +512,16 @@ Address: <code>#session=fallback&amp;lang=it&amp;pal=tide</code></p>
       if (s === site) break;
     }
   }
-  let current = null;
+  let current = null, anchor = null, rules = 'new';     // V switches the rules (old: before 2026-10-16)
   function ringTo(el) { current = el; if (el) { el.focus({ preventScroll: true }); reveal(el); } }
   function move(dir) {
     if (!current || !document.contains(current) || !usable(current)) { ringTo(firstTarget()); return; }
-    const n = find(dir);
+    let n;
+    if (rules === 'new') {
+      const from = OwneetNav.rectOf(current);
+      n = OwneetNav.next($('#player').style.display !== 'none' ? $('#player') : site, current, dir, null, anchor);
+      if (n) anchor = OwneetNav.anchorAfter(anchor, from, dir);
+    } else n = find(dir);
     if (n) { ringTo(n); return; }
     // Nothing in that direction: the page (or the row) scrolls one step
     const s = (dir === 'left' || dir === 'right') ? scroller(current) : site;
@@ -657,6 +703,7 @@ Address: <code>#session=fallback&amp;lang=it&amp;pal=tide</code></p>
     l: () => { lang = lang === 'en' ? 'it' : 'en'; renderStatic(); renderPrompts(); if (kbdOpen) renderKeys(); if (askOpen) openAsk(); },
     k: () => { layout = layout === 'us' ? 'it' : 'us'; if (kbdOpen) renderKeys(); toast(tr('layout.' + layout)); },
     p: () => { const i = PALETTES.findIndex(p => p[0] === palKey); palKey = PALETTES[(i + 1) % PALETTES.length][0]; applyPalette(palKey); toast(pal(palKey)[1]); },
+    v: () => { rules = rules === 'new' ? 'old' : 'new'; anchor = null; $('#rules').textContent = rules === 'new' ? 'new (structure first)' : 'old (nearest box)'; toast('Rules: ' + rules); },
     n: () => { soundOn = !soundOn; $('#snd-state').textContent = soundOn ? 'on' : 'off'; },
   };
   document.addEventListener('keydown', e => {

@@ -1,8 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Spatial navigation for web pages ([[extension-design]], [[controller-input-map]]): which elements
-// the D-pad can reach, and which one comes next in a direction. The geometry (choose) works on
-// plain rectangles so that it can be tested without a browser (spatnav.test.js).
+// the D-pad can reach, and which one comes next in a direction.
+//
+// How the next one is chosen:
+//  1. Structure first: the candidates are grouped by the smallest box (DOM ancestor) they share
+//     with the current element; the search starts in the current element's own box and goes
+//     outward only when nothing fits there.
+//  2. In line first: a pass that only accepts candidates overlapping the current element across the
+//     direction runs through every level before a second pass accepts diagonal ones.
+//  3. Inside a group, the distance of the W3C draft "CSS Spatial Navigation Level 1"
+//     (https://www.w3.org/TR/css-nav-1/, 2019): euclidean + displacement - alignment - sqrt(overlap).
+//  4. The column (or row) is remembered: going down and back up returns to the same place.
+// The geometry (pick) works on plain rectangles so that it can be tested without a browser
+// (test/spatnav.test.js).
 
 'use strict';
 
@@ -19,6 +30,8 @@ var OwneetNav = (() => {
 
   // ---------- Geometry (no DOM) ----------
 
+  const horizontal = dir => dir === 'left' || dir === 'right';
+
   // Is rectangle r past c in direction dir?
   function past(c, r, dir) {
     switch (dir) {
@@ -29,30 +42,60 @@ var OwneetNav = (() => {
     }
   }
 
-  // Gap along the direction and offset across it (0 when the two overlap across).
+  // Gap along the direction, offset across it (0 when the projections overlap) and the length of
+  // that overlap.
   function measure(c, r, dir) {
-    const horiz = dir === 'left' || dir === 'right';
     const gap = dir === 'right' ? r.left - c.right : dir === 'left' ? c.left - r.right
       : dir === 'down' ? r.top - c.bottom : c.top - r.bottom;
-    const [a0, a1, b0, b1] = horiz ? [c.top, c.bottom, r.top, r.bottom] : [c.left, c.right, r.left, r.right];
-    return { gap: Math.max(0, gap), across: Math.max(0, b0 - a1, a0 - b1) };
+    const [a0, a1, b0, b1] = horizontal(dir) ? [c.top, c.bottom, r.top, r.bottom] : [c.left, c.right, r.left, r.right];
+    return { along: Math.max(0, gap), across: Math.max(0, b0 - a1, a0 - b1), overlap: Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)) };
   }
 
-  // The best candidate from origin rectangle c: candidates are {rect, sameRow}. Distance = gap +
-  // 2 × offset across; an overlapping one wins a tie. Leaving the current scrolling row sideways
-  // needs an overlap across, so the end of a row does not jump into another row.
-  function choose(c, candidates, dir) {
-    const horiz = dir === 'left' || dir === 'right';
-    let best = -1, bestScore = Infinity;
+  // The W3C draft's distance: euclidean + displacement - alignment - sqrt(overlap area).
+  function distance(c, r, dir) {
+    const h = horizontal(dir);
+    const { along, across, overlap } = measure(c, r, dir);
+    const euclidean = Math.hypot(along, across);
+    const size = h ? c.height : c.width;
+    const displacement = (across + size / 2) * (h ? 30 : 2);
+    const alignment = size > 0 ? (overlap / size) * 5 : 0;
+    const w = Math.min(c.right, r.right) - Math.max(c.left, r.left);
+    const v = Math.min(c.bottom, r.bottom) - Math.max(c.top, r.top);
+    return euclidean + displacement - alignment - (w > 0 && v > 0 ? Math.sqrt(w * v) : 0);
+  }
+
+  // The remembered column (moving up / down) or row (left / right) replaces the current element's
+  // position across the direction. anchor: {axis: 'v' | 'h', at, size}.
+  function anchored(c, dir, anchor) {
+    if (!anchor || anchor.axis !== (horizontal(dir) ? 'h' : 'v')) return c;
+    return horizontal(dir)
+      ? { ...c, top: anchor.at - anchor.size / 2, bottom: anchor.at + anchor.size / 2, height: anchor.size }
+      : { ...c, left: anchor.at - anchor.size / 2, right: anchor.at + anchor.size / 2, width: anchor.size };
+  }
+
+  // The best candidate from rectangle c in direction dir, or -1. Candidates: {rect, level, sameRow}:
+  // level 0 shares the smallest box with the current element, higher levels larger ones; sameRow:
+  // in the same scrolling container (leaving one sideways needs an element in line).
+  function pick(c, candidates, dir, anchor) {
+    const o = anchored(c, dir, anchor);
+    const ahead = [];
     candidates.forEach((cand, i) => {
-      const r = cand.rect;
-      if (!past(c, r, dir)) return;
-      const { gap, across } = measure(c, r, dir);
-      if (horiz && across > 0 && !cand.sameRow) return;
-      const score = gap + 2 * across - (across === 0 ? 0.5 : 0);
-      if (score < bestScore) { bestScore = score; best = i; }
+      if (!past(c, cand.rect, dir)) return;
+      const inLine = measure(o, cand.rect, dir).across === 0;
+      if (!inLine && horizontal(dir) && !cand.sameRow) return;
+      ahead.push({ i, level: cand.level, inLine, d: distance(o, cand.rect, dir) });
     });
-    return best;
+    const levels = [...new Set(ahead.map(a => a.level))].sort((a, b) => a - b);
+    for (const inLine of [true, false]) {
+      for (const level of levels) {
+        let best = null;
+        for (const a of ahead) {
+          if (a.level === level && a.inLine === inLine && (!best || a.d < best.d)) best = a;   // ties: page order
+        }
+        if (best) return best.i;
+      }
+    }
+    return -1;
   }
 
   // Reading order: line by line (centres closer than 20 px share a line), then left to right.
@@ -103,10 +146,10 @@ var OwneetNav = (() => {
     return out;
   }
 
-  // The targets of the D-pad; a container that holds other targets loses to them (the smallest
-  // wins). skip: an element of the extension's own (the ring).
-  function targets(doc, skip) {
-    const all = collect(doc, []).filter(el => el !== skip && el.tagName !== 'IFRAME' && el.tagName !== 'FRAME' && usable(el));
+  // The targets of the D-pad inside root (a document or an element); a container that holds other
+  // targets loses to them (the smallest wins). skip: an element of the extension's own (the ring).
+  function targets(root, skip) {
+    const all = collect(root, []).filter(el => el !== skip && el.tagName !== 'IFRAME' && el.tagName !== 'FRAME' && usable(el));
     const set = new Set(all), containers = new Set();
     for (const el of all) {
       for (let p = up(el); p; p = up(p)) {
@@ -129,25 +172,47 @@ var OwneetNav = (() => {
     return (el.ownerDocument || document).scrollingElement || document.documentElement;
   }
 
-  // The next target from origin (an element, or the rectangle where the last one was) in dir.
-  function next(doc, origin, dir, skip) {
-    const c = origin.getBoundingClientRect ? rectOf(origin) : origin;
-    const row = origin.getBoundingClientRect ? scroller(origin) : null;
-    const list = targets(doc, skip).filter(el => el !== origin && !(origin.contains && el.contains(origin)));
-    const i = choose(c, list.map(el => ({ rect: rectOf(el), sameRow: row !== null && scroller(el) === row })), dir);
+  // The level of each element: how many boxes up from the current element the smallest box they
+  // share is (0: the current element's parent). Elements sharing none (another frame) come last.
+  function levelsFrom(origin) {
+    const chain = new Map();
+    let n = 0;
+    for (let p = up(origin); p; p = up(p)) chain.set(p, n++);
+    return el => {
+      for (let p = up(el); p; p = up(p)) if (chain.has(p)) return chain.get(p);
+      return n;
+    };
+  }
+
+  // The next target from origin (an element, or the rectangle where the last one was) in dir, inside
+  // root. anchor: the remembered column or row (see anchored).
+  function next(root, origin, dir, skip, anchor) {
+    const isEl = !!origin.getBoundingClientRect;
+    const c = isEl ? rectOf(origin) : origin;
+    const row = isEl ? scroller(origin) : null;
+    const level = isEl ? levelsFrom(origin) : () => 0;
+    const list = targets(root, skip).filter(el => el !== origin && !(isEl && el.contains(origin)));
+    const i = pick(c, list.map(el => ({ rect: rectOf(el), level: level(el), sameRow: row !== null && scroller(el) === row })), dir, anchor);
     return i < 0 ? null : list[i];
   }
 
   // The first target on screen in reading order.
-  function first(doc, skip) {
-    const h = innerHeight;
-    const list = targets(doc, skip).map(el => ({ el, r: rectOf(el) }));
-    const seen = list.filter(t => t.r.bottom > 0 && t.r.top < h);
-    const pick = (seen.length ? seen : list).sort((a, b) => readingOrder(a.r, b.r))[0];
-    return pick ? pick.el : null;
+  function first(root, skip) {
+    const view = root.getBoundingClientRect ? root.getBoundingClientRect() : { top: 0, bottom: innerHeight };
+    const list = targets(root, skip).map(el => ({ el, r: rectOf(el) }));
+    const seen = list.filter(t => t.r.bottom > view.top && t.r.top < view.bottom);
+    const pick1 = (seen.length ? seen : list).sort((a, b) => readingOrder(a.r, b.r))[0];
+    return pick1 ? pick1.el : null;
   }
 
-  return { SELECTOR, choose, readingOrder, rectOf, usable, targets, scroller, next, first, up };
+  // The anchor after a move from rectangle c in dir: kept while moving on the same axis.
+  function anchorAfter(anchor, c, dir) {
+    const axis = horizontal(dir) ? 'h' : 'v';
+    if (anchor && anchor.axis === axis) return anchor;
+    return axis === 'v' ? { axis, at: c.left + c.width / 2, size: c.width } : { axis, at: c.top + c.height / 2, size: c.height };
+  }
+
+  return { SELECTOR, pick, distance, anchored, anchorAfter, readingOrder, rectOf, usable, targets, scroller, next, first, up };
 })();
 
 if (typeof module !== 'undefined') module.exports = OwneetNav;
