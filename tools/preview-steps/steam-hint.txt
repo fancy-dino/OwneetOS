@@ -1,0 +1,10 @@
+@owneetd
+@steam
+# "Hold Home to return to the console" over Steam's window, for a few seconds each time Steam comes
+# on screen (owner, 2026-10-15). In the preview there is no gamescope: the hint's window simply
+# shows over the interface.
+event app.started {"id": "steam", "name": "Steam", "kind": "app"}
+event focus.changed {"focus": "steam"}
+shot 01-hint-shown
+wait 7
+shot 02-hint-gone

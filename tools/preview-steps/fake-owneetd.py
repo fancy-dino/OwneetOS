@@ -243,7 +243,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.events()
         with lock:
             answers = {
-                "/v1/status": {"session_mode": "cage", "owneetos_version": "preview"},
+                # @steam previews the gamescope session (Steam's window, the hint over it)
+                "/v1/status": {"session_mode": "gamescope" if os.environ.get("FAKE_STEAM") else "cage",
+                               "owneetos_version": "preview"},
                 "/v1/apps": {"apps": state["apps"], "focus": "home"},
                 "/v1/steam": state["steam"],
                 "/v1/update": state["update"],

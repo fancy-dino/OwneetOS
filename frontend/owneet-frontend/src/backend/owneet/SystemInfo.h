@@ -35,5 +35,7 @@ public:
     // A QR code of a text (e.g. an address to open on a phone): its rows of modules, "1" dark,
     // "0" light, without the quiet zone; empty when the text is too long (4.2c)
     Q_INVOKABLE QStringList qrCode(const QString& text) const;
+    // Marks a QML Window as gamescope's external overlay, drawn over any app (4.2c bugs)
+    Q_INVOKABLE void markOverlay(QObject* window) const;
 };
 } // namespace owneet

@@ -459,5 +459,6 @@
   "steam.close.text": "I download di Steam si fermano finché Steam non riparte.",
   "steam.close.game": "Anche {title} viene chiuso.",
   "steam.close.go": "Chiudi Steam",
-  "steam.close.failed": "Non è stato possibile chiudere Steam."
+  "steam.close.failed": "Non è stato possibile chiudere Steam.",
+  "steam.hint": "Tieni premuto Home per tornare alla console"
 }

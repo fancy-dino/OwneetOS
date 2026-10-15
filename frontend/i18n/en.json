@@ -459,5 +459,6 @@
   "steam.close.text": "Steam's downloads stop until Steam starts again.",
   "steam.close.game": "{title} closes too.",
   "steam.close.go": "Close Steam",
-  "steam.close.failed": "Steam could not be closed."
+  "steam.close.failed": "Steam could not be closed.",
+  "steam.hint": "Hold Home to return to the console"
 }
