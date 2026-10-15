@@ -7,6 +7,5 @@
 namespace platform {
 
 void tag_windows_for_gamescope(const QList<QObject*>&) {}
-void mark_gamescope_overlay(QObject*) {}
 
 } // namespace platform

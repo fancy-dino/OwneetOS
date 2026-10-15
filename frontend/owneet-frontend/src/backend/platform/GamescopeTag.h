@@ -18,9 +18,4 @@ namespace platform {
 /// even when owneetd is not running. Does nothing outside X11.
 void tag_windows_for_gamescope(const QList<QObject*>& root_objects);
 
-/// Marks a window of the interface as gamescope's external overlay (GAMESCOPE_EXTERNAL_OVERLAY):
-/// gamescope draws it over whatever is on screen (e.g. a hint over Steam's window), and owneetd
-/// never takes it for an app. Call it before the window is shown. Does nothing outside X11.
-void mark_gamescope_overlay(QObject* window);
-
 } // namespace platform

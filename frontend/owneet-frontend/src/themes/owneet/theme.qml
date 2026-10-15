@@ -269,11 +269,6 @@ FocusScope {
                 if (type === "app.exited")
                     refreshTimer.restart();       // play time and "last played" have changed
             } else if (type === "focus.changed") {
-                // Steam's own window on screen: for a few seconds, how to come back (gamescope)
-                if (steamHint.item) {
-                    if (data.focus === "steam") steamHint.item.flash();
-                    else steamHint.item.hide();
-                }
                 if (data.focus === "home") root.refreshSteam(true);
                 // Guide brings the home screen over a running game: the "launch" sound, the other way
                 const fromGame = root.gameOnScreen;
@@ -2124,14 +2119,6 @@ FocusScope {
         id: credits
         z: 101
         onVisibleChanged: if (!visible) root.backToPage()
-    }
-
-    // ---- "Hold Home to return to the console" over Steam's window (owner, 2026-10-15): a window of
-    // its own, gamescope's overlay; never in the reduced (cage) session, where it would cover all
-    Loader {
-        id: steamHint
-        active: root.sessionMode === "gamescope"
-        source: "SteamHint.qml"
     }
 
     // ---- Steam starting (4.2): until Steam's or the game's window appears, or Steam stops

@@ -109,26 +109,4 @@ void tag_windows_for_gamescope(const QList<QObject*>& root_objects)
         QTimer::singleShot(ms, [windows]() { tag_and_show_home(windows); });
 }
 
-void mark_gamescope_overlay(QObject* object)
-{
-    auto* const window = qobject_cast<QWindow*>(object);
-    if (!window || QGuiApplication::platformName() != QLatin1String("xcb"))
-        return;
-    xcb_connection_t* const conn = xcb_connect(nullptr, nullptr);
-    if (xcb_connection_has_error(conn)) {
-        xcb_disconnect(conn);
-        return;
-    }
-    const xcb_atom_t overlay = intern_atom(conn, "GAMESCOPE_EXTERNAL_OVERLAY");
-    if (overlay != XCB_ATOM_NONE) {
-        const uint32_t one = 1;
-        // winId() creates the native window if needed: marked before it is shown
-        xcb_change_property(conn, XCB_PROP_MODE_REPLACE, static_cast<xcb_window_t>(window->winId()),
-                            overlay, XCB_ATOM_CARDINAL, 32, 1, &one);
-        Log::info(LOGTAG, LOGMSG("Window marked as an overlay"));
-    }
-    xcb_flush(conn);
-    xcb_disconnect(conn);
-}
-
 } // namespace platform

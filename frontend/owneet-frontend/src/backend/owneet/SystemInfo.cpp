@@ -10,7 +10,6 @@
 #include <algorithm>
 
 #include "qrcodegen.hpp"
-#include "platform/GamescopeTag.h"
 
 
 namespace owneet {
@@ -134,11 +133,6 @@ QVariantList SystemInfo::packages() const
         });
     }
     return out;
-}
-
-void SystemInfo::markOverlay(QObject* window) const
-{
-    platform::mark_gamescope_overlay(window);
 }
 
 QStringList SystemInfo::qrCode(const QString& text) const
