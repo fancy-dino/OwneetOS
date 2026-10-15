@@ -1,0 +1,714 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS — interactive demo for [[step-5.2-extension-core]] (a web app driven by the controller:
+     the extension's ring and spatial navigation, B, the console's keyboard over the page, "Close
+     {name}?"). Open in a browser; drive it with a gamepad or the keyboard. "Streamly" is an invented
+     site (no real service, logo or brand). Fonts come from Google Fonts for the demo only (the
+     console bundles them); sounds come from sounds.js (frontend/sounds/). The spatial navigation
+     here follows [[extension-design]] and is the prototype of the extension's code. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS — Web app controls (demo 5.2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1; --motion: 1; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+.frame { position: relative; flex: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+
+/* ---------- 1280 × 720 ---------- */
+.stage { width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+         background: var(--bg); color: var(--fg); font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350; }
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); } .t-xl { font-size: calc(40px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+.label { text-transform: uppercase; letter-spacing: .09em; font-weight: 500; color: var(--muted); }
+[data-f] { outline: none; position: relative; transition: transform calc(.12s * var(--motion)) ease, box-shadow calc(.12s * var(--motion)) ease; }
+[data-f].focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); transform: scale(calc(1 + .03 * var(--motion))); z-index: 2; }
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 22px; flex-wrap: wrap; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+
+/* ---------- The web app (Brave in kiosk mode: the whole screen is the site) ---------- */
+.web { position: absolute; inset: 0; }
+.site { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none;
+        background: #101014; color: #f2f2f5; font: 400 16px/1.4 system-ui, "Segoe UI", sans-serif; }
+.site::-webkit-scrollbar { display: none; }
+.site a { color: inherit; text-decoration: none; }
+.site section { display: none; } .site section.on { display: block; }
+.s-head { display: flex; align-items: center; gap: 30px; padding: 22px 56px; }
+.s-logo { font: 800 26px/1 system-ui, sans-serif; letter-spacing: -0.04em; color: #b9a6ff; }
+.s-head nav { display: flex; gap: 22px; color: #c9c9d3; }
+.s-head nav a { padding: 4px 2px; }
+.s-head .s-right { margin-left: auto; display: flex; gap: 18px; align-items: center; }
+.s-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; }
+.s-icon svg { width: 20px; height: 20px; }
+.s-btn { background: #7c5cff; color: #fff !important; padding: 7px 16px; border-radius: 6px; font-weight: 600; }
+.s-hero { margin: 0 56px; height: 300px; border-radius: 10px; padding: 40px; display: flex; flex-direction: column; justify-content: flex-end; gap: 12px;
+          background: linear-gradient(90deg, rgba(10,10,14,.92) 25%, rgba(10,10,14,0) 75%), linear-gradient(135deg, #2b3a67, #6b3f6e 55%, #c06c4a); }
+.s-hero h1 { margin: 0; font: 800 44px/1 system-ui, sans-serif; letter-spacing: -0.03em; }
+.s-hero p { margin: 0; max-width: 460px; color: #d0d0da; }
+.s-actions { display: flex; gap: 12px; }
+.s-play, .s-more { padding: 10px 22px; border-radius: 6px; font-weight: 600; display: inline-flex; gap: 8px; align-items: center; }
+.s-play { background: #f2f2f5; color: #111; }
+.s-more { background: rgba(140,140,160,.45); }
+.s-row { margin: 26px 0 0; }
+.s-row h2 { margin: 0 56px 10px; font: 600 19px/1.2 system-ui, sans-serif; }
+.s-track { display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; padding: 6px 56px 10px; }
+.s-track::-webkit-scrollbar { display: none; }
+.s-card { flex: 0 0 214px; border-radius: 8px; overflow: hidden; background: #1d1d24; }
+.s-card .art { height: 120px; }
+.s-card span { display: block; padding: 8px 10px; font-size: 14px; color: #d8d8e0; }
+.s-foot { padding: 40px 56px 60px; color: #8a8a96; font-size: 13px; display: flex; gap: 22px; }
+.s-det { padding: 30px 56px; display: grid; grid-template-columns: 420px 1fr; gap: 40px; }
+.s-det .art { height: 240px; border-radius: 10px; }
+.s-det h1 { margin: 0 0 8px; font: 800 38px/1 system-ui, sans-serif; }
+.s-det .meta { color: #a8a8b4; margin-bottom: 14px; }
+.s-eps { margin: 22px 0 0; display: grid; gap: 8px; }
+.s-ep { display: flex; gap: 14px; align-items: center; padding: 10px 12px; border-radius: 8px; background: #1a1a20; }
+.s-ep b { width: 26px; color: #a8a8b4; }
+.s-back { display: inline-flex; gap: 6px; padding: 18px 56px 0; color: #c9c9d3; }
+.s-player { position: absolute; inset: 0; background: #000; display: grid; place-items: center; }
+.s-player.windowed { inset: 60px 120px; border-radius: 10px; }
+.s-player .pic { position: absolute; inset: 0; background: radial-gradient(circle at 40% 45%, #3b4c7a, #0b0b10 70%); border-radius: inherit; }
+.s-player .ctl { position: absolute; left: 30px; right: 30px; bottom: 24px; display: flex; gap: 18px; align-items: center; }
+.s-player .bar { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,.25); position: relative; }
+.s-player .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 34%; background: #b9a6ff; border-radius: 3px; }
+.s-player .pp { width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,.15); display: grid; place-items: center; }
+.s-player .pp svg { width: 22px; height: 22px; }
+.s-player .ttl { position: absolute; top: 24px; left: 30px; font-weight: 600; }
+.s-player .fs { padding: 6px 12px; border-radius: 6px; background: rgba(255,255,255,.15); font-size: 13px; }
+.s-sign { width: 420px; margin: 40px auto; background: #18181e; border-radius: 12px; padding: 30px 34px; display: grid; gap: 14px; }
+.s-sign h1 { margin: 0 0 6px; font: 800 30px/1 system-ui, sans-serif; }
+.s-sign label { display: grid; gap: 6px; color: #b4b4c0; font-size: 14px; }
+.s-sign input[type=email], .s-sign input[type=password] { font: inherit; color: #f2f2f5; background: #26262e; border: 1px solid #3a3a46; border-radius: 6px; padding: 10px 12px; outline: none; }
+.s-sign .check { display: flex; gap: 8px; align-items: center; grid-template-columns: none; }
+.s-sign .check input { width: 18px; height: 18px; accent-color: #7c5cff; margin: 0; }
+.s-sign .go { background: #7c5cff; color: #fff; padding: 11px; border-radius: 6px; font-weight: 600; text-align: center; }
+.s-sign .help-link { color: #a8a8b4; font-size: 14px; justify-self: start; }
+
+/* The extension's ring: one box drawn over the selected element (the site's styles are not touched).
+   Colour = the palette's accent, handed over by the bridge. */
+.ring { position: absolute; pointer-events: none; z-index: 5; border-radius: 10px; display: none;
+        box-shadow: 0 0 0 3px rgba(0,0,0,.65), 0 0 0 6.5px var(--accent), 0 0 24px 4px color-mix(in srgb, var(--accent) 45%, transparent);
+        transition: left calc(.1s * var(--motion)) ease, top calc(.1s * var(--motion)) ease, width calc(.1s * var(--motion)) ease, height calc(.1s * var(--motion)) ease; }
+.web.kbd .ring { opacity: .45; }
+
+/* ---------- The console's keyboard over the page (gamescope) ---------- */
+.band { position: absolute; left: 0; right: 0; bottom: 0; height: 390px; z-index: 8; display: none;
+        background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--bg) 92%, transparent) 16%); }
+.osk { position: absolute; left: 64px; right: 64px; bottom: 70px; z-index: 11; background: var(--surface); border: 1px solid var(--line);
+       border-radius: 18px; padding: 14px 16px 16px; display: none; gap: 10px; box-shadow: 0 -20px 60px -20px rgba(0,0,0,.6); }
+.kbd-open .osk { display: grid; animation: up calc(.2s * var(--motion)) ease; }
+.kbd-open.layered .band { display: block; }
+@keyframes up { from { transform: translateY(30px); opacity: 0; } }
+.osk-head { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.pages { display: flex; gap: 6px; align-items: center; }
+.pages span.pg { padding: 3px 12px; border-radius: 999px; }
+.pages span.pg.on { background: var(--fg); color: var(--bg); font-weight: 500; }
+.keys { display: grid; gap: 8px; }
+.krow { display: flex; gap: 8px; justify-content: center; }
+.key { height: 46px; min-width: 76px; flex: 0 0 76px; border-radius: 11px; background: var(--raised); color: var(--fg); display: grid; place-items: center;
+       font-size: calc(19px * var(--ts)); font-weight: 400; }
+.key.w15 { flex-basis: 120px; } .key.w2 { flex-basis: 160px; } .key.space { flex-basis: 420px; }
+.key.fn { background: color-mix(in srgb, var(--raised) 70%, var(--line)); font-size: calc(14.5px * var(--ts)); font-weight: 500; }
+.key.done { background: var(--accent); color: var(--on-accent); }
+.key.on { background: var(--fg); color: var(--bg); }
+.key svg { width: 22px; height: 22px; }
+.key .gl { display: inline-flex; gap: 6px; align-items: center; }
+.key .gl .g { height: 18px; }
+.bottom-prompts { position: absolute; left: 64px; right: 64px; bottom: 28px; z-index: 12; display: none; }
+.kbd-open .bottom-prompts, .ask-open .bottom-prompts { display: flex; }
+
+/* ---------- The fallback session (cage): the console in front with its keyboard and a line ---------- */
+.console { position: absolute; inset: 0; background: var(--bg); display: none; z-index: 7; padding: 36px 64px; }
+.kbd-open.full .console { display: grid; justify-items: center; align-content: start; gap: 14px; }
+.kbd-open.full .web { visibility: hidden; }
+.line { width: 704px; padding: 12px 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--accent); display: grid; gap: 4px; }
+.line .text { min-height: 1.4em; white-space: pre; overflow: hidden; }
+.line .text.dots { letter-spacing: .12em; }
+.caret { display: inline-block; width: 2px; height: 1.1em; background: var(--accent); vertical-align: -0.15em; margin-left: 1px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+
+/* ---------- "Close {name}?" over the home screen ---------- */
+.home { position: absolute; inset: 0; background: var(--bg); display: none; z-index: 9; padding: 36px 64px 28px; }
+.ask-open .home { display: grid; grid-template-rows: auto 1fr; gap: 20px; }
+.ask-open .web { visibility: hidden; }
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 36px; }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.hero { display: grid; grid-template-columns: 300px 1fr; gap: 36px; align-items: center; align-self: start; margin-top: 30px; }
+.tile { width: 300px; height: 300px; border-radius: 22px; background: var(--surface); border: 1px solid var(--line); display: grid; place-items: center; position: relative; }
+.tile .letter { font-family: var(--display); font-weight: 800; font-size: 140px; color: var(--accent); }
+.tile .dot { position: absolute; top: 16px; right: 16px; width: 14px; height: 14px; border-radius: 50%; background: #4ADE80; }
+.hero .actions { display: flex; gap: 14px; margin-top: 18px; }
+.btn { padding: 12px 28px; border-radius: 999px; font-weight: 500; background: var(--raised); }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+.overlay { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 85%, transparent); z-index: 10; display: none; }
+.ask-open .overlay { display: block; }
+.sheet { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -58%); width: max-content; min-width: 520px; max-width: 900px;
+         text-align: center; justify-items: center; background: var(--bg); border: 1px solid var(--line); border-radius: 18px;
+         padding: 20px 24px 24px; display: grid; gap: 14px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.7); }
+.sheet .list { display: flex; justify-content: center; gap: 20px; margin-top: 6px; }
+.sheet .item { padding: 11px 26px; border-radius: 999px; font-weight: 500; background: var(--raised); color: var(--fg); }
+.sheet .item.primary { background: var(--accent); color: var(--on-accent); }
+
+.toast { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); padding: 9px 18px; border-radius: 999px; background: var(--raised); color: var(--fg);
+         border: 1px solid var(--line); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; white-space: nowrap; }
+.toast.show { opacity: 1; }
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; max-width: 1180px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="frame" id="frame"><div class="stage layered" id="stage">
+  <div class="web" id="web">
+    <div class="site" id="site">
+      <main tabindex="-1">
+      <!-- First page of the web app -->
+      <section data-page="browse" class="on">
+        <header class="s-head">
+          <span class="s-logo">Streamly</span>
+          <nav><a href="#" data-go="browse">Home</a><a href="#" data-go="browse">Series</a><a href="#" data-go="browse">Films</a><a href="#" data-go="browse">My list</a></nav>
+          <div class="s-right">
+            <span class="s-icon" role="button" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></span>
+            <a href="#" class="s-btn" data-go="signin">Sign in</a>
+          </div>
+        </header>
+        <div class="s-promo" style="display:none"><button>Hidden: never reached</button></div>
+        <div class="s-hero">
+          <h1>Night Harbor</h1>
+          <p>A lighthouse keeper finds a ship that left the port a hundred years ago.</p>
+          <div class="s-actions"><button class="s-play" data-go="player">&#9654; Play</button><div class="s-more" role="button" data-go="details">More info</div></div>
+        </div>
+        <div aria-hidden="true" style="height:0;overflow:hidden"><button>Decoration: never reached</button></div>
+        <div class="s-row"><h2>Continue watching</h2><div class="s-track" data-row="0"></div></div>
+        <div class="s-row"><h2>Popular now</h2><div class="s-track" data-row="1"></div></div>
+        <div class="s-row"><h2>New this week</h2><div class="s-track" data-row="2"></div></div>
+        <div class="s-foot"><a href="#">Help centre</a><a href="#">Terms of use</a><a href="#">Privacy</a></div>
+      </section>
+      <section data-page="details">
+        <a href="#" class="s-back" data-go="back">&#8592; Back</a>
+        <div class="s-det">
+          <div class="art" style="background:linear-gradient(135deg,#2b3a67,#6b3f6e 55%,#c06c4a)"></div>
+          <div>
+            <h1 id="det-title">Night Harbor</h1>
+            <div class="meta">2026 · 1 season · Mystery</div>
+            <div class="s-actions"><button class="s-play" data-go="player">&#9654; Play</button><div class="s-more" role="button" data-toast="Added to My list">+ My list</div></div>
+            <div class="s-eps" id="eps"></div>
+          </div>
+        </div>
+      </section>
+      <section data-page="signin">
+        <div class="s-sign">
+          <h1>Sign in</h1>
+          <label>Email<input type="email" id="f-email" autocomplete="off" data-label="Email"></label>
+          <label>Password<input type="password" id="f-pass" autocomplete="off" data-label="Password"></label>
+          <label class="check"><input type="checkbox" checked>Remember me</label>
+          <button class="go" data-go="signed">Sign in</button>
+          <a href="#" class="help-link" data-toast="(demo) the site's help page">Need help?</a>
+        </div>
+      </section>
+      </main>
+    </div>
+    <div class="s-player" id="player" style="display:none">
+      <div class="pic"></div>
+      <span class="ttl">Night Harbor · Episode 1</span>
+      <div class="ctl"><button class="pp" aria-label="Pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg></button>
+        <div class="bar" role="slider" aria-label="Position"><i></i></div><button class="fs" data-fs>Full screen</button></div>
+    </div>
+    <div class="ring" id="ring"></div>
+  </div>
+
+  <!-- The console, in front in the fallback session: its keyboard with a line showing the text -->
+  <div class="console" id="console">
+    <span class="mark" style="justify-self:start">Owneet<i>OS</i></span>
+    <span class="disp t-l" id="c-app">Streamly</span>
+    <div class="line"><span class="t-s muted" id="c-label"></span><span class="t-m text" id="c-text"></span></div>
+  </div>
+  <div class="band"></div>
+  <div class="osk" id="osk">
+    <div class="osk-head t-xs"><div class="pages" id="pages"></div><span id="layout-name"></span></div>
+    <div class="keys" id="keys"></div>
+  </div>
+
+  <!-- The home screen with "Close {name}?" (B where the web app has nothing to go back to) -->
+  <div class="home" id="home">
+    <header class="top">
+      <div class="top-left"><span class="mark">Owneet<i>OS</i></span>
+        <nav class="tabs t-s"><span data-glyph="lb"></span><span class="tab" aria-current="page" data-i18n="tab.home"></span><span class="tab" data-i18n="tab.library"></span><span class="tab" data-i18n="tab.settings"></span><span data-glyph="rb"></span></nav></div>
+      <span class="t-s" id="clock"></span>
+    </header>
+    <div class="hero">
+      <div class="tile"><span class="letter">S</span><span class="dot"></span></div>
+      <div><span class="label t-xs" data-i18n="home.open"></span><div class="disp t-xl" style="margin-top:8px">Streamly</div>
+        <div class="actions t-m"><span class="btn primary" data-i18n="home.resume"></span><span class="btn" data-i18n="home.closeapp"></span></div></div>
+    </div>
+  </div>
+  <div class="overlay"><div class="sheet" id="sheet"></div></div>
+
+  <div class="prompts t-s bottom-prompts" id="prompts"></div>
+  <div class="toast t-s" id="toast"></div>
+</div></div>
+<p class="help"><b>Gamepad:</b> D-pad / stick move the ring, A press, B back (full screen → the page before → "Close Streamly?"), right stick scroll.
+In the keyboard: A type, X delete, Y space, LB / RB pages of keys, LT held capitals, Menu done, B close the keyboard.
+<b>Keyboard (emulates the gamepad):</b> arrows, Enter = A, Esc = B, X, Y, Q / E = LB / RB, Z held = LT, M = Menu, Page Up / Down = right stick.<br>
+<b>Demo only:</b> F session: <span id="sess">gamescope (keyboard over the page)</span>; L language; K keyboard layout; P palette; N sounds (<span id="snd-state">on</span>).
+Address: <code>#session=fallback&amp;lang=it&amp;pal=tide</code></p>
+
+<script src="sounds.js"></script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage'), site = $('#site'), web = $('#web'), ring = $('#ring');
+  let scale = 1;
+  function fit() {
+    scale = Math.min(innerWidth / 1280, (innerHeight - 80) / 720);
+    stage.style.transform = `scale(${scale})`;
+    $('#frame').style.width = 1280 * scale + 'px'; $('#frame').style.height = 720 * scale + 'px';
+  }
+  addEventListener('resize', fit); fit();
+
+  /* ---------- Palettes (as approved in demo 3.3), trimmed ---------- */
+  const PALETTES = [
+    ['dusk', 'Dusk', '#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+    ['tide', 'Tide', '#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+    ['bloom', 'Bloom', '#1A1020', '#25182D', '#33223D', '#45304F', '#F7EEF6', '#AE93AE', '#FF7AA8', '#2A0614'],
+    ['forest', 'Forest', '#0E1A14', '#15261D', '#1E3428', '#2B4636', '#ECF5EE', '#95B2A0', '#7BD88F', '#072012'],
+    ['amber', 'Amber', '#0F0B05', '#1A1409', '#251C0D', '#3A2C14', '#FFE8C2', '#C9AA78', '#FFB000', '#241700'],
+    ['daylight', 'Daylight', '#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+    ['contrast', 'High contrast', '#000000', '#000000', '#161616', '#FFFFFF', '#FFFFFF', '#E0E0E0', '#FFE14D', '#000000'],
+  ];
+  const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
+  let palKey = 'dusk';
+  const pal = k => PALETTES.find(p => p[0] === k) || PALETTES[0];
+  const applyPalette = k => TOKENS.forEach((t, i) => stage.style.setProperty('--' + t, pal(k)[2 + i]));
+
+  /* ---------- i18n (console text only: the site has its own language) ---------- */
+  const EN = {
+    'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings',
+    'home.open': 'Open now', 'home.resume': 'Resume', 'home.closeapp': 'Close',
+    'close.title': 'Close {title}?', 'closeapp.text': 'Whatever is playing stops.', 'cancel': 'Cancel',
+    'p.type': 'Type', 'p.delete': 'Delete', 'p.space': 'Space', 'p.symbols': 'Symbols', 'p.capitals': 'Capitals', 'p.done': 'Done',
+    'p.close_keyboard': 'Close keyboard', 'p.select': 'Select', 'p.back': 'Back', 'p.home': 'Home',
+    'k.done': 'Done', 'k.space': 'space', 'pg.abc': 'ABC', 'pg.sym': '?!#', 'pg.acc': 'àé',
+    'layout.us': 'English (US)', 'layout.it': 'Italiano',
+  };
+  const IT = {
+    'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni',
+    'home.open': 'Aperta', 'home.resume': 'Riprendi', 'home.closeapp': 'Chiudi',
+    'close.title': 'Chiudere {title}?', 'closeapp.text': 'Quello che sta riproducendo si ferma.', 'cancel': 'Annulla',
+    'p.type': 'Scrivi', 'p.delete': 'Cancella', 'p.space': 'Spazio', 'p.symbols': 'Simboli', 'p.capitals': 'Maiuscole', 'p.done': 'Fatto',
+    'p.close_keyboard': 'Chiudi tastiera', 'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.home': 'Home',
+    'k.done': 'Fatto', 'k.space': 'spazio',
+  };
+  let lang = 'en';
+  const tr = (k, a = {}) => ((lang === 'it' ? IT[k] : null) || EN[k] || k).replace(/\{(\w+)\}/g, (_, x) => a[x] ?? '');
+
+  /* ---------- Glyphs (as in the console) ---------- */
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const G = { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lb: pill('LB', 34), rb: pill('RB', 34), lt: pill('LT', 32),
+    menu: circle(`<path d="M8.5 10h9M8.5 13h9M8.5 16h9" ${S}/>`), guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`) };
+  const P = (b, l) => `<span class="prompt">${b.map(x => G[x]).join('')}<span>${tr(l)}</span></span>`;
+  const ICON = {
+    backspace: `<svg viewBox="0 0 24 24" ${S}><path d="M8 5h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H8l-6-7z"/><path d="M11 9l6 6M17 9l-6 6"/></svg>`,
+    shift: `<svg viewBox="0 0 24 24" ${S}><path d="M12 4 4 12h4v7h8v-7h4z"/></svg>`,
+    caps: `<svg viewBox="0 0 24 24" ${S}><path d="M12 3 4 11h4v5h8v-5h4z"/><path d="M8 20h8"/></svg>`,
+    left: `<svg viewBox="0 0 24 24" ${S}><path d="M15 6l-6 6 6 6"/></svg>`,
+    right: `<svg viewBox="0 0 24 24" ${S}><path d="M9 6l6 6-6 6"/></svg>`,
+    eye: `<svg viewBox="0 0 24 24" ${S}><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`,
+    eyeoff: `<svg viewBox="0 0 24 24" ${S}><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/></svg>`,
+  };
+
+  /* ---------- Sounds: only the console's parts (keyboard, dialog) make sounds; the page is silent ---------- */
+  let soundOn = true, ctx = null;
+  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close' };
+  const buffers = {};
+  function startAudio() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    if (!window.OWNEET_SOUNDS) return;
+    ctx = new AudioContext();
+    for (const [k, f] of Object.entries(SOUNDS)) {
+      const url = window.OWNEET_SOUNDS[f]; if (!url) continue;
+      const bytes = Uint8Array.from(atob(url.split(',')[1]), c => c.charCodeAt(0));
+      ctx.decodeAudioData(bytes.buffer).then(b => { buffers[k] = b; });
+    }
+  }
+  addEventListener('keydown', startAudio, true); addEventListener('pointerdown', startAudio, true);
+  function feedback(k) {
+    if (!soundOn || !ctx || !buffers[k]) return;
+    const src = ctx.createBufferSource(), g = ctx.createGain();
+    g.gain.value = 0.7; src.buffer = buffers[k]; src.connect(g); g.connect(ctx.destination); src.start();
+  }
+
+  /* ---------- The invented site ---------- */
+  const TITLES = ['Night Harbor', 'Salt and Iron', 'The Long Winter', 'Paper Moons', 'Glass Valley', 'Northbound', 'Quiet Engines', 'Low Tide',
+    'Red Orchard', 'Seven Bridges', 'Hollow Pines', 'Second Sun', 'Distant Choir', 'Copper Coast'];
+  const HUES = [220, 280, 20, 340, 160, 200, 40, 300, 0, 120, 260, 30, 190, 10];
+  $$('.s-track').forEach(t => {
+    const r = +t.dataset.row, n = [8, 12, 10][r];
+    // Cards with tabindex="-1": the site focuses them with its own code (only D-pad navigation that
+    // counts tabindex -1 reaches them).
+    t.innerHTML = Array.from({ length: n }, (_, i) => {
+      const k = (i + r * 5) % TITLES.length;
+      return `<div class="s-card" tabindex="-1" data-go="details" data-title="${TITLES[k]}"><div class="art" style="background:linear-gradient(135deg,hsl(${HUES[k]} 45% 35%),hsl(${(HUES[k] + 60) % 360} 50% 22%))"></div><span>${TITLES[k]}</span></div>`;
+    }).join('');
+  });
+  $('#eps').innerHTML = Array.from({ length: 6 }, (_, i) => `<a href="#" class="s-ep" data-go="player"><b>${i + 1}</b><span>Episode ${i + 1}</span></a>`).join('');
+
+  let pageName = 'browse', history = [], fullscreen = false;
+  function showPage(p, push) {
+    if (push) history.push(pageName);
+    pageName = p;
+    $('#player').style.display = 'none';
+    $$('.site section').forEach(s => s.classList.toggle('on', s.dataset.page === p));
+    site.scrollTop = 0; $$('.s-track').forEach(t => { t.scrollLeft = 0; });
+    current = null; ringTo(firstTarget());
+  }
+  function openPlayer() {
+    history.push(pageName); pageName = 'player'; fullscreen = true;
+    const pl = $('#player'); pl.style.display = 'grid'; pl.classList.remove('windowed');
+    current = null; ringTo($('#player .pp'));
+  }
+  function siteActivate(el) {
+    if (el.matches('input[type=email], input[type=password]')) { openKeyboard(el); return; }
+    if (el.matches('input[type=checkbox]')) { el.checked = !el.checked; return; }
+    if (el.closest('.check')) { const c = el.closest('.check').querySelector('input'); c.checked = !c.checked; return; }
+    const go = el.dataset.go, t = el.dataset.toast;
+    if (t) toast(t);
+    if (el.matches('[data-fs]')) { fullscreen = !fullscreen; $('#player').classList.toggle('windowed', !fullscreen); return; }
+    if (el.matches('.pp')) { toast('(demo) paused'); return; }
+    if (!go) return;
+    if (go === 'back') back();
+    else if (go === 'player') openPlayer();
+    else if (go === 'signed') { toast('(demo) signed in'); history = []; showPage('browse'); }
+    else if (go === 'details') { $('#det-title').textContent = el.dataset.title || 'Night Harbor'; showPage('details', true); }
+    else if (go !== pageName) showPage(go, true);
+  }
+
+  /* ---------- Spatial navigation ([[extension-design]]) ---------- */
+  const NATIVE = 'a[href], button, input:not([type=hidden]), select, textarea, [contenteditable=""], [contenteditable="true"], summary, iframe, [tabindex]';
+  const ROLES = ['button', 'link', 'tab', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'option', 'checkbox', 'radio', 'switch',
+    'gridcell', 'treeitem', 'slider', 'textbox', 'searchbox', 'combobox'];
+  const SELECTOR = NATIVE + ', ' + ROLES.map(r => `[role="${r}"]`).join(', ');
+  function usable(el) {
+    if (el.disabled || el.closest('[inert], [aria-hidden="true"]')) return false;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return false;
+    if (el.checkVisibility && !el.checkVisibility({ visibilityProperty: true })) return false;
+    return true;
+  }
+  function targets() {
+    const root = $('#player').style.display !== 'none' ? $('#player') : site;
+    const all = $$(SELECTOR, root).filter(usable);
+    // A container that holds other targets loses to them: the smallest wins
+    return all.filter(el => !all.some(o => o !== el && el.contains(o)));
+  }
+  const rect = el => el.getBoundingClientRect();
+  function scroller(el) {
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const s = getComputedStyle(p);
+      if (/(auto|scroll)/.test(s.overflowX + s.overflowY) && (p.scrollWidth > p.clientWidth || p.scrollHeight > p.clientHeight)) return p;
+    }
+    return site;
+  }
+  function firstTarget() {
+    const view = rect(site), ts = targets().filter(el => { const r = rect(el); return r.bottom > view.top && r.top < view.bottom; });
+    // Reading order: line by line (centres closer than 20 px share a line), then left to right
+    ts.sort((a, b) => {
+      const ra = rect(a), rb = rect(b), ca = ra.top + ra.height / 2, cb = rb.top + rb.height / 2;
+      return Math.abs(ca - cb) > 20 ? ca - cb : ra.left - rb.left;
+    });
+    return ts[0] || targets()[0] || null;
+  }
+  // Candidates lie past the current one in the pressed direction. Distance = gap along the direction
+  // + 2 × the offset across it. Inside the current scrolling row anything counts; leaving it
+  // sideways needs an overlap across (so the end of a row does not jump into another row).
+  function find(dir) {
+    const c = rect(current), horiz = dir === 'left' || dir === 'right';
+    const myRow = scroller(current);
+    let best = null, bestScore = Infinity;
+    for (const el of targets()) {
+      if (el === current || el.contains(current)) continue;
+      const r = rect(el);
+      const past = dir === 'right' ? r.left >= c.right - 4 : dir === 'left' ? r.right <= c.left + 4
+        : dir === 'down' ? r.top >= c.bottom - 4 : r.bottom <= c.top + 4;
+      if (!past) continue;
+      const gap = dir === 'right' ? r.left - c.right : dir === 'left' ? c.left - r.right : dir === 'down' ? r.top - c.bottom : c.top - r.bottom;
+      const [a0, a1, b0, b1] = horiz ? [c.top, c.bottom, r.top, r.bottom] : [c.left, c.right, r.left, r.right];
+      const across = Math.max(0, b0 - a1, a0 - b1);
+      if (horiz && across > 0 && scroller(el) !== myRow) continue;
+      const score = Math.max(0, gap) + 2 * across - (across === 0 ? 0.5 : 0);
+      if (score < bestScore) { bestScore = score; best = el; }
+    }
+    return best;
+  }
+  // The chosen target is scrolled fully into view: its row first, then the page
+  const smooth = () => (getComputedStyle(document.documentElement).getPropertyValue('--motion').trim() === '0' ? 'auto' : 'smooth');
+  function reveal(el) {
+    const pad = 28;
+    for (let s = scroller(el); s; s = s === site ? null : scroller(s)) {
+      const r = rect(el), v = rect(s), k = 1 / scale;
+      const dx = r.left - pad < v.left ? (r.left - pad - v.left) : r.right + pad > v.right ? (r.right + pad - v.right) : 0;
+      const dy = r.top - pad < v.top ? (r.top - pad - v.top) : r.bottom + pad > v.bottom ? (r.bottom + pad - v.bottom) : 0;
+      if (dx || dy) s.scrollBy({ left: dx * k, top: dy * k, behavior: smooth() });
+      if (s === site) break;
+    }
+  }
+  let current = null;
+  function ringTo(el) { current = el; if (el) { el.focus({ preventScroll: true }); reveal(el); } }
+  function move(dir) {
+    if (!current || !document.contains(current) || !usable(current)) { ringTo(firstTarget()); return; }
+    const n = find(dir);
+    if (n) { ringTo(n); return; }
+    // Nothing in that direction: the page (or the row) scrolls one step
+    const s = (dir === 'left' || dir === 'right') ? scroller(current) : site;
+    const step = 0.4 * (dir === 'left' || dir === 'right' ? s.clientWidth : s.clientHeight);
+    s.scrollBy({ left: dir === 'right' ? step : dir === 'left' ? -step : 0, top: dir === 'down' ? step : dir === 'up' ? -step : 0, behavior: smooth() });
+  }
+  function drawRing() {
+    const show = current && document.contains(current) && usable(current) && !askOpen && !(kbdOpen && session === 'fallback');
+    ring.style.display = show ? 'block' : 'none';
+    if (!show) return;
+    const r = rect(current), w = rect(web), k = 1 / scale;
+    const br = parseFloat(getComputedStyle(current).borderTopLeftRadius) || 4;
+    Object.assign(ring.style, { left: (r.left - w.left) * k + 'px', top: (r.top - w.top) * k + 'px',
+      width: r.width * k + 'px', height: r.height * k + 'px', borderRadius: Math.max(br, 4) + 'px' });
+  }
+
+  /* ---------- B: full screen → the page's dialog → the page before → "Close Streamly?" ---------- */
+  function back() {
+    if (pageName === 'player' && fullscreen) { fullscreen = false; $('#player').classList.add('windowed'); return; }
+    if (history.length) { const p = history.pop(); pageName = ''; showPage(p); return; }
+    openAsk();
+  }
+
+  /* ---------- "Close Streamly?": the console comes to the front with its dialog ---------- */
+  let askOpen = false, askFocus = null;
+  function openAsk() {
+    askOpen = true; stage.classList.add('ask-open'); feedback('sheet-open');
+    renderStatic();
+    $('#sheet').innerHTML = `<span class="disp t-l">${tr('close.title', { title: 'Streamly' })}</span><span class="t-m muted">${tr('closeapp.text')}</span>
+      <div class="list t-m"><button class="item" data-f data-k="close">${tr('home.closeapp')}</button><button class="item primary" data-f data-k="cancel">${tr('cancel')}</button></div>`;
+    setAskFocus($('#sheet [data-k="cancel"]'), true);
+    renderPrompts();
+  }
+  function setAskFocus(el, silent) { if (askFocus) askFocus.classList.remove('focus'); askFocus = el; el.classList.add('focus'); if (!silent) feedback('move'); }
+  function closeAsk(closeApp) {
+    askOpen = false; stage.classList.remove('ask-open'); feedback(closeApp ? 'confirm' : 'sheet-close');
+    if (closeApp) { toast('(demo) Streamly closed: the home screen stays'); setTimeout(() => { history = []; showPage('browse'); }, 1400); }
+    renderPrompts();
+  }
+
+  /* ---------- The console's keyboard ---------- */
+  const LAYOUTS = { us: ['1234567890', 'qwertyuiop', 'asdfghjkl\'', 'zxcvbnm,.-'], it: ['1234567890', 'qwertyuiopè', 'asdfghjklòàù', 'zxcvbnm,.-'] };
+  const SYM = ['1234567890', '@#€$%&*()_', '+=/\\:;"!?\'', '<>[]{}~^|`'];
+  const ACC = ['àáâäãåæ', 'èéêëìíîï', 'òóôöõøùúûü', 'çñßÿ'];
+  const PAGES = ['abc', 'sym', 'acc'];
+  let layout = 'us', page = 'abc', shift = 0, held = false, session = 'gamescope';
+  let kbdOpen = false, field = null, cursor = 0, showPw = false, keyFocus = null;
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  function keyRows() {
+    const rows = page === 'abc' ? LAYOUTS[layout] : page === 'sym' ? SYM : ACC;
+    const up = (shift > 0 || held) && page !== 'sym';
+    const chars = rows.map(r => [...r].map(c => ({ t: 'char', c: up ? c.toLocaleUpperCase(layout === 'it' ? 'it' : 'en') : c })));
+    chars[0].push({ t: 'del', w: 'w15 fn' });
+    chars[chars.length - 1].unshift({ t: 'shift', w: 'w15 fn' });
+    const pw = field && field.type === 'password';
+    chars.push([{ t: 'page', w: 'w15 fn', p: PAGES[(PAGES.indexOf(page) + 1) % PAGES.length] },
+      { t: 'left', w: 'fn' }, { t: 'space', w: 'space fn' }, { t: 'right', w: 'fn' },
+      // Show / hide applies to the console's line only: the page's own field is never changed
+      ...(pw && session === 'fallback' ? [{ t: 'eye', w: 'fn' }] : []),
+      { t: 'done', w: 'w2 fn done' }]);
+    return chars;
+  }
+  function renderKeys() {
+    const pos = keyFocus ? [+keyFocus.dataset.r, +keyFocus.dataset.c] : [1, 0];
+    $('#keys').innerHTML = keyRows().map((row, r) => `<div class="krow">${row.map((k, c) => {
+      const label = k.t === 'char' ? esc(k.c) : k.t === 'del' ? ICON.backspace : k.t === 'shift' ? (shift === 2 ? ICON.caps : ICON.shift)
+        : k.t === 'page' ? tr('pg.' + k.p) : k.t === 'left' ? ICON.left : k.t === 'right' ? ICON.right : k.t === 'eye' ? (showPw ? ICON.eyeoff : ICON.eye)
+        : k.t === 'space' ? `<span class="gl">${G.y}${tr('k.space')}</span>` : `<span class="gl">${G.menu}${tr('k.done')}</span>`;
+      const on = (k.t === 'shift' && (shift > 0 || held)) || (k.t === 'eye' && showPw) ? ' on' : '';
+      return `<button class="key t-m ${k.w || ''}${on}" data-f data-r="${r}" data-c="${c}" data-t="${k.t}" data-ch="${k.t === 'char' ? esc(k.c) : ''}" data-p="${k.p || ''}">${label}</button>`;
+    }).join('')}</div>`).join('');
+    $('#pages').innerHTML = `${G.lb}${PAGES.map(p => `<span class="pg${p === page ? ' on' : ''}">${tr('pg.' + p)}</span>`).join('')}${G.rb}`;
+    $('#layout-name').textContent = tr('layout.' + layout);
+    const rows = $$('#keys .krow'), row = rows[Math.min(pos[0], rows.length - 1)], ks = $$('[data-f]', row);
+    keyFocus = ks[Math.min(pos[1], ks.length - 1)]; keyFocus.classList.add('focus');
+  }
+  function renderLine() {
+    if (!field) return;
+    $('#c-label').textContent = field.dataset.label || field.placeholder || '';
+    const shown = field.type === 'password' && !showPw ? '•'.repeat([...field.value].length) : field.value;
+    const ch = [...shown];
+    $('#c-text').className = 't-m text' + (field.type === 'password' && !showPw ? ' dots' : '');
+    $('#c-text').innerHTML = `${esc(ch.slice(0, cursor).join(''))}<span class="caret"></span>${esc(ch.slice(cursor).join(''))}`;
+  }
+  // The extension inserts the text into the page's field (input events as typing would fire)
+  function insert(s) {
+    const ch = [...field.value]; ch.splice(cursor, 0, ...s); field.value = ch.join(''); cursor += [...s].length;
+    field.setSelectionRange && field.type !== 'email' && field.setSelectionRange(cursor, cursor);
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    if (shift === 1) { shift = 0; renderKeys(); }
+    feedback('confirm'); renderLine();
+  }
+  function del() {
+    if (cursor === 0) { feedback('edge'); return; }
+    const ch = [...field.value]; ch.splice(cursor - 1, 1); field.value = ch.join(''); cursor--;
+    feedback('confirm'); renderLine();
+  }
+  function openKeyboard(el) {
+    field = el; cursor = [...el.value].length; showPw = false; kbdOpen = true; keyFocus = null; page = 'abc'; shift = 0;
+    stage.classList.add('kbd-open'); web.classList.add('kbd');
+    feedback('sheet-open'); renderKeys(); renderLine(); renderPrompts();
+  }
+  function closeKeyboard(next) {
+    kbdOpen = false; stage.classList.remove('kbd-open'); web.classList.remove('kbd');
+    feedback(next ? 'confirm' : 'sheet-close'); renderPrompts();
+    if (next) { const n = find('down'); if (n) ringTo(n); }      // Done: the selection moves on to the next target
+  }
+  function moveKeys(dir) {
+    const rows = $$('#keys .krow').map(r => $$('[data-f]', r));
+    const r = +keyFocus.dataset.r, c = +keyFocus.dataset.c;
+    let n;
+    if (dir === 'left' || dir === 'right') { const row = rows[r]; n = row[(c + (dir === 'right' ? 1 : -1) + row.length) % row.length]; }
+    else {
+      const nr = (r + (dir === 'down' ? 1 : -1) + rows.length) % rows.length, a = rect(keyFocus), ax = a.left + a.width / 2;
+      let d = Infinity; for (const k of rows[nr]) { const b = rect(k), dx = Math.abs(b.left + b.width / 2 - ax); if (dx < d) { d = dx; n = k; } }
+    }
+    keyFocus.classList.remove('focus'); keyFocus = n; n.classList.add('focus'); feedback('move');
+  }
+  function pressKey() {
+    const t = keyFocus.dataset.t;
+    if (t === 'char') insert(keyFocus.textContent);
+    else if (t === 'del') del();
+    else if (t === 'space') insert(' ');
+    else if (t === 'shift') { shift = (shift + 1) % 3; feedback('confirm'); renderKeys(); }
+    else if (t === 'page') { page = keyFocus.dataset.p; feedback('confirm'); renderKeys(); }
+    else if (t === 'left' || t === 'right') {
+      const n = [...field.value].length, next = cursor + (t === 'right' ? 1 : -1);
+      if (next < 0 || next > n) { feedback('edge'); return; }
+      cursor = next; feedback('confirm'); renderLine();
+    }
+    else if (t === 'eye') { showPw = !showPw; feedback('confirm'); renderKeys(); renderLine(); }
+    else if (t === 'done') closeKeyboard(true);
+  }
+  const setPage = d => { page = PAGES[(PAGES.indexOf(page) + d + PAGES.length) % PAGES.length]; feedback('confirm'); renderKeys(); };
+
+  /* ---------- Prompts (console parts only: the page shows none) ---------- */
+  function renderPrompts() {
+    let left = [];
+    if (askOpen) left = [P(['a'], 'p.select'), P(['b'], 'p.back')];
+    else if (kbdOpen) left = [P(['a'], 'p.type'), P(['x'], 'p.delete'), P(['y'], 'p.space'), P(['lb', 'rb'], 'p.symbols'), P(['lt'], 'p.capitals'), P(['menu'], 'p.done'), P(['b'], 'p.close_keyboard')];
+    $('#prompts').innerHTML = `<div class="set">${left.join('')}</div><div class="set">${P(['guide'], 'p.home')}</div>`;
+  }
+  function renderStatic() {
+    $$('[data-i18n]').forEach(el => { el.textContent = tr(el.dataset.i18n); });
+    $$('[data-glyph]').forEach(el => { el.innerHTML = G[el.dataset.glyph]; });
+  }
+
+  /* ---------- Buttons ---------- */
+  const press = {
+    a: () => {
+      if (askOpen) { closeAsk(askFocus.dataset.k === 'close'); return; }
+      if (kbdOpen) { pressKey(); return; }
+      if (current) siteActivate(current); else ringTo(firstTarget());
+    },
+    b: () => { if (askOpen) closeAsk(false); else if (kbdOpen) closeKeyboard(false); else back(); },
+    x: () => { if (kbdOpen) del(); },
+    y: () => { if (kbdOpen) insert(' '); },
+    lb: () => { if (kbdOpen) setPage(-1); },
+    rb: () => { if (kbdOpen) setPage(1); },
+    menu: () => { if (kbdOpen) closeKeyboard(true); },
+  };
+  function dpad(dir) {
+    if (askOpen) {
+      const n = dir === 'left' ? $('#sheet [data-k="close"]') : dir === 'right' ? $('#sheet [data-k="cancel"]') : null;
+      if (n && n !== askFocus) setAskFocus(n); else feedback('edge');
+    } else if (kbdOpen) moveKeys(dir);
+    else move(dir);
+  }
+  function setHeld(h) { if (held === h || !kbdOpen) { held = h; return; } held = h; renderKeys(); }
+  const scrollPage = dy => { if (!askOpen && !kbdOpen) site.scrollBy({ top: dy }); };
+
+  const DEMO = {
+    f: () => {
+      session = session === 'gamescope' ? 'fallback' : 'gamescope';
+      stage.classList.toggle('layered', session === 'gamescope'); stage.classList.toggle('full', session === 'fallback');
+      $('#sess').textContent = session === 'gamescope' ? 'gamescope (keyboard over the page)' : 'fallback (console in front, with a line)';
+      if (kbdOpen) { renderKeys(); renderLine(); }
+    },
+    l: () => { lang = lang === 'en' ? 'it' : 'en'; renderStatic(); renderPrompts(); if (kbdOpen) renderKeys(); if (askOpen) openAsk(); },
+    k: () => { layout = layout === 'us' ? 'it' : 'us'; if (kbdOpen) renderKeys(); toast(tr('layout.' + layout)); },
+    p: () => { const i = PALETTES.findIndex(p => p[0] === palKey); palKey = PALETTES[(i + 1) % PALETTES.length][0]; applyPalette(palKey); toast(pal(palKey)[1]); },
+    n: () => { soundOn = !soundOn; $('#snd-state').textContent = soundOn ? 'on' : 'off'; },
+  };
+  document.addEventListener('keydown', e => {
+    const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    const keys = { Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b', x: 'x', y: 'y', m: 'menu', q: 'lb', e: 'rb' };
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (dirs[e.key]) { e.preventDefault(); dpad(dirs[e.key]); }
+    else if (k === 'z') { e.preventDefault(); setHeld(true); }
+    else if (e.key === 'PageDown' || e.key === 'PageUp') { e.preventDefault(); scrollPage(e.key === 'PageDown' ? 260 : -260); }
+    else if (keys[k]) { e.preventDefault(); if (!e.repeat) press[keys[k]](); }
+    else if (DEMO[k]) { e.preventDefault(); DEMO[k](); }
+    else if (e.key === 'Tab') e.preventDefault();
+  });
+  document.addEventListener('keyup', e => { if (e.key.toLowerCase() === 'z') setHeld(false); });
+  site.addEventListener('click', e => { e.preventDefault(); const el = $$(SELECTOR).filter(x => x.contains(e.target) && targets().includes(x))[0]; if (el) { ringTo(el); siteActivate(el); } });
+  $('#player').addEventListener('click', e => { const el = e.target.closest('button, [role]'); if (el) { ringTo(el); siteActivate(el); } });
+
+  /* ---------- Gamepad: held directions 360 ms then 140 ms; button 16 (Guide) is never read ---------- */
+  const prev = {}; let repeatAt = 0, lastDir = null;
+  function frame(ts) {
+    const pad = (navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [])[0];
+    if (pad) {
+      const on = i => !!(pad.buttons[i] && (pad.buttons[i].pressed || pad.buttons[i].value > 0.5));
+      const edge = i => { const p = on(i), was = prev[i]; prev[i] = p; return p && !was; };
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0, ry = pad.axes[3] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { dpad(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+      if (Math.abs(ry) > 0.2) scrollPage(ry * 18);
+      setHeld(on(6));
+      [['a', 0], ['b', 1], ['x', 2], ['y', 3], ['lb', 4], ['rb', 5], ['menu', 9]].forEach(([n, i]) => { if (edge(i)) press[n](); });
+    }
+    drawRing();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  const tick = () => { $('#clock').textContent = new Date().toTimeString().slice(0, 5); };
+  tick(); setInterval(tick, 10000);
+
+  /* ---------- Start: the web app has just opened on its first page ---------- */
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get('pal') && pal(q.get('pal'))[0] === q.get('pal')) palKey = q.get('pal');
+  applyPalette(palKey);
+  if (q.get('lang') === 'it') lang = 'it';
+  if (q.get('motion') === 'off') document.documentElement.style.setProperty('--motion', 0);
+  if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
+  renderStatic(); renderPrompts();
+  if (q.get('session') === 'fallback') DEMO.f();
+  ringTo(firstTarget());
+  if (q.get('keys')) q.get('keys').split(',').forEach((k, i) => setTimeout(() =>
+    ['left', 'right', 'up', 'down'].includes(k) ? dpad(k) : press[k] && press[k](), 300 * (i + 1)));
+})();
+</script>
+</body>
+</html>
