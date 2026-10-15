@@ -3,7 +3,8 @@
 // Spatial navigation for web pages ([[extension-design]], [[controller-input-map]]): which elements
 // the D-pad can reach, and which one comes next in a direction.
 //
-// How the next one is chosen:
+// How the next one is chosen (agreed with the owner on 2026-10-16, after comparing versions in the
+// demo of step 5.2):
 //  1. Structure first: the candidates are grouped by the smallest box (DOM ancestor) they share
 //     with the current element; the search starts in the current element's own box and goes
 //     outward only when nothing fits there.
@@ -12,12 +13,11 @@
 //  3. Inside a group, the distance of the W3C draft "CSS Spatial Navigation Level 1"
 //     (https://www.w3.org/TR/css-nav-1/, 2019): euclidean + displacement - alignment - sqrt(overlap).
 //  4. The column (or row) is remembered: going down and back up returns to the same place.
+//  5. Left / right stay in the container (the smallest box holding the current element and another
+//     target); with nothing there, they go to the target just before / after the container in the
+//     page's order, wherever it is (the owner's rule).
 //
-// A second set of rules, the owner's (2026-10-16), is compared with these in the demo: the
-// container first, then the page's order, geometry only checks (pickInGroup, pickInOrder,
-// nextInOrder).
-//
-// The geometry (pick, pickInOrder) works on plain rectangles so that it can be tested without a browser
+// The geometry (pick, pickSideways) works on plain rectangles so that it can be tested without a browser
 // (test/spatnav.test.js).
 
 'use strict';
@@ -103,46 +103,16 @@ var OwneetNav = (() => {
     return -1;
   }
 
-  // The owner's rules (2026-10-16): walking the page's order from the current element (forward for
-  // down / right, backward for up / left) in batches of `batch`, a candidate counts when its starting
-  // point (top-left corner) is past the current one's in the direction; the nearest of a batch wins
-  // (distance between starting points); a batch without one gives way to the next. rects: in page
-  // order; from: the current element's index. Returns an index or -1.
-  function pickInOrder(c, rects, from, dir, batch = 5) {
-    const step = dir === 'down' || dir === 'right' ? 1 : -1;
-    const ahead = r => dir === 'down' ? r.top > c.top : dir === 'up' ? r.top < c.top
-      : dir === 'right' ? r.left > c.left : r.left < c.left;
-    for (let start = from + step; start >= 0 && start < rects.length; start += step * batch) {
-      let best = -1, bestD = Infinity;
-      for (let i = start, n = 0; n < batch && i >= 0 && i < rects.length; i += step, n++) {
-        const r = rects[i];
-        if (!ahead(r)) continue;
-        const d = Math.hypot(r.left - c.left, r.top - c.top);
-        if (d < bestD) { bestD = d; best = i; }
-      }
-      if (best >= 0) return best;
-    }
-    return -1;
-  }
-
-  // The owner's rules, with the container first (2026-10-16). The container is the smallest box
-  // holding the current element and another target: rects[s..e] (a container's targets follow each
-  // other in page order). In it, the nearest target past the current one (by starting point) wins,
-  // whatever is nearer outside. With none: left / right go to the target just before / after the
-  // container, wherever it is; up / down walk the page's order (pickInOrder).
-  function pickInGroup(c, rects, from, dir, s, e) {
-    const ahead = r => dir === 'down' ? r.top > c.top : dir === 'up' ? r.top < c.top
-      : dir === 'right' ? r.left > c.left : r.left < c.left;
-    let best = -1, bestD = Infinity;
-    for (let i = s; i <= e; i++) {
-      if (i === from || !ahead(rects[i])) continue;
-      const d = Math.hypot(rects[i].left - c.left, rects[i].top - c.top);
-      if (d < bestD) { bestD = d; best = i; }
-    }
-    if (best >= 0) return best;
+  // Left / right (the owner's rule): rects in page order, from the current one's index, s..e the
+  // range of its container. The best in the container (pick), else the target just before / after
+  // the container. Returns an index or -1.
+  function pickSideways(c, rects, from, dir, s, e, anchor) {
+    const inBox = [];
+    for (let i = s; i <= e; i++) if (i !== from) inBox.push(i);
+    const k = pick(c, inBox.map(i => ({ rect: rects[i], level: 0, sameRow: true })), dir, anchor);
+    if (k >= 0) return inBox[k];
     if (dir === 'left') return s - 1;
-    if (dir === 'right') return e + 1 < rects.length ? e + 1 : -1;
-    return pickInOrder(c, rects, from, dir);
+    return e + 1 < rects.length ? e + 1 : -1;
   }
 
   // Reading order: line by line (centres closer than 20 px share a line), then left to right.
@@ -253,9 +223,17 @@ var OwneetNav = (() => {
   function next(root, origin, dir, skip, anchor) {
     const isEl = !!origin.getBoundingClientRect;
     const c = isEl ? rectOf(origin) : origin;
+    if (isEl && horizontal(dir)) {
+      const all = targets(root, skip, true), from = all.indexOf(origin);
+      if (from >= 0) {
+        const [s, e] = group(all, from);
+        const i = pickSideways(c, all.map(rectOf), from, dir, s, e, anchor);
+        return i < 0 ? null : all[i];
+      }
+    }
     const row = isEl ? scroller(origin) : null;
     const level = isEl ? levelsFrom(origin) : () => 0;
-    const list = targets(root, skip).filter(el => el !== origin && !(isEl && el.contains(origin)));
+    const list = targets(root, skip, true).filter(el => el !== origin && !(isEl && el.contains(origin)));
     const i = pick(c, list.map(el => ({ rect: rectOf(el), level: level(el), sameRow: row !== null && scroller(el) === row })), dir, anchor);
     return i < 0 ? null : list[i];
   }
@@ -281,16 +259,6 @@ var OwneetNav = (() => {
     return [from, from];
   }
 
-  // The owner's rules: the next target from origin (an element) in dir: its container first, then
-  // the page's order.
-  function nextInOrder(root, origin, dir, skip) {
-    const list = targets(root, skip, true);
-    const from = list.indexOf(origin);
-    if (from < 0) return next(root, origin, dir, skip);
-    const [s, e] = group(list, from);
-    const i = pickInGroup(rectOf(origin), list.map(rectOf), from, dir, s, e);
-    return i < 0 ? null : list[i];
-  }
 
   // The first target on screen in reading order.
   function first(root, skip) {
@@ -308,7 +276,7 @@ var OwneetNav = (() => {
     return axis === 'v' ? { axis, at: c.left + c.width / 2, size: c.width } : { axis, at: c.top + c.height / 2, size: c.height };
   }
 
-  return { SELECTOR, pick, pickInOrder, pickInGroup, nextInOrder, distance, anchored, anchorAfter, readingOrder, rectOf, usable, targets, scroller, next, first, up };
+  return { SELECTOR, pick, pickSideways, distance, anchored, anchorAfter, readingOrder, rectOf, usable, targets, scroller, next, first, up };
 })();
 
 if (typeof module !== 'undefined') module.exports = OwneetNav;

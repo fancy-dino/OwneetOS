@@ -64,10 +64,6 @@ test('off-screen elements count', () => {
   assert.strictEqual(Nav.pick(box(1000, 400, 200, 120), [cand(box(1300, 400, 200, 120))], 'right'), 0);
 });
 
-test('the end of a row does not jump sideways into another row', () => {
-  assert.strictEqual(Nav.pick(box(1000, 400, 200, 120), [cand(box(1300, 560, 200, 120), 1, false)], 'right'), -1);
-});
-
 test('nothing in that direction', () => {
   assert.strictEqual(Nav.pick(box(0, 0, 100, 50), [cand(box(0, 100, 100, 50))], 'up'), -1);
 });
@@ -77,58 +73,30 @@ test('reading order: line by line, then left to right', () => {
   assert.deepStrictEqual([play, search, nav].sort(Nav.readingOrder), [nav, search, play]);
 });
 
-// ---------- The owner's rules: page order decides, geometry checks (pickInOrder) ----------
-
-test('page order: the owner\'s example', () => {
-  const order = [el1, el2, el3, el4, el5];
-  assert.strictEqual(Nav.pickInOrder(el4, order, 3, 'up'), 1);      // el3 is not above: el2
-  assert.strictEqual(Nav.pickInOrder(el3, order, 2, 'down'), 4);    // el4 is not below: el5
-  assert.strictEqual(Nav.pickInOrder(el3, order, 2, 'right'), 3);
-  assert.strictEqual(Nav.pickInOrder(el4, order, 3, 'left'), 2);
-});
-
-test('page order: a sticky bar at the top is not "the nearest above"', () => {
-  // the bar comes first in the page and stays on screen above the scrolled rows
-  const bar = box(0, 0, 1280, 50), row2 = box(0, 60, 300, 150), row3 = box(0, 230, 300, 150);
-  assert.strictEqual(Nav.pickInOrder(row3, [bar, row2, row3], 2, 'up'), 1);
-});
-
-test('page order: the nearest of a batch wins, the next batch only when one has none', () => {
-  const c = box(0, 0, 100, 50);
-  const order = [c, box(0, 300, 100, 50), box(0, 100, 100, 50), ...Array(3).fill(box(0, -100, 100, 50)), box(0, 60, 100, 50)];
-  assert.strictEqual(Nav.pickInOrder(c, order, 0, 'down'), 2);      // index 6 is nearer, but in the next batch
-  const none = [c, ...Array(5).fill(box(0, -100, 100, 50)), box(0, 400, 100, 50)];
-  assert.strictEqual(Nav.pickInOrder(c, none, 0, 'down'), 6);
-  assert.strictEqual(Nav.pickInOrder(c, [c], 0, 'down'), -1);
-});
-
-// ---------- The owner's rules with the container first (pickInGroup) ----------
+// ---------- Left / right: the container, then the target before / after it (pickSideways) ----------
 
 // The demo's home page (owner's screenshot, 2026-10-16): Play, More info / a row of cards
 const play = box(155, 285, 210, 95), more = box(395, 285, 265, 95);
 const card1 = box(63, 620, 490, 360), card2 = box(582, 620, 490, 360), card3 = box(1101, 620, 490, 360);
 const home = [play, more, card1, card2, card3];
 
-test('container first: left from the second card is the first card, not the nearer "More info"', () => {
-  assert.strictEqual(Nav.pickInGroup(card2, home, 3, 'left', 2, 4), 2);
+test('left from the second card is the first card, not the nearer "More info"', () => {
+  assert.strictEqual(Nav.pickSideways(card2, home, 3, 'left', 2, 4), 2);
 });
 
-test('container first: left from the first child is the element before the container, wherever it is', () => {
-  assert.strictEqual(Nav.pickInGroup(card1, home, 2, 'left', 2, 4), 1);
-  assert.strictEqual(Nav.pickInGroup(play, home, 0, 'left', 0, 1), -1);
+test('left from the first child is the target before the container, wherever it is', () => {
+  assert.strictEqual(Nav.pickSideways(card1, home, 2, 'left', 2, 4), 1);
+  assert.strictEqual(Nav.pickSideways(play, home, 0, 'left', 0, 1), -1);
 });
 
-test('container first: right from the last child is the element after the container', () => {
-  assert.strictEqual(Nav.pickInGroup(more, home, 1, 'right', 0, 1), 2);
-  assert.strictEqual(Nav.pickInGroup(card3, home, 4, 'right', 2, 4), -1);
+test('right from the last child is the target after the container', () => {
+  assert.strictEqual(Nav.pickSideways(more, home, 1, 'right', 0, 1), 2);
+  assert.strictEqual(Nav.pickSideways(card3, home, 4, 'right', 2, 4), -1);
 });
 
-test('container first: up and down with nothing in the container walk the page order', () => {
-  assert.strictEqual(Nav.pickInGroup(card2, home, 3, 'up', 2, 4), 1);      // nearest above in the batch: More info
-  // the owner's example: <box> el3 el4 </box> is the container
+test('the owner\'s example, sideways: <box> el3 el4 </box>', () => {
   const order = [el1, el2, el3, el4, el5];
-  assert.strictEqual(Nav.pickInGroup(el4, order, 3, 'up', 2, 3), 1);
-  assert.strictEqual(Nav.pickInGroup(el3, order, 2, 'down', 2, 3), 4);
-  assert.strictEqual(Nav.pickInGroup(el3, order, 2, 'right', 2, 3), 3);
-  assert.strictEqual(Nav.pickInGroup(el3, order, 2, 'left', 2, 3), 1);     // first child: el2, before the box
+  assert.strictEqual(Nav.pickSideways(el3, order, 2, 'right', 2, 3), 3);
+  assert.strictEqual(Nav.pickSideways(el4, order, 3, 'left', 2, 3), 2);
+  assert.strictEqual(Nav.pickSideways(el3, order, 2, 'left', 2, 3), 1);     // first child: el2, before the box
 });
