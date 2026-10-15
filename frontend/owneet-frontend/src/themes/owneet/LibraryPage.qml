@@ -283,9 +283,18 @@ FocusScope {
         Keys.onPressed: {
             const a = Nav.action(event);
             const game = currentItem ? currentItem.game : null;
+            // left / right at a row's edge go round to the other end of the same row (owner,
+            // 2026-10-15); the last row may be shorter
+            const rowStart = currentIndex - currentIndex % page.columns;
+            const rowEnd = Math.min(rowStart + page.columns, count) - 1;
             if (a === "up" && currentIndex < page.columns && disks.visible) {
                 Nav.feedback("move");
                 disks.forceActiveFocus();       // from the first row up to the disks
+            } else if ((a === "right" && currentIndex === rowEnd && rowEnd > rowStart)
+                       || (a === "left" && currentIndex === rowStart && rowEnd > rowStart)) {
+                Nav.feedback("move");
+                currentIndex = a === "right" ? rowStart : rowEnd;
+                page.remember();
             } else if (Nav.listKeys(grid, a)) {
                 page.remember();
             } else if (a === "accept" && currentItem && currentItem.addTile) {
