@@ -16,7 +16,6 @@ import (
 	"errors"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -24,6 +23,7 @@ import (
 	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/atomicfile"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 )
 
@@ -203,14 +203,8 @@ func (m *Manager) saveChosen(ids []string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(m.ChosenFile), 0o755); err != nil {
-		return err
-	}
-	tmp := m.ChosenFile + ".tmp"
-	if err := os.WriteFile(tmp, append(data, '\n'), 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, m.ChosenFile)
+	// flushed to the disk: a power cut must not lose the user's apps
+	return atomicfile.Write(m.ChosenFile, append(data, '\n'), 0o644)
 }
 
 func (m *Manager) allowed() bool { return m.Allowed == nil || m.Allowed() }
