@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.32
+pkgver=0.0.33
 pkgrel=1
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
@@ -27,7 +27,7 @@ sha256sums=('SKIP'
             'e739678148442c4770b5c7cf793df180bc475cd33cf1bcb347affdb978f84fc3'
             'dfcdb91edaa6fd46121f8f3a2ce95b0a8e461c5f04c6f9325a1babe45e53cdea'
             '471544b748df8fd99f6ec426784a1c389ae9db8f829ef392fda862bd91cc4f49'
-            '205aebf705b131d9c54d0002980cf95d4402818ed2642450f64be714ecb46029'
+            '0cdb03953b36678b10e0da51b256d046abb49c3f9c6242c7499e37426b98ec88'
             '21a26bf30666c8897ec0425f967e0a415352e22a92ba3a243e0d57fca3e55a9b'
             'c1380a518174ea5d23be5afa65ddb4d53ae89da705ac7a643f0587dec659579a'
             '9aa02524ad29c812ce67973e7f01c811b7e559a5ace44ad5e4418db58373b001'
@@ -38,7 +38,7 @@ sha256sums=('SKIP'
             'dbb21f3c431a9cd4be2a5fcec6489b7d3c08136dcde9aaddd0f35a4c9ca9389b'
             '7735866ea379018ed106f4dc1b0f964376ddff2d4e7c922af8ea081a08b77131'
             '25fd1c3c58527e17a0b9922fcb1b0966f10712719f372707b9176ddd1af127b1'
-            '284a806bafb3501cf5f45c6adf42f6188f1e7955bea80733b2ac3fc94c08bcd7')
+            '43b9b5cd50a82ba2aa9dc7cd1adebde87675badeda14c98ee1a3993e3894cce0')
 
 package() {
   install -Dm644 owneet-release "$pkgdir/usr/share/owneet/owneet-release"

@@ -5,7 +5,8 @@
 # installation stick's), only file systems the console can read. Internal disks: step 6.5.
 ACTION=="remove", GOTO="owneet_usb_disks_end"
 SUBSYSTEM!="block", GOTO="owneet_usb_disks_end"
-ENV{ID_BUS}!="usb", GOTO="owneet_usb_disks_end"
+# On USB: by the device's path (USB-SATA adapters, e.g. JMicron with UAS, give ID_BUS "ata")
+ENV{ID_PATH}!="*-usb-*", GOTO="owneet_usb_disks_end"
 ENV{ID_FS_USAGE}!="filesystem", GOTO="owneet_usb_disks_end"
 ENV{ID_FS_LABEL}=="OWNEETLOG", GOTO="owneet_usb_disks_end"
 ENV{ID_PART_ENTRY_TYPE}=="c12a7328-f81f-11d2-ba4b-00a0c93ec93b|0xef", GOTO="owneet_usb_disks_end"
