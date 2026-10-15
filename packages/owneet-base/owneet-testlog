@@ -49,12 +49,14 @@ report() {
     echo "--- /v1/steam"; owneetd_get /v1/steam
 }
 
-# Steam's logs (launches, Proton, downloads), copied as they grow
+# Steam's logs (launches, Proton, downloads; its interface's pages: cef_log, webhelper; its
+# controller handling: controller), copied as they grow
 steam_logs() {
     local logs=/home/owneet/.local/share/Steam/logs
     [[ -d "$logs" ]] || return 0
     mkdir -p "$base.steam"
-    for f in console_log.txt compat_log.txt content_log.txt bootstrap_log.txt shader_log.txt; do
+    for f in console_log.txt compat_log.txt content_log.txt bootstrap_log.txt shader_log.txt \
+             cef_log.txt webhelper.txt controller.txt controller_ui.txt; do
         [[ -f "$logs/$f" ]] && cp -u "$logs/$f" "$base.steam/" 2>/dev/null
     done
 }
