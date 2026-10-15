@@ -47,6 +47,12 @@ report() {
     echo "--- /v1/status"; owneetd_get /v1/status
     echo "--- /v1/apps"; owneetd_get /v1/apps
     echo "--- /v1/steam"; owneetd_get /v1/steam
+    # Steam's controller settings only (Steam Input; step 4.2c bugs): config.vdf also holds
+    # sign-in data, which never leaves the PC, so only these lines are copied
+    echo "--- Steam controller settings"
+    grep -h -i -E '"[^"]*(steamcontroller|steaminput|usesteamcontrollerconfig|xboxsupport|pssupport|switchsupport|genericgamepad)[^"]*"[[:space:]]+"[^"]*"' \
+        /home/owneet/.local/share/Steam/config/config.vdf \
+        /home/owneet/.local/share/Steam/userdata/*/config/localconfig.vdf 2>/dev/null | sort | uniq -c | head -60
 }
 
 # Steam's logs (launches, Proton, downloads; its interface's pages: cef_log, webhelper; its
