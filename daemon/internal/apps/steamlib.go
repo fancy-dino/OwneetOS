@@ -19,6 +19,7 @@ import (
 
 // Steam's states of an app (StateFlags of its appmanifest).
 const (
+	stateUninstalled    = 1
 	stateUpdateRequired = 2
 	stateFullyInstalled = 4
 	stateUpdateRunning  = 256
@@ -241,7 +242,9 @@ func steamDownloads(dir string, samples map[string]*steamSample, now time.Time) 
 				continue
 			}
 			flags := kvInt(st, "StateFlags")
-			if flags&stateUninstalling != 0 {
+			// being uninstalled, or uninstalled: Steam may leave the manifest with the bytes of a
+			// cancelled download (FrankenPC, 2026-10-15), which is not a download
+			if flags&(stateUninstalling|stateUninstalled) != 0 {
 				continue
 			}
 			installed := flags&stateFullyInstalled != 0
@@ -272,7 +275,7 @@ func steamDownloads(dir string, samples map[string]*steamSample, now time.Time) 
 				continue
 			case moving:
 				state = "downloading"
-			case pending || total > 0:
+			case pending:
 				state = "queued"
 			default:
 				continue

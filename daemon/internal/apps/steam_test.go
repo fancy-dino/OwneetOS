@@ -577,6 +577,8 @@ func TestSteamStatusDownloadsAndDisks(t *testing.T) {
 	man("510", 1026, 100, 2000) // will move
 	man("520", 6, 0, 50)        // installed, an update waiting: playable, not listed
 	man("530", 3078, 10, 100)   // uninstalling: not listed
+	man("540", 1, 241, 10989)   // a cancelled download, uninstalled: not listed (FrankenPC)
+	man("550", 0, 0, 5000)      // bytes to download but nothing asked: not listed
 	st := m.SteamStatus()
 	if len(st.Downloads) != 2 || st.Downloads[0].State != "queued" || st.Downloads[1].State != "queued" {
 		t.Fatalf("first look %+v", st.Downloads)
