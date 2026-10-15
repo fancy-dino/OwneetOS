@@ -182,15 +182,14 @@ func nvidiaDriver() bool {
 	return err == nil
 }
 
-// steamGPUArgs: with NVIDIA's driver, Steam's pages drawn with the GPU (its web views) show
-// garbled, stale pictures inside gamescope (FrankenPC, GTX 1660 Super); Steam draws them
-// without the GPU instead, as when "GPU accelerated rendering in web views" is turned off.
-// Games keep the GPU.
-// Test switch owneet.debug.steam_cef_gpu=on keeps the GPU for Steam's pages on NVIDIA too: with
-// the repaint overlay (repaint.go) the stale pictures may be gone, and Steam's home page loading
-// for ever (FrankenPC, 2026-10-15) may come from drawing it without the GPU.
+// steamGPUArgs: with NVIDIA's driver, Steam's pages drawn with the GPU (its web views) showed
+// garbled, stale pictures inside gamescope (FrankenPC, GTX 1660 Super), and until 2026-10-15
+// Steam drew them without the GPU ("-cef-disable-gpu"). Since the repaint overlay (repaint.go)
+// they keep the GPU on NVIDIA too: no stale pictures came back with it on the FrankenPC (owner,
+// 2026-10-15: keep it, turn it off if they come back). Test switch owneet.debug.steam_cef_gpu=off
+// draws them without the GPU again. Games always keep the GPU.
 func (m *Manager) steamGPUArgs() []string {
-	if m.NVIDIA() && DebugOption("steam_cef_gpu") != "on" {
+	if m.NVIDIA() && DebugOption("steam_cef_gpu") == "off" {
 		return []string{"-cef-disable-gpu"}
 	}
 	return nil

@@ -165,14 +165,16 @@ func TestSteamClosesItselfCleanly(t *testing.T) {
 	}
 }
 
-func TestSteamWithNVIDIADrawsPagesWithoutGPU(t *testing.T) {
+// Steam's pages keep the GPU on NVIDIA too since the repaint overlay (2026-10-15); the test switch
+// steam_cef_gpu=off (not set here) would draw them without it
+func TestSteamWithNVIDIAKeepsTheGPU(t *testing.T) {
 	m, units, _, _, _, _ := newSteamManager(t)
 	m.NVIDIA = func() bool { return true }
 	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {
 		t.Fatal(err)
 	}
 	argv := strings.Join(units.argvs[0], " ")
-	if argv != "/usr/bin/env -u GAMESCOPE_WAYLAND_DISPLAY /usr/bin/steam -gamepadui -cef-disable-gpu" {
+	if argv != "/usr/bin/env -u GAMESCOPE_WAYLAND_DISPLAY /usr/bin/steam -gamepadui" {
 		t.Fatalf("argv %q", argv)
 	}
 }
