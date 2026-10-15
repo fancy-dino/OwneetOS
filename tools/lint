@@ -11,6 +11,7 @@
 #   4. Go (daemon/): gofmt, go vet, go test
 #   5. Go integration tests with virtual controllers (/dev/uinput; needs passwordless sudo)
 #   6. Interface translations (tools/i18n-check)
+#   7. Brave extension (extension/): syntax of every script, tests of the spatial navigation
 
 set -euo pipefail
 
@@ -52,6 +53,7 @@ need() {
 need shellcheck
 need npx
 need go
+need node
 
 mapfile -t scripts < <(shell_scripts)
 
@@ -95,6 +97,11 @@ fi
 
 section "Interface translations"
 if tools/i18n-check; then :; else failed+=("i18n"); fi
+
+section "Brave extension (extension/)"
+ext_ok=1
+while IFS= read -r f; do node --check "$f" || ext_ok=0; done < <(project_files | grep -E '^extension/.*\.js$')
+if (( ext_ok )) && node --test extension/test/*.test.js; then echo "ok"; else failed+=("extension"); fi
 
 echo
 if (( ${#failed[@]} )); then

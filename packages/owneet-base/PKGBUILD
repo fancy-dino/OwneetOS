@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.33
+pkgver=0.0.34
 pkgrel=1
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
@@ -69,7 +69,8 @@ package() {
   # internal pages blocked); harmless while Brave is not installed. owneetd loads the console's
   # extension from /usr/share/owneet/extension when it opens a web app (no store, no update server).
   install -Dm644 brave-policies.json "$pkgdir/etc/brave/policies/managed/owneet.json"
-  install -Dm644 extension/manifest.json -t "$pkgdir/usr/share/owneet/extension/"
+  install -Dm644 extension/manifest.json extension/background.js -t "$pkgdir/usr/share/owneet/extension/"
+  install -Dm644 extension/content/*.js -t "$pkgdir/usr/share/owneet/extension/content/"
   install -Dm644 50-owneet-base.preset "$pkgdir/usr/lib/systemd/system-preset/50-owneet-base.preset"
   install -Dm644 CREDITS.md "$pkgdir/usr/share/doc/owneetos/CREDITS.md"
 }
