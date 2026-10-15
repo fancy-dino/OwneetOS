@@ -323,3 +323,106 @@ func steamManifest(dir, appid string) (flags int64, ok bool) {
 	}
 	return 0, false
 }
+
+// Steam Input for every controller (owner, 2026-10-15): with it off (Steam's default for Xbox,
+// Switch and generic controllers) games read the controller themselves, and some get it wrong
+// (Silksong with an Xbox controller over Bluetooth: X did not attack, RT looked up). The settings
+// are the account's, in localconfig.vdf (UserLocalConfigStore, read on the FrankenPC); PlayStation
+// controllers keep Steam's default ("on in games without support"), as the owner chose. The console
+// turns them on once per account, while Steam is closed (Steam writes the file when it exits), and
+// then leaves them to the user's choices in Steam.
+var steamInputSettings = []string{"SteamController_XBoxSupport", "SteamController_SwitchSupport", "SteamController_GenericGamepadSupport"}
+
+// steamInputOnce turns Steam Input on for the accounts that never had it done; doneDir keeps one
+// mark per account.
+func steamInputOnce(dir, doneDir string) (changed []string, err error) {
+	files, _ := filepath.Glob(filepath.Join(dir, "userdata", "*", "config", "localconfig.vdf"))
+	for _, file := range files {
+		account := filepath.Base(filepath.Dir(filepath.Dir(file)))
+		mark := filepath.Join(doneDir, "steam-input-"+account)
+		if _, err := os.Stat(mark); err == nil {
+			continue
+		}
+		data, err := os.ReadFile(file)
+		if err != nil {
+			return changed, err
+		}
+		text, ok := setTopLevel(string(data), "UserLocalConfigStore", steamInputSettings, "1")
+		if !ok {
+			continue // not the file we know: leave it alone
+		}
+		if text != string(data) {
+			if err := replaceFile(file, []byte(text)); err != nil {
+				return changed, err
+			}
+		}
+		if err := os.MkdirAll(doneDir, 0o755); err != nil {
+			return changed, err
+		}
+		if err := os.WriteFile(mark, nil, 0o644); err != nil {
+			return changed, err
+		}
+		changed = append(changed, account)
+	}
+	return changed, nil
+}
+
+// setTopLevel sets keys of a text KeyValues file's root block (named root) to value, replacing
+// the lines that have them and adding the others first in the block; false when the root block
+// is not there.
+func setTopLevel(text, root string, keys []string, value string) (string, bool) {
+	lines := strings.Split(text, "\n")
+	open := -1
+	for i := 0; i+1 < len(lines); i++ {
+		if strings.EqualFold(strings.TrimSpace(lines[i]), `"`+root+`"`) && strings.TrimSpace(lines[i+1]) == "{" {
+			open = i + 1
+			break
+		}
+	}
+	if open < 0 {
+		return text, false
+	}
+	found := map[string]bool{}
+	depth := 1
+	for i := open + 1; i < len(lines) && depth > 0; i++ {
+		t := strings.TrimSpace(lines[i])
+		switch {
+		case t == "{":
+			depth++
+		case t == "}":
+			depth--
+		case depth == 1:
+			toks := kvTokens(t)
+			if len(toks) != 2 {
+				continue
+			}
+			for _, k := range keys {
+				if strings.EqualFold(toks[0], k) {
+					lines[i] = "\t\"" + k + "\"\t\t\"" + value + "\""
+					found[k] = true
+				}
+			}
+		}
+	}
+	var add []string
+	for _, k := range keys {
+		if !found[k] {
+			add = append(add, "\t\""+k+"\"\t\t\""+value+"\"")
+		}
+	}
+	lines = append(lines[:open+1], append(add, lines[open+1:]...)...)
+	return strings.Join(lines, "\n"), true
+}
+
+// replaceFile writes a file through a temporary one, keeping its permissions.
+func replaceFile(path string, data []byte) error {
+	mode := os.FileMode(0o644)
+	if st, err := os.Stat(path); err == nil {
+		mode = st.Mode().Perm()
+	}
+	tmp := path + ".owneet-tmp"
+	if err := os.WriteFile(tmp, data, mode); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}

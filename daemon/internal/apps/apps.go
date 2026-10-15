@@ -159,6 +159,7 @@ type Manager struct {
 	// reaches the running Steam.
 	Procs        Procs
 	SteamDir     string
+	StateDir     string // owneetd's own marks (~/.config/owneet): Steam Input set once per account
 	SteamAllowed func() bool
 	Forward      func(argv, env []string) error
 	// NVIDIA tells whether the NVIDIA driver runs the screen (Steam then draws its pages
@@ -213,6 +214,10 @@ func (m *Manager) init() {
 	if m.SteamDir == "" {
 		home, _ := os.UserHomeDir()
 		m.SteamDir = filepath.Join(home, ".local", "share", "Steam")
+	}
+	if m.StateDir == "" {
+		home, _ := os.UserHomeDir()
+		m.StateDir = filepath.Join(home, ".config", "owneet")
 	}
 	if m.SteamAllowed == nil {
 		m.SteamAllowed = steamAllowed

@@ -69,6 +69,7 @@ func newSteamManager(t *testing.T) (*Manager, *fakeUnits, *fakeFocus, *fakeProcs
 	}
 	m.Procs = procs
 	m.SteamDir = t.TempDir()
+	m.StateDir = t.TempDir()
 	m.SteamAllowed = func() bool { return true }
 	m.NVIDIA = func() bool { return false }
 	m.Forward = func(argv, _ []string) error { *forwarded = append(*forwarded, strings.Join(argv, " ")); return nil }
@@ -134,6 +135,7 @@ func TestSteamInCageStartsOnTheAddress(t *testing.T) {
 	m, units, _, _ := newManager(t, "cage")
 	m.Procs = &fakeProcs{unit: map[int]string{}, cmd: map[int][]string{}, parent: map[int]int{}}
 	m.SteamDir = t.TempDir()
+	m.StateDir = t.TempDir()
 	m.SteamAllowed = func() bool { return true }
 	m.NVIDIA = func() bool { return false }
 	m.FocusFor = func(Session) Focus { return nil } // cage: owneetd sees no windows
@@ -682,5 +684,35 @@ func TestSteamRepaintWhileSteamIsShown(t *testing.T) {
 	m.FocusApp(SteamID)
 	if rf.calls[len(rf.calls)-1] {
 		t.Fatalf("overlay without the switch: %v", rf.calls)
+	}
+}
+
+// Steam Input on for every controller, once per account, while Steam is closed; the user's later
+// choice in Steam is kept (owner, 2026-10-15)
+func TestSteamInputTurnedOnOnce(t *testing.T) {
+	m, _, _, _, _, _ := newSteamManager(t)
+	file := filepath.Join(m.SteamDir, "userdata", "123", "config", "localconfig.vdf")
+	writeFile(t, file, "\"UserLocalConfigStore\"\n{\n\t\"Software\"\n\t{\n\t\t\"SteamController_XBoxSupport\"\t\t\"0\"\n\t}\n"+
+		"\t\"SteamController_XBoxSupport\"\t\t\"0\"\n\t\"apps\"\n\t{\n\t}\n}\n")
+	if err := m.Steam(SteamRequest{Open: "store"}); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(file)
+	kv, _ := kvGet(kvText(string(data)), "UserLocalConfigStore").(map[string]any)
+	for _, k := range steamInputSettings {
+		if kvGet(kv, k) != "1" {
+			t.Fatalf("%s not on:\n%s", k, data)
+		}
+	}
+	if kvGet(kv, "Software", "SteamController_XBoxSupport") != "0" {
+		t.Fatalf("a nested block was changed:\n%s", data)
+	}
+	// the user turns Xbox off in Steam: the next start keeps it
+	writeFile(t, file, strings.Replace(string(data), "\"SteamController_XBoxSupport\"\t\t\"1\"", "\"SteamController_XBoxSupport\"\t\t\"0\"", 1))
+	if changed, err := steamInputOnce(m.SteamDir, m.StateDir); err != nil || len(changed) != 0 {
+		t.Fatalf("set again: %v %v", changed, err)
+	}
+	if _, ok := setTopLevel("\"other\"\n{\n}\n", "UserLocalConfigStore", steamInputSettings, "1"); ok {
+		t.Fatal("changed a file without the root block")
 	}
 }

@@ -76,8 +76,7 @@ func (g *Gamescope) ours(ids []uint32) bool {
 
 var atomNames = []string{"GAMESCOPE_FOCUSED_APP", "GAMESCOPE_FOCUSABLE_APPS",
 	"GAMESCOPECTRL_BASELAYER_APPID", "STEAM_GAME", "_NET_WM_PID",
-	"GAMESCOPE_DISPLAY_MODE_LIST_EXTERNAL", "GAMESCOPE_DISPLAY_MODE_NUDGE", "GAMESCOPE_KEYBOARD_LAYOUT",
-	"GAMESCOPE_EXTERNAL_OVERLAY"}
+	"GAMESCOPE_DISPLAY_MODE_LIST_EXTERNAL", "GAMESCOPE_DISPLAY_MODE_NUDGE", "GAMESCOPE_KEYBOARD_LAYOUT"}
 
 // dial opens a connection to the X server and looks up the atoms.
 func (g *Gamescope) dial() (*xgb.Conn, xproto.Window, map[string]xproto.Atom, error) {
@@ -337,10 +336,6 @@ func (g *Gamescope) watchConn(tag func(pid int) uint32, request func([]uint32), 
 func (g *Gamescope) tagWindow(conn *xgb.Conn, atoms map[string]xproto.Atom, w xproto.Window, tag func(pid int) uint32) uint32 {
 	pids, err := cardinals(conn, w, atoms["_NET_WM_PID"])
 	if err != nil || len(pids) == 0 {
-		return 0
-	}
-	// an external overlay (e.g. the console's hint over Steam's window) stays one: never an app
-	if overlay, _ := cardinals(conn, w, atoms["GAMESCOPE_EXTERNAL_OVERLAY"]); len(overlay) == 1 && overlay[0] != 0 {
 		return 0
 	}
 	appID := tag(int(pids[0]))

@@ -313,6 +313,15 @@ func (m *Manager) Steam(req SteamRequest) error {
 	}
 	m.mu.Unlock()
 	if !running {
+		// Steam is closed: Steam Input on for every controller, once per account (steamlib.go)
+		m.mu.Lock()
+		stateDir := m.StateDir
+		m.mu.Unlock()
+		if accounts, err := steamInputOnce(dir, stateDir); err != nil {
+			m.Log.Warn("cannot turn Steam Input on", "err", err)
+		} else if len(accounts) > 0 {
+			m.Log.Info("Steam Input turned on for every controller", "accounts", accounts)
+		}
 		args := append([]string{"-gamepadui"}, m.steamGPUArgs()...)
 		if lang := steamLanguage(req.Language); lang != "" {
 			args = append(args, "-language", lang)
