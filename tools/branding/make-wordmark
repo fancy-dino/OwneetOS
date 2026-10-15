@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Generates the OwneetOS wordmark ("Owneet" light + "OS" coral) as an SVG made of outlines,
+# Generates the OwneetOS wordmark ("Owneet" and "OS", white) as an SVG made of outlines,
 # so it needs no font at runtime. Runs in the builder VM (needs python-fonttools):
 #
 #   tools/build-in-vm 'tools/branding/make-wordmark FONT.ttf out/owneetos-wordmark.svg'
@@ -18,8 +18,9 @@ from fontTools.ttLib import TTFont
 from fontTools.varLib.instancer import instantiateVariableFont
 
 # Same settings as the page header wordmark in design/mockups/wave1-mockups.html (.wordmark),
-# approved by the owner for the boot splash (2026-10-05).
-SEGMENTS = [("Owneet", "#EEF1F8"), ("OS", "#FF8A5B")]
+# approved by the owner for the boot splash (2026-10-05); all white since 2026-10-15: the boot
+# splash is neutral for every palette, whose colours come with the console's start-up animation.
+SEGMENTS = [("Owneet", "#FFFFFF"), ("OS", "#FFFFFF")]
 AXES = {"wght": 750, "wdth": 80, "opsz": 96}
 TRACKING_EM = -0.03
 PADDING_EM = 0.08

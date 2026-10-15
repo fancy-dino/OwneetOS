@@ -17,7 +17,7 @@ mode="${OWNEET_SESSION_MODE:-unknown}"
 args=(
     --msg-level=all=warn --fullscreen --keep-open=yes --keepaspect=no
     --no-input-default-bindings --input-vo-keyboard=no --no-osc --cursor-autohide=always
-    --osd-level=1 --osd-font='DejaVu Sans' --osd-font-size=40 --osd-color='#EEF1F8'
+    --osd-level=1 --osd-font='DejaVu Sans' --osd-font-size=40 --osd-color='#FFFFFF'
     --osd-border-size=0 --osd-align-x=center --osd-align-y=center
     --osd-msg1="OwneetOS\n\nconsole session: $mode"
 )
@@ -33,5 +33,5 @@ esac
 exit_after="$(grep -oE '(^| )owneet\.debug\.placeholder_exit=[0-9]+' /proc/cmdline | tail -1 | cut -d= -f2 || true)"
 if [[ -n "$exit_after" ]]; then args+=(--length="$exit_after"); args=("${args[@]/--keep-open=yes/--keep-open=no}"); fi
 
-# Deep navy background of the approved design ([[design-direction]]).
-exec mpv "${args[@]}" 'av://lavfi:color=c=0x0E1424:s=1280x720:r=2'
+# Black, as everything before the console's start-up animation (neutral for every palette).
+exec mpv "${args[@]}" 'av://lavfi:color=c=0x000000:s=1280x720:r=2'
