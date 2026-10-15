@@ -338,6 +338,34 @@ func TestGuideTogglesHomeAndGame(t *testing.T) {
 	}
 }
 
+// Brave moves its main process (the windows' owner) into a scope of its own; its helpers stay in
+// the web app's unit as that process's children (test VM, 2026-10-15).
+func TestWebAppWindowOutsideItsUnit(t *testing.T) {
+	m, _, focus, _ := newManager(t, "gamescope")
+	procs := &fakeProcs{unit: map[int]string{}, cmd: map[int][]string{}, parent: map[int]int{}}
+	m.Procs = procs
+	m.watchSession()
+	focus.openWindow(10)
+	focus.Show([]uint32{HomeAppID})
+	if _, err := m.Launch(LaunchRequest{ID: "web:netflix", Kind: KindWebApp, Command: []string{"env"}}); err != nil {
+		t.Fatal(err)
+	}
+	// 767: the browser, in no app unit; 779: its helper, in the web app's unit
+	procs.add(779, 767, UnitName("web:netflix"), "brave", "--type=zygote")
+	focus.openWindow(767)
+	if st := m.Status(); st.Focus != "web:netflix" {
+		t.Fatalf("focus = %q, want web:netflix", st.Focus)
+	}
+	m.Guide(true) // web app -> home
+	m.Guide(false)
+	if st := m.Status(); st.Focus != "home" {
+		t.Fatalf("after Guide: focus %q, want home", st.Focus)
+	}
+	if got := m.tag(4242); got != 0 {
+		t.Fatalf("a process outside the apps got app id %d", got)
+	}
+}
+
 func TestCageHoldGuideToClose(t *testing.T) {
 	m, units, _, _ := newManager(t, "cage")
 	if _, err := m.Launch(LaunchRequest{ID: "game", Kind: KindGame, Command: []string{"game"}}); err != nil {

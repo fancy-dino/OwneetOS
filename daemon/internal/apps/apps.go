@@ -255,7 +255,7 @@ func (m *Manager) tag(pid int) uint32 {
 	}
 	unit := m.UnitOf(pid)
 	if unit == "" {
-		return 0
+		return m.parentOfApp(pid)
 	}
 	if unit == steamUnit {
 		if appid, reaper := m.reaperOf(pid); appid != "" {
@@ -267,6 +267,29 @@ func (m *Manager) tag(pid int) uint32 {
 	for _, a := range m.apps {
 		if a.unit == unit && a.reaper == 0 {
 			return a.appID
+		}
+	}
+	return 0
+}
+
+// parentOfApp finds the app of a process that left its unit: Chromium-based browsers (Brave, the
+// web apps' engine, [[step-5.1-brave-in-the-os]]) move their main process, the one that owns the
+// windows, into a scope of their own (app-org.chromium.Chromium-PID.scope) when they start. Their
+// helper processes stay in the app's unit as children of that process. 0 when none.
+func (m *Manager) parentOfApp(pid int) uint32 {
+	m.mu.Lock()
+	units := map[string]uint32{}
+	for _, a := range m.apps {
+		if a.reaper == 0 {
+			units[a.unit] = a.appID
+		}
+	}
+	m.mu.Unlock()
+	for unit, appID := range units {
+		for _, p := range m.Procs.InUnit(unit) {
+			if m.Procs.Parent(p) == pid {
+				return appID
+			}
 		}
 	}
 	return 0
