@@ -20,6 +20,29 @@ func TestIsGamepad(t *testing.T) {
 	}
 }
 
+// On a keyboard, Super is Guide ([[controller-input-map]]); other devices with keys are not
+// keyboards.
+func TestKeyboardSuperIsGuide(t *testing.T) {
+	kbd, power, pad := &evdev.Device{}, &evdev.Device{}, &evdev.Device{}
+	kbd.SetCapabilities([]int{evdev.KeyA, evdev.KeyZ, evdev.KeyLeftMeta, evdev.KeyRightMeta}, nil)
+	power.SetCapabilities([]int{116}, nil) // KEY_POWER only
+	pad.SetCapabilities([]int{evdev.BtnSouth, evdev.BtnMode}, []int{evdev.AbsX, evdev.AbsY})
+	if !IsKeyboard(kbd) || IsKeyboard(power) || IsKeyboard(pad) {
+		t.Fatal("keyboard classification wrong")
+	}
+	k := &tracked{keyboard: true, guideCode: -1}
+	if !k.isGuide(evdev.KeyLeftMeta) || !k.isGuide(evdev.KeyRightMeta) || k.isGuide(evdev.KeyA) {
+		t.Error("on a keyboard only Super is Guide")
+	}
+	if k.pad() {
+		t.Error("a keyboard is not listed as a controller")
+	}
+	p := &tracked{guideCode: evdev.BtnMode}
+	if !p.isGuide(evdev.BtnMode) || p.isGuide(evdev.KeyLeftMeta) || !p.pad() {
+		t.Error("a controller's Guide is its own button only")
+	}
+}
+
 func TestReadBattery(t *testing.T) {
 	// /sys/devices/.../0005:045E:0B13.0001/input/input7 with power_supply in the HID device
 	root := t.TempDir()
