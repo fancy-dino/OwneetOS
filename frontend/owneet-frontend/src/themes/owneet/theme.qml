@@ -689,14 +689,13 @@ FocusScope {
         dialog.open(true);
         return true;
     }
-    // Before Steam's window, every time until "Don't show again" (owner, 2026-10-14): what to
-    // press in Steam's confirmation (install, uninstall: on every PC, after the FrankenPC test)
-    // and, on PCs where Steam's window shows display errors (NVIDIA's driver), that they are
-    // harmless. The store gets the second part only.
-    function withSteamNotice(next, kind) {
+    // Before Steam's window (installing, uninstalling, the store), on PCs where it may show display
+    // errors (NVIDIA's driver) only: that they are harmless; every time until "Don't show again"
+    // (owner, 2026-10-14). Since Steam's window is readable there (repaint overlay, 2026-10-15) it
+    // no longer says what to press (owner, 2026-10-15).
+    function withSteamNotice(next) {
         const nvidia = GameInfo.steam !== null && GameInfo.steam.nvidia;
-        // its own memory since it says what to press (a tick given to the earlier notice does not count)
-        if ((!kind && !nvidia) || api.memory.has("steamConfirmNoticeHidden")) {
+        if (!nvidia || api.memory.has("steamConfirmNoticeHidden")) {
             next();
             return;
         }
@@ -705,8 +704,7 @@ FocusScope {
         dialog.contentWidth = 0;
         dialog.icon = "warning";
         dialog.title = Tr.tr("steam.notice.title");
-        dialog.text = [kind ? Tr.tr("steam.notice.keys." + kind) : "", nvidia ? Tr.tr("steam.notice.text") : ""]
-            .filter(t => t !== "").join("\n\n");
+        dialog.text = Tr.tr("steam.notice.text");
         noticeNever.checked = false;
         dialog.buttons = [
             { text: Tr.tr("steam.notice.go"), style: "primary", action: () => {
@@ -767,7 +765,7 @@ FocusScope {
                     const asked = Object.assign({}, root.steamAsked);
                     asked[id] = { title: game.title, kind: "install" };
                     root.steamAsked = asked;
-                }), "install");
+                }));
             } },
             { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
         dialog.defaultIndex = 0;
@@ -790,7 +788,7 @@ FocusScope {
                     const asked = Object.assign({}, root.steamAsked);
                     asked[id] = { title: game.title, kind: cancelling ? "cancel" : "uninstall" };
                     root.steamAsked = asked;
-                }), "uninstall");
+                }));
             } },
             { text: Tr.tr(cancelling ? "cancelinst.keep" : "prompt.cancel"), style: "primary", action: () => dialog.close() }];
         dialog.defaultIndex = 1;             // keep it: nothing removed by accident

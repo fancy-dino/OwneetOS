@@ -70,7 +70,7 @@
   "home.all": "Tutti i giochi",
   "app.videos": "Video",
   "app.music": "Musica",
-  "app.store": "Steam Store",
+  "app.store": "Steam",
   "how.title": "Come aggiungere giochi",
   "how.steam": "Steam: apri lo Steam Store, accedi e installa i tuoi giochi.",
   "how.local": "Giochi senza DRM: copiali su un disco USB o interno, in una cartella “Games”.",
@@ -435,8 +435,8 @@
   "cancelinst.text": "Quello che è stato scaricato finora viene cancellato.",
   "cancelinst.go": "Annulla installazione",
   "cancelinst.keep": "Continua il download",
-  "steam.notice.title": "Steam ti chiede di confermare",
-  "steam.notice.text": "Su questo PC la finestra di Steam può mostrare per un attimo dei difetti d’immagine, come pezzi di immagini precedenti. Sono innocui e spariscono quando la finestra si chiude.",
+  "steam.notice.title": "Prima che si apra Steam",
+  "steam.notice.text": "Su questo PC la finestra di Steam potrebbe mostrare per un attimo dei difetti d’immagine, come pezzi di immagini precedenti. Sono innocui e spariscono quando la finestra si chiude.",
   "steam.notice.never": "Non mostrare più",
   "steam.notice.go": "Continua",
   "offline.title": "Nessuna connessione a internet",
@@ -453,8 +453,6 @@
   "home.notice.update": "Aggiornamento di {title} · {p}%",
   "home.notice.more": "+{n} in attesa",
   "home.notice.paused": "Download in pausa: niente connessione a internet.",
-  "steam.notice.keys.install": "Premi A per confermare il download, B per annullare, poi tieni premuto Home per uscire da Steam.",
-  "steam.notice.keys.uninstall": "Premi A per confermare la disinstallazione, B per annullare, poi tieni premuto Home per uscire da Steam.",
   "eula.title": "{title}: contratto di licenza",
   "eula.text": "La prima volta Steam ti chiede di accettare il contratto di licenza del gioco. Leggilo sul telefono inquadrando il codice. Poi, nella finestra di Steam, premi Sinistra e poi A per accettare: il gioco parte."
 }

@@ -70,7 +70,7 @@
   "home.all": "All games",
   "app.videos": "Videos",
   "app.music": "Music",
-  "app.store": "Steam Store",
+  "app.store": "Steam",
   "how.title": "How to add games",
   "how.steam": "Steam: open the Steam Store, sign in and install your games.",
   "how.local": "DRM-free games: copy them to a USB or internal disk, in a “Games” folder.",
@@ -435,8 +435,8 @@
   "cancelinst.text": "What has been downloaded so far is deleted.",
   "cancelinst.go": "Cancel installation",
   "cancelinst.keep": "Keep downloading",
-  "steam.notice.title": "Steam asks you to confirm",
-  "steam.notice.text": "On this PC, Steam’s window may show display errors for a moment, such as leftover pieces of earlier pictures. They are harmless and go away when the window closes.",
+  "steam.notice.title": "Before Steam opens",
+  "steam.notice.text": "On this PC, Steam’s window might show display errors for a moment, such as leftover pieces of earlier pictures. They are harmless and go away when the window closes.",
   "steam.notice.never": "Don’t show again",
   "steam.notice.go": "Continue",
   "offline.title": "No internet connection",
@@ -453,8 +453,6 @@
   "home.notice.update": "Updating {title} · {p}%",
   "home.notice.more": "+{n} waiting",
   "home.notice.paused": "Downloads paused: no internet connection.",
-  "steam.notice.keys.install": "Press A to confirm the download, B to cancel, then hold Home to leave Steam.",
-  "steam.notice.keys.uninstall": "Press A to confirm the uninstallation, B to cancel, then hold Home to leave Steam.",
   "eula.title": "{title}: licence agreement",
   "eula.text": "The first time, Steam asks you to accept the game's licence agreement. Read it on your phone by scanning the code. Then, in Steam's window, press Left and then A to accept: the game starts."
 }
