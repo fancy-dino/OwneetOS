@@ -16,6 +16,7 @@ type WebApps interface {
 	Look() webapps.Look
 	SetKeyboard(k webapps.Keyboard) error
 	KeyboardState() webapps.Keyboard
+	KeyboardShown() error
 	Type(t webapps.Text) error
 	AskClose() error
 }
@@ -64,6 +65,13 @@ func (s *Server) handleWebAppsKeyboard(w http.ResponseWriter, r *http.Request) {
 	var k webapps.Keyboard
 	if decode(w, r, &k) {
 		s.webAppsError(w, s.WebApps.SetKeyboard(k))
+	}
+}
+
+// handleWebAppsKeyboardShown: the interface confirms that it shows the keyboard.
+func (s *Server) handleWebAppsKeyboardShown(w http.ResponseWriter, _ *http.Request) {
+	if s.webAppsAvailable(w) {
+		s.webAppsError(w, s.WebApps.KeyboardShown())
 	}
 }
 

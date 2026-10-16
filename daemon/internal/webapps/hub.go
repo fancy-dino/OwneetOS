@@ -5,6 +5,11 @@
 // extension draws with, the console's keyboard for the web app's text fields, and "Close {name}?"
 // when B has nothing to go back to. Both sides follow the events; owneetd brings the right screen
 // to the front.
+//
+// The controller never stays stuck behind a keyboard nobody shows (owner, 2026-10-16): the
+// interface confirms that it shows the keyboard; without that within ConfirmWithin, or when the
+// interface stops afterwards, or when the web app exits, owneetd closes the keyboard and the
+// extension takes the controller back.
 package webapps
 
 import (
@@ -13,6 +18,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
@@ -60,6 +66,9 @@ type Screen interface {
 	FocusApp(id string) error
 }
 
+// ConfirmWithin is how long the interface has to confirm that it shows the keyboard.
+const ConfirmWithin = 3 * time.Second
+
 const (
 	maxLabel = 200
 	maxValue = 4096
@@ -79,10 +88,17 @@ type Hub struct {
 	Log    *slog.Logger
 	// Screen brings the home screen or the web app to the front (nil: not available).
 	Screen Screen
+	// HomePID returns the interface's process (0: none). Once the interface has confirmed the
+	// keyboard, a different answer (it stopped, or the session restarted it) closes the keyboard.
+	HomePID func() int
+	// Confirm and Poll replace ConfirmWithin and the check of the interface's process (tests).
+	Confirm, Poll time.Duration
 
 	mu       sync.Mutex
 	look     Look
 	keyboard Keyboard
+	gen      int  // counts the keyboard's openings: timers and watchers of an older one stop
+	shown    bool // the interface confirmed this opening
 }
 
 // SetLook keeps the look sent by the interface when it opens a web app; invalid values are dropped.
@@ -132,21 +148,122 @@ func (h *Hub) SetKeyboard(k Keyboard) error {
 		k.App, k.Next = id, false
 		h.mu.Lock()
 		h.keyboard = k
+		h.gen++
+		h.shown = false
+		gen := h.gen
 		h.mu.Unlock()
 		h.Broker.Publish("webapp.keyboard", k)
 		h.show(func(s Screen) error { return s.ShowHome() })
+		time.AfterFunc(or(h.Confirm, ConfirmWithin), func() {
+			h.mu.Lock()
+			unconfirmed := h.gen == gen && h.keyboard.Open && !h.shown
+			h.mu.Unlock()
+			if unconfirmed {
+				h.logInfo("the interface did not show the keyboard: closed")
+				h.closeKeyboard(gen, false, true)
+			}
+		})
 		return nil
 	}
+	h.closeKeyboard(0, k.Next, true)
+	return nil
+}
+
+// closeKeyboard closes the keyboard (of opening gen, or any when 0) and, with back, brings the web
+// app back to the front.
+func (h *Hub) closeKeyboard(gen int, next, back bool) {
 	h.mu.Lock()
 	was := h.keyboard
+	if !was.Open || (gen != 0 && gen != h.gen) {
+		h.mu.Unlock()
+		return
+	}
 	h.keyboard = Keyboard{}
+	h.shown = false
 	h.mu.Unlock()
-	if !was.Open {
+	h.Broker.Publish("webapp.keyboard", Keyboard{Open: false, Next: next, App: was.App})
+	if back {
+		h.show(func(s Screen) error { return s.FocusApp("web:" + was.App) })
+	}
+}
+
+// KeyboardShown: the interface confirms that it shows the keyboard. From then on the keyboard
+// closes if the interface's process stops or is replaced.
+func (h *Hub) KeyboardShown() error {
+	h.mu.Lock()
+	if !h.keyboard.Open {
+		h.mu.Unlock()
+		return ErrKeyboardClosed
+	}
+	if h.shown {
+		h.mu.Unlock()
 		return nil
 	}
-	h.Broker.Publish("webapp.keyboard", Keyboard{Open: false, Next: k.Next, App: was.App})
-	h.show(func(s Screen) error { return s.FocusApp("web:" + was.App) })
+	h.shown = true
+	gen := h.gen
+	h.mu.Unlock()
+	if h.HomePID == nil {
+		return nil
+	}
+	pid := h.HomePID()
+	go func() {
+		t := time.NewTicker(or(h.Poll, 500*time.Millisecond))
+		defer t.Stop()
+		for range t.C {
+			h.mu.Lock()
+			current := h.gen == gen && h.keyboard.Open
+			h.mu.Unlock()
+			if !current {
+				return
+			}
+			if h.HomePID() != pid {
+				h.logInfo("the interface stopped while showing the keyboard: closed")
+				h.closeKeyboard(gen, false, true)
+				return
+			}
+		}
+	}()
 	return nil
+}
+
+// Follow closes the keyboard when its web app exits (nothing to bring back). It returns when
+// stop is closed.
+func (h *Hub) Follow(stop <-chan struct{}) {
+	ch, unsubscribe := h.Broker.Subscribe(16)
+	defer unsubscribe()
+	for {
+		select {
+		case <-stop:
+			return
+		case ev, ok := <-ch:
+			if !ok {
+				return
+			}
+			d, _ := ev.Data.(map[string]string)
+			if ev.Type != "app.exited" || !strings.HasPrefix(d["id"], "web:") {
+				continue
+			}
+			h.mu.Lock()
+			gen, mine := h.gen, h.keyboard.Open && "web:"+h.keyboard.App == d["id"]
+			h.mu.Unlock()
+			if mine {
+				h.closeKeyboard(gen, false, false)
+			}
+		}
+	}
+}
+
+func or(d, def time.Duration) time.Duration {
+	if d > 0 {
+		return d
+	}
+	return def
+}
+
+func (h *Hub) logInfo(msg string) {
+	if h.Log != nil {
+		h.Log.Info(msg)
+	}
 }
 
 // KeyboardState returns the keyboard's state (e.g. for an interface that restarted).
@@ -183,12 +300,12 @@ func (h *Hub) AskClose() error {
 	return nil
 }
 
-// show changes what is on screen; in the cage session owneetd cannot, and the interface does it.
+// show changes what is on screen (in the cage session the interface carries it out).
 func (h *Hub) show(do func(Screen) error) {
 	if h.Screen == nil {
 		return
 	}
-	if err := do(h.Screen); err != nil && !errors.Is(err, apps.ErrFocusUnsupported) && h.Log != nil {
+	if err := do(h.Screen); err != nil && h.Log != nil {
 		h.Log.Debug("web app: screen not changed", "err", err)
 	}
 }

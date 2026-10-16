@@ -107,6 +107,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/webapps/look", s.handleWebAppsLook)
 	mux.HandleFunc("GET /v1/webapps/keyboard", s.handleWebAppsKeyboardState)
 	mux.HandleFunc("POST /v1/webapps/keyboard", s.handleWebAppsKeyboard)
+	mux.HandleFunc("POST /v1/webapps/keyboard/shown", s.handleWebAppsKeyboardShown)
 	mux.HandleFunc("POST /v1/webapps/text", s.handleWebAppsText)
 	mux.HandleFunc("POST /v1/webapps/ask-close", s.handleWebAppsAskClose)
 	mux.HandleFunc("POST /v1/apps/{id}/close", s.handleAppAction(Apps.Close))

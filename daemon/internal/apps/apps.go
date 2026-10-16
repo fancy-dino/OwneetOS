@@ -74,8 +74,9 @@ const HomeAppID uint32 = 0x7E000000
 // Status is the body of GET /v1/apps.
 type Status struct {
 	Apps []App `json:"apps"`
-	// Focus is what the screen shows: "home", the id of an app, or "" when unknown (cage
-	// session, or no console session).
+	// Focus is what the screen shows: "home", the id of an app, or "" when unknown (no console
+	// session). In the cage session it is what owneetd last decided: the interface carries it out
+	// (it shows or hides its own window).
 	Focus string `json:"focus"`
 }
 
@@ -733,6 +734,12 @@ func (m *Manager) Status() Status {
 	if err != nil {
 		return st
 	}
+	if sess.Mode == "cage" {
+		m.mu.Lock()
+		st.Focus = m.lastFocus
+		m.mu.Unlock()
+		return st
+	}
 	f := m.focus(sess)
 	if f == nil {
 		return st
@@ -751,7 +758,8 @@ func (m *Manager) Status() Status {
 	return st
 }
 
-// FocusApp brings an app to the front (gamescope only), e.g. "Resume" on the home screen.
+// FocusApp brings an app to the front, e.g. "Resume" on the home screen. In the cage session it
+// only says so ("focus.changed"): the interface hides its own window and cage shows the app.
 func (m *Manager) FocusApp(id string) error {
 	m.mu.Lock()
 	m.init()
@@ -767,6 +775,10 @@ func (m *Manager) FocusApp(id string) error {
 	sess, err := m.Session()
 	if err != nil {
 		return ErrNoSession
+	}
+	if sess.Mode == "cage" {
+		m.focusChanged(id)
+		return nil
 	}
 	f := m.focus(sess)
 	if f == nil {
@@ -788,12 +800,17 @@ func (m *Manager) FocusApp(id string) error {
 	return ErrNoWindow
 }
 
-// ShowHome brings the home screen to the front (gamescope only); the app keeps running, e.g. a web
-// app while the console's keyboard types into it ([[extension-design]]).
+// ShowHome brings the home screen to the front; the app keeps running, e.g. a web app while the
+// console's keyboard types into it ([[extension-design]]). In the cage session it only says so:
+// the interface shows its own window again, and cage shows the newest window.
 func (m *Manager) ShowHome() error {
 	sess, err := m.Session()
 	if err != nil {
 		return ErrNoSession
+	}
+	if sess.Mode == "cage" {
+		m.focusChanged("home") // the interface shows its own window again: cage shows the newest
+		return nil
 	}
 	f := m.focus(sess)
 	if f == nil {

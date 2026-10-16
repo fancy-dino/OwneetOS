@@ -371,8 +371,12 @@ func TestCageHoldGuideToClose(t *testing.T) {
 	if _, err := m.Launch(LaunchRequest{ID: "game", Kind: KindGame, Command: []string{"game"}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := m.FocusApp("game"); !errors.Is(err, ErrFocusUnsupported) {
-		t.Fatalf("FocusApp in cage: %v", err)
+	// cage cannot switch windows: owneetd says what is on screen and the interface carries it out
+	if err := m.ShowHome(); err != nil || m.Status().Focus != "home" {
+		t.Fatalf("ShowHome in cage: %v, focus %q", err, m.Status().Focus)
+	}
+	if err := m.FocusApp("game"); err != nil || m.Status().Focus != "game" {
+		t.Fatalf("FocusApp in cage: %v, focus %q", err, m.Status().Focus)
 	}
 	m.Guide(true) // short press: released at once, well before Hold
 	m.Guide(false)

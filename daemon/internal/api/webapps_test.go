@@ -40,7 +40,9 @@ func TestWebAppsEndpoints(t *testing.T) {
 	}{
 		{"/v1/webapps/text", `{"text":"a"}`, 409, "webapps.keyboard_closed"},
 		{"/v1/webapps/keyboard", `{"open":true,"kind":"color"}`, 400, "webapps.invalid"},
+		{"/v1/webapps/keyboard/shown", ``, 409, "webapps.keyboard_closed"},
 		{"/v1/webapps/keyboard", `{"open":true,"kind":"email","label":"Email"}`, 204, ""},
+		{"/v1/webapps/keyboard/shown", ``, 204, ""},
 		{"/v1/webapps/text", `{"text":"a"}`, 204, ""},
 		{"/v1/webapps/text", `{"key":"backspace"}`, 204, ""},
 		{"/v1/webapps/text", `{"key":"enter"}`, 400, "webapps.invalid"},

@@ -4,6 +4,8 @@ package webapps
 
 import (
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,17 +15,30 @@ import (
 
 type fakeScreen struct {
 	running []apps.App
+	mu      sync.Mutex
 	shown   []string
 }
 
 func (f *fakeScreen) Status() apps.Status { return apps.Status{Apps: f.running} }
-func (f *fakeScreen) ShowHome() error {
-	f.shown = append(f.shown, "home")
-	return nil
-}
+func (f *fakeScreen) ShowHome() error     { return f.FocusApp("home") }
 func (f *fakeScreen) FocusApp(id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.shown = append(f.shown, id)
 	return nil
+}
+
+// screens waits a moment for n screens (the timers show them after their event), then returns
+// what was shown.
+func (f *fakeScreen) screens(n int) []string {
+	for deadline := time.Now().Add(time.Second); ; time.Sleep(5 * time.Millisecond) {
+		f.mu.Lock()
+		got := append([]string(nil), f.shown...)
+		f.mu.Unlock()
+		if len(got) >= n || time.Now().After(deadline) {
+			return got
+		}
+	}
 }
 
 func hub(t *testing.T, running ...apps.App) (*Hub, *fakeScreen, <-chan events.Event) {
@@ -127,5 +142,87 @@ func TestLookDropsInvalidValues(t *testing.T) {
 	h.SetLook(Look{Accent: "red; background: url(x)", Language: "../../x"})
 	if l := h.Look(); l.Accent != "" || l.Language != "" {
 		t.Errorf("invalid look kept: %+v", l)
+	}
+}
+
+// The controller never stays stuck: without the interface's confirmation the keyboard closes by
+// itself and the web app comes back.
+func TestUnconfirmedKeyboardCloses(t *testing.T) {
+	h, s, ch := hub(t, netflix)
+	h.Confirm = 50 * time.Millisecond
+	if err := h.SetKeyboard(Keyboard{Open: true, Kind: "text"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch) // opened
+	ev := next(t, ch)
+	if k, _ := ev.Data.(Keyboard); ev.Type != "webapp.keyboard" || k.Open || k.Next || k.App != "netflix" {
+		t.Fatalf("close event: %+v", ev)
+	}
+	if got := s.screens(2); len(got) != 2 || got[1] != "web:netflix" {
+		t.Errorf("shown: %v (want the web app back)", got)
+	}
+	if err := h.KeyboardShown(); !errors.Is(err, ErrKeyboardClosed) {
+		t.Errorf("confirming a closed keyboard: %v", err)
+	}
+}
+
+// Confirmed, the keyboard stays open while the interface runs, and closes when it stops.
+func TestConfirmedKeyboardClosesWhenTheInterfaceStops(t *testing.T) {
+	h, _, ch := hub(t, netflix)
+	var pid atomic.Int64
+	pid.Store(100)
+	h.HomePID = func() int { return int(pid.Load()) }
+	h.Confirm, h.Poll = 50*time.Millisecond, 10*time.Millisecond
+	if err := h.SetKeyboard(Keyboard{Open: true, Kind: "text"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch)
+	if err := h.KeyboardShown(); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(150 * time.Millisecond)
+	if !h.KeyboardState().Open {
+		t.Fatal("a confirmed keyboard closed while the interface runs")
+	}
+	pid.Store(0) // the interface stopped
+	if ev := next(t, ch); ev.Type != "webapp.keyboard" || ev.Data.(Keyboard).Open {
+		t.Fatalf("close event: %+v", ev)
+	}
+}
+
+// A new opening is not closed by the timer of the one before.
+func TestReopenedKeyboardGetsItsOwnTime(t *testing.T) {
+	h, _, ch := hub(t, netflix)
+	h.Confirm = 80 * time.Millisecond
+	h.SetKeyboard(Keyboard{Open: true, Kind: "text"})
+	next(t, ch)
+	time.Sleep(50 * time.Millisecond)
+	h.SetKeyboard(Keyboard{Open: true, Kind: "email"})
+	next(t, ch)
+	h.KeyboardShown()
+	time.Sleep(80 * time.Millisecond) // the first opening's time is over
+	if !h.KeyboardState().Open {
+		t.Fatal("closed by the timer of an earlier opening")
+	}
+}
+
+// The keyboard closes when its web app exits; there is nothing to bring back.
+func TestKeyboardClosesWhenItsWebAppExits(t *testing.T) {
+	h, s, ch := hub(t, netflix)
+	stop := make(chan struct{})
+	defer close(stop)
+	go h.Follow(stop)
+	time.Sleep(20 * time.Millisecond) // Follow subscribed
+	h.SetKeyboard(Keyboard{Open: true, Kind: "text"})
+	next(t, ch)
+	h.KeyboardShown()
+	h.Broker.Publish("app.exited", map[string]string{"id": "web:netflix"})
+	next(t, ch) // app.exited
+	if ev := next(t, ch); ev.Type != "webapp.keyboard" || ev.Data.(Keyboard).Open {
+		t.Fatalf("close event: %+v", ev)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if got := s.screens(1); len(got) != 1 {
+		t.Errorf("shown: %v (nothing to bring back)", got)
 	}
 }

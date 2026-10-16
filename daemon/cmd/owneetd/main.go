@@ -220,6 +220,14 @@ func run(configPath string) error {
 	if appsAPI != nil {
 		hub.Screen = appsMgr
 	}
+	hub.HomePID = func() int {
+		sess, err := appsMgr.Session()
+		if err != nil {
+			return 0
+		}
+		return sess.HomePID
+	}
+	go hub.Follow(ctx.Done())
 
 	srv := &api.Server{
 		Broker:          broker,
