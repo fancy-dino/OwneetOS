@@ -242,10 +242,24 @@ NavArea {
             width: parent.width
             spacing: Theme.px(6)
             Repeater {
+                id: navRepeater
                 model: page.sections
                 Rectangle {
                     readonly property string section: modelData
                     readonly property bool navigable: true
+                    // the list goes round: up on the first section to the last, down on the last
+                    // to the first (owner, 2026-10-16)
+                    Keys.onPressed: {
+                        const a = Nav.action(event);
+                        const last = page.sections.length - 1;
+                        if ((a === "up" && index === 0) || (a === "down" && index === last)) {
+                            Nav.feedback("move");
+                            page.focusItem(navRepeater.itemAt(a === "up" ? last : 0));
+                            event.accepted = true;
+                        } else {
+                            event.accepted = false;
+                        }
+                    }
                     readonly property bool shown: page.section === modelData
                     width: navColumn.width
                     height: navText.implicitHeight + Theme.px(22)
