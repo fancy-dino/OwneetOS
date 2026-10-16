@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.37
+pkgver=0.0.39
 pkgrel=1
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
@@ -69,8 +69,23 @@ package() {
   # internal pages blocked); harmless while Brave is not installed. owneetd loads the console's
   # extension from /usr/share/owneet/extension when it opens a web app (no store, no update server).
   install -Dm644 brave-policies.json "$pkgdir/etc/brave/policies/managed/owneet.json"
-  install -Dm644 extension/manifest.json extension/background.js -t "$pkgdir/usr/share/owneet/extension/"
-  install -Dm644 extension/content/*.js -t "$pkgdir/usr/share/owneet/extension/content/"
+  # A used profile gets a changed worker only with a new version AND a new file name
+  # ([[brave-extension-worker-cached]]): the worker is named after its content, and the manifest's
+  # version is this package's (new with every release)
+  local ext="$pkgdir/usr/share/owneet/extension"
+  local worker="background-$(sha256sum extension/background.js | cut -c1-12).js"
+  local version="$pkgver.$pkgrel"
+  [[ "$version" =~ ^[0-9]+(\.[0-9]+){0,3}$ ]] || { echo "error: $version is not a valid extension version" >&2; return 1; }
+  install -Dm644 extension/background.js "$ext/$worker"
+  sed -e "s|\"service_worker\": \"background.js\"|\"service_worker\": \"$worker\"|" \
+      -e "s|\"version\": \"[^\"]*\"|\"version\": \"$version\"|" extension/manifest.json > manifest.installed.json
+  install -Dm644 manifest.installed.json "$ext/manifest.json"
+  if ! grep -q "\"service_worker\": \"$worker\"" "$ext/manifest.json" || [[ ! -f "$ext/$worker" ]] \
+      || ! grep -q "\"version\": \"$version\"" "$ext/manifest.json"; then
+    echo "error: the installed manifest.json does not name the worker $worker with version $version" >&2
+    return 1
+  fi
+  install -Dm644 extension/content/*.js -t "$ext/content/"
   install -Dm644 50-owneet-base.preset "$pkgdir/usr/lib/systemd/system-preset/50-owneet-base.preset"
   install -Dm644 CREDITS.md "$pkgdir/usr/share/doc/owneetos/CREDITS.md"
 }
