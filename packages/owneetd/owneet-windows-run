@@ -27,4 +27,17 @@ shift
 mkdir -p "$prefix"
 
 export WINEPREFIX="$prefix" PROTONPATH="$proton" GAMEID="${GAMEID:-umu-default}" UMU_RUNTIME_UPDATE=0
+
+# Testers: owneet.debug.windows_log=on (boot menu, or owneet-debug.txt on the OWNEETLOG stick)
+# writes Proton's log in ~/.local/share/owneet/windows/logs/<game> (the test report copies it) and
+# lets DOSBox (GOG's DOS games) write its own messages to the system log instead of hiding them
+if grep -qs 'owneet.debug.windows_log=on' /proc/cmdline /run/owneet-testlog/owneet-debug.txt; then
+    logs="$data/logs/$(basename "$prefix")"
+    mkdir -p "$logs"
+    export PROTON_LOG=1 PROTON_LOG_DIR="$logs"
+    args=()
+    for a in "$@"; do [[ "$a" == -noconsole ]] || args+=("$a"); done
+    set -- "${args[@]}"
+    echo "owneet-windows-run: $*  (in $PWD)"
+fi
 exec umu-run "$@"

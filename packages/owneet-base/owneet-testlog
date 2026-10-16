@@ -86,6 +86,13 @@ game_logs() {
         name="${name//[^A-Za-z0-9._-]/_}"
         cp -u "$f" "$base.games/unity-$name.log" 2>/dev/null
     done
+    # Windows games with owneet.debug.windows_log=on (4.5): Proton's logs, one folder per game
+    for f in /home/owneet/.local/share/owneet/windows/logs/*/*.log; do
+        [[ -f "$f" && "$f" -nt /proc/1 ]] || continue
+        mkdir -p "$base.games"
+        name="$(basename "$(dirname "$f")")-$(basename "$f")"
+        cp -u "$f" "$base.games/windows-${name//[^A-Za-z0-9._-]/_}" 2>/dev/null
+    done
 }
 
 # The whole system log, as it is written

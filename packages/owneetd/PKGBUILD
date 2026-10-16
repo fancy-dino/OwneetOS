@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneetd
-pkgver=0.13.1
+pkgver=0.13.2
 pkgrel=1
 pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps, display) and owneetctl"
 arch=('x86_64')
@@ -33,7 +33,7 @@ sha256sums=('SKIP'
             'fd39be370627656bfc6ac2df05fbace5fced1699b1a1b62fac77d5d1a99d2536'
             '53db6bb4d6294d2a72032d440cedd8221a54fa24a89a717efb7eab557ffaa504'
             '2eef4c58614327306c3346fbb04fe242b2be8f6cbcc521e4fdec6655e4e96208'
-            '5701240f23f88cee4e084481c305d098f90312b64a88de1be5b3dd9b5ca76165'
+            'fb1189ff1b22af95736d54280ec93cc12716ab705789e3ba11fd1343d545e700'
             'e606134678e6b3fdbdec9081289a1f0ba3e25d53b59b2aa3cdfe69bf491ad18f'
             '97f35b302b361680ec1e891e95d2d52097bb95abff361434916d99dc1305f127')
 
