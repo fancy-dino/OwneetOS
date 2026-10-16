@@ -50,6 +50,10 @@ report() {
     echo "--- disks (games on a USB disk, 4.3)"
     lsblk -o NAME,TRAN,FSTYPE,LABEL,SIZE,RO,MOUNTPOINTS 2>&1
     systemctl list-units --all --no-pager --plain 'owneet-mount-ro@*' 2>&1 | head -8
+    echo "--- disk reads (sectors read, ms reading)"; awk '$3 ~ /^sd[a-z]+$/ { print $3, $6, $7 }' /proc/diskstats
+    # A game that does not show up (e.g. CAYNE, 4.3): what its processes are doing
+    echo "--- the console user's busiest processes"
+    ps -u owneet -o pid,stat,pcpu,rss,etime,wchan:24,args --sort=-pcpu 2>&1 | cut -c1-200 | head -12
     # Steam's controller settings only (Steam Input; step 4.2c bugs): config.vdf also holds
     # sign-in data, which never leaves the PC, so only these lines are copied
     echo "--- Steam controller settings"
@@ -68,6 +72,19 @@ steam_logs() {
     for f in console_log.txt compat_log.txt content_log.txt bootstrap_log.txt shader_log.txt \
              cef_log.txt webhelper.txt controller.txt controller_ui.txt; do
         [[ -f "$logs/$f" ]] && cp -u "$logs/$f" "$base.steam/" 2>/dev/null
+    done
+}
+
+# The logs games on a disk write about themselves (4.3): Unity's Player.log (engine, graphics,
+# errors), written during this boot
+game_logs() {
+    local f name
+    for f in /home/owneet/.config/unity3d/*/*/Player.log; do
+        [[ -f "$f" && "$f" -nt /proc/1 ]] || continue
+        mkdir -p "$base.games"
+        name="$(basename "$(dirname "$f")")"
+        name="${name//[^A-Za-z0-9._-]/_}"
+        cp -u "$f" "$base.games/unity-$name.log" 2>/dev/null
     done
 }
 
@@ -91,6 +108,7 @@ windows() {
 while true; do
     report >> "$base.report.txt" 2>&1
     steam_logs
+    game_logs
     windows
     sync
     sleep 10 &

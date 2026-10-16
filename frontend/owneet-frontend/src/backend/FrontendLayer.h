@@ -44,6 +44,7 @@ public:
     void clearCache();
 
     owneet::Daemon* daemon() const { return m_daemon; } // OwneetOS
+    owneet::DiskGames* diskGames() const { return m_disk_games; } // OwneetOS
 
 signals:
     void rebuildComplete();

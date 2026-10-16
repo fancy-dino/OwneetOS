@@ -42,7 +42,11 @@ FocusScope {
     property var selected: null
     function remember() { selected = grid.currentItem ? grid.currentItem.game : null; }
     function keepSelected() {
-        const i = selected ? places.indexOf(selected) : -1;
+        let i = selected ? places.indexOf(selected) : -1;
+        if (i < 0 && selected && !selected.addGames) {  // the games were read again (a disk came or went, 4.3)
+            i = places.findIndex(p => !p.addGames && GameInfo.sameGame(p, selected));
+            if (i >= 0) selected = places[i];
+        }
         if (i >= 0 && i !== grid.currentIndex) {
             grid.currentIndex = i;
             grid.positionViewAtIndex(i, GridView.Contain);

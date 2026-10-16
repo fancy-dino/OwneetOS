@@ -601,9 +601,11 @@ FocusScope {
         const v = storage.volumes().find(v => v.key === root);
         return v && v.name ? v.name : root.split("/").pop();
     }
-    // A disk plugged in or out: its games come and go (the games are read again) and a notice
-    // says so; disks without a Games folder change nothing. While a game runs, the reading waits
-    // for the game's end. The notice survives the reading, which rebuilds the interface.
+    // A disk plugged in or out: its games come and go and a notice says so; disks without a Games
+    // folder change nothing. The games are read again quietly: the interface stays on screen and
+    // the games change once the new ones are ready (diskGames.quietReading). While a game runs,
+    // the reading waits for the game's end. The notice is kept in the theme's memory, in case
+    // something else reads the games again meanwhile and rebuilds the interface.
     property var knownVolumes: []
     property bool disksPending: false
     onRunningGameChanged: if (disksPending && !runningGame) checkDisks()
@@ -622,9 +624,11 @@ FocusScope {
         if (!disksPending || runningGame)
             return;
         disksPending = false;
-        console.log("Disks changed: reading the games again");
-        api.memory.set("rescanReturn", [Date.now(), root.section,
-            root.section === "library" && library.addGamesSelected ? "add" : ""].join("|"));
+        console.log("Disks changed: reading the games again, quietly");
+        // a window about a game of the disk that is gone closes
+        if (dialog.visible && dialog.game && unplugged.indexOf(GameInfo.diskRoot(dialog.game)) >= 0)
+            dialog.close(true);
+        diskGames.quietReading = true;
         Internal.settings.reloadProviders();
     }
     function diskNotices() {
@@ -645,6 +649,13 @@ FocusScope {
     Connections {
         target: storage
         function onVolumesChanged() { root.checkDisks(); }
+    }
+    Connections {                         // the games read again quietly are ready
+        target: api
+        function onGamedataReady() {
+            root.refreshGames();
+            root.diskNotices();
+        }
     }
 
     // ---- Updates from the USB stick (testers, 4.2b): check, install, restart

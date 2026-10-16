@@ -22,6 +22,16 @@ QtObject {
     function onDisk(game) { return !!game && !!game.extra && !!game.extra["disk.dir"]; }
     function diskRoot(game) { return onDisk(game) ? String(game.extra["disk.root"] || "") : ""; }
     function diskFiles(game) { return onDisk(game) ? (game.extra["disk.files"] || []) : []; }
+    // The same game after the games were read again (new objects): by app id, folder or title
+    function sameGame(a, b) {
+        if (!a || !b)
+            return false;
+        if (appid(a) !== "" || appid(b) !== "")
+            return appid(a) === appid(b);
+        if (onDisk(a) || onDisk(b))
+            return onDisk(a) && onDisk(b) && a.extra["disk.dir"] === b.extra["disk.dir"];
+        return a.title === b.title;
+    }
 
     // Steam gives the play time and the last time played, not how many times: either counts
     function played(game) {

@@ -78,6 +78,14 @@ void DiskGames::applyChoice(model::Game& game, const QString& game_dir, const QS
     game.setLaunchCmd(cmd).setLaunchWorkdir(finfo.absolutePath());
 }
 
+void DiskGames::setQuietReading(bool quiet)
+{
+    if (quiet == m_quiet_reading)
+        return;
+    m_quiet_reading = quiet;
+    emit quietReadingChanged();
+}
+
 bool DiskGames::hasGames(const QString& root) const
 {
     const QStringList dirs = QDir(root).entryList(QDir::Dirs | QDir::NoDotAndDotDot);

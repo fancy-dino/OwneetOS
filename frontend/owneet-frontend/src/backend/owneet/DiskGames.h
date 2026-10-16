@@ -15,6 +15,10 @@ namespace model { class Game; }
 namespace owneet {
 class DiskGames : public QObject {
     Q_OBJECT
+    // Set by the theme before it reads the games again because a disk came or went: the interface
+    // stays on screen and the games are replaced only once the new ones are ready (no loading
+    // screen); cleared when they are
+    Q_PROPERTY(bool quietReading READ quietReading WRITE setQuietReading NOTIFY quietReadingChanged)
 
 public:
     explicit DiskGames(QObject* parent = nullptr);
@@ -34,5 +38,14 @@ public:
     Q_INVOKABLE QString chosen(QObject* game) const;
     /// The user's choice, one of the game's "disk.files": applied at once and remembered
     Q_INVOKABLE bool choose(QObject* game, const QString& file);
+
+    bool quietReading() const { return m_quiet_reading; }
+    void setQuietReading(bool quiet);
+
+signals:
+    void quietReadingChanged();
+
+private:
+    bool m_quiet_reading = false;
 };
 } // namespace owneet
