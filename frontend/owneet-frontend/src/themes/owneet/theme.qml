@@ -319,6 +319,7 @@ FocusScope {
     function confirmClose(app) {
         dialog.game = null;
         dialog.mode = "close";
+        dialog.appId = app.id;
         dialog.contentWidth = 0;
         dialog.title = Tr.tr("close.title", { title: app.name });
         dialog.text = Tr.tr("close.text");
@@ -421,7 +422,10 @@ FocusScope {
             }
         } else if (type === "app.exited" && data) {
             const app = apps.find(a => a.id === data.id);
-            const wanted = closingApps[data.id];
+            // "Close …?" open for it: it went by itself, as the user wanted; no notice
+            const asked = dialog.visible && dialog.mode === "close" && dialog.appId === data.id;
+            if (asked) dialog.close(true);
+            const wanted = closingApps[data.id] || asked;
             delete closingApps[data.id];
             if (wanted || !app || app.kind !== "game" || ["exit-code", "signal", "core-dump"].indexOf(data.result) < 0)
                 return;
@@ -1754,6 +1758,7 @@ FocusScope {
         property var updateLines: []        // update: "name  from  →  to"
         property string updateNote: ""
         property string agreementUrl: ""    // agreement: the licence agreement's address (4.2c)
+        property string appId: ""           // close: the app it asks about
         property var files: []              // chooseFile: what the game on a disk can start (4.3)
         property bool thenStart: false      // chooseFile: the game starts once chosen
         property int seconds: 0             // displayConfirm: until it goes back

@@ -69,12 +69,25 @@ NavArea {
     function gameOf(item) { return item ? (item.game || null) : null; }
 
     function focusStart() { focusItem(Nav.navigables(heroGroup)[0] || null); }
+    // Selects the first item; a window over the page keeps the focus (e.g. "Close …?" while the
+    // game ends by itself, FrankenPC 2026-10-16): the page takes it back when it gets it again
+    function selectStart() {
+        const item = Nav.navigables(heroGroup)[0] || null;
+        if (!item || activeFocus) { focusStart(); return; }
+        const group = Nav.groupOf(page, item);
+        if (group) group.remembered = item;
+        current = item;
+    }
     // The games arrive after the page: keep a visible item selected (e.g. Play instead of the
     // welcome buttons)
-    onHeroChanged: Qt.callLater(() => { if (!current || !current.visible) focusStart(); })
-    onRunningChanged: Qt.callLater(() => { if (visible) focusStart(); })
+    onHeroChanged: Qt.callLater(() => { if (!current || !current.visible) selectStart(); })
+    onRunningChanged: Qt.callLater(() => { if (visible) selectStart(); })
     // While the boot splash is shown the page is disabled and nothing can be selected yet
-    onActiveFocusChanged: if (activeFocus && (!current || !current.visible)) focusStart()
+    onActiveFocusChanged: {
+        if (!activeFocus) return;
+        if (!current || !current.visible) focusStart();
+        else if (!current.activeFocus) focusItem(current);
+    }
 
     onAccepted: {
         const k = item.kind;
