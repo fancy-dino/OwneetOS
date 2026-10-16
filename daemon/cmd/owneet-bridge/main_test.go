@@ -4,7 +4,11 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"os"
 	"reflect"
 	"testing"
 
@@ -58,5 +62,39 @@ func TestEventsForTheExtension(t *testing.T) {
 		if got := forEvent(c.ev); !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%s: %v, want %v", c.ev.Type, got, c.want)
 		}
+	}
+}
+
+// The host's manifest is installed system-wide (/etc/opt/chrome/native-messaging-hosts/, the
+// only place this Brave looks: not the profile's folder) and lets only the console's extension
+// start the bridge. Brave gives an extension loaded unpacked the first 32 hex digits of the
+// SHA-256 of its absolute path as id, written with the letters a-p ([[extension-design]]).
+func TestManifestAllowsOnlyTheConsolesExtension(t *testing.T) {
+	sum := sha256.Sum256([]byte("/usr/share/owneet/extension"))
+	id := []byte(hex.EncodeToString(sum[:16]))
+	for i, c := range id {
+		if c <= '9' {
+			id[i] = 'a' + (c - '0')
+		} else {
+			id[i] = 'a' + 10 + (c - 'a')
+		}
+	}
+	data, err := os.ReadFile("org.owneet.bridge.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var host struct {
+		Name    string   `json:"name"`
+		Path    string   `json:"path"`
+		Type    string   `json:"type"`
+		Origins []string `json:"allowed_origins"`
+	}
+	if err := json.Unmarshal(data, &host); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"chrome-extension://" + string(id) + "/"}
+	if host.Name != "org.owneet.bridge" || host.Path != "/usr/lib/owneet/owneet-bridge" ||
+		host.Type != "stdio" || !reflect.DeepEqual(host.Origins, want) {
+		t.Errorf("host manifest: %s, want origins %v", data, want)
 	}
 }

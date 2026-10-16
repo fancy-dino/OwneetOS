@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneetd
-pkgver=0.12.0
+pkgver=0.12.1
 pkgrel=1
 pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps, display, web apps) and owneetctl"
 arch=('x86_64')
@@ -57,6 +57,9 @@ package() {
   install -Dm755 daemon/owneetd daemon/owneetctl -t "$pkgdir/usr/bin/"
   # owneet-screens-off; owneet-bridge, started by Brave for the console's extension ([[extension-design]])
   install -Dm755 daemon/owneet-screens-off daemon/owneet-bridge -t "$pkgdir/usr/lib/owneet/"
+  # Its native-messaging manifest: Brave reads hosts only from this system folder, not from the
+  # web apps' profiles (--user-data-dir); only the console's extension may start it
+  install -Dm644 daemon/cmd/owneet-bridge/org.owneet.bridge.json -t "$pkgdir/etc/opt/chrome/native-messaging-hosts/"
   install -Dm644 owneet-screens-off@.service -t "$pkgdir/usr/lib/systemd/system/"
   install -Dm644 50-owneet-screens.rules "$pkgdir/usr/share/polkit-1/rules.d/50-owneet-screens.rules"
   install -Dm644 owneetd.service "$pkgdir/usr/lib/systemd/user/owneetd.service"

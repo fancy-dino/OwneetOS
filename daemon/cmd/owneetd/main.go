@@ -212,7 +212,6 @@ func run(configPath string) error {
 		webApps.Apps, webApps.Session = launcher, appsMgr.Session
 		webApps.ProfilesDir = filepath.Join(dataDir, "owneet", "webapps")
 		webApps.ExtensionDir = "/usr/share/owneet/extension"
-		webApps.BridgePath = "/usr/lib/owneet/owneet-bridge"
 		catalogAPI = webApps
 	}
 
