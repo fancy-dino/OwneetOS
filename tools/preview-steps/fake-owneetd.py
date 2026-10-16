@@ -80,6 +80,9 @@ state = {
     # Steam (4.2): change it with the event line "fake.steam {...}" (e.g. {"allowed": false})
     # testers' updates from a USB stick (4.2b)
     "update": {"tester": True, "state": "", "packages": [], "running": False},
+    # Windows games (4.5): nothing until the interface says the library has one; then about
+    # 20 seconds of "getting ready"
+    "windows": {"state": "none", "percent": 0, "needed": False},
     "steam": {"installed": True, "allowed": True, "prepared": False, "running": False, "games": [],
               "downloads": [], "away": {}, "account": False, "licences": 0, "nvidia": False},
     "audio": {"available": True, "output": "hdmi", "volume": 60, "muted": False,
@@ -129,6 +132,18 @@ def steam_tick():
             state["steam"]["games"].append(d["appid"])
     steam_publish()
     later(0.5, steam_tick)
+
+
+def windows_tick():
+    with lock:
+        w = state["windows"]
+        w["percent"] = min(100, w["percent"] + 5)
+        if w["percent"] >= 100:
+            w["state"] = "ready"
+        data = dict(w)
+    publish("windows.changed", data)
+    if data["state"] != "ready":
+        later(1, windows_tick)
 
 
 def steam_uninstall(appid):
@@ -247,6 +262,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/v1/apps": {"apps": state["apps"], "focus": "home"},
                 "/v1/steam": state["steam"],
                 "/v1/update": state["update"],
+                "/v1/windows": state["windows"],
                 "/v1/controllers": {"controllers": state["controllers"]},
                 "/v1/network": state["network"],
                 "/v1/network/wifi": {"networks": state["networks"]},
@@ -324,6 +340,23 @@ class Handler(BaseHTTPRequestHandler):
                 later(0.5, lambda: result({"state": "installing", "packages": pkgs, "running": True}))
                 later(3, lambda: result({"state": "done", "packages": pkgs, "running": False}))
             return self.reply(202)
+        if path == "/v1/apps/launch":  # a game on a disk (4.5): its window appears after a few seconds
+            app = {"id": body.get("id", "game"), "name": body.get("name", ""), "kind": "game"}
+            with lock:
+                state["apps"].append(app)
+            publish("app.started", app)
+            later(4, lambda: publish("focus.changed", {"focus": app["id"]}))
+            return self.reply(201, {"id": app["id"]})
+        if path == "/v1/windows/needed":
+            with lock:
+                w = state["windows"]
+                first = not w["needed"]
+                w["needed"] = True
+                if first:
+                    w["state"] = "downloading"
+            if first:
+                later(1, windows_tick)
+            return self.reply(204)
         if path == "/v1/steam":
             req = body
             if req.get("ask"):     # 4.2c: the next start asks the user first (Steam shown at once)

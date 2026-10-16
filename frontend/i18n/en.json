@@ -475,5 +475,22 @@
     "other": "{n} games found and added to your Library."
   },
   "notices.disk.unplugged": "USB disk removed",
-  "notices.disk.unplugged.detail": "Its games come back when you plug it in again."
+  "notices.disk.unplugged.detail": "Its games come back when you plug it in again.",
+  "system.windows": "Windows games",
+  "system.windows.detail": "A download of about 1 GB, needed only the first time.",
+  "windows.ready": "Ready",
+  "windows.getting": "Getting ready · {p}%",
+  "windows.waiting": "Waiting for an internet connection",
+  "windows.failed": "It will try again soon",
+  "windows.notice": "Getting Windows games ready · {p}%",
+  "windows.notice.wait": "Windows games will be ready as soon as the console is online",
+  "notices.windows.ready": "Windows games are ready",
+  "notices.windows.ready.detail": "You can play them now.",
+  "windows.off.title": "{title} needs a download",
+  "windows.off.text": "Windows games need a download of about 1 GB, only the first time. Connect the console to the internet: it then gets them ready by itself.",
+  "windows.off.network": "Network settings",
+  "windows.wait.title": "Almost ready",
+  "windows.wait.text": "Windows games are getting ready ({p}%): a download needed only the first time. {title} can start as soon as it is done.",
+  "windows.prep.title": "Preparing {title}…",
+  "windows.prep.first": "The first start takes a little longer."
 }

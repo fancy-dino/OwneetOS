@@ -30,6 +30,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/update"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/vinput"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/windows"
 )
 
 func main() {
@@ -186,6 +187,26 @@ func run(configPath string) error {
 			StateFile: "/run/owneet/update.json", TesterMark: "/etc/owneet/tester"}
 	}
 
+	// Windows games ([[step-4.5-windows-games-proton]]): Proton and its runtime, downloaded once
+	// by umu-launcher when the library has a Windows game and the console is online
+	home, _ := os.UserHomeDir()
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		cacheDir = filepath.Join(home, ".cache")
+	}
+	winData := filepath.Join(home, ".local", "share", "owneet", "windows")
+	winMgr := &windows.Manager{Broker: broker, Log: log, DataDir: winData}
+	if netAPI != nil {
+		winMgr.Online = func() bool { return netAPI.Status().State == "connected" }
+	}
+	if umu, err := exec.LookPath("umu-run"); err == nil {
+		winMgr.Preparer = &windows.Umu{Command: umu, PrefixDir: filepath.Join(winData, "prepare"),
+			CacheDir: filepath.Join(cacheDir, "umu")}
+	} else {
+		log.Warn("Windows games not available: umu-run not found")
+	}
+	go winMgr.Run(ctx)
+
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
@@ -199,6 +220,7 @@ func run(configPath string) error {
 		Apps:            appsAPI,
 		Display:         screen,
 		Update:          updateAPI,
+		Windows:         winMgr,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

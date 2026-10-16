@@ -15,6 +15,7 @@ NavArea {
     property var network: null          // owneetd's network state (from the shell)
     property var controllers: []        // connected controllers (from the shell)
     property bool updatesFromStick: false   // a tester's PC: updates from the USB stick (4.2b)
+    property string windowsText: ""     // Windows games: getting ready, ready… (4.5); "" without any
     signal checkUpdates()
 
     signal openPalettes()
@@ -783,6 +784,13 @@ NavArea {
                         width: parent.width
                         text: Tr.tr("system.version")
                         value: systemInfo.version || "—"
+                    }
+                    InfoRow {                   // what Windows games need, downloaded once (4.5)
+                        visible: page.windowsText !== ""
+                        width: parent.width
+                        text: Tr.tr("system.windows")
+                        detail: Tr.tr("system.windows.detail")
+                        value: page.windowsText
                     }
                     SettingRow {
                         width: parent.width

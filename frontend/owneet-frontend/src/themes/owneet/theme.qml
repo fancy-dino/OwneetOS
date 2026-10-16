@@ -253,6 +253,7 @@ FocusScope {
         refreshControllers();
         applyKeyboard();          // the on-screen keyboard and physical keyboards follow the chosen layout
         refreshSteam(false);
+        refreshWindows();
         owneetd.get("/v1/update", (status, data) => { if (status === 200) root.updateStatus = data; });
         checkDisplayPending();
     }
@@ -287,6 +288,8 @@ FocusScope {
                 root.displayEvent(type, data);
             } else if (type === "steam.changed") {
                 root.steamChanged(data);
+            } else if (type === "windows.changed") {
+                root.windowsChanged(data);
             } else if (type === "update.changed") {
                 root.updateStatus = data;
                 root.showUpdate(data);
@@ -449,6 +452,11 @@ FocusScope {
             if (!(runningGame && runningGame.name === game.title) && steamOffline("play")) return;
             if (!agreementShown && !runningGame && agreementPending(game)) { showAgreement(game); return; }
         }
+        // a Windows game before what it needs is ready: its progress, or "connect" (4.5)
+        if (GameInfo.isWindows(game) && !windowsReady && !(runningGame && runningGame.name === game.title)) {
+            showWindowsNotReady(game);
+            return;
+        }
         // a game on a disk with several files to start: which one, asked once (4.3)
         if (GameInfo.onDisk(game) && diskGames.chosen(game) === "" && !(runningGame && runningGame.name === game.title)) {
             chooseFile(game, true);
@@ -466,7 +474,10 @@ FocusScope {
             return;
         }
         Nav.feedback("launch");
-        toast.show(Tr.tr("toast.launch", { title: game.title }));
+        if (GameInfo.isWindows(game))               // "Preparing {game}…" until its first picture (4.5)
+            steamPrep.start(diskGames.firstStart(game), game.title, true);
+        else
+            toast.show(Tr.tr("toast.launch", { title: game.title }));
         if (GameInfo.isSteam(game) && owneetd.connected) {
             // Steam starts the game; while Steam itself starts, the console says so
             owneetd.get("/v1/steam", (status, st) => {
@@ -565,6 +576,73 @@ FocusScope {
         dialog.open();
     }
     function notYet() { toast.show(Tr.tr("toast.later")); }
+
+    // ---- Windows games (4.5, approved demo design/demos/4.5-windows-games.html): what they need is
+    // downloaded once by owneetd, only once the library has one (POST /v1/windows/needed), while
+    // the console is online; its progress in the home screen's notices and Settings → System, a
+    // banner when ready. GET /v1/windows and "windows.changed": { state, percent, needed }.
+    property var windowsStatus: null
+    readonly property bool windowsReady: windowsStatus !== null && windowsStatus.state === "ready"
+    readonly property bool hasWindowsGames: games.some(g => GameInfo.isWindows(g))
+    onHasWindowsGamesChanged: tellWindowsNeeded()
+    function refreshWindows() {
+        if (!owneetd.connected) return;
+        owneetd.get("/v1/windows", (status, st) => {
+            if (status !== 200) return;
+            windowsStatus = st;
+            tellWindowsNeeded();
+        });
+    }
+    function tellWindowsNeeded() {
+        if (hasWindowsGames && owneetd.connected && windowsStatus !== null && !windowsStatus.needed)
+            owneetd.post("/v1/windows/needed", {});
+    }
+    function windowsChanged(st) {
+        const before = windowsStatus;
+        windowsStatus = st;
+        if (before && before.state !== "ready" && st.state === "ready")
+            notify({ key: "notices.windows.ready", args: {}, icon: "check", kind: "info" });
+        if (dialog.visible && dialog.mode === "windowsWait" && dialog.game) {
+            if (st.state === "ready") { const g = dialog.game; dialog.close(true); root.launch(g); }
+            else showWindowsNotReady(dialog.game, true);
+        }
+    }
+    function windowsText(st) {           // Settings → System and the home screen's notice
+        if (!st) return "";
+        if (st.state === "ready") return Tr.tr("windows.ready");
+        if (st.state === "downloading") return Tr.tr("windows.getting", { p: st.percent });
+        if (st.state === "failed") return Tr.tr("windows.failed");
+        return Tr.tr("windows.waiting");
+    }
+    readonly property var windowsNotices: windowsStatus && windowsStatus.needed && windowsStatus.state !== "ready"
+        ? [{ text: windowsStatus.state === "downloading" ? Tr.tr("windows.notice", { p: windowsStatus.percent }) : Tr.tr("windows.notice.wait"),
+             game: null }]
+        : []
+    // A Windows game started before it can: the progress (online), or "connect to the internet"
+    function showWindowsNotReady(game, refresh) {
+        const st = windowsStatus;
+        const offline = !online || !st || st.state === "waiting" || st.state === "failed";
+        dialog.game = game;
+        dialog.mode = "windowsWait";
+        dialog.contentWidth = Theme.px(560);
+        if (offline) {
+            dialog.title = Tr.tr("windows.off.title", { title: game.title });
+            dialog.text = Tr.tr("windows.off.text");
+            dialog.buttons = [
+                { text: Tr.tr("windows.off.network"), style: "primary", action: () => {
+                    dialog.close(true);
+                    settings.section = "network";
+                    root.goSection("settings");
+                } },
+                { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        } else {
+            dialog.title = Tr.tr("windows.wait.title");
+            dialog.text = Tr.tr("windows.wait.text", { p: st.percent, title: game.title });
+            dialog.buttons = [{ text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() }];
+        }
+        dialog.defaultIndex = 0;
+        if (refresh) dialog.focusDefault(); else dialog.open();
+    }
 
     // ---- Games on a disk (4.3, approved demo design/demos/4.3-games-on-disk.html)
     // "Which file starts {title}?": every file the console could start, with its folder; the
@@ -1570,7 +1648,7 @@ FocusScope {
             visible: root.section === "home"
             focus: visible
             games: root.homeGames
-            notices: root.steamNotices
+            notices: root.steamNotices.concat(root.windowsNotices)
             onOpenNotice: if (notice.game) root.showDetails(notice.game)
             steamRunning: root.apps.some(a => a.id === "steam")
             onSteamOptions: root.confirmCloseSteam()
@@ -1615,6 +1693,7 @@ FocusScope {
             onOpenCredits: credits.openCredits()
             onNotYet: root.notYet()
             network: root.network
+            windowsText: root.windowsStatus && root.windowsStatus.needed ? root.windowsText(root.windowsStatus) : ""
             controllers: root.controllers
             onConnectNetwork: root.connectNetwork(net)
             onNetworkOptions: root.networkOptions(net)
@@ -2314,7 +2393,7 @@ FocusScope {
             const steamWindow = id === "steam" && steamPrep.gameTitle === "";
             if ((type === "app.window" && (steamWindow || id.startsWith("steam:")))
                     || (type === "app.started" && id.startsWith("steam:"))
-                    || (type === "app.exited" && id === "steam")
+                    || (type === "app.exited" && (id === "steam" || steamPrep.windows))
                     || (type === "focus.changed" && data.focus !== "home"))
                 steamPrep.close(true);
         }

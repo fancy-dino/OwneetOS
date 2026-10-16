@@ -39,6 +39,23 @@ Licences are given as [SPDX](https://spdx.org/licenses/) identifiers, as declare
 | [ddcutil](https://www.ddcutil.com) | Sanford Rockowitz and contributors | GPL-2.0-or-later | Brightness of monitors that accept DDC/CI commands |
 | [hwdata](https://github.com/vcrhonek/hwdata) | hwdata contributors | GPL-2.0-or-later | Names of screen makers, shown in Settings → Display |
 
+## Windows games
+
+DRM-free games for Windows run with Proton ([[step-4.5-windows-games-proton]]). Only umu-launcher
+is part of OwneetOS; GE-Proton and the Steam Linux Runtime are downloaded once by the user's own
+console from their authors' official releases, the first time a Windows game is in the library.
+
+| Project | Who | Licence | What it does in OwneetOS |
+|---|---|---|---|
+| [umu-launcher](https://github.com/Open-Wine-Components/umu-launcher) | Open Wine Components contributors | GPL-3.0-only | Starts Windows games with Proton outside Steam; downloads Proton and its runtime |
+| [Python](https://www.python.org) | Python Software Foundation and contributors | PSF-2.0 | Runs umu-launcher |
+| [GE-Proton](https://github.com/GloriousEggroll/proton-ge-custom) | Thomas Crider (GloriousEggroll) and contributors | BSD-3-Clause and the licences of its parts | Windows compatibility for games (downloaded, not in the ISO) |
+| [Proton](https://github.com/ValveSoftware/Proton) | Valve and contributors | BSD-3-Clause and the licences of its parts | The base of GE-Proton |
+| [Wine](https://www.winehq.org) | Wine contributors | LGPL-2.1-or-later | Runs Windows programs (inside Proton) |
+| [DXVK](https://github.com/doitsujin/dxvk) | Philip Rebohle and contributors | Zlib | Direct3D 8–11 on Vulkan (inside Proton) |
+| [VKD3D-Proton](https://github.com/HansKristian-Work/vkd3d-proton) | Hans-Kristian Arntzen and contributors | LGPL-2.1-or-later | Direct3D 12 on Vulkan (inside Proton) |
+| [Steam Linux Runtime](https://gitlab.steamos.cloud/steamrt/steam-runtime-tools) | Valve and contributors | various | The container Proton runs in (downloaded, not in the ISO) |
+
 ## Sound, network, Bluetooth, system services
 
 | Project | Who | Licence | What it does in OwneetOS |

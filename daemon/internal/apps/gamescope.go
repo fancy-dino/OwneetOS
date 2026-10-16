@@ -337,16 +337,19 @@ func (g *Gamescope) watchConn(tag func(pid int) uint32, request func([]uint32), 
 
 // tagWindow tags a window with its app's id and returns that id (0: not an app's window).
 func (g *Gamescope) tagWindow(conn *xgb.Conn, atoms map[string]xproto.Atom, w xproto.Window, tag func(pid int) uint32, xres bool) uint32 {
-	pid := 0
-	if pids, err := cardinals(conn, w, atoms["_NET_WM_PID"]); err == nil && len(pids) > 0 {
+	pid, appID := 0, uint32(0)
+	if pids, err := cardinals(conn, w, atoms["_NET_WM_PID"]); err == nil && len(pids) > 0 && pids[0] > 0 {
 		pid = int(pids[0])
-	} else if xres {
-		pid = clientPID(conn, w)
+		appID = tag(pid)
 	}
-	if pid <= 0 {
-		return 0
+	// No _NET_WM_PID, or one that leads to no app (e.g. a process id from inside a container):
+	// the process the X server knows
+	if appID == 0 && xres {
+		if p := clientPID(conn, w); p > 0 && p != pid {
+			pid = p
+			appID = tag(pid)
+		}
 	}
-	appID := tag(pid)
 	if appID == 0 {
 		return 0
 	}

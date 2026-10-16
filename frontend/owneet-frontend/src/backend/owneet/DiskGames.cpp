@@ -5,10 +5,12 @@
 #include "Paths.h"
 #include "model/gaming/Game.h"
 
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QSaveFile>
 
 
@@ -66,6 +68,21 @@ void DiskGames::applyChoice(model::Game& game, const QString& game_dir, const QS
     const QFileInfo finfo(QDir(game_dir), file);
     const QString path = finfo.absoluteFilePath();
     const QString suffix = finfo.suffix().toLower();
+    // A Windows game ([[step-4.5-windows-games-proton]]) starts through owneet-windows-run, with
+    // the Proton owneetd has made ready and its own prefix; GOG's play task adds its arguments
+    // and working folder
+    const QVariantMap& extra = game.extraMap();
+    if (extra.value(QStringLiteral("disk.windows")).toBool()) {
+        const bool gog = extra.value(QStringLiteral("disk.gog.start")).toString() == file;
+        QString cmd = QStringLiteral("/usr/lib/owneet/owneet-windows-run ") + quoted(windowsPrefix(game_dir))
+            + QChar(' ') + quoted(path);
+        const QString args = gog ? extra.value(QStringLiteral("disk.gog.args")).toString() : QString();
+        if (!args.isEmpty())
+            cmd += QChar(' ') + args;
+        const QString workdir = gog ? extra.value(QStringLiteral("disk.gog.workdir")).toString() : QString();
+        game.setLaunchCmd(cmd).setLaunchWorkdir(workdir.isEmpty() ? finfo.absolutePath() : QDir(game_dir).filePath(workdir));
+        return;
+    }
     // Scripts run with bash and AppImages unpack themselves (no FUSE in the system): neither
     // needs anything written on the disk, which is mounted read only
     QString cmd;
@@ -84,6 +101,25 @@ void DiskGames::setQuietReading(bool quiet)
         return;
     m_quiet_reading = quiet;
     emit quietReadingChanged();
+}
+
+QString DiskGames::windowsPrefix(const QString& game_dir)
+{
+    // one prefix per game, in the console's own disk (the game's disk may be read only): a
+    // readable name and a short hash of the game's folder
+    QString slug = QFileInfo(game_dir).fileName().toLower();
+    slug.replace(QRegularExpression(QStringLiteral("[^a-z0-9]+")), QStringLiteral("-"));
+    slug = slug.left(40).remove(QRegularExpression(QStringLiteral("^-+|-+$")));
+    const QString hash = QString::fromLatin1(QCryptographicHash::hash(game_dir.toUtf8(), QCryptographicHash::Sha1).toHex().left(10));
+    return paths::homePath() + QStringLiteral("/.local/share/owneet/windows/prefixes/") + slug + QChar('-') + hash;
+}
+
+bool DiskGames::firstStart(QObject* game_obj) const
+{
+    const auto* game = qobject_cast<model::Game*>(game_obj);
+    if (!game || !game->extraMap().value(QStringLiteral("disk.windows")).toBool())
+        return false;
+    return !QFileInfo::exists(windowsPrefix(game->extraMap().value(QStringLiteral("disk.dir")).toString()) + QStringLiteral("/pfx"));
 }
 
 bool DiskGames::hasGames(const QString& root) const

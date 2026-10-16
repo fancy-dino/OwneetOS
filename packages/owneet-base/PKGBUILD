@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.34
+pkgver=0.0.35
 pkgrel=1
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
@@ -12,6 +12,9 @@ depends=('base' 'owneet-keyring' 'owneet-session' 'owneet-branding' 'owneet-hard
          'owneet-frontend'
          # Steam ([multilib]; its runtime is downloaded by Steam on first launch)
          'steam'
+         # Windows games: umu-launcher ([multilib]) runs them with Proton, which it downloads once
+         # with its runtime ([[step-4.5-windows-games-proton]]; owneetd and owneet-windows-run)
+         'umu-launcher'
          # the installed system's file systems (btrfs root, FAT32 boot partition)
          'btrfs-progs' 'dosfstools')
 install=owneet-base.install

@@ -22,6 +22,9 @@ QtObject {
     function onDisk(game) { return !!game && !!game.extra && !!game.extra["disk.dir"]; }
     function diskRoot(game) { return onDisk(game) ? String(game.extra["disk.root"] || "") : ""; }
     function diskFiles(game) { return onDisk(game) ? (game.extra["disk.files"] || []) : []; }
+    // A Windows game on a disk (4.5): never named so to the user, it only needs what owneetd
+    // downloads once
+    function isWindows(game) { return onDisk(game) && game.extra["disk.windows"] === true; }
     // The same game after the games were read again (new objects): by app id, folder or title
     function sameGame(a, b) {
         if (!a || !b)

@@ -31,6 +31,8 @@ public:
     /// Makes `game` start `file` (relative to its folder `game_dir`): its command and working
     /// folder, and its extra "disk.start"
     static void applyChoice(model::Game& game, const QString& game_dir, const QString& file);
+    /// A Windows game's own prefix, in the console's disk ([[step-4.5-windows-games-proton]])
+    static QString windowsPrefix(const QString& game_dir);
 
     /// Whether a mounted disk has a games folder at its top (the theme reads the games again only then)
     Q_INVOKABLE bool hasGames(const QString& root) const;
@@ -38,6 +40,8 @@ public:
     Q_INVOKABLE QString chosen(QObject* game) const;
     /// The user's choice, one of the game's "disk.files": applied at once and remembered
     Q_INVOKABLE bool choose(QObject* game, const QString& file);
+    /// Whether a Windows game has never started (its prefix is made at its first start: longer)
+    Q_INVOKABLE bool firstStart(QObject* game) const;
 
     bool quietReading() const { return m_quiet_reading; }
     void setQuietReading(bool quiet);

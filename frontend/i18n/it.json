@@ -475,5 +475,22 @@
     "other": "{n} giochi trovati e aggiunti alla tua Libreria."
   },
   "notices.disk.unplugged": "Disco USB scollegato",
-  "notices.disk.unplugged.detail": "I suoi giochi tornano quando lo ricolleghi."
+  "notices.disk.unplugged.detail": "I suoi giochi tornano quando lo ricolleghi.",
+  "system.windows": "Giochi Windows",
+  "system.windows.detail": "Un download di circa 1 GB, solo la prima volta.",
+  "windows.ready": "Pronti",
+  "windows.getting": "In preparazione · {p}%",
+  "windows.waiting": "In attesa di una connessione a internet",
+  "windows.failed": "Riproverà tra poco",
+  "windows.notice": "Preparazione dei giochi Windows · {p}%",
+  "windows.notice.wait": "I giochi Windows saranno pronti appena la console sarà online",
+  "notices.windows.ready": "I giochi Windows sono pronti",
+  "notices.windows.ready.detail": "Ora puoi giocarci.",
+  "windows.off.title": "{title} ha bisogno di un download",
+  "windows.off.text": "Per i giochi Windows serve un download di circa 1 GB, solo la prima volta. Collega la console a internet: li preparerà da sola.",
+  "windows.off.network": "Impostazioni di rete",
+  "windows.wait.title": "Quasi pronto",
+  "windows.wait.text": "I giochi Windows sono in preparazione ({p}%): un download che serve solo la prima volta. {title} potrà partire appena finisce.",
+  "windows.prep.title": "Preparazione di {title}…",
+  "windows.prep.first": "Il primo avvio richiede un po’ più di tempo."
 }

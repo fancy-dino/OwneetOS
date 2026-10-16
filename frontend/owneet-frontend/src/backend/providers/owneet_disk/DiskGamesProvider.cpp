@@ -14,10 +14,16 @@
 // - the cover: cover.jpg / cover.png (cover.jpeg, cover.webp) at the top of the folder.
 //
 // game.txt holds "key: value" lines (title, start, description; "#" starts a comment).
-// Folders with only programs for Windows (step 4.5) or only an installer (step 4.6) are not listed
-// yet. The extras the theme reads: "disk.dir" (the game folder), "disk.root" (the disk's mount
-// folder, "internal" for the home folder), "disk.files" (what can start, relative to the game
-// folder) and "disk.start" (the file it starts with, "" until chosen).
+//
+// A folder with nothing to start on Linux but programs for Windows is a Windows game
+// ([[step-4.5-windows-games-proton]]): it starts with GOG's goggame-<id>.info when there is one
+// (its primary play task: file, arguments, working folder; paths matched without case, as
+// Windows does), else with the user's choice among its .exe files (the same rules). Folders with
+// only an installer (step 4.6) are not listed yet. The extras the theme reads: "disk.dir" (the
+// game folder), "disk.root" (the disk's mount folder, "internal" for the home folder),
+// "disk.files" (what can start, relative to the game folder), "disk.start" (the file it starts
+// with, "" until chosen), "disk.windows" (a Windows game) with "disk.gog.start", "disk.gog.args"
+// and "disk.gog.workdir" (GOG's play task).
 
 #include "DiskGamesProvider.h"
 
@@ -34,6 +40,9 @@
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QStorageInfo>
 #include <QTextStream>
 
@@ -52,8 +61,15 @@ struct GameTxt {
 
 struct Found {
     QStringList linux_files;             // relative to the game folder
-    int windows_files = 0;
+    QStringList windows_files;           // the same, programs for Windows
     int installers = 0;
+};
+
+// GOG's play task (goggame-<id>.info): the file that starts the game, with its arguments
+struct GogTask {
+    QString path;                        // relative to the game folder, as found on the disk
+    QString args;
+    QString workdir;                     // relative to the game folder, "" for the file's folder
 };
 
 // The disks to look at: the home folder ("internal") and the mounted disks, as Storage lists
@@ -112,6 +128,7 @@ bool skipped_folder(const QString& name)
         QStringLiteral("redist"), QStringLiteral("_redist"), QStringLiteral("redistributables"),
         QStringLiteral("_commonredist"), QStringLiteral("commonredist"), QStringLiteral("directx"),
         QStringLiteral("vcredist"), QStringLiteral("dotnet"), QStringLiteral("__installer"),
+        QStringLiteral("__redist"),
     };
     const QString lower = name.toLower();
     // Unity's data folder ("<game>_Data") holds libraries and assets only
@@ -125,6 +142,7 @@ bool helper_name(const QString& base)
         QStringLiteral("unins"), QStringLiteral("setup"), QStringLiteral("install"), QStringLiteral("config"),
         QStringLiteral("redist"), QStringLiteral("directx"), QStringLiteral("dxsetup"),
         QStringLiteral("crashhandler"), QStringLiteral("crashreport"), QStringLiteral("crash_report"),
+        QStringLiteral("help"),
     };
     const QString lower = base.toLower();
     return std::any_of(parts.cbegin(), parts.cend(), [&lower](const QString& p) { return lower.contains(p); });
@@ -173,9 +191,13 @@ void search_folder(const QString& game_dir, const QString& dir, int depth, int& 
         const QString name = finfo.fileName();
         const QString suffix = finfo.suffix().toLower();
         const bool helper = helper_name(finfo.completeBaseName());
-        if (suffix == QLatin1String("exe") || suffix == QLatin1String("msi")) {
+        if (suffix == QLatin1String("msi")) {
+            found.installers++;
+            continue;
+        }
+        if (suffix == QLatin1String("exe")) {
             if (!helper)
-                found.windows_files++;
+                found.windows_files.append(base.relativeFilePath(finfo.filePath()));
             continue;
         }
         bool starts = false;
@@ -194,6 +216,59 @@ void search_folder(const QString& game_dir, const QString& dir, int depth, int& 
         if (starts && !helper)
             found.linux_files.append(base.relativeFilePath(finfo.filePath()));
     }
+}
+
+// A Windows path (backslashes, any case) as the file on the disk, relative to the game folder;
+// "" when it is not there
+QString find_windows_path(const QString& game_dir, QString path)
+{
+    path.replace(QChar('\\'), QChar('/'));
+    QString found;
+    QDir dir(game_dir);
+    for (const QString& part : path.split(QChar('/'), Qt::SkipEmptyParts)) {
+        if (part == QLatin1String("."))
+            continue;
+        QString match;
+        for (const QString& name : dir.entryList(QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden)) {
+            if (name.compare(part, Qt::CaseInsensitive) == 0) {
+                match = name;
+                break;
+            }
+        }
+        if (match.isEmpty())
+            return {};
+        found = found.isEmpty() ? match : found + QChar('/') + match;
+        dir.setPath(dir.filePath(match));
+    }
+    return found;
+}
+
+// GOG's primary play task, from the goggame-<id>.info files at the top of the game folder
+GogTask read_gog_task(const QString& game_dir)
+{
+    const QStringList infos = QDir(game_dir).entryList({QStringLiteral("goggame-*.info")}, QDir::Files);
+    for (const QString& info : infos) {
+        QFile file(game_dir + QChar('/') + info);
+        if (!file.open(QIODevice::ReadOnly))
+            continue;
+        const QJsonArray tasks = QJsonDocument::fromJson(file.readAll()).object().value(QStringLiteral("playTasks")).toArray();
+        for (const QJsonValue& value : tasks) {
+            const QJsonObject task = value.toObject();
+            if (!task.value(QStringLiteral("isPrimary")).toBool()
+                    || task.value(QStringLiteral("type")).toString() != QLatin1String("FileTask"))
+                continue;
+            GogTask out;
+            out.path = find_windows_path(game_dir, task.value(QStringLiteral("path")).toString());
+            if (out.path.isEmpty())
+                continue;
+            out.args = task.value(QStringLiteral("arguments")).toString();
+            const QString workdir = task.value(QStringLiteral("workingDir")).toString();
+            if (!workdir.isEmpty())
+                out.workdir = find_windows_path(game_dir, workdir);
+            return out;
+        }
+    }
+    return {};
 }
 
 QString find_cover(const QString& game_dir)
@@ -241,26 +316,32 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                     && txt_file.suffix().toLower() != QLatin1String("exe") && txt_file.suffix().toLower() != QLatin1String("msi");
                 if (txt_start && !found.linux_files.contains(txt.start))
                     found.linux_files.prepend(txt.start);
-                if (found.linux_files.isEmpty()) {
-                    Log::info(display_name(), LOGMSG("`%1`: nothing to start on Linux (%2 for Windows, %3 installers): not listed yet")
-                        .arg(game_folder).arg(found.windows_files).arg(found.installers));
+                // Nothing for Linux: a Windows game, started as GOG says when it can
+                const bool windows = found.linux_files.isEmpty() && !found.windows_files.isEmpty();
+                const GogTask gog = windows ? read_gog_task(game_dir) : GogTask();
+                QStringList& files = windows ? found.windows_files : found.linux_files;
+                if (!gog.path.isEmpty())
+                    files = QStringList { gog.path };
+                if (files.isEmpty()) {
+                    Log::info(display_name(), LOGMSG("`%1`: nothing to start (%2 installers): not listed yet")
+                        .arg(game_folder).arg(found.installers));
                     continue;
                 }
                 // The files at the top of the folder first
-                std::stable_sort(found.linux_files.begin(), found.linux_files.end(), [](const QString& a, const QString& b) {
+                std::stable_sort(files.begin(), files.end(), [](const QString& a, const QString& b) {
                     return !a.contains(QChar('/')) && b.contains(QChar('/'));
                 });
 
                 // The user's choice first (Options can always change it), then game.txt's
                 QString start = owneet::DiskGames::savedChoice(game_dir);
-                if (!found.linux_files.contains(start))
+                if (!files.contains(start))
                     start.clear();
                 if (start.isEmpty() && txt_start)
                     start = txt.start;
-                if (start.isEmpty() && found.linux_files.contains(QStringLiteral("start.sh")))
+                if (start.isEmpty() && files.contains(QStringLiteral("start.sh")))
                     start = QStringLiteral("start.sh");
-                if (start.isEmpty() && found.linux_files.size() == 1)
-                    start = found.linux_files.first();
+                if (start.isEmpty() && files.size() == 1)
+                    start = files.first();
 
                 if (!collection)
                     collection = sctx.get_or_create_collection(QStringLiteral("Games on disks"));
@@ -277,10 +358,20 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                 QVariantMap& extra = game->extraMapMut();
                 extra.insert(QStringLiteral("disk.dir"), game_dir);
                 extra.insert(QStringLiteral("disk.root"), root.second);
-                extra.insert(QStringLiteral("disk.files"), found.linux_files);
+                extra.insert(QStringLiteral("disk.files"), files);
+                if (windows) {
+                    extra.insert(QStringLiteral("disk.windows"), true);
+                    if (!gog.path.isEmpty()) {
+                        extra.insert(QStringLiteral("disk.gog.start"), gog.path);
+                        extra.insert(QStringLiteral("disk.gog.args"), gog.args);
+                        extra.insert(QStringLiteral("disk.gog.workdir"), gog.workdir);
+                    }
+                }
                 owneet::DiskGames::applyChoice(*game, game_dir, start);
-                Log::info(display_name(), LOGMSG("`%1`: %2 file(s) to start, starts `%3`")
-                    .arg(title).arg(found.linux_files.size()).arg(start.isEmpty() ? QStringLiteral("(asks)") : start));
+                Log::info(display_name(), LOGMSG("`%1`%2: %3 file(s) to start, starts `%4`%5")
+                    .arg(title, windows ? QStringLiteral(" (Windows)") : QString())
+                    .arg(files.size()).arg(start.isEmpty() ? QStringLiteral("(asks)") : start,
+                                           gog.path.isEmpty() ? QString() : QStringLiteral(" (GOG's play task)")));
             }
         }
     }

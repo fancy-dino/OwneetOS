@@ -167,6 +167,13 @@ if grep -q '^@disk' /steps.txt; then
     magick -size 600x900 gradient:'#2b2d42-#8d99ae' "$g/Beneath a steel sky/cover.png" 2>/dev/null \
         || convert -size 600x900 gradient:'#2b2d42-#8d99ae' "$g/Beneath a steel sky/cover.png"
     mkdir -p "$g/Windows only"; : > "$g/Windows only/game.exe"
+    # Windows games (4.5): one with GOG's info file (the file to start, in another case), one without
+    mkdir -p "$g/Tyrian 2000/DOSBOX"; : > "$g/Tyrian 2000/DOSBOX/DOSBox.exe"; : > "$g/Tyrian 2000/DOSBOX/GOGDOSConfig.exe"
+    : > "$g/Tyrian 2000/SETUP.EXE"
+    printf '{"playTasks": [{"category": "game", "isPrimary": true, "type": "FileTask", "path": "DOSBOX\\\\dosbox.exe", "arguments": "-conf \\"..\\\\dosboxT2K.conf\\" -noconsole", "workingDir": "DOSBOX"}]}\n' \
+        > "$g/Tyrian 2000/goggame-1.info"
+    mkdir -p "$g/Ashen Gate/bin/x64" "$g/Ashen Gate/__redist"; : > "$g/Ashen Gate/AshenGate.exe"; : > "$g/Ashen Gate/bin/x64/AshenGate.exe"
+    : > "$g/Ashen Gate/unins000.exe"; : > "$g/Ashen Gate/__redist/vcredist_x64.exe"
     mkdir -p "$g/Installer only"; printf '#!/bin/sh\n# This script was generated using Makeself 2.4.0\n' > "$g/Installer only/gog_game.sh"
     ls -l "$g/Starfall" >> /out/log.txt
     export OWNEET_DISKS="$disk"
