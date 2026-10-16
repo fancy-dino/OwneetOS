@@ -84,12 +84,12 @@ test('left from the second card is the first card, not the nearer "More info"', 
   assert.strictEqual(Nav.pickSideways(card2, home, 3, 'left', 2, 4), 2);
 });
 
-test('left from the first child is the target before it (before the container), wherever it is', () => {
+test('left from the first child is the target before the container, wherever it is', () => {
   assert.strictEqual(Nav.pickSideways(card1, home, 2, 'left', 2, 4), 1);
   assert.strictEqual(Nav.pickSideways(play, home, 0, 'left', 0, 1), -1);
 });
 
-test('right from the last child is the target after it (after the container)', () => {
+test('right from the last child is the target after the container', () => {
   assert.strictEqual(Nav.pickSideways(more, home, 1, 'right', 0, 1), 2);
   assert.strictEqual(Nav.pickSideways(card3, home, 4, 'right', 2, 4), -1);
 });
@@ -101,10 +101,11 @@ test('the owner\'s example, sideways: <box> el3 el4 </box>', () => {
   assert.strictEqual(Nav.pickSideways(el3, order, 2, 'left', 2, 3), 1);     // first child: el2, before the box
 });
 
-test('a full-width banner in a large container: left / right go to the targets before / after it', () => {
-  // Layouts page of the demo: row of tiles, banner, row of tiles, all in one container
+test('a full-width banner in a large container: left / right leave the container', () => {
+  // Layouts page of the demo: row of tiles, banner, row of tiles, all in one container (1..3);
+  // chosen by the owner on 2026-10-16 over going to the banner's own neighbours
   const above = box(56, 100, 170, 70), banner = box(56, 180, 1100, 80), below = box(56, 270, 170, 70);
   const order = [box(0, 0, 100, 40), above, banner, below, box(0, 400, 100, 40)];
-  assert.strictEqual(Nav.pickSideways(banner, order, 2, 'left', 0, 4), 1);
-  assert.strictEqual(Nav.pickSideways(banner, order, 2, 'right', 0, 4), 3);
+  assert.strictEqual(Nav.pickSideways(banner, order, 2, 'left', 1, 3), 0);
+  assert.strictEqual(Nav.pickSideways(banner, order, 2, 'right', 1, 3), 4);
 });
