@@ -4,7 +4,8 @@
 # Writes an invented Steam folder for the frontend preview ([[step-4.2c-steam-without-its-interface]]):
 # the account's licences (appcache/packageinfo.vdf, binary version 28), the apps' types and names
 # (appcache/appinfo.vdf, binary version 29 with its table of keys), a few installed games, a game
-# on a disk that is not connected, and a signed-in account. Names and ids are invented.
+# on a disk that is not connected, a signed-in account and artwork (4.4). Names, ids and pictures
+# are invented.
 #
 #   fake-steam.py STEAM_DIR
 import os
@@ -112,6 +113,37 @@ def main():
     with open(os.path.join(steam, "config", "loginusers.vdf"), "w") as f:
         f.write('"users"\n{\n\t"76561190000000001"\n\t{\n\t\t"AccountName"\t\t"preview"\n\t\t"MostRecent"\t\t"1"\n\t}\n}\n')
     open(os.path.join(steam, "ubuntu12_32", "steam"), "w").close()
+    artwork(steam)
+
+
+# Steam's artwork cache (appcache/librarycache, step 4.4), invented pictures drawn here: a portrait
+# cover and a wide picture (older layout, at the top of the app's folder), a header only (newer
+# layout, in a sub-folder named after a hash), and games without any
+ART = {
+    2001: [("library_600x900.jpg", "300x450", "#264653-#2a9d8f"), ("library_hero.jpg", "1920x620", "#264653-#e9c46a"),
+           ("header.jpg", "460x215", "#264653-#2a9d8f")],
+    2002: [("0f3a/library_header.jpg", "460x215", "#6d597a-#e56b6f")],
+    2010: [("header.jpg", "460x215", "#003049-#f77f00")],
+    2004: [("9b1c/library_capsule.jpg", "300x450", "#3d405b-#81b29a")],
+}
+
+
+def artwork(steam):
+    import subprocess
+    for appid, pictures in ART.items():
+        for name, size, colours in pictures:
+            path = os.path.join(steam, "appcache", "librarycache", str(appid), name)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            label = APPS[appid][0].upper()
+            text = ["-gravity", "center", "-fill", "white", "-pointsize", "28", "-annotate", "0", label]
+            # with the game's name when a font is found, otherwise the colours alone
+            for args in ([t] + ["-size", size, "gradient:" + colours] + x + [path]
+                         for x in (text, []) for t in ("magick", "convert")):
+                try:
+                    subprocess.run(args, check=True, capture_output=True)
+                    break
+                except (OSError, subprocess.CalledProcessError):
+                    continue
 
 
 if __name__ == "__main__":

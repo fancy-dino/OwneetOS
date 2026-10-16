@@ -19,13 +19,19 @@ Item {
     readonly property bool installed: steamState === "installed" || steamState === "updating"
     readonly property string stateText: game ? GameInfo.stateText(game) : ""
     readonly property bool busy: steamState === "downloading" || steamState === "updating" || steamState === "queued" || steamState === "paused"
-    readonly property string image: game ? (game.assets.poster || game.assets.boxFront || game.assets.tile || "") : ""
+    // Art (4.4): the portrait cover (Steam's, or cover.jpg / .png of a game on a disk), else a
+    // Steam game's wide header shown whole over the generated art (option A, owner 2026-10-16),
+    // else the generated art
+    readonly property string cover: game ? (game.assets.poster || game.assets.boxFront || game.assets.tile || "") : ""
+    readonly property string image: cover || (game ? game.assets.banner : "") || ""
 
     GameArt {
         anchors.fill: parent
         radius: root.radius
         seed: root.game ? root.game.title : ""
         image: root.image
+        fit: root.cover === "" && root.image !== ""
+        fitY: 0.4
         shade: true
         opacity: root.installed ? 1 : (root.activeFocus ? 0.8 : 0.55)
     }

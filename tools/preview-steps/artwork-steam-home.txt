@@ -1,0 +1,7 @@
+@nogames
+@owneetd
+@steam
+# Artwork ([[step-4.4-artwork]]): the home screen's card with a Steam game's wide picture
+# (Glass Canyon, library_hero.jpg).
+wait 3
+shot 01-home-steam-wide

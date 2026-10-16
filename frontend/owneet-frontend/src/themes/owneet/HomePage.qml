@@ -111,7 +111,14 @@ NavArea {
                 visible: page.hero !== null || page.running !== null
                 radius: Theme.radiusL
                 seed: page.running ? page.running.name : (page.hero ? page.hero.title : "")
-                image: game ? (game.assets.background || game.assets.screenshot || game.assets.banner || "") : ""
+                // Art (4.4): a Steam game's wide picture, else its header, else the generated art; a
+                // game on a disk shows its cover whole, on the right (owner 2026-10-16)
+                readonly property string wide: game ? (game.assets.background || game.assets.banner || "") : ""
+                readonly property string cover: game && GameInfo.onDisk(game) ? (game.assets.boxFront || "") : ""
+                image: wide || cover
+                fit: wide === "" && cover !== ""
+                fitX: 0.92
+                fitMargin: Theme.px(22)
                 scrim: true
             }
             Rectangle {                         // welcome card, when there are no games

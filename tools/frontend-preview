@@ -27,7 +27,7 @@
 #                    (tools/preview-steps/fake-steam.py); the pretend owneetd installs and
 #                    uninstalls them, with downloads
 #   @disk            an invented USB disk "SSD-256GB-D" with a Giochi folder (games on a disk, 4.3):
-#                    scripts, programs, an AppImage with a cover, a Windows-only game and an
+#                    scripts, programs, covers (Starfall, Beneath a steel sky), a Windows-only game and an
 #                    installer-only folder (both not listed yet)
 #   unplug / plug    (with @disk) the invented disk is unplugged / plugged in again
 #   event TYPE JSON  (with @owneetd) the pretend owneetd sends an event, e.g.
@@ -164,6 +164,8 @@ if grep -q '^@disk' /steps.txt; then
     prog "$g/Starfall/Starfall.AppImage"
     magick -size 600x900 gradient:'#1d3557-#e76f51' "$g/Starfall/cover.jpg" 2>/dev/null \
         || convert -size 600x900 gradient:'#1d3557-#e76f51' "$g/Starfall/cover.jpg"
+    magick -size 600x900 gradient:'#2b2d42-#8d99ae' "$g/Beneath a steel sky/cover.png" 2>/dev/null \
+        || convert -size 600x900 gradient:'#2b2d42-#8d99ae' "$g/Beneath a steel sky/cover.png"
     mkdir -p "$g/Windows only"; : > "$g/Windows only/game.exe"
     mkdir -p "$g/Installer only"; printf '#!/bin/sh\n# This script was generated using Makeself 2.4.0\n' > "$g/Installer only/gog_game.sh"
     ls -l "$g/Starfall" >> /out/log.txt
