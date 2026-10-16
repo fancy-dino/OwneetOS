@@ -1,13 +1,13 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Starts a GOG DOS game with Linux's own DOSBox instead of the Windows DOSBox GOG ships with it
-# ([[step-4.5-windows-games-proton]], owner 2026-10-16: no Proton for them; under Proton, GOG's
-# DOSBox ended when the home screen was shown). DOS games are small: the first start copies the
-# game's folder to the console's disk (with GOG's starting saves, __support/save), so that the game
-# can write its settings and saves there; the game's disk (read only) is never written.
-# GOG's DOSBox configuration files are used as they are, with their paths made Linux ones; the
-# "cloud_saves" overlay of GOG's DOSBox is not needed (the copy is writable).
+# Starts a GOG DOS game with DOSBox Staging (built by OwneetOS) instead of the Windows DOSBox GOG
+# ships with it ([[step-4.5-windows-games-proton]], owner 2026-10-16: no Proton for them; under
+# Proton GOG's DOSBox ended when the home screen was shown, and Arch's DOSBox 0.74.3 could not start
+# Stargunner). GOG's own DOSBox configuration files are used, with Linux paths: the game runs from
+# its folder on its disk (read only until [[step-6.5-automatic-disk-mounting]]) and everything it
+# writes goes to GOG's "cloud_saves" overlay, here a folder of the game on the console's disk,
+# seeded with GOG's starting saves (__support/save). The game's disk is never written.
 #
 #   owneet-dos-run DATA GAME_DIR WORKDIR [GOG's ARGUMENTS...]
 #
@@ -22,7 +22,7 @@ if [[ $# -lt 3 ]]; then
 fi
 data="$1" game="$2" work="$3"
 shift 3
-copy="$data/game"
+saves="$data/cloud_saves"
 
 # A path written for Windows (backslashes, any case), relative to a folder, as found on the disk
 resolve() {
@@ -45,23 +45,23 @@ resolve() {
     echo "$out"
 }
 
-# ---- The first start: the game on the console's disk
-if [[ ! -f "$data/copied" ]]; then
-    echo "owneet-dos-run: copying $game to the console's disk"
-    rm -rf "$copy"
-    mkdir -p "$copy"
-    cp -a "$game/." "$copy/" || { echo "owneet-dos-run: cannot copy the game" >&2; exit 1; }
-    chmod -R u+w "$copy"
-    # GOG's starting saves (its install puts them in the overlay folder, i.e. on C:)
-    save="$(resolve "$copy" "__support/save")"
-    [[ -d "$save" ]] && cp -an "$save/." "$copy/"
-    touch "$data/copied"
+# ---- The overlay for what the game writes, with GOG's starting saves the first time
+# (owneetd 0.14 copied the whole game instead: that copy is no longer used; only testers had it)
+if [[ -f "$data/copied" ]]; then
+    rm -rf "$data/game" "$data/copied"
+fi
+mkdir -p "$saves" "$data/conf"
+if [[ ! -f "$data/seeded" ]]; then
+    start="$(resolve "$game" "__support/save")"
+    [[ -d "$start" ]] && cp -an "$start/." "$saves/"
+    touch "$data/seeded"
 fi
 
-cwd="$(resolve "$copy" "$work")" || cwd="$copy"
+cwd="$(resolve "$game" "$work")" || cwd="$game"
 
-# ---- GOG's configuration files, with Linux paths in the [autoexec] mounts
-mkdir -p "$data/conf"
+# ---- GOG's configuration files: DOS text (code page 437, CR LF) to UTF-8, which DOSBox Staging
+# reads (the boxes of GOG's menus), and Linux paths in the [autoexec] mounts; GOG's cloud_saves
+# overlay goes to the console's disk
 rewrite() {
     local in="$1" out="$2" section="" line rest path
     : > "$out"
@@ -70,17 +70,17 @@ rewrite() {
         if [[ "$line" =~ ^[[:space:]]*\[([A-Za-z0-9_]+)\] ]]; then
             section="${BASH_REMATCH[1],,}"
         fi
-        if [[ "$section" == autoexec && "$line" =~ ^([[:space:]]*@?(img)?mount[[:space:]]+[^[:space:]]+[[:space:]]+)\"([^\"]*)\"(.*)$ ]]; then
+        if [[ "$section" == autoexec && "$line" =~ ^([[:space:]]*@?([Ii][Mm][Gg])?[Mm][Oo][Uu][Nn][Tt][[:space:]]+[^[:space:]]+[[:space:]]+)\"([^\"]*)\"(.*)$ ]]; then
             rest="${BASH_REMATCH[4]}"
-            # the cloud saves overlay of GOG's DOSBox: not needed, the copy is writable
             if [[ "${rest,,}" == *"-t overlay"* ]]; then
-                continue
+                path="$saves"
+            else
+                path="$(resolve "$cwd" "${BASH_REMATCH[3]}")"
             fi
-            path="$(resolve "$cwd" "${BASH_REMATCH[3]}")"
             line="${BASH_REMATCH[1]}\"$path\"$rest"
         fi
         printf '%s\n' "$line" >> "$out"
-    done < "$in"
+    done < <(iconv -f CP437 -t UTF-8 "$in" 2>/dev/null || cat "$in")
 }
 
 args=() n=0
@@ -100,13 +100,8 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-# On the console's screen: full screen at the screen's size, drawn with OpenGL
-cat > "$data/conf/owneet.conf" <<'EOF'
-[sdl]
-fullscreen=true
-fullresolution=desktop
-output=opengl
-EOF
+# On the console's screen: full screen (DOSBox Staging scales to the screen by itself)
+printf '[sdl]\nfullscreen=true\n' > "$data/conf/owneet.conf"
 
 cd "$cwd" || exit 1
 echo "owneet-dos-run: dosbox ${args[*]} -conf $data/conf/owneet.conf  (in $cwd)"

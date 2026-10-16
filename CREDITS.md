@@ -55,7 +55,9 @@ console from their authors' official releases, the first time a Windows game is 
 | [DXVK](https://github.com/doitsujin/dxvk) | Philip Rebohle and contributors | Zlib | Direct3D 8–11 on Vulkan (inside Proton) |
 | [VKD3D-Proton](https://github.com/HansKristian-Work/vkd3d-proton) | Hans-Kristian Arntzen and contributors | LGPL-2.1-or-later | Direct3D 12 on Vulkan (inside Proton) |
 | [Steam Linux Runtime](https://gitlab.steamos.cloud/steamrt/steam-runtime-tools) | Valve and contributors | various | The container Proton runs in (downloaded, not in the ISO) |
-| [DOSBox](https://www.dosbox.com) | The DOSBox Team and contributors | GPL-2.0-or-later | Runs GOG's DOS games, in place of the Windows DOSBox they come with |
+| [DOSBox Staging](https://www.dosbox-staging.org) | The DOSBox Staging Team and contributors, on DOSBox by the DOSBox Team | GPL-2.0-or-later | Runs GOG's DOS games, in place of the Windows DOSBox they come with (built by OwneetOS from source) |
+| [iir1](https://github.com/berndporr/iir1) | Bernd Porr and contributors | MIT | Audio filters inside DOSBox Staging |
+| [Munt (libmt32emu)](https://github.com/munt/munt) | The Munt team | LGPL-2.1-or-later | Roland MT-32 emulation inside DOSBox Staging |
 
 ## Sound, network, Bluetooth, system services
 
