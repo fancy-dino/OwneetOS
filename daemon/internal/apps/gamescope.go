@@ -337,6 +337,12 @@ func (g *Gamescope) watchConn(tag func(pid int) uint32, request func([]uint32), 
 
 // tagWindow tags a window with its app's id and returns that id (0: not an app's window).
 func (g *Gamescope) tagWindow(conn *xgb.Conn, atoms map[string]xproto.Atom, w xproto.Window, tag func(pid int) uint32, xres bool) uint32 {
+	// Wine's console window (a Windows program "for the console", e.g. GOG's DOSBox, or Proton's
+	// launcher) is never shown: an empty black terminal for a moment before the game (FrankenPC,
+	// 2026-10-16)
+	if consoleWindow(conn, w) {
+		return 0
+	}
 	pid, appID := 0, uint32(0)
 	if pids, err := cardinals(conn, w, atoms["_NET_WM_PID"]); err == nil && len(pids) > 0 && pids[0] > 0 {
 		pid = int(pids[0])
@@ -360,6 +366,20 @@ func (g *Gamescope) tagWindow(conn *xgb.Conn, atoms map[string]xproto.Atom, w xp
 		g.Log.Debug("window tagged", "window", w, "pid", pid, "app_id", appID)
 	}
 	return appID
+}
+
+// consoleWindow tells Wine's console host by its class ("conhost.exe")
+func consoleWindow(conn *xgb.Conn, w xproto.Window) bool {
+	reply, err := xproto.GetProperty(conn, false, w, xproto.AtomWmClass, xproto.AtomString, 0, 256).Reply()
+	if err != nil || reply == nil {
+		return false
+	}
+	for _, part := range strings.Split(string(reply.Value), "\x00") {
+		if strings.EqualFold(part, "conhost.exe") {
+			return true
+		}
+	}
+	return false
 }
 
 // clientPID is the process of the program that made a window, as the X server knows it
