@@ -289,8 +289,11 @@ void Backend::onProcessLaunched()
 {
     // OwneetOS: the interface is not unloaded while a game runs, so that it can be shown again
     // at once (Guide button). Gamepad input is paused so that the hidden interface does not react
-    // to the game's buttons.
-    m_api_private->gamepad().stop();
+    // to the game's buttons. With owneetd it pauses when the game is on screen (focus.changed),
+    // not before: a game whose window never shows up leaves the home screen usable (CAYNE's
+    // window stayed hidden and the console did not answer, FrankenPC 2026-10-16).
+    if (!m_frontend->daemon()->available())
+        m_api_private->gamepad().stop();
 }
 
 void Backend::onProcessFinished()
