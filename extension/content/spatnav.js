@@ -14,8 +14,8 @@
 //     (https://www.w3.org/TR/css-nav-1/, 2019): euclidean + displacement - alignment - sqrt(overlap).
 //  4. The column (or row) is remembered: going down and back up returns to the same place.
 //  5. Left / right stay in the container (the smallest box holding the current element and another
-//     target); with nothing there, they go to the target just before / after the container in the
-//     page's order, wherever it is (the owner's rule).
+//     target); with nothing there, they go to the target just before / after the current element in
+//     the page's order, wherever it is (the owner's rule).
 //
 // The geometry (pick, pickSideways) works on plain rectangles so that it can be tested without a browser
 // (test/spatnav.test.js).
@@ -105,14 +105,15 @@ var OwneetNav = (() => {
 
   // Left / right (the owner's rule): rects in page order, from the current one's index, s..e the
   // range of its container. The best in the container (pick), else the target just before / after
-  // the container. Returns an index or -1.
+  // the current one in the page's order (for the first / last of a row: the target before / after
+  // the row; in a vertical list: the item above / below). Returns an index or -1.
   function pickSideways(c, rects, from, dir, s, e, anchor) {
     const inBox = [];
     for (let i = s; i <= e; i++) if (i !== from) inBox.push(i);
     const k = pick(c, inBox.map(i => ({ rect: rects[i], level: 0, sameRow: true })), dir, anchor);
     if (k >= 0) return inBox[k];
-    if (dir === 'left') return s - 1;
-    return e + 1 < rects.length ? e + 1 : -1;
+    if (dir === 'left') return from - 1;
+    return from + 1 < rects.length ? from + 1 : -1;
   }
 
   // Reading order: line by line (centres closer than 20 px share a line), then left to right.
