@@ -33,6 +33,8 @@ public:
     static void applyChoice(model::Game& game, const QString& game_dir, const QString& file);
     /// A Windows game's own prefix, in the console's disk ([[step-4.5-windows-games-proton]])
     static QString windowsPrefix(const QString& game_dir);
+    /// A game's own folder on the console's disk: ~/.local/share/owneet/KIND/<name>-<hash>
+    static QString gameDataDir(const QString& kind, const QString& game_dir);
 
     /// Whether a mounted disk has a games folder at its top (the theme reads the games again only then)
     Q_INVOKABLE bool hasGames(const QString& root) const;

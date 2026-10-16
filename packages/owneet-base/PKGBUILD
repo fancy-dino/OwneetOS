@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.36
+pkgver=0.0.37
 pkgrel=1
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
@@ -15,6 +15,8 @@ depends=('base' 'owneet-keyring' 'owneet-session' 'owneet-branding' 'owneet-hard
          # Windows games: umu-launcher ([multilib]) runs them with Proton, which it downloads once
          # with its runtime ([[step-4.5-windows-games-proton]]; owneetd and owneet-windows-run)
          'umu-launcher'
+         # GOG's DOS games: Linux's own DOSBox instead of the Windows one GOG ships (owneet-dos-run)
+         'dosbox'
          # the installed system's file systems (btrfs root, FAT32 boot partition)
          'btrfs-progs' 'dosfstools')
 install=owneet-base.install

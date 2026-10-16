@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneetd
-pkgver=0.13.3
+pkgver=0.14.0
 pkgrel=1
 pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps, display) and owneetctl"
 arch=('x86_64')
@@ -22,7 +22,7 @@ _sdldb=c1d5289a1f713b30a2c121e9fe6529d39360be0f
 # owneetd-src.tar.gz is generated from daemon/ by tools/build-packages (listed in source-dirs).
 source=('owneetd-src.tar.gz' 'owneetd.service' '50-owneetd.preset'
         '70-owneet-uinput.rules' 'owneet-uinput.modules-load.conf' '50-owneet-networkmanager.rules'
-        'owneet-screens-off@.service' '50-owneet-screens.rules' 'owneet-windows-run'
+        'owneet-screens-off@.service' '50-owneet-screens.rules' 'owneet-windows-run' 'owneet-dos-run'
         "gamecontrollerdb-$_sdldb.txt::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/gamecontrollerdb.txt"
         "gamecontrollerdb-LICENSE-$_sdldb::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/LICENSE")
 sha256sums=('SKIP'
@@ -34,6 +34,7 @@ sha256sums=('SKIP'
             '53db6bb4d6294d2a72032d440cedd8221a54fa24a89a717efb7eab557ffaa504'
             '2eef4c58614327306c3346fbb04fe242b2be8f6cbcc521e4fdec6655e4e96208'
             '5c6fe4dd1f35027245436b565a8a2e3ddaf0862c9c627797dedd5045c842d573'
+            '352ae0272b36ca73599c48859e1cca56c1f70902a00d831f5ae10fbb0e7d66ad'
             'e606134678e6b3fdbdec9081289a1f0ba3e25d53b59b2aa3cdfe69bf491ad18f'
             '97f35b302b361680ec1e891e95d2d52097bb95abff361434916d99dc1305f127')
 
@@ -58,7 +59,7 @@ check() {
 package() {
   install -Dm755 daemon/owneetd daemon/owneetctl -t "$pkgdir/usr/bin/"
   install -Dm755 daemon/owneet-screens-off -t "$pkgdir/usr/lib/owneet/"
-  install -Dm755 owneet-windows-run -t "$pkgdir/usr/lib/owneet/"
+  install -Dm755 owneet-windows-run owneet-dos-run -t "$pkgdir/usr/lib/owneet/"
   install -Dm644 owneet-screens-off@.service -t "$pkgdir/usr/lib/systemd/system/"
   install -Dm644 50-owneet-screens.rules "$pkgdir/usr/share/polkit-1/rules.d/50-owneet-screens.rules"
   install -Dm644 owneetd.service "$pkgdir/usr/lib/systemd/user/owneetd.service"

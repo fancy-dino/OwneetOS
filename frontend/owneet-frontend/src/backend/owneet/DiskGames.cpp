@@ -72,6 +72,17 @@ void DiskGames::applyChoice(model::Game& game, const QString& game_dir, const QS
     // the Proton owneetd has made ready and its own prefix; GOG's play task adds its arguments
     // and working folder
     const QVariantMap& extra = game.extraMap();
+    // A GOG DOS game starts with Linux's DOSBox through owneet-dos-run (a copy on the console's
+    // disk, GOG's configuration files)
+    if (extra.value(QStringLiteral("disk.dos")).toBool() && extra.value(QStringLiteral("disk.gog.start")).toString() == file) {
+        QString cmd = QStringLiteral("/usr/lib/owneet/owneet-dos-run ") + quoted(gameDataDir(QStringLiteral("dos"), game_dir))
+            + QChar(' ') + quoted(game_dir) + QChar(' ') + quoted(extra.value(QStringLiteral("disk.gog.workdir")).toString());
+        const QString args = extra.value(QStringLiteral("disk.gog.args")).toString();
+        if (!args.isEmpty())
+            cmd += QChar(' ') + args;
+        game.setLaunchCmd(cmd).setLaunchWorkdir(game_dir);
+        return;
+    }
     if (extra.value(QStringLiteral("disk.windows")).toBool()) {
         const bool gog = extra.value(QStringLiteral("disk.gog.start")).toString() == file;
         QString cmd = QStringLiteral("/usr/lib/owneet/owneet-windows-run ") + quoted(windowsPrefix(game_dir))
@@ -105,13 +116,18 @@ void DiskGames::setQuietReading(bool quiet)
 
 QString DiskGames::windowsPrefix(const QString& game_dir)
 {
-    // one prefix per game, in the console's own disk (the game's disk may be read only): a
+    return gameDataDir(QStringLiteral("windows/prefixes"), game_dir);
+}
+
+QString DiskGames::gameDataDir(const QString& kind, const QString& game_dir)
+{
+    // one folder per game, in the console's own disk (the game's disk may be read only): a
     // readable name and a short hash of the game's folder
     QString slug = QFileInfo(game_dir).fileName().toLower();
     slug.replace(QRegularExpression(QStringLiteral("[^a-z0-9]+")), QStringLiteral("-"));
     slug = slug.left(40).remove(QRegularExpression(QStringLiteral("^-+|-+$")));
     const QString hash = QString::fromLatin1(QCryptographicHash::hash(game_dir.toUtf8(), QCryptographicHash::Sha1).toHex().left(10));
-    return paths::homePath() + QStringLiteral("/.local/share/owneet/windows/prefixes/") + slug + QChar('-') + hash;
+    return paths::homePath() + QStringLiteral("/.local/share/owneet/") + kind + QChar('/') + slug + QChar('-') + hash;
 }
 
 bool DiskGames::firstStart(QObject* game_obj) const

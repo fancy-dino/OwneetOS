@@ -23,7 +23,8 @@
 // game folder), "disk.root" (the disk's mount folder, "internal" for the home folder),
 // "disk.files" (what can start, relative to the game folder), "disk.start" (the file it starts
 // with, "" until chosen), "disk.windows" (a Windows game) with "disk.gog.start", "disk.gog.args"
-// and "disk.gog.workdir" (GOG's play task).
+// and "disk.gog.workdir" (GOG's play task), or "disk.dos": a DOS game GOG ships with its Windows
+// DOSBox (its play task starts dosbox.exe), started with Linux's own DOSBox instead (no Proton).
 
 #include "DiskGamesProvider.h"
 
@@ -359,8 +360,10 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                 extra.insert(QStringLiteral("disk.dir"), game_dir);
                 extra.insert(QStringLiteral("disk.root"), root.second);
                 extra.insert(QStringLiteral("disk.files"), files);
+                // GOG's DOS games: GOG's play task starts its DOSBox for Windows
+                const bool dos = windows && QFileInfo(gog.path).fileName().compare(QLatin1String("dosbox.exe"), Qt::CaseInsensitive) == 0;
                 if (windows) {
-                    extra.insert(QStringLiteral("disk.windows"), true);
+                    extra.insert(dos ? QStringLiteral("disk.dos") : QStringLiteral("disk.windows"), true);
                     if (!gog.path.isEmpty()) {
                         extra.insert(QStringLiteral("disk.gog.start"), gog.path);
                         extra.insert(QStringLiteral("disk.gog.args"), gog.args);
@@ -369,7 +372,7 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                 }
                 owneet::DiskGames::applyChoice(*game, game_dir, start);
                 Log::info(display_name(), LOGMSG("`%1`%2: %3 file(s) to start, starts `%4`%5")
-                    .arg(title, windows ? QStringLiteral(" (Windows)") : QString())
+                    .arg(title, dos ? QStringLiteral(" (DOS)") : windows ? QStringLiteral(" (Windows)") : QString())
                     .arg(files.size()).arg(start.isEmpty() ? QStringLiteral("(asks)") : start,
                                            gog.path.isEmpty() ? QString() : QStringLiteral(" (GOG's play task)")));
             }

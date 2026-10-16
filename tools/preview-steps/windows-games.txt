@@ -4,13 +4,13 @@
 # Windows games ([[step-4.5-windows-games-proton]], approved demo 4.5): listed like the other
 # games on the disk; the library having one starts the download they need the first time
 # (home notice, Settings → System, a banner when ready); A before that shows the progress;
-# afterwards "Preparing…" (Tyrian 2000 starts as GOG's info file says), or the usual question
-# (Ashen Gate, no info file: setup, uninstaller and redistributables not listed).
+# afterwards "Preparing…". Tyrian 2000 (GOG's DOSBox) is a DOS game: Linux's DOSBox, no download;
+# Ashen Gate has no info file: the usual question (setup, uninstaller, redistributables not listed).
 wait 2
 shot 01-home-notice
 pad rb
 shot 02-library
-pad right right right right right
+pad right right right right right right
 pad a
 shot 03-almost-ready
 pad a
