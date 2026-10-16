@@ -1942,6 +1942,11 @@ FocusScope {
         onVisibleChanged: if (!visible) root.backToPage()
     }
 
+    // ---- The cage session (5.2): the interface shows or hides its own window, as owneetd decides
+    CageWindow {
+        active: root.sessionMode === "cage"
+    }
+
     // ---- Steam starting (4.2): until Steam's or the game's window appears, or Steam stops
     SteamPreparing {
         id: steamPrep
