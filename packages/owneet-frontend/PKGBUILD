@@ -46,6 +46,26 @@ check() {
   # test_Playtime is left out: it fails now and then upstream too.
   cd build
   QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software ctest --output-on-failure -E 'test_Playtime'
+
+  # The theme loads without a QML warning. Some mistakes only show when the theme is loaded, not
+  # in the build: e.g. a property named like one of Item's own ("Cannot override FINAL
+  # property", 2026-10-17), after which the console cannot show its interface. The interface
+  # runs for 15 s without a screen, in an empty home folder.
+  local home status=0
+  home="$(mktemp -d)"
+  HOME="$home" XDG_CONFIG_HOME="$home/.config" XDG_DATA_HOME="$home/.local/share" \
+    QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software \
+    timeout 15 src/app/owneet-frontend > "$home/run.log" 2>&1 || status=$?
+  if grep -F 'qrc:/themes/' "$home/run.log"; then
+    echo "error: the theme gives the QML warnings above" >&2
+    return 1
+  fi
+  if (( status != 124 )) || ! grep -q 'Theme set to' "$home/run.log"; then
+    cat "$home/run.log" >&2
+    echo "error: the interface did not load its theme and keep running (exit status $status)" >&2
+    return 1
+  fi
+  rm -rf "$home"
 }
 
 package() {
