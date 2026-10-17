@@ -53,9 +53,9 @@ Item {
                 } else if (appRunning) {
                     root.hideWindow();             // under the app: shown again, it is the newest
                     root.showWindow();
-                } else {
-                    return;
                 }
+                // with no app left the console is simply on screen: the next app that starts
+                // covers it with its own window (hiding it then would leave the screen black)
                 root.raised = appRunning;
             } else if (root.raised) {
                 root.raised = false;

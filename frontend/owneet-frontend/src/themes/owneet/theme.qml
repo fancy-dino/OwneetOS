@@ -234,6 +234,8 @@ FocusScope {
                 root.catalogChanged(data);
             } else if (type === "webapp.keyboard") {
                 root.webKeyboard(data);
+            } else if (type === "webapp.ask_close") {
+                root.askCloseWebApp(data);
             }
         }
     }
@@ -266,7 +268,15 @@ FocusScope {
         const w = webApps.find(a => a.id === k.app);
         webKeys.open(k, w ? Tr.tr(w.nameKey) : (k.app || ""));
     }
-    function confirmClose(app) {
+    // B with nothing to go back to in a web app (5.2): owneetd brought the console in front;
+    // Cancel or B bring the web app back
+    function askCloseWebApp(data) {
+        const app = apps.find(a => a.id === "web:" + data.app);
+        if (app)
+            confirmClose(app, () => root.resume(app));
+    }
+    // back: what Cancel and B also do (e.g. bring the web app back)
+    function confirmClose(app, back) {
         const web = app.kind === "webapp";
         dialog.game = null;
         dialog.mode = "close";
@@ -281,10 +291,12 @@ FocusScope {
                     if (status >= 300 || status === 0) toast.show(Tr.tr("error.close"));
                 });
             } },
-            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => { dialog.close(); if (back) back(); } }
         ];
         dialog.defaultIndex = 1;             // Cancel first: no game closed by accident
         dialog.open();
+        if (back)
+            dialog.backAction = () => { dialog.close(true); back(); };
     }
 
     // ---- Notifications (3.11, approved demo design/demos/3.11-notifications.html): banners at the top
