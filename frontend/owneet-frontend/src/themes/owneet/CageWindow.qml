@@ -13,7 +13,7 @@ Item {
     property bool active: false        // cage session
     property bool raised: false        // the console was brought over a running app
     property bool hidden: false        // the console's window is hidden: an app is on screen
-    property string focus: ""          // what owneetd last put on screen
+    property string current: ""        // what owneetd last put on screen (Item has its own "focus")
     property var gone: ({})            // apps that exited (their event comes before the focus)
     property bool fullScreen: true     // how the window was shown before it was hidden
 
@@ -42,12 +42,12 @@ Item {
             }
             if (type !== "focus.changed")
                 return;
-            const before = root.focus;
-            root.focus = data.focus || "";
+            const before = root.current;
+            root.current = data.focus || "";
             if (!root.active)
                 return;
             const appRunning = before !== "" && before !== "home" && !root.gone[before];
-            if (root.focus === "home") {
+            if (root.current === "home") {
                 if (root.hidden) {
                     root.showWindow();             // back on screen (over the app, or alone)
                 } else if (appRunning) {
