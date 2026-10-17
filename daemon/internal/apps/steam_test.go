@@ -344,6 +344,73 @@ func TestSteamGameStartedInSteamAndSteamClosing(t *testing.T) {
 	}
 }
 
+// A Steam game that has no window yet keeps Steam's window off the screen (Silksong, FrankenPC
+// 2026-10-16: Steam's window was shown for 10 s before the game's): the home screen covers the
+// wait; Steam comes back behind the game once the game's window is there, or after steamAskAfter
+// without one (Steam may be asking the user something).
+func TestSteamStaysBehindAGameWithoutWindow(t *testing.T) {
+	m, units, focus, procs, _, ch := newSteamManager(t)
+	if err := m.Steam(SteamRequest{Run: "480", Name: "Spacewar"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "app.started") // Steam itself
+	steamUnit := units.started[0]
+	focus.openWindow(1001)
+	settle(m)
+	steamID := m.appIDOf(SteamID)
+	shown := func() []uint32 {
+		focus.mu.Lock()
+		defer focus.mu.Unlock()
+		return append([]uint32(nil), focus.shown...)
+	}
+	procs.add(1001, 1, steamUnit, "steam", "-gamepadui")
+	procs.add(2000, 1001, steamUnit, "reaper", "SteamLaunch", "AppId=480", "--", "/g/spacewar")
+	procs.add(2001, 2000, steamUnit, "/g/spacewar")
+	m.scanSteam()
+	next(t, ch, "app.started")
+	gameID := m.appIDOf("steam:480")
+	if got := shown(); !sameIDs(got, []uint32{gameID, HomeAppID}) || m.Status().Focus != "home" {
+		t.Fatalf("game without window: %v, focus %q", got, m.Status().Focus)
+	}
+	focus.request([]uint32{480, steamUIAppID}) // Steam asks for the game, then itself
+	if got := shown(); !sameIDs(got, []uint32{gameID, HomeAppID}) {
+		t.Fatalf("Steam's request before the game's window: %v", got)
+	}
+	focus.openWindow(2001)
+	m.checkWindows()
+	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) || m.Status().Focus != "steam:480" {
+		t.Fatalf("game's window: %v, focus %q", got, m.Status().Focus)
+	}
+	m.mu.Lock()
+	game := m.apps["steam:480"]
+	m.mu.Unlock()
+	m.steamGameNoWindow(game) // the game had its window: nothing changes
+	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) {
+		t.Fatalf("after steamAskAfter with a window: %v", got)
+	}
+
+	// another game that never opens a window: Steam is shown after steamAskAfter
+	procs.remove(2001)
+	procs.remove(2000)
+	m.scanSteam()
+	next(t, ch, "app.exited")
+	procs.add(3000, 1001, steamUnit, "reaper", "SteamLaunch", "AppId=570", "--", "/g/dota")
+	procs.add(3001, 3000, steamUnit, "/g/dota")
+	m.scanSteam()
+	next(t, ch, "app.started")
+	otherID := m.appIDOf("steam:570")
+	m.mu.Lock()
+	other := m.apps["steam:570"]
+	m.mu.Unlock()
+	if got := shown(); !sameIDs(got, []uint32{otherID, HomeAppID}) {
+		t.Fatalf("second game without window: %v", got)
+	}
+	m.steamGameNoWindow(other)
+	if got := shown(); !sameIDs(got, []uint32{otherID, steamID, HomeAppID}) || m.Status().Focus != SteamID {
+		t.Fatalf("after steamAskAfter without a window: %v, focus %q", got, m.Status().Focus)
+	}
+}
+
 // Steam writes what gamescope shows in its own codes: owneetd translates them while Steam is in
 // front, and puts its own choice back otherwise (Steam never takes the screen by itself).
 func TestSteamRequestsWhatToShow(t *testing.T) {
@@ -369,6 +436,7 @@ func TestSteamRequestsWhatToShow(t *testing.T) {
 	procs.add(2000, 1001, steamUnit, "reaper", "SteamLaunch", "AppId=480", "--", "/g/spacewar")
 	procs.add(2001, 2000, steamUnit, "/g/spacewar")
 	focus.openWindow(2001)
+	m.checkWindows() // the game's window came
 	gameID := m.appIDOf("steam:480")
 	focus.request([]uint32{480, steamUIAppID}) // the game, in Steam's codes
 	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) {

@@ -27,7 +27,7 @@ die() { echo "error: $*" >&2; exit 1; }
 info() { echo "==> $*"; }
 
 [[ -f "$REPO/owneet.db.tar.gz" ]] || die "no packages yet: tools/build-in-vm tools/build-packages"
-iso="${1:-$(ls "$ROOT"/out/*.iso 2>/dev/null | sort | head -1)}"
+iso="${1:-$(find "$ROOT/out" -maxdepth 1 -name '*.iso' | sort | head -1)}"
 [[ -f "$iso" ]] || die "no ISO in out/ or package list to know what the test PC has"
 
 # The test PC's packages: the ISO's list
@@ -76,4 +76,4 @@ fi
 for name in "${ours[@]}"; do cp "$REPO/$name"-[0-9]*.pkg.tar.zst "$OUT/"; done
 # --include-sigs: the Arch packages' signatures in the database, checked by the test PC
 repo-add --quiet --include-sigs "$OUT/owneet.db.tar.gz" "$OUT"/*.pkg.tar.zst
-info "out/update-repo/x86_64: $(ls "$OUT"/*.pkg.tar.zst | wc -l) packages ($(du -sh "$OUT" | cut -f1))"
+info "out/update-repo/x86_64: $(find "$OUT" -name '*.pkg.tar.zst' | wc -l) packages ($(du -sh "$OUT" | cut -f1))"

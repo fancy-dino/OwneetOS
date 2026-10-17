@@ -56,6 +56,10 @@ type App struct {
 	// and flashes windows while it starts: the console's "Preparing Steam" screen covers that)
 	settle bool
 	steady int // checks in a row with a window
+	// steamBehind: a Steam game whose window has not appeared yet; Steam's window is left out of
+	// what gamescope may show (Silksong, FrankenPC 2026-10-16: Steam's window was on screen for
+	// 10 s before the game's), the home screen's "Starting …" covers the wait (steam.go)
+	steamBehind bool
 }
 
 // settleChecks is how many once-a-second checks a settling app's window must stay before it is shown.
@@ -322,8 +326,9 @@ func (m *Manager) checkWindows() {
 	}
 	m.mu.Lock()
 	var ready []string
-	var bring []uint32 // settled apps to bring to the front
-	pending := ""      // Steam's first page, once Steam is shown
+	var bring []uint32  // settled apps to bring to the front
+	var behind []uint32 // Steam games whose window came: Steam back behind them
+	pending := ""       // Steam's first page, once Steam is shown
 	for _, a := range m.apps {
 		if a.window {
 			continue
@@ -331,6 +336,12 @@ func (m *Manager) checkWindows() {
 		if !shown[a.appID] {
 			a.steady = 0
 			continue
+		}
+		if a.steamBehind {
+			a.steamBehind = false
+			if s, ok := m.apps[SteamID]; ok && len(m.shown) > 0 && m.shown[0] == a.appID {
+				behind = append(behind, a.appID, s.appID)
+			}
 		}
 		if a.settle {
 			if a.steady++; a.steady < settleChecks {
@@ -350,6 +361,9 @@ func (m *Manager) checkWindows() {
 	m.mu.Unlock()
 	for _, id := range bring {
 		m.show(f, []uint32{id, HomeAppID})
+	}
+	if len(behind) == 2 {
+		m.show(f, []uint32{behind[0], behind[1], HomeAppID})
 	}
 	if pending != "" {
 		m.forwardSteam(pending, sess)

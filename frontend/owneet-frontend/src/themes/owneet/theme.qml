@@ -2394,11 +2394,11 @@ FocusScope {
         function onEvent(type, data) {
             if (!steamPrep.visible || !data) return;
             const id = data.id || "";
-            // started for a game, Steam stays hidden: wait for the game (or Steam, if it needs the user)
+            // started for a game, Steam stays hidden: wait for the game's window (owneetd keeps
+            // Steam behind until then), or Steam, if it needs the user (focus.changed)
             const steamWindow = id === "steam" && steamPrep.gameTitle === "";
             if ((type === "app.window" && (steamWindow || id.startsWith("steam:")))
-                    || (type === "app.started" && id.startsWith("steam:"))
-                    || (type === "app.exited" && (id === "steam" || steamPrep.windows))
+                    || (type === "app.exited" && (id === "steam" || id.startsWith("steam:") || steamPrep.windows))
                     || (type === "focus.changed" && data.focus !== "home"))
                 steamPrep.close(true);
         }

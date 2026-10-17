@@ -629,7 +629,8 @@ func (m *Manager) steamGame(appid string, reaper int, unit string) *App {
 		m.mu.Unlock()
 		return a
 	}
-	app := &App{ID: id, Name: name, Kind: KindGame, Started: time.Now(), unit: unit, appID: m.newAppID(id), reaper: reaper}
+	app := &App{ID: id, Name: name, Kind: KindGame, Started: time.Now(), unit: unit, appID: m.newAppID(id), reaper: reaper,
+		steamBehind: true}
 	m.apps[id] = app
 	if m.steamAsk != nil { // the game started: Steam did not need the user
 		m.steamAsk.Stop()
@@ -637,10 +638,6 @@ func (m *Manager) steamGame(appid string, reaper int, unit string) *App {
 	}
 	m.steamHidden = false
 	m.order = append(m.order, id)
-	steam := uint32(0)
-	if s, ok := m.apps[SteamID]; ok {
-		steam = s.appID
-	}
 	delete(m.steamNames, appid)
 	m.mu.Unlock()
 
@@ -648,11 +645,33 @@ func (m *Manager) steamGame(appid string, reaper int, unit string) *App {
 	m.Broker.Publish("app.started", map[string]string{"id": id, "name": name, "kind": KindGame})
 	if sess, err := m.Session(); err == nil {
 		if f := m.focus(sess); f != nil {
-			m.show(f, []uint32{app.appID, steam, HomeAppID})
+			// Steam behind the game only once the game's window is there (checkWindows)
+			m.show(f, []uint32{app.appID, HomeAppID})
 		}
 		m.cageFocus(sess)
 	}
+	time.AfterFunc(steamAskAfter, func() { m.steamGameNoWindow(app) })
 	return app
+}
+
+// steamGameNoWindow: steamAskAfter after a Steam game started, still without a window: Steam may
+// be waiting for the user (e.g. a question before the game), so it is shown behind the game again.
+func (m *Manager) steamGameNoWindow(app *App) {
+	m.mu.Lock()
+	steam, running := m.apps[SteamID]
+	wait := app.steamBehind && m.apps[app.ID] == app && running
+	front := len(m.shown) > 0 && m.shown[0] == app.appID
+	app.steamBehind = false
+	m.mu.Unlock()
+	if !wait || !front {
+		return
+	}
+	m.Log.Info("the Steam game has no window yet: Steam may be waiting for the user, shown", "id", app.ID)
+	if sess, err := m.Session(); err == nil {
+		if f := m.focus(sess); f != nil {
+			m.show(f, []uint32{app.appID, steam.appID, HomeAppID})
+		}
+	}
 }
 
 // scanSteam lists the games running inside Steam and notices the ones that ended.
@@ -754,14 +773,23 @@ func (m *Manager) steamRequest(ids []uint32) {
 				want = append(want, id)
 			}
 		}
+		// a game whose window has not appeared yet keeps Steam's window out (steamBehind)
+		behind := false
+		for _, a := range m.apps {
+			behind = behind || a.steamBehind
+		}
 		for _, id := range ids {
 			if id == steamUIAppID {
-				add(steam.appID)
+				if !behind {
+					add(steam.appID)
+				}
 			} else if g, ok := m.apps[steamGamePrefix+strconv.FormatUint(uint64(id), 10)]; ok {
 				add(g.appID)
 			}
 		}
-		add(steam.appID)
+		if !behind {
+			add(steam.appID)
+		}
 		add(HomeAppID)
 	}
 	m.mu.Unlock()
