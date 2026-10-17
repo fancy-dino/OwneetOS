@@ -104,5 +104,5 @@ done
 printf '[sdl]\nfullscreen=true\n' > "$data/conf/owneet.conf"
 
 cd "$cwd" || exit 1
-echo "owneet-dos-run: dosbox ${args[*]} -conf $data/conf/owneet.conf  (in $cwd)"
-exec dosbox "${args[@]}" -conf "$data/conf/owneet.conf"
+echo "owneet-dos-run: dosbox-staging ${args[*]} -conf $data/conf/owneet.conf  (in $cwd)"
+exec dosbox-staging "${args[@]}" -conf "$data/conf/owneet.conf"

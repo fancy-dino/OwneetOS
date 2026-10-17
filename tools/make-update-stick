@@ -14,6 +14,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO="$ROOT/out/repo/x86_64"
+# With the Arch Linux packages the update needs (tools/update-extras), when made after the packages
+EXTRAS="$ROOT/out/update-repo/x86_64"
+if [[ -f "$EXTRAS/owneet.db.tar.gz" && ! "$EXTRAS/owneet.db.tar.gz" -ot "$REPO/owneet.db.tar.gz" ]]; then
+    REPO="$EXTRAS"
+fi
 
 die() { echo "error: $*" >&2; exit 1; }
 

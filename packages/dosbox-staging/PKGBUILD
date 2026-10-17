@@ -10,7 +10,7 @@
 
 pkgname=dosbox-staging
 pkgver=0.83.0
-pkgrel=1
+pkgrel=2
 _iir1=1.10.0
 _mt32emu=2.8.2
 pkgdesc="DOSBox Staging, a DOS emulator (with the iir1 and libmt32emu libraries built in), for GOG's DOS games in OwneetOS"
@@ -21,8 +21,6 @@ license=('GPL-2.0-or-later' 'MIT' 'LGPL-2.1-or-later')
 depends=('sdl2-compat' 'sdl2_net' 'sdl2_image' 'opusfile' 'alsa-lib' 'libpng' 'speexdsp'
          'libslirp' 'fluidsynth' 'zlib-ng' 'libglvnd' 'hicolor-icon-theme')
 makedepends=('cmake' 'ninja' 'asio')
-provides=('dosbox')
-conflicts=('dosbox')
 options=('!debug')
 source=("dosbox-staging-$pkgver.tar.gz::https://github.com/dosbox-staging/dosbox-staging/archive/refs/tags/v$pkgver.tar.gz"
         "iir1-$_iir1.tar.gz::https://github.com/berndporr/iir1/archive/refs/tags/$_iir1.tar.gz"
@@ -75,6 +73,13 @@ package() {
     mv "$pkgdir/usr/share/dosbox-staging/resources"/* "$pkgdir/usr/share/dosbox-staging/"
     rmdir "$pkgdir/usr/share/dosbox-staging/resources"
   fi
+  # Named dosbox-staging, next to Arch Linux's dosbox and not in its place: test PCs that had it
+  # (step 4.5, 2026-10-16) update without removing it (pacman --noconfirm never removes)
+  mv "$pkgdir/usr/bin/dosbox" "$pkgdir/usr/bin/dosbox-staging"
+  for man in "$pkgdir"/usr/share/man/man1/dosbox.1*; do
+    mv "$man" "${man/\/dosbox./\/dosbox-staging.}"
+  done
+  sed -i 's/^Exec=dosbox\b/Exec=dosbox-staging/' "$pkgdir"/usr/share/applications/*.desktop
   # DOSBox Staging installs its licence texts in /usr/share/doc/dosbox-staging
   install -Dm644 "dosbox-staging-$pkgver/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 "iir1-$_iir1/COPYING" "$pkgdir/usr/share/licenses/$pkgname/COPYING.iir1"

@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Testers only ([[step-4.2b-updates-from-a-usb-stick]]): the Arch Linux packages that the OwneetOS
+# packages of out/repo need and that a test PC does not have, downloaded from the ISO's Arch Linux
+# Archive snapshot with Arch's signatures, and put with the OwneetOS packages in
+# out/update-repo/x86_64. tools/make-update-stick copies that repository when it exists: the test
+# PC installs the update without internet (the Archive can be too slow for pacman, 2026-10-17).
+# Runs in the builder VM, after tools/build-packages:
+#
+#   tools/build-in-vm tools/update-extras [ISO | PACKAGE-LIST]
+#
+# What the test PC has: the packages of the ISO it was installed from (default: the oldest out/*.iso
+# in the VM), or that ISO's package list (owneet/pkglist.x86_64.txt, "name version" lines).
+# owneet-tester-install copies the live system, so that list is the installed one. Arch packages
+# installed since are put on the stick again: pacman leaves installed ones alone.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO="$ROOT/out/repo/x86_64"
+OUT="$ROOT/out/update-repo/x86_64"
+WORK="$(mktemp -d)"
+trap 'sudo rm -rf "$WORK"' EXIT
+
+die() { echo "error: $*" >&2; exit 1; }
+info() { echo "==> $*"; }
+
+[[ -f "$REPO/owneet.db.tar.gz" ]] || die "no packages yet: tools/build-in-vm tools/build-packages"
+iso="${1:-$(ls "$ROOT"/out/*.iso 2>/dev/null | sort | head -1)}"
+[[ -f "$iso" ]] || die "no ISO in out/ or package list to know what the test PC has"
+
+# The test PC's packages: the ISO's list
+if [[ "$iso" == *.iso ]]; then bsdtar -xOf "$iso" owneet/pkglist.x86_64.txt 2>/dev/null; else cat "$iso"; fi \
+    | awk '{ print $1 }' | sort -u > "$WORK/has.txt"
+[[ -s "$WORK/has.txt" ]] || die "$(basename "$iso") has no package list"
+info "the test PC has $(wc -l < "$WORK/has.txt") packages ($(basename "$iso"))"
+
+# pacman with its own database (root in the VM only): the ISO's snapshot and the OwneetOS packages
+mkdir -p "$WORK/db" "$WORK/cache"
+grep -v '^NoExtract' "$ROOT/iso/pacman.conf" > "$WORK/pacman.conf"
+printf '\n[owneet]\nSigLevel = Optional TrustAll\nServer = file://%s\n' "$REPO" >> "$WORK/pacman.conf"
+# the Archive can take 20 s and more to answer: no download time limit
+p() { sudo pacman --config "$WORK/pacman.conf" --dbpath "$WORK/db" --noconfirm --disable-download-timeout "$@"; }
+p -Sy >/dev/null
+
+# Everything the OwneetOS packages need, minus what the test PC has and the OwneetOS packages.
+# Only the packages of packages/ (out/repo may keep others from another branch's build)
+mapfile -t ours < <(find "$ROOT/packages" -mindepth 2 -maxdepth 2 -name PKGBUILD -printf '%h\n' | xargs -rn1 basename | sort)
+p -Sp --print-format '%n' "${ours[@]/#/owneet/}" | sort -u > "$WORK/all.txt"
+comm -23 "$WORK/all.txt" "$WORK/has.txt" | { grep -vxF -f <(printf '%s\n' "${ours[@]}") || true; } > "$WORK/extra.txt"
+
+sudo rm -rf "$OUT"
+mkdir -p "$OUT"
+if [[ -s "$WORK/extra.txt" ]]; then
+    mapfile -t extra < "$WORK/extra.txt"
+    info "Arch Linux packages the update needs: ${extra[*]}"
+    # Only these (-dd: not their dependencies again); pacman checks them against Arch's keys
+    p -Swdd --cachedir "$WORK/cache" "${extra[@]}" >/dev/null
+    sudo chown -R "$(id -u):$(id -g)" "$WORK/cache"
+    # Their signatures go next to them: repo-add puts them in the stick's database, so the test
+    # PC checks them too
+    while read -r url; do
+        f="$WORK/cache/${url##*/}"
+        [[ -f "$f" ]] || die "pacman did not download ${url##*/}"
+        [[ -f "$f.sig" ]] || curl -fsSL --retry 3 -o "$f.sig" "$url.sig"
+        # FAT32 has no ":" in file names (packages with an epoch, e.g. sdl2_net-2:2.4.0): the
+        # database keeps the file's own name, so pacman finds it under the new one
+        name="${url##*/}"
+        cp "$f" "$OUT/${name//:/_}"
+        cp "$f.sig" "$OUT/${name//:/_}.sig"
+    done < <(p -Spdd --print-format '%l' "${extra[@]}")
+else
+    info "no Arch Linux packages needed beyond the test PC's"
+fi
+for name in "${ours[@]}"; do cp "$REPO/$name"-[0-9]*.pkg.tar.zst "$OUT/"; done
+# --include-sigs: the Arch packages' signatures in the database, checked by the test PC
+repo-add --quiet --include-sigs "$OUT/owneet.db.tar.gz" "$OUT"/*.pkg.tar.zst
+info "out/update-repo/x86_64: $(ls "$OUT"/*.pkg.tar.zst | wc -l) packages ($(du -sh "$OUT" | cut -f1))"
