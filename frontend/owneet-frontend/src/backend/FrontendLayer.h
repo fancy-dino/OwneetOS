@@ -20,7 +20,7 @@
 #include <QObject>
 
 class QQmlApplicationEngine;
-namespace owneet { class Daemon; class I18n; class Storage; class SystemInfo; }
+namespace owneet { class Daemon; class I18n; class Overlay; class Storage; class SystemInfo; }
 
 
 /// Manages the dynamic reload of the frontend layer
@@ -57,4 +57,5 @@ private:
     owneet::Storage* const m_storage; // OwneetOS: disks and free space, `storage` in QML
     owneet::Daemon* const m_daemon; // OwneetOS: owneetd client, `owneetd` in QML
     owneet::SystemInfo* const m_system_info; // OwneetOS: version, credits, packages: `systemInfo`
+    owneet::Overlay* const m_overlay; // OwneetOS: windows over the app in gamescope: `overlay`
 };

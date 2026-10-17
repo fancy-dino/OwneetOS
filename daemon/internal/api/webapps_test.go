@@ -20,6 +20,7 @@ func (f *webAppScreen) Status() apps.Status {
 }
 func (f *webAppScreen) ShowHome() error          { return nil }
 func (f *webAppScreen) FocusApp(id string) error { return nil }
+func (f *webAppScreen) Layered() bool            { return false }
 
 func TestWebAppsEndpoints(t *testing.T) {
 	s, c, _ := start(t)

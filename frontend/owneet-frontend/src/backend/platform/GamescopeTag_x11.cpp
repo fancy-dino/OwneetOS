@@ -7,6 +7,7 @@
 
 #include <QGuiApplication>
 #include <QPointer>
+#include <QSurfaceFormat>
 #include <QTimer>
 #include <QWindow>
 
@@ -107,6 +108,34 @@ void tag_windows_for_gamescope(const QList<QObject*>& root_objects)
     tag_and_show_home(windows);
     for (const int ms : { 1000, 3000, 10000, 30000 })
         QTimer::singleShot(ms, [windows]() { tag_and_show_home(windows); });
+}
+
+void make_external_overlay(QWindow* window)
+{
+    if (!window || QGuiApplication::platformName() != QLatin1String("xcb"))
+        return;
+
+    // Transparent where nothing is drawn: the page shows through
+    QSurfaceFormat format = window->requestedFormat();
+    format.setAlphaBufferSize(8);
+    window->setFormat(format);
+    window->create();
+
+    xcb_connection_t* const conn = xcb_connect(nullptr, nullptr);
+    if (xcb_connection_has_error(conn)) {
+        xcb_disconnect(conn);
+        return;
+    }
+    // gamescope reads it when the window is mapped: set before the window is first shown
+    const xcb_atom_t overlay = intern_atom(conn, "GAMESCOPE_EXTERNAL_OVERLAY");
+    if (overlay != XCB_ATOM_NONE) {
+        const uint32_t on = 1;
+        xcb_change_property(conn, XCB_PROP_MODE_REPLACE, static_cast<xcb_window_t>(window->winId()),
+                            overlay, XCB_ATOM_CARDINAL, 32, 1, &on);
+        Log::info(LOGTAG, LOGMSG("Window `%1` is a gamescope overlay").arg(window->title()));
+    }
+    xcb_flush(conn);
+    xcb_disconnect(conn);
 }
 
 } // namespace platform

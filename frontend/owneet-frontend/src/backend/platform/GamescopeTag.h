@@ -6,6 +6,7 @@
 #include <QList>
 
 class QObject;
+class QWindow;
 
 
 namespace platform {
@@ -17,5 +18,11 @@ namespace platform {
 /// does both; doing them here as well (the second only if unset) keeps the interface visible
 /// even when owneetd is not running. Does nothing outside X11.
 void tag_windows_for_gamescope(const QList<QObject*>& root_objects);
+
+/// Makes a window a gamescope external overlay (X11 property GAMESCOPE_EXTERNAL_OVERLAY = 1):
+/// gamescope draws it over the app on screen, blended with its transparency, and never gives it
+/// the input focus (the app keeps it). Asks for a surface with an alpha channel, so call it before
+/// the window is first shown. Does nothing outside X11.
+void make_external_overlay(QWindow* window);
 
 } // namespace platform

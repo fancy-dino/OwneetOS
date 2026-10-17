@@ -5,6 +5,8 @@ target_sources(pegasus-backend PRIVATE
     Daemon.h
     I18n.cpp
     I18n.h
+    Overlay.cpp
+    Overlay.h
     Storage.cpp
     Storage.h
     SystemInfo.cpp

@@ -15,9 +15,12 @@ import (
 
 type fakeScreen struct {
 	running []apps.App
+	layered bool
 	mu      sync.Mutex
 	shown   []string
 }
+
+func (f *fakeScreen) Layered() bool { return f.layered }
 
 func (f *fakeScreen) Status() apps.Status { return apps.Status{Apps: f.running} }
 func (f *fakeScreen) ShowHome() error     { return f.FocusApp("home") }
@@ -224,5 +227,28 @@ func TestKeyboardClosesWhenItsWebAppExits(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	if got := s.screens(1); len(got) != 1 {
 		t.Errorf("shown: %v (nothing to bring back)", got)
+	}
+}
+
+// In gamescope the keyboard is drawn over the page: the web app stays in front, opening and
+// closing it change nothing on screen. "Close {name}?" still brings the console in front.
+func TestLayeredKeyboardLeavesTheWebAppInFront(t *testing.T) {
+	h, s, ch := hub(t, netflix)
+	s.layered = true
+	if err := h.SetKeyboard(Keyboard{Open: true, Kind: "text"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch)
+	h.KeyboardShown()
+	if err := h.SetKeyboard(Keyboard{Open: false, Next: true}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch)
+	if got := s.screens(0); len(got) != 0 {
+		t.Errorf("shown: %v (want nothing)", got)
+	}
+	h.AskClose()
+	if got := s.screens(1); len(got) != 1 || got[0] != "home" {
+		t.Errorf("ask close shown: %v", got)
 	}
 }

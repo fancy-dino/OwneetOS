@@ -800,6 +800,13 @@ func (m *Manager) FocusApp(id string) error {
 	return ErrNoWindow
 }
 
+// Layered: the session can draw the interface's windows over an app (gamescope, whose external
+// overlays the interface uses for the web keyboard, [[step-5.2-extension-core]] part 6).
+func (m *Manager) Layered() bool {
+	sess, err := m.Session()
+	return err == nil && sess.Mode == "gamescope"
+}
+
 // ShowHome brings the home screen to the front; the app keeps running, e.g. a web app while the
 // console's keyboard types into it ([[extension-design]]). In the cage session it only says so:
 // the interface shows its own window again, and cage shows the newest window.

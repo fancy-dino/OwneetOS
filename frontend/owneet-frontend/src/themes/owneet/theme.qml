@@ -141,7 +141,7 @@ FocusScope {
     }
     readonly property bool modalOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
                                       || notices.visible || quick.visible || controls.visible || steamPrep.visible
-                                      || webKeys.visible
+                                      || webKeys.shown
     function backToPage() { Qt.callLater(() => { if (!root.modalOpen) root.page.forceActiveFocus(); }); }
 
     // ---- Buttons the sections leave to the whole interface (section 9.1)
@@ -1924,7 +1924,7 @@ FocusScope {
     UiSounds {
         id: sounds
         dir: systemInfo.soundsDir
-        muted: root.gameOnScreen
+        muted: root.gameOnScreen && !webKeys.shown    // the web keyboard is the console's
     }
     Connections {
         target: Nav
@@ -1974,6 +1974,7 @@ FocusScope {
     // ---- The web keyboard (5.2): the console's keyboard for a web app's text field
     WebKeyboard {
         id: webKeys
+        layered: root.sessionMode === "gamescope"     // drawn over the page (part 6)
         layout: osk.layout
         onFinished: root.backToPage()
     }

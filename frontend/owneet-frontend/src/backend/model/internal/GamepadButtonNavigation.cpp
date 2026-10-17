@@ -19,6 +19,7 @@
 
 #include <QGuiApplication>
 #include <QKeyEvent>
+#include <QPointer>
 #include <QTimer>
 #include <QWindow>
 
@@ -38,18 +39,26 @@ bool is_page_button(GamepadButton b)
     return b == GamepadButton::L1 || b == GamepadButton::R1 || b == GamepadButton::L2 || b == GamepadButton::R2;
 }
 
+QPointer<QObject> key_target; // OwneetOS: see GamepadButtonNavigation::setKeyTarget
+
 void emit_key(Qt::Key key, QEvent::Type event_type, bool autorep)
 {
     Q_ASSERT(key != Qt::Key_unknown);
     Q_ASSERT(event_type == QEvent::KeyPress || event_type == QEvent::KeyRelease);
 
-    QWindow* const focus_window = qApp ? qApp->focusWindow() : nullptr;
-    if (focus_window) {
+    QObject* const target = key_target ? key_target.data()
+                                       : (qApp ? static_cast<QObject*>(qApp->focusWindow()) : nullptr);
+    if (target) {
         QKeyEvent event(event_type, key, Qt::NoModifier, QString(), autorep);
-        QGuiApplication::sendEvent(focus_window, &event);
+        QGuiApplication::sendEvent(target, &event);
     }
 }
 } // namespace
+
+void GamepadButtonNavigation::setKeyTarget(QObject* target)
+{
+    key_target = target;
+}
 
 GamepadButtonNavigation::GamepadButtonNavigation(QObject* parent)
     : QObject(parent)

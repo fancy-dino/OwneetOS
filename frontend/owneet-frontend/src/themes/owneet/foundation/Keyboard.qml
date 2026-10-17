@@ -14,6 +14,7 @@ FocusScope {
     property Item target: null            // the TextInput to type into
     property bool password: false         // shows the show / hide key
     property bool showPassword: false
+    property bool eyeKey: true            // false: no show / hide key (nothing here shows the text)
     property string layout: "us"          // us, it
     signal done()                         // Done (or Menu, or Enter on a keyboard)
     signal closed()                       // B
@@ -50,7 +51,7 @@ FocusScope {
         out[out.length - 1].unshift({ t: "shift", w: 1.6 });
         const next = pages[(pages.indexOf(page) + 1) % pages.length];
         out.push([{ t: "page", p: next, w: 1.6 }, { t: "left", w: 1 }, { t: "space", w: 5.5 }, { t: "right", w: 1 }]
-                 .concat(password ? [{ t: "eye", w: 1 }] : [], [{ t: "done", w: 2.1 }]));
+                 .concat(password && eyeKey ? [{ t: "eye", w: 1 }] : [], [{ t: "done", w: 2.1 }]));
         return out;
     }
 

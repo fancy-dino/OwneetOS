@@ -64,6 +64,9 @@ type Screen interface {
 	Status() apps.Status
 	ShowHome() error
 	FocusApp(id string) error
+	// Layered: the session can draw the interface's windows over an app (gamescope). The web
+	// keyboard is then drawn over the page, and the web app stays in front (part 6).
+	Layered() bool
 }
 
 // ConfirmWithin is how long the interface has to confirm that it shows the keyboard.
@@ -153,7 +156,9 @@ func (h *Hub) SetKeyboard(k Keyboard) error {
 		gen := h.gen
 		h.mu.Unlock()
 		h.Broker.Publish("webapp.keyboard", k)
-		h.show(func(s Screen) error { return s.ShowHome() })
+		if !h.layered() {
+			h.show(func(s Screen) error { return s.ShowHome() })
+		}
 		time.AfterFunc(or(h.Confirm, ConfirmWithin), func() {
 			h.mu.Lock()
 			unconfirmed := h.gen == gen && h.keyboard.Open && !h.shown
@@ -182,7 +187,7 @@ func (h *Hub) closeKeyboard(gen int, next, back bool) {
 	h.shown = false
 	h.mu.Unlock()
 	h.Broker.Publish("webapp.keyboard", Keyboard{Open: false, Next: next, App: was.App})
-	if back {
+	if back && !h.layered() {
 		h.show(func(s Screen) error { return s.FocusApp("web:" + was.App) })
 	}
 }
@@ -299,6 +304,9 @@ func (h *Hub) AskClose() error {
 	h.show(func(s Screen) error { return s.ShowHome() })
 	return nil
 }
+
+// layered: the keyboard is drawn over the web app, which stays in front.
+func (h *Hub) layered() bool { return h.Screen != nil && h.Screen.Layered() }
 
 // show changes what is on screen (in the cage session the interface carries it out).
 func (h *Hub) show(do func(Screen) error) {
