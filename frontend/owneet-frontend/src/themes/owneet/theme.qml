@@ -518,7 +518,10 @@ FocusScope {
         Nav.feedback("launch");
         if (!open)
             toast.show(Tr.tr("toast.app.open", { app: Tr.tr(app.nameKey) }));
-        owneetd.post("/v1/apps/catalog/" + encodeURIComponent(app.id) + "/open", {}, (status, data) => {
+        // The extension draws with the console's accent and language (5.2, [[extension-design]])
+        const hex = c => "#" + [c.r, c.g, c.b].map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join("");
+        const look = { accent: hex(Theme.accent), language: Tr.language };
+        owneetd.post("/v1/apps/catalog/" + encodeURIComponent(app.id) + "/open", look, (status, data) => {
             if (status === 204 || status === 200)
                 return;
             const code = data && data.error ? data.error.code : "";
