@@ -8,6 +8,7 @@
 #include <QGuiApplication>
 #include <QPointer>
 #include <QSurfaceFormat>
+#include <QThread>
 #include <QTimer>
 #include <QWindow>
 
@@ -110,6 +111,63 @@ void tag_windows_for_gamescope(const QList<QObject*>& root_objects)
         QTimer::singleShot(ms, [windows]() { tag_and_show_home(windows); });
 }
 
+} // namespace platform
+
+
+namespace {
+
+// The overlay property, set from a connection of our own. It must not overtake Qt's own request
+// that creates the window (FrankenPC, 2026-10-17: the property never reached the window), so it
+// waits until the server knows the window, checks every request, and reads the result back.
+void apply_overlay_kind(QWindow* window, const QString& kind, const QString& when)
+{
+    xcb_connection_t* const conn = xcb_connect(nullptr, nullptr);
+    if (xcb_connection_has_error(conn)) {
+        xcb_disconnect(conn);
+        Log::warning(LOGTAG, LOGMSG("Overlay `%1`: no connection to the X server").arg(window->title()));
+        return;
+    }
+    const auto xid = static_cast<xcb_window_t>(window->winId());
+    bool exists = false;
+    for (int i = 0; i < 20 && !exists; i++) {
+        xcb_get_window_attributes_reply_t* const attrs = xcb_get_window_attributes_reply(conn,
+            xcb_get_window_attributes(conn, xid), nullptr);
+        exists = attrs != nullptr;
+        std::free(attrs);
+        if (!exists)
+            QThread::msleep(50);
+    }
+    const xcb_atom_t external = intern_atom(conn, "GAMESCOPE_EXTERNAL_OVERLAY");
+    const xcb_atom_t steam = intern_atom(conn, "STEAM_OVERLAY");
+    const bool is_steam = kind == QLatin1String("steam");
+    const xcb_atom_t on = is_steam ? steam : external;
+    const xcb_atom_t off = is_steam ? external : steam;
+    const uint32_t one = 1;
+
+    xcb_generic_error_t* const err_off = xcb_request_check(conn, xcb_delete_property_checked(conn, xid, off));
+    xcb_generic_error_t* const err_on = xcb_request_check(conn, xcb_change_property_checked(conn,
+        XCB_PROP_MODE_REPLACE, xid, on, XCB_ATOM_CARDINAL, 32, 1, &one));
+    xcb_get_property_reply_t* const back = xcb_get_property_reply(conn,
+        xcb_get_property(conn, 0, xid, on, XCB_ATOM_CARDINAL, 0, 1), nullptr);
+    const bool set = back && xcb_get_property_value_length(back) == 4
+        && *static_cast<uint32_t*>(xcb_get_property_value(back)) == 1;
+    Log::info(LOGTAG, LOGMSG("Overlay `%1` (0x%2), %3: %4 %5 (window known: %6, errors: %7 / %8)")
+        .arg(window->title(), QString::number(xid, 16), when,
+             is_steam ? QStringLiteral("STEAM_OVERLAY") : QStringLiteral("GAMESCOPE_EXTERNAL_OVERLAY"),
+             set ? QStringLiteral("set") : QStringLiteral("NOT set"),
+             exists ? QStringLiteral("yes") : QStringLiteral("no"),
+             QString::number(err_off ? err_off->error_code : 0), QString::number(err_on ? err_on->error_code : 0)));
+    std::free(back);
+    std::free(err_off);
+    std::free(err_on);
+    xcb_disconnect(conn);
+}
+
+} // namespace
+
+
+namespace platform {
+
 void make_external_overlay(QWindow* window)
 {
     if (!window || QGuiApplication::platformName() != QLatin1String("xcb"))
@@ -120,22 +178,7 @@ void make_external_overlay(QWindow* window)
     format.setAlphaBufferSize(8);
     window->setFormat(format);
     window->create();
-
-    xcb_connection_t* const conn = xcb_connect(nullptr, nullptr);
-    if (xcb_connection_has_error(conn)) {
-        xcb_disconnect(conn);
-        return;
-    }
-    // gamescope reads it when the window is mapped: set before the window is first shown
-    const xcb_atom_t overlay = intern_atom(conn, "GAMESCOPE_EXTERNAL_OVERLAY");
-    if (overlay != XCB_ATOM_NONE) {
-        const uint32_t on = 1;
-        xcb_change_property(conn, XCB_PROP_MODE_REPLACE, static_cast<xcb_window_t>(window->winId()),
-                            overlay, XCB_ATOM_CARDINAL, 32, 1, &on);
-        Log::info(LOGTAG, LOGMSG("Window `%1` is a gamescope overlay").arg(window->title()));
-    }
-    xcb_flush(conn);
-    xcb_disconnect(conn);
+    apply_overlay_kind(window, QStringLiteral("external"), QStringLiteral("created"));
 }
 
 void set_overlay_kind(QWindow* window, const QString& kind)
@@ -143,26 +186,16 @@ void set_overlay_kind(QWindow* window, const QString& kind)
     if (!window || QGuiApplication::platformName() != QLatin1String("xcb"))
         return;
 
-    xcb_connection_t* const conn = xcb_connect(nullptr, nullptr);
-    if (xcb_connection_has_error(conn)) {
-        xcb_disconnect(conn);
-        return;
+    // Before the window is shown (gamescope reads it when the window is mapped), and again once it
+    // is on screen (gamescope also reads every change of it)
+    apply_overlay_kind(window, kind, QStringLiteral("before showing"));
+    const QPointer<QWindow> later(window);
+    for (const int ms : { 300, 1500 }) {
+        QTimer::singleShot(ms, [later, kind, ms]() {
+            if (later && later->isVisible())
+                apply_overlay_kind(later, kind, QStringLiteral("shown %1 ms").arg(ms));
+        });
     }
-    const auto xid = static_cast<xcb_window_t>(window->winId());
-    const xcb_atom_t external = intern_atom(conn, "GAMESCOPE_EXTERNAL_OVERLAY");
-    const xcb_atom_t steam = intern_atom(conn, "STEAM_OVERLAY");
-    const bool is_steam = kind == QLatin1String("steam");
-    const xcb_atom_t on = is_steam ? steam : external;
-    const xcb_atom_t off = is_steam ? external : steam;
-    const uint32_t one = 1;
-    if (off != XCB_ATOM_NONE)
-        xcb_delete_property(conn, xid, off);
-    if (on != XCB_ATOM_NONE)
-        xcb_change_property(conn, XCB_PROP_MODE_REPLACE, xid, on, XCB_ATOM_CARDINAL, 32, 1, &one);
-    xcb_flush(conn);
-    xcb_disconnect(conn);
-    Log::info(LOGTAG, LOGMSG("Window `%1` (0x%2) is now a gamescope %3 overlay (test)")
-        .arg(window->title(), QString::number(xid, 16), is_steam ? QStringLiteral("STEAM_OVERLAY") : QStringLiteral("external")));
 }
 
 } // namespace platform
