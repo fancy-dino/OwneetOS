@@ -151,12 +151,14 @@ void apply_overlay_kind(QWindow* window, const QString& kind, const QString& whe
         xcb_get_property(conn, 0, xid, on, XCB_ATOM_CARDINAL, 0, 1), nullptr);
     const bool set = back && xcb_get_property_value_length(back) == 4
         && *static_cast<uint32_t*>(xcb_get_property_value(back)) == 1;
-    Log::info(LOGTAG, LOGMSG("Overlay `%1` (0x%2), %3: %4 %5 (window known: %6, errors: %7 / %8)")
-        .arg(window->title(), QString::number(xid, 16), when,
-             is_steam ? QStringLiteral("STEAM_OVERLAY") : QStringLiteral("GAMESCOPE_EXTERNAL_OVERLAY"),
-             set ? QStringLiteral("set") : QStringLiteral("NOT set"),
-             exists ? QStringLiteral("yes") : QStringLiteral("no"),
-             QString::number(err_off ? err_off->error_code : 0), QString::number(err_on ? err_on->error_code : 0)));
+    // Only a failure is logged (one line per opening would be noise)
+    if (!set || err_off || err_on) {
+        Log::warning(LOGTAG, LOGMSG("Overlay `%1` (0x%2), %3: %4 NOT set (window known: %5, errors: %6 / %7)")
+            .arg(window->title(), QString::number(xid, 16), when,
+                 is_steam ? QStringLiteral("STEAM_OVERLAY") : QStringLiteral("GAMESCOPE_EXTERNAL_OVERLAY"),
+                 exists ? QStringLiteral("yes") : QStringLiteral("no"),
+                 QString::number(err_off ? err_off->error_code : 0), QString::number(err_on ? err_on->error_code : 0)));
+    }
     std::free(back);
     std::free(err_off);
     std::free(err_on);

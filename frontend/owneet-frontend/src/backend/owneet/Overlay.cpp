@@ -5,8 +5,6 @@
 #include "model/internal/GamepadButtonNavigation.h"
 #include "platform/GamescopeTag.h"
 
-#include "Log.h"
-
 #include <QPointer>
 #include <QTimer>
 #include <QWindow>
@@ -36,7 +34,6 @@ void Overlay::showOverlay(QObject* object)
     window->setOpacity(1.0);
     platform::set_overlay_kind(window, QStringLiteral("external"));
     window->show();
-    Log::info(QStringLiteral("Overlay"), QStringLiteral("`%1`: shown").arg(window->title()));
 }
 
 void Overlay::hideOverlay(QObject* object)
@@ -45,14 +42,10 @@ void Overlay::hideOverlay(QObject* object)
     if (!window)
         return;
     window->setOpacity(0.0);
-    Log::info(QStringLiteral("Overlay"), QStringLiteral("`%1`: transparent, hidden in 150 ms").arg(window->title()));
     const QPointer<QWindow> later(window);
     QTimer::singleShot(150, window, [later]() {
-        if (later && later->opacity() == 0.0) {     // not shown again meanwhile
+        if (later && later->opacity() == 0.0)       // not shown again meanwhile
             later->hide();
-            Log::info(QStringLiteral("Overlay"), QStringLiteral("`%1`: hidden (visible: %2)")
-                .arg(later->title(), later->isVisible() ? QStringLiteral("still") : QStringLiteral("no")));
-        }
     });
 }
 

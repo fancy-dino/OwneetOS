@@ -17,8 +17,6 @@
 
 #include "GamepadButtonNavigation.h"
 
-#include "Log.h"
-
 #include <QGuiApplication>
 #include <QKeyEvent>
 #include <QPointer>
@@ -50,12 +48,6 @@ void emit_key(Qt::Key key, QEvent::Type event_type, bool autorep)
 
     QObject* const target = key_target ? key_target.data()
                                        : (qApp ? static_cast<QObject*>(qApp->focusWindow()) : nullptr);
-    // OwneetOS: the keys sent to the keyboard over a web page are logged (FrankenPC, 2026-10-17:
-    // to see whether B and Done reach it)
-    if (key_target && !autorep) {
-        Log::info(QStringLiteral("Gamepad"), QStringLiteral("key 0x%1 %2 to the overlay keyboard")
-            .arg(QString::number(key, 16), event_type == QEvent::KeyPress ? QStringLiteral("pressed") : QStringLiteral("released")));
-    }
     if (target) {
         QKeyEvent event(event_type, key, Qt::NoModifier, QString(), autorep);
         QGuiApplication::sendEvent(target, &event);

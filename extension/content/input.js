@@ -69,7 +69,9 @@
   function drawRing(now) {
     attachRing();
     const idle = document.fullscreenElement && now - lastInput > RING_IDLE_FULLSCREEN;
-    const show = current && Nav.usable(current) && !paused && !idle;
+    // The ring stays around the field while the console's keyboard types into it (drawn over the
+    // page in gamescope, as in the approved demo; owner, 2026-10-17)
+    const show = current && Nav.usable(current) && !idle;
     const r = show ? Nav.rectOf(current) : null;
     const key = r ? `${r.left}|${r.top}|${r.width}|${r.height}` : '';
     if (key === drawn) return;
