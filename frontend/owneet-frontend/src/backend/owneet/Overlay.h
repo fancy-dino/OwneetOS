@@ -20,5 +20,7 @@ public:
     Q_INVOKABLE void makeOverlay(QObject* window);
     /// The gamepad's keys go to `item` (null: back to the focused window).
     Q_INVOKABLE void routeGamepad(QObject* item);
+    /// TEMPORARY experiment: "external" or "steam" overlay (see platform::set_overlay_kind).
+    Q_INVOKABLE void setOverlayKind(QObject* window, const QString& kind);
 };
 } // namespace owneet

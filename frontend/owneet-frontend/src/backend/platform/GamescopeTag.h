@@ -4,6 +4,7 @@
 #pragma once
 
 #include <QList>
+#include <QString>
 
 class QObject;
 class QWindow;
@@ -24,5 +25,11 @@ void tag_windows_for_gamescope(const QList<QObject*>& root_objects);
 /// the input focus (the app keeps it). Asks for a surface with an alpha channel, so call it before
 /// the window is first shown. Does nothing outside X11.
 void make_external_overlay(QWindow* window);
+
+/// TEMPORARY experiment (FrankenPC, 2026-10-17): which kind of gamescope overlay the window is,
+/// "external" (GAMESCOPE_EXTERNAL_OVERLAY) or "steam" (STEAM_OVERLAY, without STEAM_INPUT_FOCUS:
+/// drawn over the app, the app keeps the input). Set while the window is hidden: gamescope reads
+/// both when it is shown. Does nothing outside X11.
+void set_overlay_kind(QWindow* window, const QString& kind);
 
 } // namespace platform

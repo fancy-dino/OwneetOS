@@ -6,12 +6,22 @@
 # (FAT32 or exFAT) is plugged in at boot, the system log and a hardware report (every 10 s) are
 # written there while the system runs, so that they survive a forced power-off; Steam's own logs too
 # (they name the tester's Steam account: the stick is theirs). Nothing happens without that stick.
+#
+# Without it, in the live system only: a smaller log on the OwneetOS USB stick itself, in its FAT
+# boot partition (ARCHISO_EFI, about 7 MB free; the boot files are never touched, files are only
+# added): the system log up to 4 MB, the report and the windows up to 1 MB each, no Steam logs.
+# For testers with a single USB stick (2026-10-17).
 
 set -u
 
 dev=/dev/disk/by-label/OWNEETLOG
 for _ in $(seq 1 60); do [[ -e "$dev" ]] && break; sleep 1; done
-[[ -e "$dev" ]] || exit 0
+small=0
+if [[ ! -e "$dev" ]]; then
+    dev=/dev/disk/by-label/ARCHISO_EFI
+    [[ -d /run/archiso && -e "$dev" ]] || exit 0
+    small=1
+fi
 
 mnt=/run/owneet-testlog
 mkdir -p "$mnt"
@@ -59,8 +69,12 @@ steam_logs() {
     done
 }
 
-# The whole system log, as it is written
-journalctl -b -f -n all -o short-precise > "$base.journal.txt" 2>&1 &
+# The whole system log, as it is written (capped on the OwneetOS stick itself)
+if (( small )); then
+    journalctl -b -f -n all -o short-precise 2>&1 | head -c 4000000 > "$base.journal.txt" &
+else
+    journalctl -b -f -n all -o short-precise > "$base.journal.txt" 2>&1 &
+fi
 journal=$!
 trap 'kill "$journal" 2>/dev/null; sync; umount "$mnt"; exit 0' TERM INT
 
@@ -69,17 +83,21 @@ report > "$base.report.txt" 2>&1
 sleep 60
 { echo "--- ddcutil detect (as the console user, like owneetd)"
   runuser -u owneet -- env HOME=/home/owneet ddcutil detect --verbose 2>&1 | head -80; } >> "$base.report.txt"
-# Testers looking into what is on screen copy the test tool owneet-xprobe onto the stick: the
-# windows of the console session, every 10 s (gamescope's X server)
+# The windows of the console session, every 10 s (gamescope's X server): with the test tool
+# owneet-xprobe, copied onto the stick by testers or installed by owneetd
 windows() {
-    [[ -x "$mnt/owneet-xprobe" ]] || return 0
+    local probe="$mnt/owneet-xprobe"
+    [[ -x "$probe" ]] || probe=/usr/lib/owneet/owneet-xprobe
+    [[ -x "$probe" ]] || return 0
     { echo "===== $(date '+%F %T')"
-      runuser -u owneet -- env DISPLAY=:0 timeout 5 "$mnt/owneet-xprobe" 2>&1; } >> "$base.windows.txt"
+      runuser -u owneet -- env DISPLAY=:0 timeout 5 "$probe" 2>&1; } >> "$base.windows.txt"
 }
+# On the OwneetOS stick itself: stop adding to a file once it reaches 1 MB
+room() { (( ! small )) || (( $(stat -c %s "$1" 2>/dev/null || echo 0) < 1000000 )); }
 while true; do
-    report >> "$base.report.txt" 2>&1
-    steam_logs
-    windows
+    room "$base.report.txt" && report >> "$base.report.txt" 2>&1
+    (( small )) || steam_logs
+    room "$base.windows.txt" && windows
     sync
     sleep 10 &
     wait $!

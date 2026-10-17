@@ -62,9 +62,15 @@ the OWNEETLOG stick, e.g. `owneet.debug.gamescope_explicit_sync=off`: they apply
 while the stick is plugged in, with no boot menu to edit. The hardware report on the stick lists
 the switches that were set.
 
-To see which windows are on screen (e.g. pictures that should not be there), copy the test tool
-`owneet-xprobe` (`out/vm-tools/`, built with `go build ./cmd/owneet-xprobe`) to the top of the
-stick: the windows of the console session are then written to `owneet-…windows.txt` every 10 s.
+The windows on screen (e.g. pictures that should not be there) are written to
+`owneet-…windows.txt` every 10 s by the test tool `owneet-xprobe`, installed with owneetd (a copy at
+the top of the stick is used first).
+
+**With a single USB stick** (the OwneetOS one, live system only): without an OWNEETLOG stick the
+logs go to the OwneetOS stick itself, in its small FAT boot partition (`ARCHISO_EFI`, about 7 MB
+free; the boot files are not touched): the system log up to 4 MB, the report and the windows up to
+1 MB each, no Steam logs. Afterwards, on the developer's PC, that partition shows up as
+`ARCHISO_EFI` when the stick is plugged in, with the `owneet-…` files at its top.
 
 ## If something goes wrong
 

@@ -24,4 +24,9 @@ void Overlay::routeGamepad(QObject* item)
     GamepadButtonNavigation::setKeyTarget(item);
 }
 
+void Overlay::setOverlayKind(QObject* window, const QString& kind)
+{
+    platform::set_overlay_kind(qobject_cast<QWindow*>(window), kind);
+}
+
 } // namespace owneet

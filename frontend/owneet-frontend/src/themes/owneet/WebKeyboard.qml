@@ -24,6 +24,10 @@ FocusScope {
     property bool layered: false         // gamescope: drawn over the page
     property bool shown: false           // open, in either design
     property bool overlayMade: false     // the window is a gamescope overlay (before its first showing)
+    // TEMPORARY experiment (FrankenPC, 2026-10-17): the openings alternate between gamescope's two
+    // overlay kinds, "external" first, then "steam" (STEAM_OVERLAY without input focus), to see
+    // which one gamescope draws over the page on real hardware. To be removed after the test.
+    property int openings: 0
     property string layout: "us"
     property string appName: ""
     property string fieldLabel: ""
@@ -48,6 +52,8 @@ FocusScope {
                 overlay.makeOverlay(overWindow);
                 overlayMade = true;
             }
+            overlay.setOverlayKind(overWindow, openings % 2 === 0 ? "external" : "steam");
+            openings++;
             overWindow.show();
             overlay.routeGamepad(overKeys);
         } else {

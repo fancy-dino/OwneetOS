@@ -10,4 +10,6 @@ void tag_windows_for_gamescope(const QList<QObject*>&) {}
 
 void make_external_overlay(QWindow*) {}
 
+void set_overlay_kind(QWindow*, const QString&) {}
+
 } // namespace platform
