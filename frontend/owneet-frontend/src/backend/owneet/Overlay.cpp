@@ -5,6 +5,10 @@
 #include "model/internal/GamepadButtonNavigation.h"
 #include "platform/GamescopeTag.h"
 
+#include "Log.h"
+
+#include <QPointer>
+#include <QTimer>
 #include <QWindow>
 
 
@@ -24,9 +28,28 @@ void Overlay::routeGamepad(QObject* item)
     GamepadButtonNavigation::setKeyTarget(item);
 }
 
-void Overlay::setOverlayKind(QObject* window, const QString& kind)
+void Overlay::showOverlay(QObject* object)
 {
-    platform::set_overlay_kind(qobject_cast<QWindow*>(window), kind);
+    QWindow* const window = qobject_cast<QWindow*>(object);
+    if (!window)
+        return;
+    window->setOpacity(1.0);
+    platform::set_overlay_kind(window, QStringLiteral("external"));
+    window->show();
+}
+
+void Overlay::hideOverlay(QObject* object)
+{
+    QWindow* const window = qobject_cast<QWindow*>(object);
+    if (!window)
+        return;
+    window->setOpacity(0.0);
+    Log::info(QStringLiteral("Overlay"), QStringLiteral("`%1`: transparent, hidden in 150 ms").arg(window->title()));
+    const QPointer<QWindow> later(window);
+    QTimer::singleShot(150, window, [later]() {
+        if (later && later->opacity() == 0.0)       // not shown again meanwhile
+            later->hide();
+    });
 }
 
 } // namespace owneet

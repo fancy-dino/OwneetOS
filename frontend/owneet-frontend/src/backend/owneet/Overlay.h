@@ -20,7 +20,10 @@ public:
     Q_INVOKABLE void makeOverlay(QObject* window);
     /// The gamepad's keys go to `item` (null: back to the focused window).
     Q_INVOKABLE void routeGamepad(QObject* item);
-    /// TEMPORARY experiment: "external" or "steam" overlay (see platform::set_overlay_kind).
-    Q_INVOKABLE void setOverlayKind(QObject* window, const QString& kind);
+    /// Shows the overlay window (opaque, marked again as an external overlay).
+    Q_INVOKABLE void showOverlay(QObject* window);
+    /// Hides it: first fully transparent, which makes gamescope repaint without it, then unmapped
+    /// (FrankenPC, 2026-10-17: once unmapped, its last picture stayed on screen over a still page).
+    Q_INVOKABLE void hideOverlay(QObject* window);
 };
 } // namespace owneet
