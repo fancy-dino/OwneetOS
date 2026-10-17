@@ -18,6 +18,10 @@ FocusScope {
     signal done()                         // Done (or Menu, or Enter on a keyboard)
     signal closed()                       // B
     signal togglePassword()               // the show / hide key
+    // Each edit that went through (the web keyboard passes them on to the page, 5.2)
+    signal typed(string text)
+    signal deleted()
+    signal cursorMoved(int step)
 
     visible: false
     anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
@@ -83,6 +87,7 @@ FocusScope {
         if (shift === 1)
             shift = 0;
         Nav.feedback("confirm");
+        typed(s);
     }
     function deleteBack() {
         if (!target || target.cursorPosition === 0) {
@@ -92,6 +97,7 @@ FocusScope {
         const p = target.cursorPosition;
         target.remove(p - 1, p);
         Nav.feedback("confirm");
+        deleted();
     }
     function moveCursor(step) {
         const next = target ? target.cursorPosition + step : -1;
@@ -101,6 +107,7 @@ FocusScope {
         }
         target.cursorPosition = next;
         Nav.feedback("confirm");
+        cursorMoved(step);
     }
     function setPage(p) {
         page = p;

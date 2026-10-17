@@ -198,10 +198,26 @@
       this.field = el;
       paused = true;
       drawn = '';
+      this.caretToEnd(el);
       const kind = el instanceof HTMLInputElement ? (el.type || 'text') : 'text';
       const label = (el.labels && el.labels[0] && el.labels[0].textContent.trim()) || el.getAttribute('aria-label') || el.placeholder || '';
       send({ type: 'keyboard', open: true, kind, label, value: 'value' in el ? String(el.value) : el.textContent });
       if (!port) { paused = false; }       // no bridge: nothing would bring the controller back
+    },
+    // The console's line starts with its cursor at the end: so does the field
+    caretToEnd(el) {
+      try {
+        if (el.isContentEditable) {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          range.collapse(false);
+          const sel = getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        } else if (typeof el.value === 'string') {
+          el.setSelectionRange(el.value.length, el.value.length);
+        }
+      } catch (_) { /* email and number fields have no selection to set */ }
     },
     insert(text) {
       if (!this.field) return;
@@ -235,10 +251,20 @@
     if (on(BTN.down) || ay > STICK) return 'down';
     return null;
   }
+  let active = false;     // the page had the controller in the previous frame
   function frame(now) {
     const p = document.visibilityState === 'visible' && document.hasFocus() ? pad() : null;
     if (p && !paused) {
       const on = i => !!(p.buttons[i] && p.buttons[i].pressed);
+      if (!active) {
+        // The controller comes back (the console's keyboard closed, the page in front again):
+        // buttons still held from the console count only once released and pressed again (B
+        // that closed the keyboard must not also go back), a held direction waits to repeat
+        for (const i of [BTN.a, BTN.b]) prev[i] = on(i);
+        heldDir = direction(p, on);
+        repeatAt = now + REPEAT_FIRST;
+        active = true;
+      }
       const edge = i => { const d = on(i), was = prev[i]; prev[i] = d; return d && !was; };
       const rx = p.axes[2] || 0, ry = p.axes[3] || 0;
       const dir = direction(p, on);
@@ -255,10 +281,8 @@
       }
       if (edge(BTN.a)) { press(); lastInput = now; }
       if (edge(BTN.b)) { back(); lastInput = now; }
-    } else if (p) {
-      // While the console's keyboard is open, remember the buttons held so that releasing them
-      // later does not count as a press
-      for (const i of [BTN.a, BTN.b]) prev[i] = !!(p.buttons[i] && p.buttons[i].pressed);
+    } else {
+      active = false;
     }
     drawRing(now);
     requestAnimationFrame(frame);

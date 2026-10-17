@@ -141,6 +141,7 @@ FocusScope {
     }
     readonly property bool modalOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
                                       || notices.visible || quick.visible || controls.visible || steamPrep.visible
+                                      || webKeys.visible
     function backToPage() { Qt.callLater(() => { if (!root.modalOpen) root.page.forceActiveFocus(); }); }
 
     // ---- Buttons the sections leave to the whole interface (section 9.1)
@@ -197,6 +198,8 @@ FocusScope {
         owneetd.get("/v1/update", (status, data) => { if (status === 200) root.updateStatus = data; });
         refreshCatalog();
         checkDisplayPending();
+        // a web keyboard opened while the interface was restarting
+        owneetd.get("/v1/webapps/keyboard", (status, data) => { if (status === 200 && data.open) root.webKeyboard(data); });
     }
     Connections {
         target: owneetd
@@ -229,6 +232,8 @@ FocusScope {
                 root.showUpdate(data);
             } else if (type === "apps.catalog.changed") {
                 root.catalogChanged(data);
+            } else if (type === "webapp.keyboard") {
+                root.webKeyboard(data);
             }
         }
     }
@@ -251,6 +256,15 @@ FocusScope {
             if (status !== 200 && status !== 204)
                 toast.show(Tr.tr("error.resume"));
         });
+    }
+    // The console's keyboard for a web app's text field (5.2): opened and closed by owneetd
+    function webKeyboard(k) {
+        if (!k.open) {
+            webKeys.dismiss();
+            return;
+        }
+        const w = webApps.find(a => a.id === k.app);
+        webKeys.open(k, w ? Tr.tr(w.nameKey) : (k.app || ""));
     }
     function confirmClose(app) {
         const web = app.kind === "webapp";
@@ -1940,6 +1954,13 @@ FocusScope {
         id: credits
         z: 101
         onVisibleChanged: if (!visible) root.backToPage()
+    }
+
+    // ---- The web keyboard (5.2): the console's keyboard for a web app's text field
+    WebKeyboard {
+        id: webKeys
+        layout: osk.layout
+        onFinished: root.backToPage()
     }
 
     // ---- The cage session (5.2): the interface shows or hides its own window, as owneetd decides
