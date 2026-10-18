@@ -6,7 +6,8 @@
      progress in the home screen's notices and in Settings → System, a banner when ready; a
      Windows game started before that (the progress, or "connect to the internet"); "Preparing
      {game}…" until its first picture; the file to start from GOG's info file, otherwise the
-     usual question; a Steam game whose Linux version does not start. Open in a browser; drive it
+     usual question; a Steam game whose Linux version does not start, and "Starting {game}…" with
+     the percentage of what Steam downloads before the game starts (added 2026-10-18). Open in a browser; drive it
      with a gamepad or the keyboard. Fonts come from Google Fonts for the demo only; sounds from
      sounds.js. Names (but the owner's three GOG test games) and files are invented. -->
 <html lang="en">
@@ -140,6 +141,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .spin { width: 42px; height: 42px; border-radius: 50%; border: 4px solid var(--raised); border-top-color: var(--accent); animation: spin calc(.9s / max(var(--motion), .2)) linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .sheet .pbar { width: 420px; }
+.prep .pbar { width: 420px; }
 
 /* ---------- Prompt bar and glyphs ---------- */
 .prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
@@ -227,10 +229,10 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     <div class="prompts t-s sheet-prompts" id="sheet-prompts"></div>
   </div>
 </div></div>
-<p class="help"><b>New in 4.5:</b> the disk's Windows games (<b>Stargunner</b>, <b>Treasure Adventure Game</b>, <b>Tyrian 2000</b>: GOG's info file says what starts them; <b>Ashen Gate</b> has none: the usual question) are listed like the others. The download they need the first time goes on by itself while online (Home's notices, Settings → System, a banner when ready); A on a Windows game before that shows the progress, or asks to connect. Then “Preparing…” until the game's first picture. <b>Iron Tundra</b> (Steam): its Linux version does not start.<br>
+<p class="help"><b>New in 4.5:</b> the disk's Windows games (<b>Stargunner</b>, <b>Treasure Adventure Game</b>, <b>Tyrian 2000</b>: GOG's info file says what starts them; <b>Ashen Gate</b> has none: the usual question) are listed like the others. The download they need the first time goes on by itself while online (Home's notices, Settings → System, a banner when ready); A on a Windows game before that shows the progress, or asks to connect. Then “Preparing…” until the game's first picture. <b>Iron Tundra</b> (Steam): its Linux version does not start; after Try, “Starting…” shows the percentage of what Steam downloads before the game starts (new, 2026-10-18).<br>
 <b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A play, B menu (back in windows), X details, Y sort, Menu options, LT/RT filters, LB/RB sections.
 <b>Keyboard:</b> arrows, Page Up/Down = right stick, Enter = A, Esc = B, X, Y, M = Menu, Z/C = LT/RT, Q/E = LB/RB.<br>
-<b>Demo only:</b> O internet on / off (<span id="net-state">on</span>), W download state (<span id="win-state">getting ready</span>), R forget first starts and choices, U plug in / unplug the disk (<span id="disk-state">plugged in</span>), P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#win=waiting|downloading|ready&amp;net=off&amp;section=home|settings&amp;filter=local&amp;lang=it&amp;open=offline|progress|prep|choose|broken</code></p>
+<b>Demo only:</b> O internet on / off (<span id="net-state">on</span>), W download state (<span id="win-state">getting ready</span>), R forget first starts and choices, U plug in / unplug the disk (<span id="disk-state">plugged in</span>), P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#win=waiting|downloading|ready&amp;net=off&amp;section=home|settings&amp;filter=local&amp;lang=it&amp;open=offline|progress|prep|choose|broken|steamdl</code></p>
 
 <script src="sounds.js"></script>
 <script>
@@ -292,6 +294,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'toast.onscreen': '(demo) {title} is on screen', 'toast.net': '(demo) Settings → Network (demo 3.9)',
     'broken.title': '{title} does not start', 'broken.text': 'This game’s Linux version does not start. Try the version for Windows?',
     'broken.try': 'Try', 'toast.steamwin': '(demo) Steam switches {title} to its Windows version and starts it',
+    'steamdl.text': 'Steam is downloading what the game needs: {p}%',
     'count': '{n} games', 'count.one': '1 game',
     'f.all': 'All', 'f.installed': 'Installed', 'f.favorites': 'Favorites', 'f.steam': 'Steam', 'f.local': 'Local',
     'banner.plugged': 'USB disk connected', 'banner.plugged.text': '{n} games found and added to your Library.',
@@ -346,6 +349,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'toast.onscreen': '(demo) {title} è a schermo', 'toast.net': '(demo) Impostazioni → Rete (demo 3.9)',
     'broken.title': '{title} non parte', 'broken.text': 'La versione Linux di questo gioco non parte. Provare la versione per Windows?',
     'broken.try': 'Prova', 'toast.steamwin': '(demo) Steam passa {title} alla sua versione per Windows e lo avvia',
+    'steamdl.text': 'Steam sta scaricando ciò che serve al gioco: {p}%',
     'count': '{n} giochi', 'count.one': '1 gioco',
     'f.all': 'Tutti', 'f.installed': 'Installati', 'f.favorites': 'Preferiti', 'f.steam': 'Steam', 'f.local': 'Locali',
     'banner.plugged': 'Disco USB collegato', 'banner.plugged.text': '{n} giochi trovati e aggiunti alla tua Libreria.',
@@ -754,8 +758,33 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       <div class="list t-m"><button class="item primary" data-f data-act="try">${tr('broken.try')}</button><button class="item" data-f data-act="cancel">${tr('p.cancel')}</button></div>`,
       [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
         closeSheet(el.dataset.act !== 'try');
-        if (el.dataset.act === 'try') { g.broken = false; feedback('launch'); toast(tr('toast.steamwin', { title: g.title })); }
+        if (el.dataset.act === 'try') { g.broken = false; feedback('launch'); steamStart(g, true); }
       });
+  }
+  // "Starting {game}…" while Steam starts a Steam game (Steam's window stays hidden). When Steam
+  // first downloads what the game needs (e.g. its version for Windows and what runs it: 45 s on
+  // the FrankenPC), the percentage of that download, then the game
+  let steamTimer = null;
+  function steamStart(g, download) {
+    let pct = -1;                               // -1: Steam (re)starting, nothing downloaded yet
+    const draw = () => {
+      $('#prep').innerHTML = `<span class="spin"></span><span class="disp t-l">${tr('toast.launch', { title: g.title })}</span>
+        ${pct >= 0 ? `<span class="t-s muted">${tr('steamdl.text', { p: pct })}</span><span class="pbar"><i style="width:${pct}%"></i></span>` : ''}`;
+    };
+    draw();
+    $('#prep').classList.add('open');
+    prepOpen = true;
+    clearInterval(steamTimer);
+    const done = () => { clearInterval(steamTimer); $('#prep').classList.remove('open'); prepOpen = false; g.last = 0;
+                         toast(tr('toast.onscreen', { title: g.title })); renderGrid(g.id); };
+    if (!download) { steamTimer = setTimeout(done, 2200); return; }
+    setTimeout(() => {
+      pct = 0; draw();
+      steamTimer = setInterval(() => {
+        pct = Math.min(100, pct + 4); draw();
+        if (pct >= 100) { clearInterval(steamTimer); setTimeout(done, 600); }
+      }, 280);
+    }, 1400);
   }
   // The download goes on by itself while the console is online; a banner says when it is done
   setInterval(() => {
@@ -939,6 +968,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     else if (open === 'prep') { winState = 'ready'; renderWin(); start(pick('Stargunner')); }
     else if (open === 'choose') { winState = 'ready'; renderWin(); start(pick('Ashen Gate')); }
     else if (open === 'broken') brokenSheet(pick('Iron Tundra'));
+    else if (open === 'steamdl') { const g = pick('Iron Tundra'); g.broken = false; steamStart(g, true); }
   }, 300);
 })();
 </script>
