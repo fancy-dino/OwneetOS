@@ -3,7 +3,7 @@
   "apps": [
     {"id": "brave", "kind": "engine", "packages": ["brave-bin"], "sizeMiB": 500},
     {"id": "netflix", "kind": "webapp", "nameKey": "app.netflix", "icon": "N", "requires": ["brave"], "url": "https://www.netflix.com/"},
-    {"id": "youtube", "kind": "webapp", "nameKey": "app.youtube", "icon": "Y", "requires": ["brave"], "url": "https://www.youtube.com/tv"},
+    {"id": "youtube", "kind": "webapp", "nameKey": "app.youtube", "icon": "Y", "requires": ["brave"], "url": "https://www.youtube.com/tv", "userAgent": "Mozilla/5.0 (Linux; SMART-TV) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36"},
     {"id": "spotify", "kind": "webapp", "nameKey": "app.spotify", "icon": "S", "requires": ["brave"], "url": "https://open.spotify.com/"}
   ]
 }

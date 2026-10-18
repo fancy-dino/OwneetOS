@@ -156,6 +156,29 @@ func TestWaylandWithoutAnXServer(t *testing.T) {
 	}
 }
 
+func TestUserAgentFromTheCatalogue(t *testing.T) {
+	m, fa := newOpenManager(t, ":0")
+	for _, id := range []string{"netflix", "youtube"} {
+		if err := m.Install(id); err != nil {
+			t.Fatal(err)
+		}
+		waitIdle(t, m)
+		if err := m.Open(id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	yt := fa.running["web:youtube"].Command
+	if !slices.Contains(yt, "--user-agent=Mozilla/5.0 (Linux; SMART-TV) Test/1.0") {
+		t.Errorf("youtube %q: want the catalogue's user agent as one argument", yt)
+	}
+	if yt[len(yt)-1] != "https://www.youtube.com/tv" {
+		t.Errorf("the address must come last: %v", yt)
+	}
+	if nf := strings.Join(fa.running["web:netflix"].Command, " "); strings.Contains(nf, "--user-agent") {
+		t.Errorf("netflix %q: no user agent in its entry, want Brave's own", nf)
+	}
+}
+
 func TestRemoveClosesTheWebAppAndDeletesItsData(t *testing.T) {
 	m, fa := newOpenManager(t, ":0")
 	for _, id := range []string{"netflix", "youtube"} {

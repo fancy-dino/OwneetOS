@@ -87,6 +87,10 @@ func (m *Manager) braveCommand(e Entry, profile string, sess apps.Session) []str
 		argv = append(argv, "--load-extension="+m.ExtensionDir,
 			"--disable-features=DisableLoadExtensionCommandLineSwitch")
 	}
+	if e.UserAgent != "" {
+		// One argument, spaces included: the command is run without a shell
+		argv = append(argv, "--user-agent="+e.UserAgent)
+	}
 	return append(argv, e.URL)
 }
 

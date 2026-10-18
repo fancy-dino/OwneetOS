@@ -17,7 +17,7 @@ import (
 const testCatalog = `{"apps": [
     {"id": "brave", "kind": "engine", "packages": ["brave-bin"], "sizeMiB": 500},
     {"id": "netflix", "kind": "webapp", "nameKey": "app.netflix", "icon": "N", "requires": ["brave"], "url": "https://www.netflix.com/"},
-    {"id": "youtube", "kind": "webapp", "nameKey": "app.youtube", "icon": "Y", "requires": ["brave"], "url": "https://www.youtube.com/tv"}
+    {"id": "youtube", "kind": "webapp", "nameKey": "app.youtube", "icon": "Y", "requires": ["brave"], "url": "https://www.youtube.com/tv", "userAgent": "Mozilla/5.0 (Linux; SMART-TV) Test/1.0"}
 ]}`
 
 // fakeHelper plays owneet-apps: it installs or removes the engine's package in a fake pacman
@@ -245,5 +245,9 @@ func TestShippedCatalog(t *testing.T) {
 				t.Errorf("%s requires %s, which is not an engine of the catalogue", e.ID, r)
 			}
 		}
+	}
+	// YouTube's TV interface, which needs a TV user agent ([[step-5.3-youtube]])
+	if yt, ok := find(cat, "youtube", KindWebApp); !ok || !strings.HasSuffix(yt.URL, "/tv") || yt.UserAgent == "" {
+		t.Errorf("youtube %+v: want the TV interface with a user agent", yt)
 	}
 }

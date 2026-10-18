@@ -51,6 +51,8 @@ type Entry struct {
 	Requires []string `json:"requires,omitempty"`
 	SizeMiB  int64    `json:"sizeMiB,omitempty"`
 	URL      string   `json:"url,omitempty"`
+	// UserAgent replaces Brave's own (YouTube's TV interface, [[step-5.3-youtube]])
+	UserAgent string `json:"userAgent,omitempty"`
 }
 
 // App is a web app as the interface shows it.
