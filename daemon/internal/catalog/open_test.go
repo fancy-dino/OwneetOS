@@ -112,18 +112,12 @@ func TestOpenRunsBraveWithItsOwnProfile(t *testing.T) {
 		var prefs struct {
 			Brave struct {
 				Widevine bool `json:"widevine_opted_in"`
-				Sidebar  struct {
-					Show int `json:"sidebar_show_option"`
-				} `json:"sidebar"`
 			} `json:"brave"`
 		}
 		if err := json.Unmarshal(data, &prefs); err != nil || !prefs.Brave.Widevine {
 			t.Errorf("%s: %s (%v), want Widevine on", f, data, err)
 		}
-		// Brave's sidebar never shown (3): it needs a mouse
-		if prefs.Brave.Sidebar.Show != 3 {
-			t.Errorf("%s: %s, want the sidebar hidden", f, data)
-		}
+		checkMouseFree(t, f, data)
 	}
 	// open again: brought back, not started twice
 	if err := m.Open("netflix"); err != nil {
@@ -131,6 +125,77 @@ func TestOpenRunsBraveWithItsOwnProfile(t *testing.T) {
 	}
 	if !slices.Equal(fa.focused, []string{"web:netflix"}) {
 		t.Errorf("focused %v, want web:netflix", fa.focused)
+	}
+}
+
+// checkMouseFree: none of Brave's own windows or panels that need a mouse ([[step-5.3-youtube]])
+func checkMouseFree(t *testing.T, file string, data []byte) {
+	t.Helper()
+	var prefs struct {
+		Brave struct {
+			Ask     *bool `json:"ask_widevine_install"`
+			Sidebar struct {
+				Show int `json:"sidebar_show_option"`
+			} `json:"sidebar"`
+		} `json:"brave"`
+	}
+	if err := json.Unmarshal(data, &prefs); err != nil {
+		t.Fatalf("%s: %v", file, err)
+	}
+	if prefs.Brave.Ask == nil || *prefs.Brave.Ask {
+		t.Errorf("%s: %s, want Brave's Widevine question off", file, data)
+	}
+	if prefs.Brave.Sidebar.Show != 3 {
+		t.Errorf("%s: %s, want the sidebar never shown (3)", file, data)
+	}
+}
+
+func TestBraveSettingsSetAgainBeforeEveryOpening(t *testing.T) {
+	m, fa := newOpenManager(t, ":0")
+	if err := m.Install("youtube"); err != nil {
+		t.Fatal(err)
+	}
+	waitIdle(t, m)
+	if err := m.Open("youtube"); err != nil {
+		t.Fatal(err)
+	}
+	if err := fa.Close("web:youtube"); err != nil {
+		t.Fatal(err)
+	}
+	// Brave rewrote the file meanwhile: its own settings, a large number, the question back on
+	// (e.g. after a Widevine update) and an HTML-like string
+	prefsFile := filepath.Join(m.ProfilesDir, "youtube", "Default", "Preferences")
+	brave := `{"brave":{"ask_widevine_install":true,"widevine_opted_in":true,"sidebar":{"sidebar_show_option":0,"item_list":[1,2]}},` +
+		`"profile":{"exit_type":"Normal","created_by_version":"141.1.97.57"},"time":13405678901234567890,"page":"<a&b>"}`
+	if err := os.WriteFile(prefsFile, []byte(brave), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Open("youtube"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(prefsFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkMouseFree(t, "Preferences", data)
+	for _, keep := range []string{`"widevine_opted_in":true`, `"item_list":[1,2]`, `"exit_type":"Normal"`,
+		`"created_by_version":"141.1.97.57"`, `"time":13405678901234567890`, `"page":"<a&b>"`} {
+		if !strings.Contains(string(data), keep) {
+			t.Errorf("Preferences %s lost %s", data, keep)
+		}
+	}
+}
+
+func TestBraveSettingsLeaveAFileThatIsNotJSON(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "Preferences")
+	if err := os.WriteFile(path, []byte("not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := enforcePrefs(path); err == nil {
+		t.Error("no error for a file that is not JSON")
+	}
+	if data, _ := os.ReadFile(path); string(data) != "not json" {
+		t.Errorf("the file became %q, want it untouched", data)
 	}
 }
 

@@ -9,13 +9,17 @@ package catalog
 // (/etc/brave/policies/managed/owneet.json).
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/atomicfile"
 )
 
 // ErrNotInstalled: the web app must be installed before it is opened.
@@ -33,15 +37,26 @@ type Launcher interface {
 func AppID(id string) string { return "web:" + id }
 
 // profileSeed turns Widevine on (Brave downloads it at runtime, never redistributed;
-// [[architecture-stack]]), skips Brave's welcome pages and hides Brave's sidebar (mouse-only;
-// 3 = never, [[step-5.3-youtube]]). Written once, before the profile's first start; Brave keeps the
-// file up to date afterwards.
+// [[architecture-stack]]) and skips Brave's welcome pages. Written once, before the profile's
+// first start; Brave keeps the file up to date afterwards.
 var profileSeed = map[string]any{
-	"brave": map[string]any{
-		"widevine_opted_in": true,
-		"sidebar":           map[string]any{"sidebar_show_option": 3},
-	},
+	"brave":   map[string]any{"widevine_opted_in": true},
 	"browser": map[string]any{"has_seen_welcome_page": true},
+}
+
+// profileFiles: Local State holds the browser-wide settings, Default/Preferences the profile's own.
+var profileFiles = []string{"Local State", filepath.Join("Default", "Preferences")}
+
+// profilePrefs are set again before every start ([[step-5.3-youtube]]): Brave's own windows and
+// panels need a mouse, which the console never requires. Brave's question "Restart browser to
+// enable Google Widevine" comes back after every Widevine download, in old profiles too (the
+// console's own consent to Google's terms comes with [[step-5.4-netflix]]); the sidebar: 3 = never.
+var profilePrefs = []struct {
+	path  []string
+	value any
+}{
+	{[]string{"brave", "ask_widevine_install"}, false},
+	{[]string{"brave", "sidebar", "sidebar_show_option"}, 3},
 }
 
 // seedProfile creates the profile folder of a web app the first time it is opened.
@@ -56,13 +71,50 @@ func seedProfile(dir string) error {
 	if err := os.MkdirAll(filepath.Join(dir, "Default"), 0o700); err != nil {
 		return err
 	}
-	// Local State holds the browser-wide settings, Default/Preferences the profile's own
-	for _, f := range []string{"Local State", filepath.Join("Default", "Preferences")} {
+	for _, f := range profileFiles {
 		if err := os.WriteFile(filepath.Join(dir, f), data, 0o600); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// enforcePrefs sets profilePrefs in a settings file of a profile whose Brave is not running,
+// keeping everything else as Brave wrote it (numbers included, exactly). A missing file gets only
+// these settings; a file that is not JSON is left alone.
+func enforcePrefs(path string) error {
+	prefs := map[string]any{}
+	data, err := os.ReadFile(path)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+	case err != nil:
+		return err
+	default:
+		dec := json.NewDecoder(bytes.NewReader(data))
+		dec.UseNumber()
+		if err := dec.Decode(&prefs); err != nil {
+			return fmt.Errorf("%s is not JSON: %w", path, err)
+		}
+	}
+	for _, p := range profilePrefs {
+		m := prefs
+		for _, key := range p.path[:len(p.path)-1] {
+			next, ok := m[key].(map[string]any)
+			if !ok {
+				next = map[string]any{}
+				m[key] = next
+			}
+			m = next
+		}
+		m[p.path[len(p.path)-1]] = p.value
+	}
+	var out bytes.Buffer
+	enc := json.NewEncoder(&out)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(prefs); err != nil {
+		return err
+	}
+	return atomicfile.Write(path, bytes.TrimSuffix(out.Bytes(), []byte("\n")), 0o600)
 }
 
 // braveCommand runs Brave fullscreen on the web app's address, with its own profile and the
@@ -142,6 +194,12 @@ func (m *Manager) Open(id string) error {
 	}
 	if err := seedProfile(m.profile(id)); err != nil {
 		return err
+	}
+	for _, f := range profileFiles {
+		// Not fatal: the web app still opens, Brave may then show a window of its own
+		if err := enforcePrefs(filepath.Join(m.profile(id), f)); err != nil {
+			m.Log.Warn("web app's Brave settings not set", "id", id, "err", err)
+		}
 	}
 	_, err = m.Apps.Launch(apps.LaunchRequest{ID: AppID(id), Name: id, Kind: apps.KindWebApp,
 		Command: m.braveCommand(e, m.profile(id), sess)})
