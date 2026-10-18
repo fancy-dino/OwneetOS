@@ -112,10 +112,17 @@ func TestOpenRunsBraveWithItsOwnProfile(t *testing.T) {
 		var prefs struct {
 			Brave struct {
 				Widevine bool `json:"widevine_opted_in"`
+				Sidebar  struct {
+					Show int `json:"sidebar_show_option"`
+				} `json:"sidebar"`
 			} `json:"brave"`
 		}
 		if err := json.Unmarshal(data, &prefs); err != nil || !prefs.Brave.Widevine {
 			t.Errorf("%s: %s (%v), want Widevine on", f, data, err)
+		}
+		// Brave's sidebar never shown (3): it needs a mouse
+		if prefs.Brave.Sidebar.Show != 3 {
+			t.Errorf("%s: %s, want the sidebar hidden", f, data)
 		}
 	}
 	// open again: brought back, not started twice

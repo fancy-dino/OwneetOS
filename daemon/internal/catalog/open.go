@@ -33,10 +33,14 @@ type Launcher interface {
 func AppID(id string) string { return "web:" + id }
 
 // profileSeed turns Widevine on (Brave downloads it at runtime, never redistributed;
-// [[architecture-stack]]) and skips Brave's welcome pages. Written once, before the profile's
-// first start; Brave keeps the file up to date afterwards.
+// [[architecture-stack]]), skips Brave's welcome pages and hides Brave's sidebar (mouse-only;
+// 3 = never, [[step-5.3-youtube]]). Written once, before the profile's first start; Brave keeps the
+// file up to date afterwards.
 var profileSeed = map[string]any{
-	"brave":   map[string]any{"widevine_opted_in": true},
+	"brave": map[string]any{
+		"widevine_opted_in": true,
+		"sidebar":           map[string]any{"sidebar_show_option": 3},
+	},
 	"browser": map[string]any{"has_seen_welcome_page": true},
 }
 

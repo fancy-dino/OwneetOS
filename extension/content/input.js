@@ -5,13 +5,18 @@
 // B leaves full screen / closes the page's dialog / goes back / asks to close the web app, the
 // right stick scrolls. Guide (standard button 16) is owneetd's and is never read. Runs in the top
 // frame only; the console's keyboard and "Close {name}?" go through the background worker and the
-// bridge to owneetd.
+// bridge to owneetd. On YouTube's TV interface the buttons become its keys instead (youtube-tv.js,
+// [[controller-input-map]] "Inside YouTube").
 
 'use strict';
 
 (() => {
   if (window.top !== window) return;
   const Nav = OwneetNav;
+  // YouTube's TV interface draws its own selection and takes keys: no ring there
+  const tv = OwneetTV.matches(location)
+    ? OwneetTV.driver({ document, location, KeyboardEvent, setTimeout: (f, ms) => setTimeout(f, ms) })
+    : null;
 
   // Standard Gamepad API mapping
   const BTN = { a: 0, b: 1, up: 12, down: 13, left: 14, right: 15 };
@@ -271,18 +276,18 @@
       const rx = p.axes[2] || 0, ry = p.axes[3] || 0;
       const dir = direction(p, on);
       if (dir && (dir !== heldDir || now >= repeatAt)) {
-        move(dir);
+        if (tv) tv.move(dir); else move(dir);
         repeatAt = now + (dir === heldDir ? REPEAT_NEXT : REPEAT_FIRST);
         lastInput = now;
       }
       heldDir = dir;
-      if (Math.abs(rx) > SCROLL_DEAD || Math.abs(ry) > SCROLL_DEAD) {
+      if (!tv && (Math.abs(rx) > SCROLL_DEAD || Math.abs(ry) > SCROLL_DEAD)) {
         const s = current && Nav.usable(current) ? Nav.scroller(current) : document.scrollingElement;
         s.scrollBy({ left: Math.abs(rx) > SCROLL_DEAD ? rx * SCROLL_SPEED : 0, top: Math.abs(ry) > SCROLL_DEAD ? ry * SCROLL_SPEED : 0 });
         lastInput = now;
       }
-      if (edge(BTN.a)) { press(); lastInput = now; }
-      if (edge(BTN.b)) { back(); lastInput = now; }
+      if (edge(BTN.a)) { if (tv) tv.press(); else press(); lastInput = now; }
+      if (edge(BTN.b)) { if (tv) tv.back(() => send({ type: 'ask_close' })); else back(); lastInput = now; }
     } else {
       active = false;
     }
