@@ -1,0 +1,18 @@
+@owneetd
+@steam
+# A Steam game whose Linux version does not start ([[step-4.5-windows-games-proton]], approved
+# demo): owneetd says so (here: Paper Comets, 2002), the console asks; Try shows "Starting …"
+# while Steam closes and starts again for the game's version for Windows.
+wait 3
+event steam.launch_failed {"appid":"2002","reason":"linux_version"}
+wait 1
+shot 01-broken-question
+pad right
+wait 0.5
+shot 02-broken-cancel
+pad left
+pad a
+wait 1.5
+shot 03-starting
+wait 7
+shot 04-still-starting

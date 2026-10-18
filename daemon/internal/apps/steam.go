@@ -50,8 +50,11 @@ type SteamRequest struct {
 	Uninstall string `json:"uninstall,omitempty"` // a Steam app id (also cancels its download)
 	// Ask: the next start of this Steam app id asks the user first (a licence agreement to
 	// accept): Steam's window is shown at once for it, not kept hidden
-	Ask  string `json:"ask,omitempty"`
-	Name string `json:"name,omitempty"` // the game's name (shown while it runs)
+	Ask string `json:"ask,omitempty"`
+	// Windows: a Steam app id whose Linux version does not start: its version for Windows is set
+	// in Steam (Steam closed meanwhile) and the game started again (steamwindows.go)
+	Windows string `json:"windows,omitempty"`
+	Name    string `json:"name,omitempty"` // the game's name (shown while it runs)
 	// The console's language tag ("it", "pt-BR"…): Steam starts in the same language
 	Language string `json:"language,omitempty"`
 }
@@ -238,7 +241,7 @@ var appIDPattern = regexp.MustCompile(`^[0-9]{1,10}$`)
 func (m *Manager) Steam(req SteamRequest) error {
 	var url string
 	given := 0
-	for _, f := range []string{req.Open, req.Run, req.Install, req.Uninstall, req.Ask} {
+	for _, f := range []string{req.Open, req.Run, req.Install, req.Uninstall, req.Ask, req.Windows} {
 		if f != "" {
 			given++
 		}
@@ -253,6 +256,23 @@ func (m *Manager) Steam(req SteamRequest) error {
 		m.steamAskFor = req.Ask
 		m.mu.Unlock()
 		return nil
+	case appIDPattern.MatchString(req.Windows):
+		m.mu.Lock()
+		m.init()
+		allowed := m.SteamAllowed
+		game := false
+		for _, a := range m.apps {
+			game = game || a.Kind == KindGame
+		}
+		m.mu.Unlock()
+		if !allowed() {
+			return ErrSteamNeedsInstall
+		}
+		if game {
+			return ErrGameRunning
+		}
+		go m.steamWindows(req)
+		return nil
 	case appIDPattern.MatchString(req.Run):
 		url = "steam://rungameid/" + req.Run
 	case appIDPattern.MatchString(req.Install):
@@ -265,7 +285,7 @@ func (m *Manager) Steam(req SteamRequest) error {
 		url = "steam://store"
 	}
 	if url == "" {
-		return fmt.Errorf("%w: one of open (library, store), run, install, uninstall, ask (a Steam app id)", ErrInvalid)
+		return fmt.Errorf("%w: one of open (library, store), run, install, uninstall, ask, windows (a Steam app id)", ErrInvalid)
 	}
 	m.mu.Lock()
 	m.init()
@@ -307,6 +327,13 @@ func (m *Manager) Steam(req SteamRequest) error {
 	m.mu.Lock()
 	m.steamHidden = hidden
 	m.steamConfirm = nil
+	if req.Run != "" { // its failure to start is looked for in Steam's log (steamwindows.go)
+		offset := int64(0)
+		if running {
+			offset = steamLogSize(dir)
+		}
+		m.steamLaunch = &steamLaunch{appid: req.Run, at: time.Now(), offset: offset}
+	}
 	if id := req.Install + req.Uninstall; id != "" {
 		flags, has := steamManifest(dir, id)
 		m.steamConfirm = &steamConfirm{appid: id, flags: flags, has: has, at: time.Now()}
@@ -478,6 +505,9 @@ func (m *Manager) watchSteam() {
 	if changed {
 		m.Broker.Publish("steam.changed", st)
 	}
+	if running {
+		m.watchLaunch()
+	}
 	if confirm == nil {
 		return
 	}
@@ -637,6 +667,9 @@ func (m *Manager) steamGame(appid string, reaper int, unit string) *App {
 		m.steamAsk = nil
 	}
 	m.steamHidden = false
+	if m.steamLaunch != nil && m.steamLaunch.appid == appid { // it started
+		m.steamLaunch = nil
+	}
 	m.order = append(m.order, id)
 	delete(m.steamNames, appid)
 	m.mu.Unlock()

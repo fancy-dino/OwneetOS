@@ -20,11 +20,13 @@ NavArea {
     property bool firstTime: false          // Steam has never started here: the long download
     property string gameTitle: ""           // started for this game: Steam stays hidden
     property bool windows: false            // a Windows game (not Steam)
+    property bool steamRestart: false       // Steam closes and starts again for the game (4.5)
 
     function start(first, title, windowsGame) {
         firstTime = first;
         gameTitle = title || "";
         windows = !!windowsGame;
+        steamRestart = false;
         if (!visible)
             Nav.feedback("sheet-open");
         visible = true;

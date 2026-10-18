@@ -271,6 +271,8 @@ FocusScope {
                     root.refreshSteam(true);
                 if (type === "app.exited")
                     refreshTimer.restart();       // play time and "last played" have changed
+            } else if (type === "steam.launch_failed") {
+                if (data && data.reason === "linux_version") root.askWindowsVersion(String(data.appid));
             } else if (type === "focus.changed") {
                 if (data.focus === "home") root.refreshSteam(true);
                 // Guide brings the home screen over a running game: the "launch" sound, the other way
@@ -957,6 +959,36 @@ FocusScope {
             { text: Tr.tr("steam.notice.go"), style: "primary", action: () => {
                 dialog.close(true);
                 root.withSteamReturn(() => owneetd.post("/v1/steam", { ask: id }, () => root.launch(game, true)));
+            } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    // A Steam game whose Linux version does not start (4.5, approved demo): owneetd read Steam's
+    // "missing program" and kept Steam's error hidden. Try: owneetd closes Steam, sets the game's
+    // version for Windows and starts it again; "Starting …" stays meanwhile
+    function askWindowsVersion(appid) {
+        const game = steamGame(appid);
+        const title = game ? game.title : "Steam";
+        steamPrep.close(true);
+        dialog.game = null;
+        dialog.mode = "steamBroken";
+        dialog.contentWidth = 0;
+        dialog.icon = "";
+        dialog.title = Tr.tr("steam.broken.title", { title: title });
+        dialog.text = Tr.tr("steam.broken.text");
+        dialog.buttons = [
+            { text: Tr.tr("steam.broken.try"), style: "primary", action: () => {
+                dialog.close(true);
+                Nav.feedback("launch");
+                steamPrep.start(false, title);
+                steamPrep.steamRestart = true;
+                owneetd.post("/v1/steam", { windows: appid, name: title, language: Tr.language }, status => {
+                    if (status === 202) return;
+                    steamPrep.close(true);
+                    toast.show(Tr.tr("error.apps.failed"));
+                    Nav.feedback("error");
+                });
             } },
             { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
         dialog.defaultIndex = 0;
@@ -2394,11 +2426,13 @@ FocusScope {
         function onEvent(type, data) {
             if (!steamPrep.visible || !data) return;
             const id = data.id || "";
+            // Steam closed to set a game's version for Windows comes back for it (4.5)
+            if (type === "app.started" && id === "steam") steamPrep.steamRestart = false;
             // started for a game, Steam stays hidden: wait for the game's window (owneetd keeps
             // Steam behind until then), or Steam, if it needs the user (focus.changed)
             const steamWindow = id === "steam" && steamPrep.gameTitle === "";
             if ((type === "app.window" && (steamWindow || id.startsWith("steam:")))
-                    || (type === "app.exited" && (id === "steam" || id.startsWith("steam:") || steamPrep.windows))
+                    || (type === "app.exited" && ((id === "steam" && !steamPrep.steamRestart) || id.startsWith("steam:") || steamPrep.windows))
                     || (type === "focus.changed" && data.focus !== "home"))
                 steamPrep.close(true);
         }
