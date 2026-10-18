@@ -444,13 +444,15 @@ type steamConfirm struct {
 // steamConfirmWait: after this long without Steam acting, the confirmation is forgotten (cancelled).
 const steamConfirmWait = 10 * time.Minute
 
-func (m *Manager) steamAskLater() {
+func (m *Manager) steamAskLater() { m.steamAskIn(steamAskAfter) }
+
+func (m *Manager) steamAskIn(d time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.steamAsk != nil {
 		m.steamAsk.Stop()
 	}
-	m.steamAsk = time.AfterFunc(steamAskAfter, m.steamAskNow)
+	m.steamAsk = time.AfterFunc(d, m.steamAskNow)
 }
 
 func (m *Manager) steamAskNow() {
@@ -472,6 +474,26 @@ func (m *Manager) steamAskNow() {
 		m.steamHidden = true
 		m.mu.Unlock()
 		m.steamAskLater()
+		return
+	}
+	// Steam still works on the launch (its console log, steamwindows.go): looked at again soon,
+	// so that a question for the user shows at once
+	m.mu.Lock()
+	launch := m.steamLaunch
+	busy, task, told := false, "", true
+	if launch != nil {
+		busy, task = launch.state.busy(time.Now()), launch.state.task
+		told, launch.told = launch.told == task, task
+	}
+	if busy {
+		m.steamHidden = true
+	}
+	m.mu.Unlock()
+	if busy {
+		if !told {
+			m.Log.Info("Steam is preparing the game: still hidden", "task", task)
+		}
+		m.steamAskIn(steamAnswerWait)
 		return
 	}
 	m.Log.Info("no Steam game yet: Steam may be waiting for the user, shown")

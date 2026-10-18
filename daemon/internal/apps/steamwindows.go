@@ -27,22 +27,52 @@ import (
 	"time"
 )
 
-// steamLaunch is the game Steam was last asked to start, and how far its console log was read.
+// steamLaunch is the game Steam was last asked to start, how far its console log was read and
+// what the log says about the launch.
 type steamLaunch struct {
 	appid  string
 	at     time.Time
 	offset int64
+	state  launchState
+	told   string // the task last logged while Steam stays hidden
 }
 
-// steamLaunchWatch: how long after asking for a game its failure is looked for.
+// launchState is what Steam's console log says about a game's launch: Steam goes through tasks
+// ("LaunchApp changed task to DownloadingDepots", "CreatingProcess", "WaitingGameWindow"…) and
+// sometimes waits for the user's answer ("LaunchApp waiting for user response to …").
+type launchState struct {
+	failed  bool      // failed for a missing program
+	task    string    // the last task, "" before the first
+	waiting bool      // Steam waits for the user's answer to it
+	at      time.Time // when that line was written
+}
+
+// busy: Steam works on the launch (downloading what the game needs, e.g. its version for
+// Windows and Proton the first time: 45 s for Dragon's Wake on the FrankenPC, 2026-10-18), so its
+// window stays hidden; a question Steam has waited on for steamAnswerWait is the user's.
+func (s launchState) busy(now time.Time) bool {
+	switch s.task {
+	case "", "Failed", "Completed":
+		return false
+	}
+	return !s.waiting || now.Sub(s.at) < steamAnswerWait
+}
+
+// steamAnswerWait: Steam answers its own routine questions at once (ShowInterstitials,
+// CreatingProcess: within a second); one still open after this is for the user.
+const steamAnswerWait = 3 * time.Second
+
+// steamLaunchWatch: how long after asking for a game its launch is followed while Steam is not
+// working on it.
 const steamLaunchWatch = 2 * time.Minute
 
 // steamCloseWait: how long Steam may take to close before the game's settings are written.
 var steamCloseWait = time.Minute
 
 var (
-	launchFailed = regexp.MustCompile(`^\[(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\] GameAction \[AppID (\d+), ActionID \d+\] : LaunchApp failed with AppError_28\b`)
-	protonTool   = regexp.MustCompile(`Registering tool proton_(\d+), AppID \d+`)
+	launchLine = regexp.MustCompile(`^\[(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\] GameAction \[AppID (\d+), ActionID \d+\] : LaunchApp (.*)$`)
+	launchTask = regexp.MustCompile(`^(?:changed task to|waiting for user response to) (\w+)`)
+	protonTool = regexp.MustCompile(`Registering tool (proton_\d+), AppID (\d+)`)
 )
 
 func steamConsoleLog(dir string) string { return filepath.Join(dir, "logs", "console_log.txt") }
@@ -55,58 +85,72 @@ func steamLogSize(dir string) int64 {
 	return 0
 }
 
-// steamLaunchFailure reads Steam's console log from offset: whether Steam wrote, at or after
-// since, that appid's launch failed for a missing program; and how far it read (whole lines only).
-// Steam starts a new log when it starts: a shorter file is read from its start.
-func steamLaunchFailure(path string, offset int64, appid string, since time.Time) (bool, int64) {
+// steamLaunchRead reads Steam's console log from offset and follows appid's launch from state:
+// only lines written at or after since count (the log's times are local, to the second). It
+// returns the new state and how far it read (whole lines only). Steam starts a new log when it
+// starts: a shorter file is read from its start.
+func steamLaunchRead(path string, offset int64, appid string, since time.Time, state launchState) (launchState, int64) {
 	f, err := os.Open(path)
 	if err != nil {
-		return false, 0
+		return state, 0
 	}
 	defer f.Close()
 	st, err := f.Stat()
 	if err != nil {
-		return false, offset
+		return state, offset
 	}
 	if st.Size() < offset {
 		offset = 0
 	}
 	if _, err := f.Seek(offset, io.SeekStart); err != nil {
-		return false, offset
+		return state, offset
 	}
 	data, err := io.ReadAll(io.LimitReader(f, 8<<20))
 	if err != nil {
-		return false, offset
+		return state, offset
 	}
 	end := bytes.LastIndexByte(data, '\n') + 1
-	failed := false
 	for _, line := range strings.Split(string(data[:end]), "\n") {
-		match := launchFailed.FindStringSubmatch(line)
+		match := launchLine.FindStringSubmatch(line)
 		if match == nil || match[2] != appid {
 			continue
 		}
-		// the log's times are local, to the second
-		if t, err := time.ParseInLocation("2006-01-02 15:04:05", match[1], time.Local); err == nil && !t.Before(since.Truncate(time.Second)) {
-			failed = true
+		t, err := time.ParseInLocation("2006-01-02 15:04:05", match[1], time.Local)
+		if err != nil || t.Before(since.Truncate(time.Second)) {
+			continue
 		}
+		what := match[3]
+		switch {
+		case strings.HasPrefix(what, "failed with"):
+			state.task, state.waiting = "Failed", false
+			state.failed = state.failed || strings.HasPrefix(what, "failed with AppError_28")
+		case strings.HasPrefix(what, "continues with user response"):
+			state.waiting = false
+		default:
+			task := launchTask.FindStringSubmatch(what)
+			if task == nil {
+				continue
+			}
+			state.task, state.waiting = task[1], strings.HasPrefix(what, "waiting")
+		}
+		state.at = t
 	}
-	return failed, offset + int64(end)
+	return state, offset + int64(end)
 }
 
 // steamProtonTool is Valve's newest Proton that Steam registered (its compatibility log, e.g.
 // "Registering tool proton_11, AppID 4628710"), else Proton Experimental, which Steam always offers.
+// Newest by app id: Valve's ids grow with each version, while the names drop the dot (proton_513
+// is 5.13, older than proton_11: the FrankenPC got it on 2026-10-18).
 func steamProtonTool(dir string) string {
 	data, _ := os.ReadFile(filepath.Join(dir, "logs", "compat_log.txt"))
-	best := 0
+	best, newest := "proton_experimental", int64(0)
 	for _, match := range protonTool.FindAllStringSubmatch(string(data), -1) {
-		if n, err := strconv.Atoi(match[1]); err == nil && n > best {
-			best = n
+		if id, err := strconv.ParseInt(match[2], 10, 64); err == nil && id > newest {
+			best, newest = match[1], id
 		}
 	}
-	if best == 0 {
-		return "proton_experimental"
-	}
-	return "proton_" + strconv.Itoa(best)
+	return best
 }
 
 // steamConfigPath is where Steam keeps its compatibility tools per game.
@@ -181,31 +225,35 @@ func setCompatTool(text, appid, tool string) (string, bool) {
 	return strings.Join(out, "\n"), true
 }
 
-// watchLaunch (from watchSteam, every second while Steam runs): the game asked for has failed to
-// start for a missing program.
+// watchLaunch (from watchSteam, every second while Steam runs) follows the launch of the game
+// asked for: Steam's tasks (steamAskNow keeps Steam hidden while it works) and a failure to start
+// for a missing program.
 func (m *Manager) watchLaunch() {
 	m.mu.Lock()
 	launch, dir := m.steamLaunch, m.SteamDir
-	if launch != nil && time.Since(launch.at) > steamLaunchWatch {
+	if launch != nil && time.Since(launch.at) > steamLaunchWatch && !launch.state.busy(time.Now()) {
 		m.steamLaunch, launch = nil, nil
 	}
 	var appid string
 	var since time.Time
 	var offset int64
+	var state launchState
 	if launch != nil {
-		appid, since, offset = launch.appid, launch.at, launch.offset
+		appid, since, offset, state = launch.appid, launch.at, launch.offset, launch.state
 	}
 	m.mu.Unlock()
 	if launch == nil {
 		return
 	}
-	failed, offset := steamLaunchFailure(steamConsoleLog(dir), offset, appid, since)
+	failed := state.failed
+	state, offset = steamLaunchRead(steamConsoleLog(dir), offset, appid, since, state)
+	failed = !failed && state.failed
 	m.mu.Lock()
 	if m.steamLaunch != launch {
 		m.mu.Unlock()
 		return
 	}
-	launch.offset = offset
+	launch.offset, launch.state = offset, state
 	if failed {
 		m.steamLaunch = nil
 	}

@@ -11,39 +11,44 @@ import (
 )
 
 // Steam's console log as on the FrankenPC (2026-10-18), with an older failure and another game's
-func TestSteamLaunchFailure(t *testing.T) {
+func TestSteamLaunchRead(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "console_log.txt")
 	since := time.Date(2026, 10, 18, 14, 24, 25, 500e6, time.Local)
 	head := `[2026-10-18 14:20:01] GameAction [AppID 399070, ActionID 1] : LaunchApp failed with AppError_28 with "/old"
 [2026-10-18 14:24:25] ExecuteSteamURL: "steam://rungameid/399070"
+[2026-10-18 14:24:26] GameAction [AppID 399070, ActionID 1] : LaunchApp changed task to DownloadingDepots with ""
 [2026-10-18 14:24:27] GameAction [AppID 570, ActionID 2] : LaunchApp failed with AppError_28 with "/g/dota"
-[2026-10-18 14:24:27] GameAction [AppID 399070, ActionID 1] : LaunchApp changed task to CreatingProcess with ""
+[2026-10-18 14:24:27] GameAction [AppID 399070, ActionID 1] : LaunchApp waiting for user response to CreatingProcess ""
 `
 	failure := `[2026-10-18 14:24:27] GameAction [AppID 399070, ActionID 1] : LaunchApp failed with AppError_28 with "/home/owneet/.local/share/Steam/steamapps/common/Dragon's Wake/Dragon.x86"` + "\n"
 	if err := os.WriteFile(path, []byte(head+failure[:40]), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	failed, offset := steamLaunchFailure(path, 0, "399070", since)
-	if failed || offset != int64(len(head)) {
-		t.Fatalf("before the failure: %v at %d (want %d)", failed, offset, len(head))
+	state, offset := steamLaunchRead(path, 0, "399070", since, launchState{})
+	if state.failed || state.task != "CreatingProcess" || !state.waiting || offset != int64(len(head)) {
+		t.Fatalf("before the failure: %+v at %d (want %d)", state, offset, len(head))
+	}
+	at := time.Date(2026, 10, 18, 14, 24, 27, 0, time.Local)
+	if !state.busy(at.Add(time.Second)) || state.busy(at.Add(steamAnswerWait+time.Second)) {
+		t.Fatal("a question just asked is Steam's, one still open is the user's")
 	}
 	if err := os.WriteFile(path, []byte(head+failure), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if failed, offset = steamLaunchFailure(path, offset, "399070", since); !failed || offset != int64(len(head+failure)) {
-		t.Fatalf("the failure: %v at %d", failed, offset)
+	if state, offset = steamLaunchRead(path, offset, "399070", since, state); !state.failed || state.busy(at) || offset != int64(len(head+failure)) {
+		t.Fatalf("the failure: %+v at %d", state, offset)
 	}
 	// Steam started again: a new, shorter log is read from its start
 	if err := os.WriteFile(path, []byte(failure), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if failed, _ = steamLaunchFailure(path, offset, "399070", since); !failed {
+	if state, _ = steamLaunchRead(path, offset, "399070", since, launchState{}); !state.failed {
 		t.Fatal("new log not read")
 	}
-	if failed, _ = steamLaunchFailure(path, 0, "399070", since.Add(time.Minute)); failed {
-		t.Fatal("a failure before the request counted")
+	if state, _ = steamLaunchRead(path, 0, "399070", since.Add(time.Minute), launchState{}); state.failed || state.task != "" {
+		t.Fatalf("lines before the request counted: %+v", state)
 	}
-	if failed, _ = steamLaunchFailure(filepath.Join(t.TempDir(), "none"), 0, "399070", since); failed {
+	if state, _ = steamLaunchRead(filepath.Join(t.TempDir(), "none"), 0, "399070", since, launchState{}); state.failed {
 		t.Fatal("no log")
 	}
 }
@@ -59,10 +64,64 @@ func TestSteamProtonTool(t *testing.T) {
 [2026-10-18 14:20:30] Registering tool proton_11, AppID 4628710
 [2026-10-18 14:20:30] Registering tool proton_10, AppID 3658110
 [2026-10-18 14:20:30] Registering tool proton_hotfix, AppID 2180100
+[2026-10-18 14:20:30] Registering tool proton_513, AppID 1420170
+[2026-10-18 14:20:30] Registering tool proton_63, AppID 1580130
 `
 	os.WriteFile(filepath.Join(dir, "logs", "compat_log.txt"), []byte(log), 0o644)
 	if got := steamProtonTool(dir); got != "proton_11" {
-		t.Fatalf("newest: %q", got)
+		t.Fatalf("newest: %q (5.13 is proton_513)", got)
+	}
+}
+
+// Steam downloading what a game needs (its version for Windows, Proton) stays hidden, however
+// long it takes; a question Steam waits on is shown (FrankenPC, 2026-10-18: Steam's window was
+// shown 20 s after the start while it downloaded for 45 s).
+func TestSteamHiddenWhileItPreparesTheGame(t *testing.T) {
+	m, units, focus, _, _, ch := newSteamManager(t)
+	dir := m.SteamDir
+	os.MkdirAll(filepath.Join(dir, "logs"), 0o755)
+	os.MkdirAll(filepath.Join(dir, "config"), 0o755)
+	os.WriteFile(filepath.Join(dir, "config", "loginusers.vdf"), []byte(`"users" { "76561190000000001" { "AccountName" "a" } }`), 0o644)
+	log := filepath.Join(dir, "logs", "console_log.txt")
+	os.WriteFile(log, nil, 0o644)
+	line := func(at time.Time, what string) {
+		f, _ := os.OpenFile(log, os.O_APPEND|os.O_WRONLY, 0)
+		f.WriteString("[" + at.Format("2006-01-02 15:04:05") + "] GameAction [AppID 399070, ActionID 1] : LaunchApp " + what + "\n")
+		f.Close()
+	}
+	if err := m.Steam(SteamRequest{Run: "399070", Name: "Dragon's Wake"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "app.started")
+	_ = units
+	m.mu.Lock()
+	m.steamLaunch.at = time.Now().Add(-time.Minute) // asked a minute ago: the lines below count
+	m.mu.Unlock()
+	focus.openWindow(1001)
+	settle(m)
+	line(time.Now(), `changed task to DownloadingDepots with ""`)
+	m.watchSteam()
+	m.steamAskNow() // as steamAskAfter would
+	if st := m.Status(); st.Focus != "home" {
+		t.Fatalf("Steam shown while it downloads: %q", st.Focus)
+	}
+	m.mu.Lock()
+	again := m.steamAsk != nil
+	m.mu.Unlock()
+	if !again {
+		t.Fatal("not looked at again")
+	}
+	line(time.Now(), `waiting for user response to ShowInterstitials ""`) // a routine question
+	m.watchSteam()
+	m.steamAskNow()
+	if st := m.Status(); st.Focus != "home" {
+		t.Fatalf("Steam shown for its own question: %q", st.Focus)
+	}
+	line(time.Now().Add(-5*time.Second), `waiting for user response to ShowCloudConflict ""`) // still open
+	m.watchSteam()
+	m.steamAskNow()
+	if st := m.Status(); st.Focus != SteamID {
+		t.Fatalf("Steam not shown for a question to the user: %q", st.Focus)
 	}
 }
 
