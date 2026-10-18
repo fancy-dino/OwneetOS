@@ -174,7 +174,10 @@ FocusScope {
         downloading(before).forEach(id => {
             if (!has(downloading(st), id) && has(st.games, id)) {
                 const g = steamGame(id);
-                if (g) notify({ key: "notices.steam.ready", args: { name: g.title }, icon: "check", kind: "info",
+                // not for the game starting or running (Steam updated it before starting it)
+                const starting = g && ((steamPrep.visible && steamPrep.gameTitle === g.title)
+                                       || (runningGame && runningGame.name === g.title));
+                if (g && !starting) notify({ key: "notices.steam.ready", args: { name: g.title }, icon: "check", kind: "info",
                                 action: "play", game: g.title });
             }
         });

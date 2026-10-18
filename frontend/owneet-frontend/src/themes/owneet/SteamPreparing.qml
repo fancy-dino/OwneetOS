@@ -7,6 +7,8 @@
 // It is never shown without internet when Steam needs it (the shell says so instead).
 // A Windows game ([[step-4.5-windows-games-proton]], approved demo 4.5) uses it too: "Preparing
 // {game}…" until the game's first picture, longer the first time (its prefix is made).
+// While Steam downloads what a game needs before starting it (its version for Windows and what
+// runs it, an update), the percentage of those downloads (demo 4.5, approved 2026-10-18).
 import QtQuick 2.15
 import "foundation"
 
@@ -21,6 +23,15 @@ NavArea {
     property string gameTitle: ""           // started for this game: Steam stays hidden
     property bool windows: false            // a Windows game (not Steam)
     property bool steamRestart: false       // Steam closes and starts again for the game (4.5)
+    // What Steam downloads now (not what waits in its queue), in one percentage; -1: nothing
+    readonly property int downloadPct: {
+        if (!visible || windows || gameTitle === "" || !GameInfo.steam) return -1;
+        let done = 0, total = 0;
+        (GameInfo.steam.downloads || []).forEach(d => {
+            if (d.state !== "queued") { done += d.done; total += d.total; }
+        });
+        return total > 0 ? Math.min(100, Math.floor(100 * done / total)) : -1;
+    }
 
     function start(first, title, windowsGame) {
         firstTime = first;
@@ -63,6 +74,28 @@ NavArea {
             font.weight: Font.Bold
             font.pixelSize: Theme.fs(24)
             wrapMode: Text.Wrap
+        }
+        Text {
+            visible: root.downloadPct >= 0
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            text: Tr.tr("steam.dl.text", { p: root.downloadPct })
+            color: Theme.muted
+            font.family: Theme.textFont
+            font.pixelSize: Theme.fs(17)
+            wrapMode: Text.Wrap
+        }
+        Rectangle {
+            visible: root.downloadPct >= 0
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Math.min(parent.width, Theme.px(420)); height: Theme.px(6); radius: height / 2
+            color: Theme.raised
+            Rectangle {
+                width: parent.width * Math.max(0, root.downloadPct) / 100
+                height: parent.height; radius: height / 2
+                color: Theme.accent
+                Behavior on width { enabled: !Theme.reduceMotion; NumberAnimation { duration: Theme.motionMs } }
+            }
         }
         Text {
             visible: root.firstTime || root.gameTitle === ""

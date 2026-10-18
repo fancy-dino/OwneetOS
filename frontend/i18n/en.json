@@ -458,6 +458,7 @@
   "steam.broken.title": "{title} does not start",
   "steam.broken.text": "This game’s Linux version does not start. Try the version for Windows?",
   "steam.broken.try": "Try",
+  "steam.dl.text": "Steam is downloading what the game needs: {p}%",
   "steam.close.title": "Close Steam?",
   "steam.close.text": "Steam's downloads stop until Steam starts again.",
   "steam.close.game": "{title} closes too.",

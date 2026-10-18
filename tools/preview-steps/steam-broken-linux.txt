@@ -16,3 +16,14 @@ wait 1.5
 shot 03-starting
 wait 7
 shot 04-still-starting
+# Steam downloads the game's version for Windows and what runs it: "Starting …" shows the
+# percentage (demo 4.5, approved 2026-10-18); a queued download does not count
+event fake.steam {"downloads": [{"appid":"2002","state":"updating","done":300000000,"total":1000000000,"rate":20000000},{"appid":"1420170","state":"downloading","done":100000000,"total":500000000,"rate":10000000},{"appid":"2004","state":"queued","done":0,"total":9000000000,"rate":0}]}
+wait 1
+shot 05-downloading-25
+event fake.steam {"downloads": [{"appid":"2002","state":"updating","done":900000000,"total":1000000000,"rate":20000000},{"appid":"1420170","state":"downloading","done":450000000,"total":500000000,"rate":10000000}]}
+wait 1
+shot 06-downloading-90
+event fake.steam {"downloads": []}
+wait 1
+shot 07-download-done
