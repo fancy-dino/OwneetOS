@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Minimal mounting of a USB disk, read only (owneet-mount-ro, [[step-4.3-local-drm-free-games]]):
+# %i is the kernel name of its file system (e.g. sdb1). Pulled in by 90-owneet-usb-disks.rules;
+# stops (unmounts) when the disk goes.
+[Unit]
+Description=OwneetOS read-only mount of USB disk %i
+BindsTo=dev-%i.device
+After=dev-%i.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/owneet/owneet-mount-ro start %i
+ExecStop=/usr/lib/owneet/owneet-mount-ro stop %i
+TimeoutSec=30

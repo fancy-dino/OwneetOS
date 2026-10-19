@@ -148,7 +148,10 @@ case "$MODE" in
             installed=1
         else
             echo "owneet-update: trying again with Arch Linux's repositories (internet)"
-            if pacman --config "$full_conf" -Sy && pacman --config "$full_conf" -S --needed --noconfirm "${names[@]}"; then
+            # The Arch Linux Archive can be slow (23 s for core.db on 2026-10-17): pacman's 10-second
+            # limit would give up on a working connection
+            if pacman --config "$full_conf" -Sy --disable-download-timeout \
+                    && pacman --config "$full_conf" -S --needed --noconfirm --disable-download-timeout "${names[@]}"; then
                 installed=1
             fi
         fi

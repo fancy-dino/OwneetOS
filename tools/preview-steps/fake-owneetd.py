@@ -21,11 +21,14 @@
 import json
 import os
 import queue
+import re
+import shutil
 import socketserver
 import sys
 import threading
 import time
 import urllib.parse
+import zipfile
 from http.server import BaseHTTPRequestHandler
 
 lock = threading.Lock()
@@ -82,7 +85,15 @@ state = {
     # Steam (4.2): change it with the event line "fake.steam {...}" (e.g. {"allowed": false})
     # testers' updates from a USB stick (4.2b)
     "update": {"tester": True, "state": "", "packages": [], "running": False},
-    "steam": {"installed": True, "allowed": True, "prepared": False, "running": False, "games": []},
+    # Windows games (4.5): nothing until the interface says the library has one; then about
+    # 20 seconds of "getting ready"
+    "windows": {"state": "none", "percent": 0, "needed": False},
+    # games installed from their installers (4.6): queued or in progress
+    "installs": [],
+    # the controller as a mouse (4.7)
+    "pointer": {"on": False},
+    "steam": {"installed": True, "allowed": True, "prepared": False, "running": False, "games": [],
+              "downloads": [], "away": {}, "account": False, "licences": 0, "nvidia": False},
     # optional web apps (5.0.0)
     "catalog": {"allowed": True, "apps": [
         {"id": i, "nameKey": "app." + i, "icon": i[0].upper(), "url": "", "installed": False, "sizeMiB": 500}
@@ -100,6 +111,118 @@ def publish(kind, data=None):
 
 def later(seconds, fn):
     threading.Timer(seconds, fn).start()
+
+
+# Steam's downloads (4.2c): the first one moves, the others wait; about 20 seconds a game
+def steam_publish():
+    with lock:
+        data = json.loads(json.dumps(state["steam"]))
+    publish("steam.changed", data)
+
+
+def steam_install(appid):
+    with lock:
+        ds = state["steam"]["downloads"]
+        if any(d["appid"] == appid for d in ds):
+            return
+        ds.append({"appid": appid, "state": "queued", "done": 0, "total": 4_200_000_000, "rate": 0})
+        start = len(ds) == 1
+    steam_publish()
+    if start:
+        later(0.5, steam_tick)
+
+
+def steam_tick():
+    with lock:
+        ds = state["steam"]["downloads"]
+        if not ds:
+            return
+        d = ds[0]
+        d["state"], d["rate"] = "downloading", 41_600_000
+        d["done"] = min(d["total"], d["done"] + d["total"] // 40)
+        if d["done"] >= d["total"]:
+            ds.pop(0)
+            state["steam"]["games"].append(d["appid"])
+    steam_publish()
+    later(0.5, steam_tick)
+
+
+# Installers (4.6): an install takes a few seconds (GOG's .sh with a percentage, Windows
+# installers without), then the game is in the home folder's games folder with owneetd's mark
+def install_inspect(body):
+    path = body.get("installer", "")
+    info = {"need": 0, "exact": False, "free": 212 * 10**9, "licence": ""}
+    if body.get("kind") == "sh":
+        try:
+            with zipfile.ZipFile(path) as z:
+                info["need"] = sum(f.file_size for f in z.infolist() if f.filename.startswith("data/noarch/"))
+                info["exact"] = True
+                for f in z.infolist():
+                    if re.search(r"(?i)(eula|licen[cs]e|terms)[^/]*\.txt$", f.filename):
+                        info["licence"] = z.read(f).decode("utf-8", "replace")
+                        break
+        except (OSError, zipfile.BadZipFile):
+            pass
+    else:
+        try:
+            info["need"] = 2 * os.path.getsize(path)
+        except OSError:
+            pass
+    return info
+
+
+def installs_copy():
+    return {"installs": json.loads(json.dumps(state["installs"]))}
+
+
+def install_tick():
+    with lock:
+        cur = next((i for i in state["installs"] if i["state"] == "installing"), None)
+        if cur is None:
+            return
+        cur["done"] += cur["total"] // 6 if cur["total"] else 1
+        finished = cur["done"] >= (cur["total"] or 30)   # Windows installers: half a minute
+        if finished:
+            state["installs"].remove(cur)
+            nxt = next((i for i in state["installs"] if i["state"] == "queued"), None)
+            if nxt:
+                nxt["state"] = "installing"
+        snapshot = installs_copy()
+        more = bool(state["installs"])
+    if finished:
+        dest = cur["dest"]
+        os.makedirs(dest, exist_ok=True)
+        start = os.path.join(dest, "start.sh" if cur["kind"] == "sh" else "game.exe")
+        with open(start, "w") as f:
+            f.write("#!/bin/sh\nexec true\n")
+        os.chmod(start, 0o755)
+        with open(os.path.join(dest, ".owneet-installed"), "w") as f:
+            json.dump({"installer": cur["installer"], "kind": cur["kind"]}, f)
+    publish("installs.changed", snapshot)
+    if finished:
+        publish("install.done", {"dest": cur["dest"], "title": cur["title"]})
+    if more:
+        later(1, install_tick)
+
+
+def windows_tick():
+    with lock:
+        w = state["windows"]
+        w["percent"] = min(100, w["percent"] + 5)
+        if w["percent"] >= 100:
+            w["state"] = "ready"
+        data = dict(w)
+    publish("windows.changed", data)
+    if data["state"] != "ready":
+        later(1, windows_tick)
+
+
+def steam_uninstall(appid):
+    with lock:
+        st = state["steam"]
+        st["downloads"] = [d for d in st["downloads"] if d["appid"] != appid]
+        st["games"] = [g for g in st["games"] if g != appid]
+    steam_publish()
 
 
 def set_connected(ssid):
@@ -206,11 +329,14 @@ class Handler(BaseHTTPRequestHandler):
             return self.events()
         with lock:
             answers = {
-                "/v1/status": {"session_mode": "cage", "owneetos_version": "preview"},
+                "/v1/status": {"session_mode": os.environ.get("FAKE_SESSION", "cage"), "owneetos_version": "preview"},
                 "/v1/apps": {"apps": state["apps"], "focus": "home"},
                 "/v1/steam": state["steam"],
                 "/v1/update": state["update"],
                 "/v1/apps/catalog": state["catalog"],
+                "/v1/windows": state["windows"],
+                "/v1/installs": {"installs": state["installs"]},
+                "/v1/pointer": state["pointer"],
                 "/v1/controllers": {"controllers": state["controllers"]},
                 "/v1/network": state["network"],
                 "/v1/network/wifi": {"networks": state["networks"]},
@@ -318,11 +444,85 @@ class Handler(BaseHTTPRequestHandler):
             publish("apps.catalog.changed", data)
             later(3 if action == "install" else 1.5, finish)
             return self.reply(202)
+        if path == "/v1/apps/launch":  # a game on a disk (4.5): its window appears after a few seconds
+            app = {"id": body.get("id", "game"), "name": body.get("name", ""), "kind": "game"}
+            with lock:
+                state["apps"].append(app)
+            publish("app.started", app)
+            later(4, lambda: publish("focus.changed", {"focus": app["id"]}))
+            return self.reply(201, {"id": app["id"]})
+        if path == "/v1/pointer":   # 4.7: on for a running app, off by hand
+            with lock:
+                if body.get("on"):
+                    if not any(a["id"] == body.get("app") for a in state["apps"]):
+                        return self.error(404, "apps.unknown")
+                    state["pointer"] = {"on": True, "app": body["app"]}
+                else:
+                    state["pointer"] = {"on": False, "reason": "user"}
+                snapshot = dict(state["pointer"])
+            publish("pointer.changed", snapshot)
+            return self.reply(204)
+        if path in ("/v1/input/text", "/v1/input/key", "/v1/input/pointer", "/v1/input/click"):
+            return self.reply(204)
+        if path.startswith("/v1/apps/") and path.endswith("/focus"):
+            return self.reply(204)
+        if path == "/v1/installs/inspect":
+            return self.reply(200, install_inspect(body))
+        if path == "/v1/installs":
+            info = install_inspect(body)
+            with lock:
+                first = not state["installs"]
+                state["installs"].append({"dest": body["dest"], "title": body.get("title", ""), "kind": body["kind"],
+                                          "installer": body["installer"], "state": "installing" if first else "queued",
+                                          "done": 0, "total": info["need"] if body["kind"] == "sh" else 0})
+                snapshot = installs_copy()
+            publish("installs.changed", snapshot)
+            if first:
+                later(1, install_tick)
+            return self.reply(202)
+        if path == "/v1/installs/stop":
+            with lock:
+                gone = [i for i in state["installs"] if i["dest"] == body.get("dest")]
+                state["installs"] = [i for i in state["installs"] if i["dest"] != body.get("dest")]
+                if gone and gone[0]["state"] == "installing":
+                    nxt = next((i for i in state["installs"] if i["state"] == "queued"), None)
+                    if nxt:
+                        nxt["state"] = "installing"
+                snapshot = installs_copy()
+            if not gone:
+                return self.error(404, "installs.not_found")
+            publish("installs.changed", snapshot)
+            publish("install.failed", {"dest": gone[0]["dest"], "title": gone[0]["title"], "reason": "cancelled"})
+            return self.reply(204)
+        if path == "/v1/installs/uninstall":
+            dest = body.get("dest", "")
+            if not os.path.exists(os.path.join(dest, ".owneet-installed")):
+                return self.error(404, "installs.not_found")
+            shutil.rmtree(dest)
+            return self.reply(204)
+        if path == "/v1/windows/needed":
+            with lock:
+                w = state["windows"]
+                first = not w["needed"]
+                w["needed"] = True
+                if first:
+                    w["state"] = "downloading"
+            if first:
+                later(1, windows_tick)
+            return self.reply(204)
         if path == "/v1/steam":
+            req = body
+            if req.get("ask"):     # 4.2c: the next start asks the user first (Steam shown at once)
+                return self.reply(202)
             with lock:
                 steam = state["steam"]
                 if not steam["allowed"]:
                     return self.error(409, "steam.needs_install")
+                # 4.2c: Steam's confirmation is accepted at once; downloads move on by themselves
+                if req.get("install"):
+                    later(1.5, lambda: steam_install(req["install"]))
+                elif req.get("uninstall"):
+                    later(1.5, lambda: steam_uninstall(req["uninstall"]))
                 starting = not steam["running"]
                 steam["running"] = True
                 if starting:
@@ -428,7 +628,7 @@ def read_events(path):
                 with lock:            # games and apps announced by events are "running"
                     if kind == "fake.steam":
                         state["steam"].update(payload)
-                        continue
+                        kind, payload = "steam.changed", json.loads(json.dumps(state["steam"]))
                     if kind == "app.started":
                         state["apps"].append(payload)
                     elif kind == "app.exited":
@@ -438,6 +638,9 @@ def read_events(path):
 
 if __name__ == "__main__":
     sock = sys.argv[1]
+    if os.environ.get("FAKE_STEAM"):   # the invented Steam folder of fake-steam.py
+        state["steam"].update({"prepared": True, "account": True, "nvidia": True, "games": ["2001", "2002", "2010"],
+                               "away": {"2003": "Games SSD"}})
     if len(sys.argv) > 2:
         threading.Thread(target=read_events, args=(sys.argv[2],), daemon=True).start()
     if os.path.exists(sock):

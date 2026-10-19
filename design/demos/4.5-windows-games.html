@@ -1,0 +1,976 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS — interactive demo for [[step-4.5-windows-games-proton]] (Windows games), built on
+     the approved demo 4.3. Windows games on the USB disk, listed like the others; the download
+     they need the first time (about 650 MB, only once a Windows game is in the library): its
+     progress in the home screen's notices and in Settings → System, a banner when ready; a
+     Windows game started before that (the progress, or "connect to the internet"); "Preparing
+     {game}…" until its first picture; the file to start from GOG's info file, otherwise the
+     usual question; a Steam game whose Linux version does not start, and "Starting {game}…" with
+     the percentage of what Steam downloads before the game starts (added 2026-10-18). Open in a browser; drive it
+     with a gamepad or the keyboard. Fonts come from Google Fonts for the demo only; sounds from
+     sounds.js. Names (but the owner's three GOG test games) and files are invented. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS — Windows games (demo 4.5)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1; --motion: 1; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+.frame { position: relative; flex: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+
+/* ---------- 1280 × 720 grid, 5% horizontal safe area ---------- */
+.stage {
+  width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px;
+  display: grid; grid-template-rows: auto 1fr auto; gap: 20px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350;
+}
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); } .t-xl { font-size: calc(40px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+
+/* ---------- Focus ring ---------- */
+[data-f] { outline: none; position: relative; transition: transform calc(.16s * var(--motion)) ease, box-shadow calc(.16s * var(--motion)) ease; }
+[data-f].focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); transform: scale(calc(1 + .035 * var(--motion))); z-index: 2; }
+
+/* ---------- Top bar ---------- */
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 36px; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.status { display: flex; align-items: center; gap: 20px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status svg { width: calc(19px * var(--ts)); height: calc(19px * var(--ts)); }
+.status .clock { color: var(--fg); font-weight: 500; }
+
+/* ---------- Library ---------- */
+.page { min-height: 0; display: none; }
+.page.on { display: grid; }
+.lib { grid-template-rows: auto auto minmax(0, 1fr); gap: 16px; }
+.lib-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
+.lib-title { display: flex; align-items: baseline; gap: 14px; }
+.disks { display: flex; gap: 22px; color: var(--muted); font-variant-numeric: tabular-nums; padding: 8px 12px; margin: -8px -12px; border-radius: 14px; }
+.disks .summary { display: grid; gap: 5px; min-width: 190px; }
+.disk-list { display: grid; gap: 14px; width: 560px; text-align: left; }
+.disk-row { display: grid; gap: 6px; padding: 12px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.disk-row .name { display: flex; justify-content: space-between; gap: 16px; }
+.disk-row .bar { height: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.disk-row .bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.disk-row .note { color: var(--muted); display: flex; gap: 8px; align-items: flex-start; }
+.disk-row .note::before { content: "!"; flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+.disk { display: grid; gap: 5px; min-width: 150px; }
+.disks .bar { height: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.disks .bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.filters { display: flex; align-items: center; gap: 8px; }
+.chip { padding: 6px 15px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 500; }
+.filters .sortnote { margin-left: auto; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
+.grid-wrap { min-height: 0; overflow-y: auto; scrollbar-width: none; padding: 18px; margin: -18px; }
+/* room for the focus ring and lift when the grid scrolls to the first or last row */
+.grid .cover { scroll-margin-block: 18px; }
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 16px 14px; align-content: start; }
+.cover {
+  position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 4 / 5; color: #fff;
+  display: flex; flex-direction: column; justify-content: flex-end; padding: 10px;
+  background:
+    radial-gradient(120% 80% at 80% 10%, hsl(var(--h) 85% 62% / .95), transparent 60%),
+    radial-gradient(90% 70% at 0% 100%, hsl(calc(var(--h) + 40) 70% 35%), transparent 70%),
+    linear-gradient(160deg, hsl(var(--h) 45% 26%), hsl(calc(var(--h) + 25) 50% 12%));
+}
+.cover .ttl { font-family: var(--display); font-weight: 750; font-variation-settings: "wdth" 80; line-height: 1.05; text-shadow: 0 2px 10px rgba(0,0,0,.4); }
+.cover .src { position: absolute; top: 8px; left: 8px; padding: 2px 9px; border-radius: 999px; background: rgba(0,0,0,.45); }
+.cover .fav { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,.45); display: grid; place-items: center; }
+/* "Add games": the last place of the grid, like "All games" on the home screen */
+.cover.add { background: transparent; border: 2px dashed var(--line); color: var(--fg); align-items: center; justify-content: center; gap: 12px; text-align: center; }
+.cover.add .plus { width: 46px; height: 46px; border-radius: 50%; background: var(--raised); display: grid; place-items: center; }
+.cover.add .plus svg { width: 22px; height: 22px; }
+.cover svg { width: 15px; height: 15px; }
+/* a cover.jpg found in the game's folder (here a drawn stand-in) */
+.cover.photo { background:
+    repeating-linear-gradient(45deg, hsl(var(--h) 40% 30%) 0 14px, hsl(var(--h) 45% 24%) 14px 28px); }
+.cover.photo::after { content: "cover.jpg"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 11px; color: rgba(255,255,255,.55); letter-spacing: .05em; }
+/* Banners (demo 3.11): top right, under the top bar */
+.banners { position: absolute; top: 88px; right: 64px; width: 400px; display: grid; gap: 10px; z-index: 25; pointer-events: none; }
+.banner { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 16px;
+          background: var(--surface); border: 1px solid var(--line); box-shadow: 0 18px 40px -16px rgba(0,0,0,.65);
+          animation: in calc(.25s * var(--motion)) ease; }
+.banner.out { animation: out calc(.25s * var(--motion)) ease forwards; }
+@keyframes in { from { transform: translateX(40px); opacity: 0; } }
+@keyframes out { to { transform: translateX(40px); opacity: 0; } }
+.banner .ico { width: 40px; height: 40px; border-radius: 12px; background: var(--raised); color: var(--fg); display: grid; place-items: center; }
+.banner .ico svg { width: 22px; height: 22px; }
+.banner .txt { display: grid; gap: 2px; min-width: 0; }
+/* "Which file starts the game?": one row per file, its name and its folder */
+.filelist { display: grid; gap: 10px; width: 560px; }
+.file { display: grid; gap: 2px; padding: 12px 18px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); text-align: left; }
+.file .where { color: var(--muted); }
+.file.current { border-color: var(--accent); }
+.empty { display: grid; place-items: center; align-content: center; gap: 8px; text-align: center; color: var(--muted); height: 100%; }
+.later { place-items: center; text-align: center; color: var(--muted); align-content: center; gap: 10px; }
+/* Home (approved in demo 3.6): only its notices here */
+.home { align-content: start; gap: 18px; }
+.home .note-intro { color: var(--muted); }
+.notices { display: grid; gap: 10px; width: 640px; }
+.notice { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
+.notice .ico, .row .ico { width: 40px; height: 40px; border-radius: 12px; background: var(--raised); display: grid; place-items: center; }
+.notice .ico svg, .row .ico svg { width: 22px; height: 22px; }
+.notice .txt { display: grid; gap: 6px; }
+.pbar { height: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; width: 100%; }
+.pbar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .3s; }
+/* Settings → System (approved in demo 3.9): the rows of this step */
+.settings { align-content: start; gap: 16px; }
+.rows { display: grid; gap: 10px; width: 760px; }
+.row { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 12px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.row .val { color: var(--muted); text-align: right; display: grid; gap: 6px; justify-items: end; min-width: 220px; }
+.row .val .pbar { width: 200px; }
+/* "Preparing {game}…": over everything until the game's first picture */
+.prep { position: absolute; inset: 0; z-index: 28; display: none; place-items: center; align-content: center; gap: 14px; background: var(--bg); text-align: center; }
+.prep.open { display: grid; }
+.spin { width: 42px; height: 42px; border-radius: 50%; border: 4px solid var(--raised); border-top-color: var(--accent); animation: spin calc(.9s / max(var(--motion), .2)) linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.sheet .pbar { width: 420px; }
+.prep .pbar { width: 420px; }
+
+/* ---------- Prompt bar and glyphs ---------- */
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 24px; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+
+/* ---------- Windows ---------- */
+.overlay { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 85%, transparent); display: none; z-index: 10; }
+.overlay.open { display: block; }
+.sheet { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -58%); width: max-content; min-width: 520px; max-width: 1000px;
+         text-align: center; justify-items: center; background: var(--bg); border: 1px solid var(--line); border-radius: 18px;
+         padding: 20px 24px 24px; display: grid; gap: 14px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.7); }
+.sheet .list { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 20px; margin-top: 6px; }
+.sheet .item { padding: 11px 26px; border-radius: 999px; font-weight: 500; background: var(--raised); color: var(--fg); }
+.sheet .item.primary { background: var(--accent); color: var(--on-accent); }
+.sheet .facts { display: grid; grid-template-columns: auto auto; gap: 6px 18px; text-align: left; }
+.sheet .facts span:nth-child(odd) { color: var(--muted); }
+.sheet-prompts { position: absolute; left: 64px; right: 64px; bottom: 28px; }
+.choices { display: grid; grid-auto-flow: column; gap: 16px; margin-top: 6px; }
+.choice { width: 250px; padding: 20px 16px 18px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); display: grid; justify-items: center; align-content: start; gap: 8px; text-align: center; }
+.choice svg { width: 32px; height: 32px; }
+.choice .sub { color: var(--muted); }
+.guide { display: grid; gap: 14px; width: 720px; text-align: left; }
+.tree { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 20px; display: grid; gap: 3px; font-variant-numeric: tabular-nums; }
+.tree .row { display: grid; grid-template-columns: 300px 1fr; gap: 12px; align-items: baseline; }
+.tree .name { white-space: pre; }
+.tree .dir { color: var(--fg); font-weight: 500; }
+.tree .file { color: var(--muted); }
+.tree .cmt { color: var(--accent); }
+.steps { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+/* Steam's own interface, opened by the console (only a stand-in here) */
+.steam-sim { position: absolute; inset: 0; z-index: 30; display: none; place-items: center; align-content: center; gap: 14px; text-align: center; padding: 0 160px;
+             background: repeating-linear-gradient(135deg, #10141c 0 22px, #131823 22px 44px); color: #e8ebf2; }
+.steam-sim.open { display: grid; }
+.steam-sim .note { color: #9aa3b5; }
+.steam-sim kbd { font: inherit; padding: 1px 8px; border: 1px solid #4a5263; border-radius: 6px; }
+.has-sheet > .prompts { visibility: hidden; }
+.toast { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); padding: 9px 18px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; white-space: nowrap; }
+.toast.show { opacity: 1; }
+
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <header class="top">
+    <div class="top-left">
+      <span class="mark">Owneet<i>OS</i></span>
+      <nav class="tabs t-s">
+        <span data-glyph="lb"></span>
+        <span class="tab" data-tab="home" data-i18n="tab.home">Home</span>
+        <span class="tab" data-tab="library" aria-current="page" data-i18n="tab.library">Library</span>
+        <span class="tab" data-tab="settings" data-i18n="tab.settings">Settings</span>
+        <span data-glyph="rb"></span>
+      </nav>
+    </div>
+    <div class="status t-s">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z"/></svg>
+      <span class="clock" id="clock">21:40</span>
+    </div>
+  </header>
+
+  <main style="min-height:0; display:grid">
+    <section class="page lib on" id="page-library">
+      <div class="lib-head">
+        <div class="lib-title"><span class="disp t-xl" data-i18n="tab.library">Library</span><span class="muted t-m" id="count"></span></div>
+        <button class="disks t-xs" id="disks" data-f data-disks></button>
+      </div>
+      <div class="filters t-s" id="filters"></div>
+      <div class="grid-wrap" id="grid-wrap"><div class="grid t-s" id="grid" data-group="grid"></div></div>
+    </section>
+    <section class="page home" id="page-home"><span class="disp t-xl" data-i18n="tab.home">Home</span><span class="t-s note-intro" data-i18n="later.home">The home screen was approved in demo 3.6: here only its notices.</span><div class="notices" id="notices"></div></section>
+    <section class="page settings" id="page-settings"><span class="disp t-xl" data-i18n="set.system">System</span><span class="t-s note-intro muted" data-i18n="later.settings">Settings were approved in demo 3.9: here only the rows of this step.</span><div class="rows" id="rows"></div></section>
+  </main>
+
+  <footer class="prompts t-s" id="prompts"></footer>
+  <div class="toast t-s" id="toast"></div>
+  <div class="steam-sim t-m" id="steam-sim"></div>
+  <div class="banners" id="banners"></div>
+  <div class="prep" id="prep"></div>
+  <div class="overlay" id="overlay">
+    <div class="sheet" id="sheet"></div>
+    <div class="prompts t-s sheet-prompts" id="sheet-prompts"></div>
+  </div>
+</div></div>
+<p class="help"><b>New in 4.5:</b> the disk's Windows games (<b>Stargunner</b>, <b>Treasure Adventure Game</b>, <b>Tyrian 2000</b>: GOG's info file says what starts them; <b>Ashen Gate</b> has none: the usual question) are listed like the others. The download they need the first time goes on by itself while online (Home's notices, Settings → System, a banner when ready); A on a Windows game before that shows the progress, or asks to connect. Then “Preparing…” until the game's first picture. <b>Iron Tundra</b> (Steam): its Linux version does not start; after Try, “Starting…” shows the percentage of what Steam downloads before the game starts (new, 2026-10-18).<br>
+<b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A play, B menu (back in windows), X details, Y sort, Menu options, LT/RT filters, LB/RB sections.
+<b>Keyboard:</b> arrows, Page Up/Down = right stick, Enter = A, Esc = B, X, Y, M = Menu, Z/C = LT/RT, Q/E = LB/RB.<br>
+<b>Demo only:</b> O internet on / off (<span id="net-state">on</span>), W download state (<span id="win-state">getting ready</span>), R forget first starts and choices, U plug in / unplug the disk (<span id="disk-state">plugged in</span>), P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#win=waiting|downloading|ready&amp;net=off&amp;section=home|settings&amp;filter=local&amp;lang=it&amp;open=offline|progress|prep|choose|broken|steamdl</code></p>
+
+<script src="sounds.js"></script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 90) / 720);
+    stage.style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+
+  /* ---------- Palettes ---------- */
+  const PALETTES = [
+    ['dusk', '#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+    ['tide', '#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+    ['bloom', '#1A1020', '#25182D', '#33223D', '#45304F', '#F7EEF6', '#AE93AE', '#FF7AA8', '#2A0614'],
+    ['ember', '#1C0F0C', '#2A1713', '#3A201A', '#4E2C24', '#FBEDE9', '#C49C93', '#FF6B47', '#2A0A03'],
+    ['espresso', '#1A1310', '#261C17', '#33261F', '#47362C', '#F5ECE4', '#BBA693', '#D9A066', '#2A1707'],
+    ['harbor', '#0D1B2E', '#14263D', '#1D3350', '#2A4566', '#F3EAD8', '#B7AE99', '#E8D3A8', '#142033'],
+    ['forest', '#0E1A14', '#15261D', '#1E3428', '#2B4636', '#ECF5EE', '#95B2A0', '#7BD88F', '#072012'],
+    ['lagoon', '#0A1426', '#101E38', '#182A4B', '#23395F', '#EAF1FF', '#90A4C9', '#4DA3FF', '#03162E'],
+    ['amethyst', '#15121F', '#1F1A2E', '#2A2340', '#3A3155', '#F1EDFA', '#A99FC4', '#B69CFF', '#1B0E3A'],
+    ['crimson', '#170A0E', '#241018', '#321722', '#47202F', '#FCECEF', '#C597A1', '#FF4D6D', '#2B0510'],
+    ['synthwave', '#140B24', '#1F1236', '#2B1A4A', '#3D2563', '#FBEFFF', '#B99DD8', '#FF4FD8', '#2B0326'],
+    ['amber', '#0F0B05', '#1A1409', '#251C0D', '#3A2C14', '#FFE8C2', '#C9AA78', '#FFB000', '#241700'],
+    ['olive', '#14160E', '#1E2116', '#292D1F', '#3A402B', '#F1F3E6', '#ABB092', '#C5D86D', '#1C2306'],
+    ['graphite', '#121212', '#1C1C1C', '#262626', '#383838', '#F2F2F2', '#A6A6A6', '#DADADA', '#121212'],
+    ['daylight', '#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+    ['arctic', '#EEF5FA', '#FFFFFF', '#DCE9F3', '#C3D5E4', '#0F1E2B', '#4E6577', '#0A78B8', '#FFFFFF'],
+    ['sand', '#F4EEE3', '#FFFBF4', '#E8DFD0', '#D3C6B1', '#2A2117', '#6A5C49', '#B04A28', '#FFFFFF'],
+    ['latte', '#F3ECE4', '#FFFAF5', '#E6DACD', '#D2C1AF', '#2B1E14', '#6B5746', '#8B5A2B', '#FFFFFF'],
+    ['sakura', '#FBEFF3', '#FFFFFF', '#F3DDE5', '#E3C3CF', '#2A1420', '#76505F', '#C92A62', '#FFFFFF'],
+    ['contrast', '#000000', '#000000', '#161616', '#FFFFFF', '#FFFFFF', '#E0E0E0', '#FFE14D', '#000000'],
+    ['contrast-light', '#FFFFFF', '#FFFFFF', '#EDEDED', '#000000', '#000000', '#262626', '#0038B8', '#FFFFFF'],
+  ];
+  const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
+  let palIndex = 0;
+  function setPalette(i) {
+    palIndex = (i + PALETTES.length) % PALETTES.length;
+    TOKENS.forEach((t, k) => stage.style.setProperty('--' + t, PALETTES[palIndex][1 + k]));
+  }
+
+  /* ---------- i18n ---------- */
+  const EN = {
+    'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings',
+    'later.home': 'The home screen was approved in demo 3.6: here only its notices.', 'later.settings': 'Settings were approved in demo 3.9: here only the rows of this step.',
+    'set.system': 'System', 'set.version': 'OwneetOS version', 'set.win': 'Windows games',
+    'win.ready': 'Ready', 'win.getting': 'Getting ready · {p}%', 'win.waiting': 'Waiting for an internet connection',
+    'win.notice': 'Getting Windows games ready · {p}%', 'win.notice.wait': 'Windows games will be ready as soon as the console is online',
+    'win.why': 'A download of about 650 MB, needed only the first time.',
+    'banner.ready': 'Windows games are ready', 'banner.ready.text': 'You can play them now.',
+    'off.title': '{title} needs a download', 'off.text': 'Windows games need a download of about 650 MB, only the first time. Connect the console to the internet: it then gets them ready by itself.',
+    'off.net': 'Network settings', 'p.cancel': 'Cancel', 'p.ok': 'OK',
+    'prog.title': 'Almost ready', 'prog.text': 'Windows games are getting ready ({p}%): a download needed only the first time. {title} can start as soon as it is done.',
+    'prep.title': 'Preparing {title}…', 'prep.first': 'The first start takes a little longer.',
+    'toast.onscreen': '(demo) {title} is on screen', 'toast.net': '(demo) Settings → Network (demo 3.9)',
+    'broken.title': '{title} does not start', 'broken.text': 'This game’s Linux version does not start. Try the version for Windows?',
+    'broken.try': 'Try', 'toast.steamwin': '(demo) Steam switches {title} to its Windows version and starts it',
+    'steamdl.text': 'Steam is downloading what the game needs: {p}%',
+    'count': '{n} games', 'count.one': '1 game',
+    'f.all': 'All', 'f.installed': 'Installed', 'f.favorites': 'Favorites', 'f.steam': 'Steam', 'f.local': 'Local',
+    'banner.plugged': 'USB disk connected', 'banner.plugged.text': '{n} games found and added to your Library.',
+    'banner.unplugged': 'USB disk removed', 'banner.unplugged.text': 'Its games come back when you plug it in again.',
+    'choose.title': 'Which file starts {title}?', 'choose.text': 'The console found several. It remembers your choice; Options can change it.',
+    'opt.choose': 'Choose the file to start', 'toast.chosen': '{title} will start with {file}', 'file.top': 'in the game’s folder', 'file.in': 'in {folder}',
+    'sort.recent': 'Recently played', 'sort.name': 'Name', 'sort.time': 'Most played', 'sort.title': 'Sort by',
+    'disk.internal': 'Internal disk', 'disk.usb': 'USB disk', 'disk.free': '{n} free',
+    'disk.windows': 'Windows disk', 'disk.games': 'Games SSD', 'disk.of': '{free} free of {total}',
+    'disks.title': 'Disks', 'disks.summary': '{n} disks · {free} free', 'p.disks': 'Disks', 'p.close': 'Close',
+    'disk.note.readonly': 'Read only: Windows was not shut down completely. Shut it down from Windows (or turn off Fast Startup) to add games here.',
+    'disk.note.ntfs': 'Windows games on this disk may not work well: move them to a Linux disk.',
+    'src.local': 'Local',
+    'empty.favorites': 'No favorites yet', 'empty.favorites.hint': 'Press Menu on a game and choose “Add to favorites”.',
+    'empty.filter': 'No games here',
+    'played.never': 'Not played yet', 'played.today': 'Played today', 'played.yesterday': 'Played yesterday', 'played.days': 'Played {n} days ago',
+    'time.total': '{h} h {m} min in total', 'time.min': '{m} min in total',
+    'det.source': 'Source', 'det.last': 'Last played', 'det.time': 'Play time', 'det.disk': 'Installed on', 'det.size': 'Size',
+    'p.play': 'Play', 'p.install': 'Install', 'p.details': 'Details', 'p.options': 'Options', 'p.sort': 'Sort', 'p.filter': 'Filter',
+    'p.sections': 'Sections', 'p.home': 'Home', 'p.select': 'Select', 'p.back': 'Back',
+    'opt.play': 'Play', 'opt.install': 'Install', 'opt.details': 'Details', 'opt.fav': 'Add to favorites', 'opt.unfav': 'Remove from favorites',
+    'toast.launch': 'Starting {title}…', 'toast.fav': 'Added to favorites', 'toast.unfav': 'Removed from favorites',
+    'add.tile': 'Add games', 'p.add': 'Add games', 'p.menu': 'Menu', 'toast.quick': '(demo) B opens the quick menu here (demo 3.13)',
+    'add.title': 'Add games', 'add.steam': 'Steam', 'add.steam.sub': 'Buy new games in Steam’s store: the games you own are already in your library',
+    'add.disk': 'From a USB stick or disk', 'add.disk.sub': 'Games copied into a “Games” folder',
+    'disk.title': 'Games on a USB stick or disk',
+    'tree.root': 'USB stick or disk', 'tree.games': 'Games/', 'tree.c.games': 'at the top of the disk',
+    'tree.c.game': 'one folder per game, named after it', 'tree.c.any': 'anything inside, sub-folders too',
+    'tree.c.cover': 'optional: its cover', 'tree.setup': 'setup.exe',
+    'tree.c.setup': 'an installer is fine too',
+    'step.plug': 'Plug the disk into the console: the games appear in the Library by themselves.',
+    'step.find': 'The console finds what to start in each folder. If it is not sure, it asks you once.',
+    'step.install': 'Games with an installer are installed by the console, after you accept their licence.',
+    'step.win': 'Games for Windows work too: nothing else to do.',
+    'steam.title': 'Steam’s store opens here',
+    'steam.text': 'Until the browser app arrives (step 5.1) this is Steam’s own store, used with the controller. A game you buy appears in the Library, ready to install.',
+    'steam.back': 'Home brings you back to the Library, on “Add games”.',
+    'steam.key': 'Demo: press <kbd>H</kbd> (or the Guide button) for Home.',
+  };
+  const IT = {
+    'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni',
+    'later.home': 'La schermata Home è stata approvata nella demo 3.6: qui solo i suoi avvisi.', 'later.settings': 'Le impostazioni sono state approvate nella demo 3.9: qui solo le righe di questo step.',
+    'set.system': 'Sistema', 'set.version': 'Versione di OwneetOS', 'set.win': 'Giochi Windows',
+    'win.ready': 'Pronti', 'win.getting': 'In preparazione · {p}%', 'win.waiting': 'In attesa di una connessione a internet',
+    'win.notice': 'Preparazione dei giochi Windows · {p}%', 'win.notice.wait': 'I giochi Windows saranno pronti appena la console sarà online',
+    'win.why': 'Un download di circa 650 MB, solo la prima volta.',
+    'banner.ready': 'I giochi Windows sono pronti', 'banner.ready.text': 'Ora puoi giocarci.',
+    'off.title': '{title} ha bisogno di un download', 'off.text': 'Per i giochi Windows serve un download di circa 650 MB, solo la prima volta. Collega la console a internet: li preparerà da sola.',
+    'off.net': 'Impostazioni di rete', 'p.cancel': 'Annulla', 'p.ok': 'OK',
+    'prog.title': 'Quasi pronto', 'prog.text': 'I giochi Windows sono in preparazione ({p}%): un download che serve solo la prima volta. {title} potrà partire appena finisce.',
+    'prep.title': 'Preparazione di {title}…', 'prep.first': 'Il primo avvio richiede un po’ più di tempo.',
+    'toast.onscreen': '(demo) {title} è a schermo', 'toast.net': '(demo) Impostazioni → Rete (demo 3.9)',
+    'broken.title': '{title} non parte', 'broken.text': 'La versione Linux di questo gioco non parte. Provare la versione per Windows?',
+    'broken.try': 'Prova', 'toast.steamwin': '(demo) Steam passa {title} alla sua versione per Windows e lo avvia',
+    'steamdl.text': 'Steam sta scaricando ciò che serve al gioco: {p}%',
+    'count': '{n} giochi', 'count.one': '1 gioco',
+    'f.all': 'Tutti', 'f.installed': 'Installati', 'f.favorites': 'Preferiti', 'f.steam': 'Steam', 'f.local': 'Locali',
+    'banner.plugged': 'Disco USB collegato', 'banner.plugged.text': '{n} giochi trovati e aggiunti alla tua Libreria.',
+    'banner.unplugged': 'Disco USB scollegato', 'banner.unplugged.text': 'I suoi giochi tornano quando lo ricolleghi.',
+    'choose.title': 'Quale file avvia {title}?', 'choose.text': 'La console ne ha trovati diversi. Ricorda la tua scelta; puoi cambiarla dalle Opzioni.',
+    'opt.choose': 'Scegli il file da avviare', 'toast.chosen': '{title} partirà con {file}', 'file.top': 'nella cartella del gioco', 'file.in': 'in {folder}',
+    'sort.recent': 'Giocati di recente', 'sort.name': 'Nome', 'sort.time': 'Più giocati', 'sort.title': 'Ordina per',
+    'disk.internal': 'Disco interno', 'disk.usb': 'Disco USB', 'disk.free': '{n} liberi',
+    'disk.windows': 'Disco di Windows', 'disk.games': 'SSD giochi', 'disk.of': '{free} liberi su {total}',
+    'disks.title': 'Dischi', 'disks.summary': '{n} dischi · {free} liberi', 'p.disks': 'Dischi', 'p.close': 'Chiudi',
+    'disk.note.readonly': 'Sola lettura: Windows non è stato spento del tutto. Spegnilo da Windows (o disattiva l’avvio rapido) per aggiungere giochi qui.',
+    'disk.note.ntfs': 'I giochi Windows su questo disco potrebbero non funzionare bene: spostali su un disco Linux.',
+    'src.local': 'Locale',
+    'empty.favorites': 'Ancora nessun preferito', 'empty.favorites.hint': 'Premi Menu su un gioco e scegli “Aggiungi ai preferiti”.',
+    'empty.filter': 'Nessun gioco qui',
+    'played.never': 'Mai giocato', 'played.today': 'Giocato oggi', 'played.yesterday': 'Giocato ieri', 'played.days': 'Giocato {n} giorni fa',
+    'time.total': '{h} h {m} min in totale', 'time.min': '{m} min in totale',
+    'det.source': 'Origine', 'det.last': 'Ultima partita', 'det.time': 'Tempo di gioco', 'det.disk': 'Installato su', 'det.size': 'Dimensione',
+    'p.play': 'Gioca', 'p.install': 'Installa', 'p.details': 'Dettagli', 'p.options': 'Opzioni', 'p.sort': 'Ordina', 'p.filter': 'Filtro',
+    'p.sections': 'Sezioni', 'p.home': 'Home', 'p.select': 'Seleziona', 'p.back': 'Indietro',
+    'opt.play': 'Gioca', 'opt.install': 'Installa', 'opt.details': 'Dettagli', 'opt.fav': 'Aggiungi ai preferiti', 'opt.unfav': 'Togli dai preferiti',
+    'toast.launch': 'Avvio di {title}…', 'toast.fav': 'Aggiunto ai preferiti', 'toast.unfav': 'Tolto dai preferiti',
+    'add.tile': 'Aggiungi giochi', 'p.add': 'Aggiungi giochi', 'p.menu': 'Menu', 'toast.quick': '(demo) Qui B apre il menu rapido (demo 3.13)',
+    'add.title': 'Aggiungi giochi', 'add.steam': 'Steam', 'add.steam.sub': 'Compra nuovi giochi nel negozio di Steam: quelli che possiedi sono già nella tua libreria',
+    'add.disk': 'Da chiavetta USB o disco', 'add.disk.sub': 'Giochi copiati in una cartella “Giochi”',
+    'disk.title': 'Giochi su chiavetta USB o disco',
+    'tree.root': 'Chiavetta USB o disco', 'tree.games': 'Giochi/  (o Games/)', 'tree.c.games': 'nella radice del disco',
+    'tree.c.game': 'una cartella per gioco, col suo nome', 'tree.c.any': 'qualsiasi contenuto, anche sottocartelle',
+    'tree.c.cover': 'facoltativa: la copertina', 'tree.setup': 'setup.exe',
+    'tree.c.setup': 'va bene anche un installer',
+    'step.plug': 'Collega il disco alla console: i giochi compaiono da soli nella Libreria.',
+    'step.find': 'In ogni cartella la console trova da sola cosa avviare. Se non è sicura, te lo chiede una volta.',
+    'step.install': 'I giochi con un installer li installa la console, dopo che hai accettato la loro licenza.',
+    'step.win': 'Funzionano anche i giochi per Windows: non devi fare altro.',
+    'steam.title': 'Qui si apre il negozio di Steam',
+    'steam.text': 'Finché non arriva l’app del browser (step 5.1) è il negozio di Steam stesso, usato col controller. Un gioco che compri compare nella Libreria, pronto da installare.',
+    'steam.back': 'Home ti riporta alla Libreria, su “Aggiungi giochi”.',
+    'steam.key': 'Demo: premi <kbd>H</kbd> (o il tasto Guide) per Home.',
+  };
+  let lang = 'en';
+  const tr = (k, args = {}) => ((lang === 'it' ? IT[k] : null) || EN[k] || k).replace(/\{(\w+)\}/g, (_, a) => args[a] ?? '');
+
+  /* ---------- Glyphs ---------- */
+  let glyphSetting = 'auto', padKind = 'xbox';
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const home = circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`);
+  const GLYPHS = {
+    xbox: { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lb: pill('LB', 34), rb: pill('RB', 34), lt: pill('LT', 32), rt: pill('RT', 32),
+            menu: circle(`<path d="M8.5 10h9M8.5 13h9M8.5 16h9" ${S}/>`), guide: home },
+    ps: { a: circle(`<path d="M9.2 9.2l7.6 7.6M16.8 9.2l-7.6 7.6" ${S}/>`), b: circle(`<circle cx="13" cy="13" r="4.6" ${S}/>`),
+          x: circle(`<rect x="8.8" y="8.8" width="8.4" height="8.4" rx="1" ${S}/>`), y: circle(`<path d="M13 8.4l4.8 8.2H8.2z" ${S}/>`),
+          lb: pill('L1', 30), rb: pill('R1', 30), lt: pill('L2', 30), rt: pill('R2', 30), menu: pill('OPTIONS', 62), guide: home },
+    nintendo: { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lb: pill('L', 28), rb: pill('R', 28), lt: pill('ZL', 32), rt: pill('ZR', 32),
+                menu: circle(`<path d="M13 8.5v9M8.5 13h9" ${S}/>`), guide: home },
+  };
+  const glyphHTML = b => GLYPHS[glyphSetting === 'auto' ? padKind : glyphSetting][b];
+  const P = (btns, label) => `<span class="prompt">${btns.map(glyphHTML).join('')}<span>${label}</span></span>`;
+  const ICON = n => `<svg viewBox="0 0 24 24" ${S}>${{
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    store: '<path d="M4 9h16l-1.2 10a1 1 0 0 1-1 .9H6.2a1 1 0 0 1-1-.9z"/><path d="M8.5 9V7a3.5 3.5 0 0 1 7 0v2"/>',
+    usb: '<path d="M9 3h6v6H9zM7 9h10v8a4 4 0 0 1-4 4h-2a4 4 0 0 1-4-4z"/><path d="M11 5.5v1M13 5.5v1"/>',
+    down: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>' }[n]}</svg>`;
+  const HEART = '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg>';
+
+  /* ---------- Sounds (Web Audio, one per press) ---------- */
+  let soundOn = true, ctx = null;
+  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', back: 'nav-confirm', section: 'nav-section',
+    tab: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', launch: 'game-launch', notify: 'notify' };
+  const buffers = {};
+  function startAudio() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    if (!window.OWNEET_SOUNDS) return;
+    ctx = new AudioContext();
+    for (const [kind, file] of Object.entries(SOUNDS)) {
+      const url = window.OWNEET_SOUNDS[file];
+      if (!url) continue;
+      const bytes = Uint8Array.from(atob(url.split(',')[1]), c => c.charCodeAt(0));
+      ctx.decodeAudioData(bytes.buffer).then(b => { buffers[kind] = b; });
+    }
+  }
+  addEventListener('keydown', startAudio, true);
+  addEventListener('pointerdown', startAudio, true);
+  function play(kind) {
+    if (!soundOn || !ctx || !buffers[kind]) return;
+    const src = ctx.createBufferSource(); src.buffer = buffers[kind]; src.connect(ctx.destination); src.start();
+  }
+  let pendingConfirm = false;
+  function feedback(kind) {
+    if (kind === 'confirm') { pendingConfirm = true; queueMicrotask(() => { if (pendingConfirm) { pendingConfirm = false; play('confirm'); } }); return; }
+    pendingConfirm = false; play(kind);
+  }
+
+  /* ---------- Data (invented) ---------- */
+  const N = ['Nebula Drift', 'Moss Garden', 'SuperTuxKart', 'Ember Run', 'Harbor Lights', '0 A.D.', 'Velvet Road', 'Copper Coast',
+    'Quiet Orbit', 'Saltwind', 'Pixel Quest', 'Tiny Tactics', 'Glass Canyon', 'Paper Comets',
+    'Northbound', 'Rust & Rain', 'Hollow Pines', 'Signal Lost', 'Bright Harbour', 'Clockwork Bay', 'Lumen', 'Oak & Iron',
+    'Sky Ferry', 'Tidebreak', 'Wildflower', 'Zephyr Run', 'Night Market', 'Coral Line'];
+  // The USB disk's Games folder (the owner's test disk): Linux games, and Windows games (win). GOG's
+  // goggame-<id>.info names the file that starts a game (gog: no question); Ashen Gate has none:
+  // the usual question, without setup.exe, uninstallers, configurators or __redist
+  const ON_DISK = [
+    { title: 'Beneath a steel sky', files: [['start.sh', '']] },
+    { title: 'Cayne', cover: true, files: [['start.sh', '']] },
+    { title: 'Stargunner', win: true, gog: true, files: [['DOSBox.exe', 'DOSBOX']] },
+    { title: 'Treasure Adventure Game', win: true, gog: true, files: [['treasure_adventure_game_1.0.exe', '']] },
+    { title: 'Tyrian 2000', win: true, gog: true, files: [['DOSBox.exe', 'DOSBOX']] },
+    { title: 'Ashen Gate', win: true, files: [['AshenGate.exe', ''], ['AshenGate.exe', 'bin\\x64']] },
+  ];
+  const hue = t => { let h = 2166136261; for (const ch of t) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; return h % 360; };
+  const GAMES = N.map((title, i) => {
+    const local = ['SuperTuxKart', '0 A.D.', 'Pixel Quest', 'Lumen', 'Wildflower', 'Glass Canyon', 'Night Market'].includes(title);
+    const played = i % 3 !== 2;
+    return { id: 'g' + i, title, h: hue(title), src: local ? 'local' : 'Steam', fav: i % 7 === 0,
+             last: played ? (i % 11) : -1, total: played ? (i * 97) % 2400 : 0, disk: 'internal', size: 2 + (i * 7) % 60,
+             broken: title === 'Northbound' };
+  }).concat(ON_DISK.map((d, i) => ({ id: 'd' + i, title: d.title, h: hue(d.title), src: 'local', fav: false, cover: !!d.cover,
+    last: -1, total: 0, disk: 'ssd', size: [0.15, 3.9, 0.02, 0.1, 0.03, 2.4][i], files: d.files, win: !!d.win, gog: !!d.gog,
+    choice: d.gog || d.files.length === 1 ? 0 : null, started: false })));
+  GAMES.find(g => g.title === 'Northbound').title = 'Iron Tundra';
+  // The download Windows games need the first time (only once one is in the library): waiting
+  // for the internet, getting ready (percent), ready
+  let online = true, winState = 'downloading', winPct = 45;
+  // Disks found by the system: the console's own disk, and the USB disk while it is plugged in
+  const ALL_DISKS = [
+    { key: 'internal', free: 212, total: 512 },
+    { key: 'ssd', name: 'SSD-256GB-D', free: 229, total: 256 },
+  ];
+  let diskOn = true;
+  const disks = () => ALL_DISKS.filter(d => d.key !== 'ssd' || diskOn);
+  const diskName = d => d.name || tr('disk.' + d.key);
+  const gb = n => n >= 1000 ? (n / 1000).toLocaleString(lang, { maximumFractionDigits: 1 }) + ' TB' : n + ' GB';
+  const FILTERS = ['all', 'installed', 'favorites', 'steam', 'local'];
+  const SORTS = ['recent', 'name', 'time'];
+  let filter = 'all', sort = 'recent', section = 'library';
+
+  const srcName = g => g.src === 'local' ? tr('src.local') : g.src;
+  const lastPlayed = g => g.last < 0 ? tr('played.never') : g.last === 0 ? tr('played.today') : g.last === 1 ? tr('played.yesterday') : tr('played.days', { n: g.last });
+  const totalTime = g => g.total < 60 ? tr('time.min', { m: g.total }) : tr('time.total', { h: Math.floor(g.total / 60), m: g.total % 60 });
+  // a game on the USB disk is there only while the disk is plugged in
+  const present = g => g.disk !== 'ssd' || diskOn;
+  const matches = (g, f) => present(g) && (f === 'all' || f === 'installed' || (f === 'favorites' && g.fav)
+    || (f === 'steam' && g.src === 'Steam') || (f === 'local' && g.src === 'local'));
+  function shown() {
+    const list = GAMES.filter(g => matches(g, filter));
+    const byName = (a, b) => a.title.localeCompare(b.title);
+    if (sort === 'name') list.sort(byName);
+    else if (sort === 'time') list.sort((a, b) => b.total - a.total || byName(a, b));
+    else list.sort((a, b) => (a.last < 0) - (b.last < 0) || a.last - b.last || byName(a, b));
+    return list;
+  }
+
+  /* ---------- Rendering ---------- */
+  function renderHead() {
+    const list = shown();
+    $('#count').textContent = list.length === 1 ? tr('count.one') : tr('count', { n: list.length });
+    $('#filters').innerHTML = glyphHTML('lt') + FILTERS.map(f => `<span class="chip" aria-pressed="${f === filter}">${tr('f.' + f)} ${GAMES.filter(g => matches(g, f)).length}</span>`).join('') + glyphHTML('rt') +
+      `<span class="sortnote">${glyphHTML('y')}<span>${tr('sort.' + sort)}</span></span>`;
+    // Up to two disks are shown; with more, one summary. Either way it opens the list of disks.
+    const found = disks();
+    const bar = d => `<span class="bar"><i style="width:${Math.round(100 - d.free / d.total * 100)}%"></i></span>`;
+    if (found.length <= 2) {
+      $('#disks').innerHTML = found.map(d => `<div class="disk"><span>${diskName(d)} · ${tr('disk.free', { n: gb(d.free) })}</span>${bar(d)}</div>`).join('');
+    } else {
+      const free = found.reduce((s, d) => s + d.free, 0), total = found.reduce((s, d) => s + d.total, 0);
+      $('#disks').innerHTML = `<div class="summary"><span>${tr('disks.summary', { n: found.length, free: gb(free) })}</span>${bar({ free, total })}</div>`;
+    }
+  }
+  function renderGrid(keepId) {
+    const list = shown();
+    const add = filter === 'favorites' ? '' : `<button class="cover add" data-f data-add><span class="plus">${ICON('plus')}</span><span class="t-m">${tr('add.tile')}</span></button>`;
+    $('#grid').innerHTML = list.length || add ? list.map(g => `<button class="cover${g.cover ? ' photo' : ''}" data-f data-game="${g.id}" style="--h:${g.h}">
+        <span class="src t-xs">${srcName(g)}</span>${g.fav ? `<span class="fav">${HEART}</span>` : ''}
+        <span class="ttl t-m">${g.title}</span></button>`).join('') + add
+      : `<div class="empty" style="grid-column: 1 / -1; padding-top: 120px"><span class="disp t-l">${tr('empty.favorites')}</span><span class="t-m">${tr('empty.favorites.hint')}</span></div>`;
+    if (focused && focused.hasAttribute('data-disks')) return;   // the selection stays on the disks
+    const keep = keepId && $(`#grid [data-game="${keepId}"]`);
+    focus(keep || $('#grid [data-f]'), true);
+    if (!keep) $('#grid-wrap').scrollTop = 0;
+  }
+  // Home's notices and Settings → System follow the download
+  function renderWin() {
+    const getting = winState === 'downloading';
+    $('#notices').innerHTML = winState === 'ready' ? '' : `<div class="notice"><span class="ico">${ICON(getting ? 'down' : 'info')}</span>
+      <span class="txt"><span class="t-m">${getting ? tr('win.notice', { p: winPct }) : tr('win.notice.wait')}</span>
+      <span class="t-xs muted">${tr('win.why')}</span>${getting ? `<span class="pbar"><i style="width:${winPct}%"></i></span>` : ''}</span></div>`;
+    const val = winState === 'ready' ? tr('win.ready') : getting ? tr('win.getting', { p: winPct }) : tr('win.waiting');
+    $('#rows').innerHTML = `<div class="row"><span class="ico">${ICON('info')}</span><span class="t-m">${tr('set.version')}</span><span class="val t-s">2026.10.16</span></div>
+      <div class="row"><span class="ico">${ICON('down')}</span><span class="t-m">${tr('set.win')}<br><span class="t-xs muted">${tr('win.why')}</span></span>
+      <span class="val t-s"><span>${val}</span>${getting ? `<span class="pbar"><i style="width:${winPct}%"></i></span>` : ''}</span></div>`;
+    $('#win-state').textContent = { waiting: 'waiting for internet', downloading: 'getting ready ' + winPct + '%', ready: 'ready' }[winState];
+    $('#net-state').textContent = online ? 'on' : 'off';
+    if (sheetOpen && sheetKind === 'progress' && sheetGame) progressSheet(sheetGame, true);
+  }
+  function renderAll() {
+    renderWin();
+    $$('[data-i18n]').forEach(el => { el.textContent = tr(el.dataset.i18n); });
+    $$('[data-glyph]').forEach(el => { el.innerHTML = glyphHTML(el.dataset.glyph); });
+    renderHead(); renderGrid(focused && focused.dataset.game); renderPrompts();
+  }
+  const game = id => GAMES.find(g => g.id === id);
+  function renderPrompts() {
+    const g = focused && game(focused.dataset.game);
+    const page = [P(['y'], tr('p.sort')), P(['lt', 'rt'], tr('p.filter')), P(['b'], tr('p.menu'))];
+    const left = section !== 'library' ? [] : focused && focused.hasAttribute('data-disks') ? [P(['a'], tr('p.disks')), ...page]
+      : focused && focused.hasAttribute('data-add') ? [P(['a'], tr('p.add')), ...page]
+      : [...(g ? [P(['a'], tr('p.play')), P(['x'], tr('p.details')), P(['menu'], tr('p.options'))] : []), ...page];
+    $('#prompts').innerHTML = `<div class="set">${left.join('')}</div><div class="set">${P(['lb', 'rb'], tr('p.sections'))}${P(['guide'], tr('p.home'))}</div>`;
+  }
+
+  /* ---------- Focus and navigation (one group: the grid; rows and columns) ---------- */
+  let focused = null;
+  function focus(el, silent) {
+    if (focused) focused.classList.remove('focus');
+    focused = el || null;
+    if (!el) { renderPrompts(); return; }
+    el.classList.add('focus');
+    // the grid scrolls to follow the selection (at once with "Reduce motion")
+    el.scrollIntoView({ block: 'nearest', behavior: getComputedStyle(document.documentElement).getPropertyValue('--motion').trim() === '0' ? 'auto' : 'smooth' });
+    if (!silent) feedback('move');
+    if (!sheetOpen) renderPrompts();
+  }
+  const overlap = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+  function best(items, from, dir, aligned) {
+    const a = from.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    let pick = null, score = Infinity;
+    for (const el of items) {
+      if (el === from) continue;
+      const b = el.getBoundingClientRect(), dx = b.left + b.width / 2 - ax, dy = b.top + b.height / 2 - ay;
+      if (!(dir === 'left' ? dx < -4 : dir === 'right' ? dx > 4 : dir === 'up' ? dy < -4 : dy > 4)) continue;
+      const horiz = dir === 'left' || dir === 'right';
+      if (aligned && (horiz ? overlap(a.top, a.bottom, b.top, b.bottom) : overlap(a.left, a.right, b.left, b.right)) < 4) continue;
+      const s = horiz ? Math.abs(dx) + 2.5 * Math.abs(dy) : Math.abs(dy) + 2.5 * Math.abs(dx);
+      if (s < score) { score = s; pick = el; }
+    }
+    return pick;
+  }
+  function move(dir) {
+    if (sheetOpen) { const n = best($$('#sheet [data-f]'), focused, dir); n ? focus(n) : feedback('edge'); return; }
+    if (section !== 'library' || !focused) { feedback('edge'); return; }
+    if (focused.hasAttribute('data-disks')) {
+      if (dir !== 'down') { feedback('edge'); return; }
+      const back = lastInGrid && document.contains(lastInGrid) ? lastInGrid : $('#grid [data-f]');
+      back ? focus(back) : feedback('edge');
+      return;
+    }
+    const n = best($$('#grid [data-f]'), focused, dir, true);
+    if (n) focus(n);
+    else if (dir === 'up') { lastInGrid = focused; focus($('#disks')); }   // from the first row
+    else feedback('edge');
+  }
+  let lastInGrid = null;
+  // Right stick: about three rows at a time
+  function scroll(step) {
+    if (sheetOpen || section !== 'library' || !focused) { feedback('edge'); return; }
+    const items = $$('#grid [data-f]'), i = items.indexOf(focused);
+    const target = Math.max(0, Math.min(items.length - 1, i + step * 7 * 3));
+    target === i ? feedback('edge') : focus(items[target]);
+  }
+
+  /* ---------- Windows ---------- */
+  let sheetOpen = false, sheetReturn = null, sheetAccept = null, sheetBack = null, sheetKind = '', sheetGame = null;
+  function openSheet(html, prompts, onAccept, defaultSel, onBack, quiet) {
+    if (!sheetOpen) sheetReturn = focused;       // a window opened from another keeps where to go back
+    sheetOpen = true; sheetAccept = onAccept; sheetBack = onBack || null; sheetKind = ''; sheetGame = null;
+    $('#sheet').innerHTML = html;
+    $('#sheet-prompts').innerHTML = `<div class="set">${prompts.join('')}</div><div class="set">${P(['guide'], tr('p.home'))}</div>`;
+    $('#overlay').classList.add('open'); stage.classList.add('has-sheet');
+    if (!quiet) feedback('sheet-open');
+    focus((defaultSel && $(defaultSel)) || $('#sheet [data-default]') || $('#sheet [data-f]'), true);
+  }
+  function closeSheet(sound = true) {
+    if (!sheetOpen) return;
+    sheetOpen = false; sheetKind = ''; $('#overlay').classList.remove('open'); stage.classList.remove('has-sheet');
+    if (sound) feedback('sheet-close');
+    focus(sheetReturn && document.contains(sheetReturn) ? sheetReturn : section === 'library' ? $('#grid [data-f]') : null, true);
+  }
+  function detailsSheet(g) {
+    const facts = [['det.source', srcName(g)], ['det.last', lastPlayed(g)], ['det.time', g.last < 0 ? '—' : totalTime(g)],
+      ['det.disk', diskName(ALL_DISKS.find(d => d.key === g.disk))],
+      ['det.size', g.size.toLocaleString(lang, { maximumFractionDigits: 2 }) + ' GB']];
+    openSheet(`<span class="disp t-l">${g.title}</span><div class="facts t-s">${facts.map(([k, v]) => `<span>${tr(k)}</span><span>${v}</span>`).join('')}</div>
+      <div class="list t-m"><button class="item primary" data-f>${tr('opt.play')}</button></div>`,
+      [P(['a'], tr('p.play')), P(['b'], tr('p.back'))], () => { closeSheet(false); start(g); });
+  }
+  function optionsSheet(g) {
+    openSheet(`<span class="disp t-l">${g.title}</span><div class="list t-m">
+      <button class="item primary" data-f data-sheet="play">${tr('opt.play')}</button>
+      <button class="item" data-f data-sheet="details">${tr('opt.details')}</button>
+      <button class="item" data-f data-sheet="fav">${tr(g.fav ? 'opt.unfav' : 'opt.fav')}</button>
+      ${g.files && g.files.length > 1 ? `<button class="item" data-f data-sheet="choose">${tr('opt.choose')}</button>` : ''}</div>`,
+      [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
+        const what = el.dataset.sheet;
+        if (what === 'play') { closeSheet(false); start(g); }
+        else if (what === 'details') { closeSheet(false); detailsSheet(g); }
+        else if (what === 'choose') { closeSheet(false); chooseSheet(g, false); }
+        else { g.fav = !g.fav; closeSheet(); toast(tr(g.fav ? 'toast.fav' : 'toast.unfav')); renderHead(); renderGrid(g.id); }
+      });
+  }
+  function disksSheet() {
+    openSheet(`<span class="disp t-l">${tr('disks.title')}</span><div class="disk-list">${disks().map(d => `<div class="disk-row">
+        <div class="name t-m"><span>${diskName(d)}</span><span class="muted t-s">${tr('disk.of', { free: gb(d.free), total: gb(d.total) })}</span></div>
+        <span class="bar"><i style="width:${Math.round(100 - d.free / d.total * 100)}%"></i></span>
+        ${(d.notes || []).map(n => `<span class="note t-xs">${tr(n)}</span>`).join('')}</div>`).join('')}</div>
+      <div class="list t-m"><button class="item primary" data-f>${tr('p.close')}</button></div>`,
+      [P(['a'], tr('p.close')), P(['b'], tr('p.back'))], () => closeSheet());
+  }
+  function sortSheet() {
+    openSheet(`<span class="disp t-l">${tr('sort.title')}</span><div class="list t-m">${SORTS.map(s =>
+      `<button class="item${s === sort ? ' primary' : ''}" data-f data-sort="${s}">${tr('sort.' + s)}</button>`).join('')}</div>`,
+      [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
+        sort = el.dataset.sort; const keep = sheetReturn && sheetReturn.dataset.game;
+        closeSheet(); renderHead(); renderGrid(keep);
+      }, `#sheet [data-sort="${sort}"]`);
+  }
+
+  // Add games: where the games come from (for now Steam, and games on a disk)
+  function addSheet(sel, quiet) {
+    openSheet(`<span class="disp t-l">${tr('add.title')}</span><div class="choices">
+        <button class="choice" data-f data-src="steam">${ICON('store')}<span class="t-m">${tr('add.steam')}</span><span class="sub t-xs">${tr('add.steam.sub')}</span></button>
+        <button class="choice" data-f data-src="disk">${ICON('usb')}<span class="t-m">${tr('add.disk')}</span><span class="sub t-xs">${tr('add.disk.sub')}</span></button></div>`,
+      [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
+        if (el.dataset.src === 'steam') { closeSheet(false); openSteam(); }
+        else diskGuide();
+      }, sel || '#sheet [data-src="steam"]', null, quiet);
+  }
+  // Read only: how to put games on a disk (B goes back to the choice)
+  function diskGuide() {
+    const row = (depth, name, kind, cmt) => `<div class="row"><span class="name ${kind}">${'   '.repeat(depth)}${name}</span><span class="cmt t-xs">${cmt ? '← ' + tr(cmt) : ''}</span></div>`;
+    openSheet(`<span class="disp t-l">${tr('disk.title')}</span><div class="guide">
+        <div class="tree t-s">${[
+          row(0, tr('tree.root'), 'dir'),
+          row(1, tr('tree.games'), 'dir', 'tree.c.games'),
+          row(2, 'Celeste/', 'dir', 'tree.c.game'),
+          row(3, 'bin/ …  Celeste', 'file', 'tree.c.any'),
+          row(3, 'cover.jpg', 'file', 'tree.c.cover'),
+          row(2, 'Stardew Valley/', 'dir'),
+          row(3, tr('tree.setup'), 'file', 'tree.c.setup')].join('')}</div>
+        <ul class="steps t-s">${['step.plug', 'step.find', 'step.install', 'step.win'].map(k => `<li>${tr(k)}</li>`).join('')}</ul>
+        </div><div class="list t-m"><button class="item primary" data-f>${tr('p.back')}</button></div>`,
+      [P(['a', 'b'], tr('p.back'))], () => backToAdd(), null, () => backToAdd());
+  }
+  function backToAdd() { feedback('sheet-close'); addSheet('#sheet [data-src="disk"]', true); }
+  // Steam's own interface takes the screen; Guide (Home) brings back the library on "Add games"
+  let steamOpen = false;
+  function openSteam() {
+    steamOpen = true; feedback('launch');
+    $('#steam-sim').innerHTML = `<span class="disp t-l">${tr('steam.title')}</span><span>${tr('steam.text')}</span>
+      <span class="note t-s">${tr('steam.back')}</span><span class="note t-s">${tr('steam.key')}</span>`;
+    $('#steam-sim').classList.add('open');
+  }
+  function guide() {
+    if (!steamOpen) { feedback('edge'); return; }
+    steamOpen = false; $('#steam-sim').classList.remove('open');
+    feedback('launch');
+    focus($('#grid [data-add]') || $('#grid [data-f]'), true);
+  }
+
+  /* ---------- Actions ---------- */
+  let toastTimer;
+  function toast(text) { const t = $('#toast'); t.textContent = text; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1600); }
+  function start(g) {
+    // a Windows game before the download it needs is done: its progress, or "connect"
+    if (g.win && winState !== 'ready') { online ? progressSheet(g) : offlineSheet(g); return; }
+    if (g.files && g.files.length > 1 && g.choice === null) { chooseSheet(g, true); return; }
+    feedback('launch');
+    if (g.broken) { toast(tr('toast.launch', { title: g.title })); setTimeout(() => brokenSheet(g), 1600); return; }
+    if (g.win) { prepare(g); return; }
+    toast(tr('toast.launch', { title: g.title })); g.last = 0;
+  }
+  // "Preparing {game}…" until the game's first picture (longer the first time: the console
+  // prepares the game's own space)
+  function prepare(g) {
+    const first = !g.started;
+    $('#prep').innerHTML = `<span class="spin"></span><span class="disp t-l">${tr('prep.title', { title: g.title })}</span>
+      ${first ? `<span class="t-s muted">${tr('prep.first')}</span>` : ''}`;
+    $('#prep').classList.add('open');
+    prepOpen = true;
+    setTimeout(() => { $('#prep').classList.remove('open'); prepOpen = false; g.started = true; g.last = 0;
+                       toast(tr('toast.onscreen', { title: g.title })); renderGrid(g.id); }, first ? 4200 : 2200);
+  }
+  let prepOpen = false;
+  function offlineSheet(g) {
+    openSheet(`<span class="disp t-l">${tr('off.title', { title: g.title })}</span><span class="t-m" style="max-width:560px">${tr('off.text')}</span>
+      <div class="list t-m"><button class="item primary" data-f data-act="net">${tr('off.net')}</button><button class="item" data-f data-act="cancel">${tr('p.cancel')}</button></div>`,
+      [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
+        closeSheet(el.dataset.act === 'net' ? false : true);
+        if (el.dataset.act === 'net') toast(tr('toast.net'));
+      });
+  }
+  function progressSheet(g, refresh) {
+    const html = `<span class="disp t-l">${tr('prog.title')}</span><span class="t-m" style="max-width:560px">${tr('prog.text', { p: winPct, title: g.title })}</span>
+      <span class="pbar"><i style="width:${winPct}%"></i></span>
+      <div class="list t-m"><button class="item primary" data-f>${tr('p.ok')}</button></div>`;
+    if (refresh) { $('#sheet').innerHTML = html; focus($('#sheet [data-f]'), true); }
+    else openSheet(html, [P(['a'], tr('p.ok')), P(['b'], tr('p.back'))], () => closeSheet());
+    sheetKind = 'progress'; sheetGame = g;
+  }
+  // A Steam game whose Linux version does not start (Steam: "Missing game executable")
+  function brokenSheet(g) {
+    openSheet(`<span class="disp t-l">${tr('broken.title', { title: g.title })}</span><span class="t-m" style="max-width:560px">${tr('broken.text')}</span>
+      <div class="list t-m"><button class="item primary" data-f data-act="try">${tr('broken.try')}</button><button class="item" data-f data-act="cancel">${tr('p.cancel')}</button></div>`,
+      [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
+        closeSheet(el.dataset.act !== 'try');
+        if (el.dataset.act === 'try') { g.broken = false; feedback('launch'); steamStart(g, true); }
+      });
+  }
+  // "Starting {game}…" while Steam starts a Steam game (Steam's window stays hidden). When Steam
+  // first downloads what the game needs (e.g. its version for Windows and what runs it: 45 s on
+  // the FrankenPC), the percentage of that download, then the game
+  let steamTimer = null;
+  function steamStart(g, download) {
+    let pct = -1;                               // -1: Steam (re)starting, nothing downloaded yet
+    const draw = () => {
+      $('#prep').innerHTML = `<span class="spin"></span><span class="disp t-l">${tr('toast.launch', { title: g.title })}</span>
+        ${pct >= 0 ? `<span class="t-s muted">${tr('steamdl.text', { p: pct })}</span><span class="pbar"><i style="width:${pct}%"></i></span>` : ''}`;
+    };
+    draw();
+    $('#prep').classList.add('open');
+    prepOpen = true;
+    clearInterval(steamTimer);
+    const done = () => { clearInterval(steamTimer); $('#prep').classList.remove('open'); prepOpen = false; g.last = 0;
+                         toast(tr('toast.onscreen', { title: g.title })); renderGrid(g.id); };
+    if (!download) { steamTimer = setTimeout(done, 2200); return; }
+    setTimeout(() => {
+      pct = 0; draw();
+      steamTimer = setInterval(() => {
+        pct = Math.min(100, pct + 4); draw();
+        if (pct >= 100) { clearInterval(steamTimer); setTimeout(done, 600); }
+      }, 280);
+    }, 1400);
+  }
+  // The download goes on by itself while the console is online; a banner says when it is done
+  setInterval(() => {
+    if (winState === 'waiting' && online) winState = 'downloading';
+    if (winState !== 'downloading') return;
+    if (!online) { winState = 'waiting'; renderWin(); return; }
+    winPct = Math.min(100, winPct + 3);
+    if (winPct >= 100) {
+      winState = 'ready';
+      if (sheetOpen && sheetKind === 'progress') closeSheet(false);
+      bannerIcon(tr('banner.ready'), tr('banner.ready.text'), 'check');
+    }
+    renderWin();
+  }, 900);
+  // "Which file starts {game}?": every file the console could start (uninstallers, configurators,
+  // redistributables never listed), with the folder it is in; remembered, changed from Options
+  function chooseSheet(g, thenStart) {
+    openSheet(`<span class="disp t-l">${tr('choose.title', { title: g.title })}</span><span class="t-s muted">${tr('choose.text')}</span>
+      <div class="filelist">${g.files.map(([name, folder], i) => `<button class="file${g.choice === i ? ' current' : ''}" data-f data-file="${i}">
+        <span class="t-m">${name}</span><span class="where t-xs">${folder ? tr('file.in', { folder }) : tr('file.top')}</span></button>`).join('')}</div>`,
+      [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
+        g.choice = +el.dataset.file;
+        closeSheet(false);
+        if (thenStart) start(g); else toast(tr('toast.chosen', { title: g.title, file: g.files[g.choice][0] }));
+      }, g.choice !== null ? `#sheet [data-file="${g.choice}"]` : null);
+  }
+  // the notices of demo 3.11: top right, for a few seconds
+  function banner(title, text) { bannerIcon(title, text, 'usb'); }
+  function bannerIcon(title, text, icon) {
+    feedback('notify');
+    const el = document.createElement('div');
+    el.className = 'banner';
+    el.innerHTML = `<span class="ico">${ICON(icon)}</span><span class="txt"><span class="t-m">${title}</span><span class="t-xs muted">${text}</span></span>`;
+    $('#banners').append(el);
+    setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, 4500);
+  }
+  // the USB disk plugged in or out: its games come and go, the notice says so
+  function plug(on) {
+    diskOn = on;
+    $('#disk-state').textContent = on ? 'plugged in' : 'unplugged';
+    const keepId = focused && focused.dataset.game;
+    if (sheetOpen) closeSheet(false);
+    renderHead(); renderGrid(keepId);
+    if (on) banner(tr('banner.plugged'), tr('banner.plugged.text', { n: GAMES.filter(g => g.disk === 'ssd').length }));
+    else banner(tr('banner.unplugged'), tr('banner.unplugged.text'));
+  }
+  function accept() {
+    if (prepOpen) return;
+    if (sheetOpen) { feedback('confirm'); sheetAccept && sheetAccept(focused); return; }
+    if (section !== 'library' || !focused) return;
+    feedback('confirm');
+    if (focused.hasAttribute('data-disks')) disksSheet();
+    else if (focused.hasAttribute('data-add')) addSheet();
+    else start(game(focused.dataset.game));
+  }
+  function cycleFilter(step) {
+    if (sheetOpen || section !== 'library') { feedback('edge'); return; }
+    filter = FILTERS[(FILTERS.indexOf(filter) + step + FILTERS.length) % FILTERS.length];
+    feedback('tab'); renderHead(); renderGrid(focused && focused.dataset.game);
+  }
+  function goSection(name) {
+    section = name;
+    $$('[data-tab]').forEach(t => t.dataset.tab === name ? t.setAttribute('aria-current', 'page') : t.removeAttribute('aria-current'));
+    $$('.page').forEach(p => p.classList.toggle('on', p.id === 'page-' + name));
+    feedback('section');
+    if (name === 'library') focus($('#grid [data-f]'), true); else focus(null);
+  }
+  const press = {
+    a: accept,
+    b: () => { if (sheetOpen) { if (sheetBack) sheetBack(); else closeSheet(); } else if (section === 'library') toast(tr('toast.quick')); else feedback('back'); },
+    x: () => { if (!sheetOpen && focused && focused.dataset.game && section === 'library') { feedback('confirm'); detailsSheet(game(focused.dataset.game)); } else feedback('edge'); },
+    y: () => { if (!sheetOpen && section === 'library') sortSheet(); else feedback('edge'); },
+    menu: () => { if (!sheetOpen && focused && focused.dataset.game && section === 'library') optionsSheet(game(focused.dataset.game)); else feedback('edge'); },
+    lb: () => sheetOpen ? feedback('edge') : goSection(['home', 'library', 'settings'][(['home', 'library', 'settings'].indexOf(section) + 2) % 3]),
+    rb: () => sheetOpen ? feedback('edge') : goSection(['home', 'library', 'settings'][(['home', 'library', 'settings'].indexOf(section) + 1) % 3]),
+    lt: () => cycleFilter(-1), rt: () => cycleFilter(1),
+    'rs-up': () => scroll(-1), 'rs-down': () => scroll(1),
+  };
+  const DEMO = {
+    u: () => plug(!diskOn),
+    o: () => { online = !online; if (online && winState === 'waiting') winState = 'downloading'; if (!online && winState === 'downloading') winState = 'waiting';
+               toast('(demo) internet ' + (online ? 'on' : 'off')); renderWin(); },
+    w: () => { winState = { waiting: 'downloading', downloading: 'ready', ready: 'waiting' }[winState];
+               if (winState === 'waiting') { winPct = 0; online = false; } if (winState === 'downloading') online = true; renderWin(); },
+    r: () => { GAMES.forEach(g => { g.started = false; if (g.title === 'Ashen Gate') g.choice = null; if (g.title === 'Iron Tundra') g.broken = true; }); toast('(demo) first starts and choices forgotten'); },
+    p: () => { setPalette(palIndex + 1); toast(PALETTES[palIndex][0]); },
+    t: () => { const sizes = [0.9, 1, 1.2, 1.4]; const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts')) || 1;
+               const next = sizes[(sizes.indexOf(cur) + 1) % sizes.length]; document.documentElement.style.setProperty('--ts', next); toast('Text ' + next); },
+    g: () => { glyphSetting = { auto: 'xbox', xbox: 'ps', ps: 'nintendo', nintendo: 'auto' }[glyphSetting]; renderAll(); },
+    l: () => { lang = lang === 'en' ? 'it' : 'en'; renderAll(); },
+    n: () => { soundOn = !soundOn; $('#snd-state').textContent = soundOn ? 'on' : 'off'; },
+  };
+  // Held sections (LB / RB) and filters (LT / RT) repeat at half the speed of the directions:
+  // the first step at once, the next after 0.72 s, then every 0.36 s.
+  const REPEAT_FIRST = 720, REPEAT_NEXT = 360;
+  const heldKeys = {};
+  function holdStart(name) {
+    if (heldKeys[name]) return;
+    press[name]();
+    const step = () => { press[name](); heldKeys[name] = setTimeout(step, REPEAT_NEXT); };
+    heldKeys[name] = setTimeout(step, REPEAT_FIRST);
+  }
+  function holdEnd(name) { clearTimeout(heldKeys[name]); delete heldKeys[name]; }
+  const REPEATING = { q: 'lb', e: 'rb', z: 'lt', c: 'rt' };
+  document.addEventListener('keyup', e => { const n = REPEATING[e.key.toLowerCase()]; if (n) holdEnd(n); });
+  document.addEventListener('keydown', e => {
+    if (e.key.toLowerCase() === 'h') { e.preventDefault(); guide(); return; }
+    if (steamOpen) return;                    // Steam has the controller: only Guide comes to the console
+    const rep = e.key.length === 1 && REPEATING[e.key.toLowerCase()];
+    if (rep) { e.preventDefault(); if (!e.repeat) holdStart(rep); return; }
+    const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    const keys = { Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b', x: 'x', y: 'y', m: 'menu', q: 'lb', e: 'rb', z: 'lt', c: 'rt', PageUp: 'rs-up', PageDown: 'rs-down' };
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (dirs[e.key]) { e.preventDefault(); move(dirs[e.key]); }
+    else if (keys[k]) { e.preventDefault(); if (!e.repeat || k.startsWith('Page')) press[keys[k]](); }
+    else if (DEMO[k]) { e.preventDefault(); DEMO[k](); }
+  });
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-f]');
+    if (el) { focus(el, true); accept(); } else if (sheetOpen && e.target === $('#overlay')) closeSheet();
+  });
+
+  /* ---------- Gamepad ---------- */
+  const prev = {};
+  let guidePrev = false;
+  const on16 = pad => { const p = !!(pad.buttons[16] && pad.buttons[16].pressed), edge = p && !guidePrev; guidePrev = p; return edge; };
+  let repeatAt = 0, lastDir = null, scrollAt = 0;
+  const padRepeat = {};
+  const kindOf = id => /xbox|microsoft|045e/i.test(id) ? 'xbox' : /nintendo|switch|joy-?con|057e/i.test(id) ? 'nintendo'
+    : /054c|sony|dualsense|dualshock|playstation|wireless controller|\bps[345]\b/i.test(id) ? 'ps' : 'xbox';
+  function poll(ts) {
+    const pad = (navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [])[0];
+    if (pad && on16(pad)) guide();
+    if (pad && !steamOpen) {
+      const k = kindOf(pad.id);
+      if (k !== padKind) { padKind = k; renderAll(); }
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const edge = i => { const p = on(i), was = prev[i]; prev[i] = p; return p && !was; };
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0, ry = pad.axes[3] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+      if (Math.abs(ry) > 0.5 && ts > scrollAt) { press[ry < 0 ? 'rs-up' : 'rs-down'](); scrollAt = ts + (scrollAt ? 90 : 360); }
+      if (Math.abs(ry) <= 0.5) scrollAt = 0;
+      [['a', 0], ['b', 1], ['x', 2], ['y', 3], ['menu', 9]].forEach(([name, i]) => { if (edge(i)) press[name](); });
+      // LB / RB / LT / RT: once, then repeated while held (same timing as the directions)
+      [['lb', 4], ['rb', 5], ['lt', 6], ['rt', 7]].forEach(([name, i]) => {
+        const p = on(i);
+        if (p && !prev[i]) { press[name](); padRepeat[name] = ts + REPEAT_FIRST; }
+        else if (p && ts > padRepeat[name]) { press[name](); padRepeat[name] = ts + REPEAT_NEXT; }
+        prev[i] = p;
+      });
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+  const tick = () => { $('#clock').textContent = new Date().toTimeString().slice(0, 5); };
+  tick(); setInterval(tick, 10000);
+
+  /* ---------- Start state from the address ---------- */
+  const q = new URLSearchParams(location.hash.slice(1));
+  const pi = PALETTES.findIndex(p => p[0] === q.get('pal'));
+  setPalette(pi >= 0 ? pi : 0);
+  if (q.get('ts')) document.documentElement.style.setProperty('--ts', q.get('ts'));
+  if (q.get('motion') === 'off') document.documentElement.style.setProperty('--motion', 0);
+  if (['xbox', 'ps', 'nintendo'].includes(q.get('glyphs'))) glyphSetting = q.get('glyphs');
+  if (q.get('lang') === 'it') lang = 'it';
+  if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
+  if (FILTERS.includes(q.get('filter'))) filter = q.get('filter');
+  if (SORTS.includes(q.get('sort'))) sort = q.get('sort');
+  if (q.get('disk') === '0') { diskOn = false; $('#disk-state').textContent = 'unplugged'; }
+  if (['waiting', 'downloading', 'ready'].includes(q.get('win'))) winState = q.get('win');
+  if (q.get('net') === 'off') { online = false; if (winState === 'downloading') winState = 'waiting'; }
+  renderAll();
+  if (['home', 'settings'].includes(q.get('section'))) goSection(q.get('section'));
+  const open = q.get('open');
+  if (open) setTimeout(() => {
+    const pick = t => { const g = GAMES.find(x => x.title === t); focus($(`#grid [data-game="${g.id}"]`), true); return g; };
+    if (open === 'offline') { online = false; winState = 'waiting'; renderWin(); offlineSheet(pick('Treasure Adventure Game')); }
+    else if (open === 'progress') { winState = 'downloading'; renderWin(); progressSheet(pick('Tyrian 2000')); }
+    else if (open === 'prep') { winState = 'ready'; renderWin(); start(pick('Stargunner')); }
+    else if (open === 'choose') { winState = 'ready'; renderWin(); start(pick('Ashen Gate')); }
+    else if (open === 'broken') brokenSheet(pick('Iron Tundra'));
+    else if (open === 'steamdl') { const g = pick('Iron Tundra'); g.broken = false; steamStart(g, true); }
+  }, 300);
+})();
+</script>
+</body>
+</html>

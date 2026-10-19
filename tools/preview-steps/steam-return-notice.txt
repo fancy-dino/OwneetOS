@@ -1,0 +1,10 @@
+@owneetd
+@steam
+# How to come back from Steam (owner, 2026-10-15): before Steam's window opens the first time after
+# each start of the console, until "Don't show again"; then the notice about Steam's window on
+# NVIDIA. Here: the store, from the home screen's Steam tile.
+pad right right down right right
+pad a
+shot 01-how-to-come-back
+pad a
+shot 02-then-the-nvidia-notice

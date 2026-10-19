@@ -1,0 +1,43 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Starts a Windows game ([[step-4.5-windows-games-proton]]) with umu-launcher and the Proton that
+# owneetd made ready (its folder is in ~/.local/share/owneet/windows/proton), never downloading
+# anything at the game's start: the Steam Linux Runtime is not updated here either (owneetd's
+# preparation does that). One prefix per game, in the console's own disk.
+#
+#   owneet-windows-run PREFIX GAME.EXE [ARGUMENTS...]
+#
+# Started by the interface through owneetd (POST /v1/apps/launch), in the game's own service.
+
+set -u
+
+data="${XDG_DATA_HOME:-$HOME/.local/share}/owneet/windows"
+if [[ $# -lt 2 ]]; then
+    echo "usage: owneet-windows-run PREFIX GAME.EXE [ARGUMENTS...]" >&2
+    exit 2
+fi
+proton="$(cat "$data/proton" 2>/dev/null)"
+if [[ -z "$proton" || ! -x "$proton/proton" ]]; then
+    echo "owneet-windows-run: Windows games are not ready yet" >&2
+    exit 3
+fi
+prefix="$1"
+shift
+mkdir -p "$prefix"
+
+export WINEPREFIX="$prefix" PROTONPATH="$proton" GAMEID="${GAMEID:-umu-default}" UMU_RUNTIME_UPDATE=0
+# No pointer or mapping added inside games (owner, 2026-10-16, [[games-on-disk]]): GE-Proton's
+# Xalia (the controller as a mouse in Windows programs) stays off
+export PROTON_USE_XALIA=0
+
+# Testers: owneet.debug.windows_log=on (boot menu, or owneet-debug.txt on the OWNEETLOG stick)
+# writes Proton's log in ~/.local/share/owneet/windows/logs/<game> (the test report copies it),
+# with every file the game opens and how it went (e.g. a game that cannot write in its folder)
+if grep -qs 'owneet.debug.windows_log=on' /proc/cmdline /run/owneet-testlog/owneet-debug.txt; then
+    logs="$data/logs/$(basename "$prefix")"
+    mkdir -p "$logs"
+    export PROTON_LOG=1 PROTON_LOG_DIR="$logs" WINEDEBUG="+timestamp,+pid,+tid,+loaddll,+process,+file"
+    echo "owneet-windows-run: $*  (in $PWD)"
+fi
+exec umu-run "$@"

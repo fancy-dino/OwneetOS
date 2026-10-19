@@ -50,6 +50,8 @@ func (s *Server) inputError(w http.ResponseWriter, err error) {
 		WriteError(w, http.StatusUnprocessableEntity, "input.unsupported_character", err.Error())
 	case errors.Is(err, vinput.ErrUnknownKey):
 		WriteError(w, http.StatusBadRequest, "input.unknown_key", err.Error())
+	case errors.Is(err, vinput.ErrUnavailable):
+		WriteError(w, http.StatusServiceUnavailable, "input.unavailable", err.Error())
 	default:
 		s.Log.Error("virtual input failed", "err", err)
 		WriteError(w, http.StatusInternalServerError, "internal", err.Error())

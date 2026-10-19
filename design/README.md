@@ -27,6 +27,12 @@ Mockups and design assets.
     mark, A installs (size, usage requirements, progress on the tile), Menu → Remove, and what can go
     wrong (live system under 12 GB of RAM, disk full, failed install; W cycles them). The engine
     behind the web apps is never named. Start state: `#installed=netflix&sim=ram&focus=apps`.
+  - [`logo-gamepad-o.html`](demos/logo-gamepad-o.html): a draft of a new logo, outside the
+    roadmap (owner, 2026-10-19; nothing in the system uses it, the final logo is
+    [[step-7.6-final-logo-and-brand]]): the first "O" as a circle with a gamepad cut out of it,
+    the start-up animation (the letters come out of the "O", then the subtitle), the still boot
+    splash, the top bar, small sizes and every palette. `#t=1500` in the address stops the
+    animation at that time (ms).
 
 - The interface sounds (list, length, file format), provided by the owner
   ([[step-3.12-interface-sounds]]): [[interface-sounds-spec]].

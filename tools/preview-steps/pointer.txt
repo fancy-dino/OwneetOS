@@ -1,0 +1,33 @@
+@owneetd
+@steam
+@gamescope
+# The controller as a mouse ([[step-4.7-controller-pointer]], approved demo 4.7): the running
+# game's card with "Resume with the pointer", the explanation once, the badge, the keyboard asked
+# by owneetd (a click on a text field), Controls in the quick menu
+wait 3
+event app.started {"id":"steam:2001","name":"Glass Canyon","kind":"game","started":"2026-10-19T12:00:00Z"}
+wait 2
+shot 01-running-card
+pad right
+wait 0.5
+shot 02-pointer-button
+pad a
+wait 1.5
+shot 03-explanation
+pad up
+pad a
+wait 0.5
+shot 04-dont-show-again
+pad down
+pad a
+wait 1.5
+shot 05-pointer-on-badge
+event pointer.type {"app":"steam:2001","reason":"field"}
+wait 1.5
+shot 06-type-in-the-window
+type player@example.com
+wait 0.5
+shot 07-typed
+pad menu
+wait 1.5
+shot 08-sent

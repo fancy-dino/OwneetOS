@@ -59,7 +59,15 @@ Canvas {
         // Add games (4.2): a store (no third-party logo) and a USB stick
         plus: "M12 5v14M5 12h14",
         store: "M4 9h16l-1.2 10a1 1 0 0 1-1 .9H6.2a1 1 0 0 1-1-.9zM8.5 9V7a3.5 3.5 0 0 1 7 0v2",
-        usb: "M9 3h6v6H9zM7 9h10v8a4 4 0 0 1-4 4h-2a4 4 0 0 1-4-4zM11 5.5v1M13 5.5v1"
+        usb: "M9 3h6v6H9zM7 9h10v8a4 4 0 0 1-4 4h-2a4 4 0 0 1-4-4zM11 5.5v1M13 5.5v1",
+        // Steam games (4.2c): on a disk that is not connected, the notice before Steam's window,
+        // uninstalling, ready
+        unplug: "M9 8V4M15 8V4M7 8h10v3a5 5 0 0 1-10 0zM12 16v4M4 4l16 16",
+        warning: "M12 4 2.8 19.5h18.4zM12 10v4.5M12 17v.5",
+        trash: "M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13",
+        check: "M5 12.5l4.5 4.5L19 7",
+        info: "M21 12a9 9 0 1 1-18 0a9 9 0 1 1 18 0zM12 11v6M12 7.5v.5",
+        pointer: "M6 3v15l4.2-4 3 7 2.8-1.2-3-6.8H18z"
     })
     // Wi-Fi: three arcs and a dot, from the largest arc down
     readonly property var wifiArcs: ["M2 9a15 15 0 0 1 20 0", "M5 12.5a10 10 0 0 1 14 0", "M8.5 16a5 5 0 0 1 7 0"]
@@ -68,6 +76,7 @@ Canvas {
     implicitHeight: implicitWidth
     onColorChanged: requestPaint()
     onNameChanged: requestPaint()
+    onVisibleChanged: if (visible) requestPaint()   // e.g. the network icon, shown once owneetd answers
     onWidthChanged: requestPaint()
     onPaint: {
         const ctx = getContext("2d");

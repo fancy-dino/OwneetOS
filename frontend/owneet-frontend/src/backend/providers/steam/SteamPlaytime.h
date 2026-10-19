@@ -8,6 +8,7 @@
 
 #include <QDateTime>
 #include <QString>
+#include <QStringList>
 #include <QVariantMap>
 
 
@@ -22,12 +23,14 @@ QVariantMap parse_vdf(const QString& text);
 struct PlayStats {
     qint64 seconds = 0;
     QDateTime last_played;
+    QStringList eulas;      // licence agreements accepted ("208650_eula_1", lower-cased; 4.2c)
 };
 
 // The account that used Steam last on this computer (loginusers.vdf: "MostRecent", or the latest
 // "Timestamp" in newer clients), then its
-// localconfig.vdf: Software → Valve → Steam → apps → APPID → Playtime (minutes) and LastPlayed
-// (Unix time). Play time counts the whole account, other computers too. Empty when unknown.
+// localconfig.vdf: Software → Valve → Steam → apps → APPID → Playtime (minutes), LastPlayed
+// (Unix time) and the licence agreements accepted ("APPID_eula_N", with the version accepted).
+// Play time counts the whole account, other computers too. Empty when unknown.
 HashMap<QString, PlayStats> read_playtime(const QString& steam_datadir);
 
 } // namespace steam

@@ -1,0 +1,48 @@
+@owneetd
+@disk
+# Installers ([[step-4.6-installers]], approved demo 4.6): the folders with only an installer in
+# the library; too big, cannot be installed yet; a GOG .sh with its licence, its percentage, the
+# home screen's notice and the banner when ready
+wait 4
+pad rb
+wait 1
+pad rt rt rt rt
+wait 1
+pad down down down
+wait 1
+shot 01-installers
+pad right
+pad a
+wait 1.5
+shot 02-not-enough-space
+pad b
+pad right
+pad a
+wait 1
+shot 03-cannot-be-installed
+pad b
+pad left left
+pad a
+wait 1.5
+shot 04-install-question
+pad left
+pad a
+wait 1
+shot 05-licence
+stick rs-down 900
+wait 1
+shot 06-licence-scrolled
+pad b
+wait 1
+shot 07-back-to-question
+pad a
+wait 1.5
+shot 08-installing
+pad lb
+wait 1
+shot 09-home-notice
+wait 6
+shot 10-ready
+pad rb
+wait 2
+shot 11-library-after

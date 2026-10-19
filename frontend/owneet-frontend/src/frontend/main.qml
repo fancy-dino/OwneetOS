@@ -27,7 +27,7 @@ Window {
     width: Screen.width
     height: Screen.height
     title: "OwneetOS"
-    color: "#0E1424"
+    color: "#000000"            // OwneetOS: as the boot splash, neutral for every palette
 
     visibility: Internal.settings.fullscreen
                 ? Window.FullScreen : Window.AutomaticVisibility
@@ -92,8 +92,9 @@ Window {
             readonly property url apiThemePath: Internal.settings.themes.currentQmlPath
 
             // OwneetOS: the theme also handles "no games yet" (no Pegasus message screen).
+            // A quiet reading of the games (a disk plugged in or out, 4.3) keeps the theme loaded.
             function getThemeFile() {
-                if (Internal.scanner.running)
+                if (Internal.scanner.running && !diskGames.quietReading)
                     return "";
 
                 return apiThemePath;
@@ -212,7 +213,7 @@ Window {
     Connections {
         target: Internal.scanner
         function onRunningChanged() {
-            if (Internal.scanner.running)
+            if (Internal.scanner.running && !diskGames.quietReading)
                 splashScreen.focus = true;
         }
     }

@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
+#
+# DOSBox Staging for GOG's DOS games ([[step-4.5-windows-games-proton]], owner 2026-10-16): Arch has
+# only DOSBox 0.74.3, on which Stargunner hangs. Built from source (never the authors' binaries,
+# [[supply-chain-security]]); every source is pinned and its checksum was checked on 2026-10-16
+# against a second source, the Arch User Repository recipe of the same version (dosbox-staging,
+# iir1: SHA-256; munt: BLAKE2b). The AUR recipe of dosbox-staging was read and rewritten, not run.
+# Two libraries it needs are not in Arch: iir1 and libmt32emu are built here as static libraries.
+
+pkgname=dosbox-staging
+pkgver=0.83.0
+pkgrel=2
+_iir1=1.10.0
+_mt32emu=2.8.2
+pkgdesc="DOSBox Staging, a DOS emulator (with the iir1 and libmt32emu libraries built in), for GOG's DOS games in OwneetOS"
+arch=('x86_64')
+url="https://www.dosbox-staging.org"
+# DOSBox Staging: GPL-2.0-or-later; iir1: MIT; libmt32emu: LGPL-2.1-or-later
+license=('GPL-2.0-or-later' 'MIT' 'LGPL-2.1-or-later')
+depends=('sdl2-compat' 'sdl2_net' 'sdl2_image' 'opusfile' 'alsa-lib' 'libpng' 'speexdsp'
+         'libslirp' 'fluidsynth' 'zlib-ng' 'libglvnd' 'hicolor-icon-theme')
+makedepends=('cmake' 'ninja' 'asio')
+options=('!debug')
+source=("dosbox-staging-$pkgver.tar.gz::https://github.com/dosbox-staging/dosbox-staging/archive/refs/tags/v$pkgver.tar.gz"
+        "iir1-$_iir1.tar.gz::https://github.com/berndporr/iir1/archive/refs/tags/$_iir1.tar.gz"
+        "munt-$_mt32emu.tar.gz::https://github.com/munt/munt/archive/refs/tags/libmt32emu_${_mt32emu//./_}.tar.gz")
+sha256sums=('9b36be5a666784adaeffa560bd0950691f851a76bdb97e7ae3c989561e91caf3'
+            '13b53f14d276adf6cafd3564fcda1d4b3e72342108d1c40ec4b4f0c7fc3ac95a'
+            'd4778cf89b054ba7ab410ffcb02ecf1629fa32b5b60838addec99eb93804fdcb')
+
+build() {
+  local deps="$srcdir/deps"
+
+  # The two libraries, static, installed in the build folder only
+  cmake -S "iir1-$_iir1" -B build-iir1 -G Ninja -W no-dev \
+    -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$deps" -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    -DIIR1_BUILD_TESTING=OFF -DIIR1_BUILD_DEMO=OFF
+  cmake --build build-iir1
+  cmake --install build-iir1
+  cmake -S "munt-libmt32emu_${_mt32emu//./_}/mt32emu" -B build-mt32emu -G Ninja -W no-dev \
+    -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$deps" -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    -Dlibmt32emu_SHARED=OFF -Dlibmt32emu_BUILD_TESTING=OFF -Dmt32emu_BUILD_TESTING=OFF
+  cmake --build build-mt32emu
+  cmake --install build-mt32emu
+  # only the static libraries: DOSBox Staging must not depend on files of the build folder. iir1
+  # always builds and exports its shared library too (and DOSBox Staging prefers it): its export
+  # is replaced by one that only knows the static library.
+  find "$deps" -name '*.so*' -delete
+  rm -f "$deps"/lib/cmake/iir/iirTargets*.cmake
+  cat > "$deps/lib/cmake/iir/iirConfig.cmake" <<'EOF'
+# OwneetOS (packages/dosbox-staging): iir1's static library only
+if(NOT TARGET iir::iir_static)
+  add_library(iir::iir_static STATIC IMPORTED)
+  set_target_properties(iir::iir_static PROPERTIES
+    IMPORTED_LOCATION "${CMAKE_CURRENT_LIST_DIR}/../../libiir_static.a"
+    INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_LIST_DIR}/../../../include")
+endif()
+EOF
+
+  # some of DOSBox Staging's files include the libraries' headers directly (found in /usr/include
+  # when the libraries are installed in the system)
+  export CPLUS_INCLUDE_PATH="$deps/include${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}"
+  cmake -S "dosbox-staging-$pkgver" -B build --preset release-linux -W no-dev \
+    -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_PREFIX_PATH="$deps" -DOPT_TESTS=OFF
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+  # as the AUR recipe: the resources next to the program's data
+  if [[ -d "$pkgdir/usr/share/dosbox-staging/resources" ]]; then
+    mv "$pkgdir/usr/share/dosbox-staging/resources"/* "$pkgdir/usr/share/dosbox-staging/"
+    rmdir "$pkgdir/usr/share/dosbox-staging/resources"
+  fi
+  # Named dosbox-staging, next to Arch Linux's dosbox and not in its place: test PCs that had it
+  # (step 4.5, 2026-10-16) update without removing it (pacman --noconfirm never removes)
+  mv "$pkgdir/usr/bin/dosbox" "$pkgdir/usr/bin/dosbox-staging"
+  for man in "$pkgdir"/usr/share/man/man1/dosbox.1*; do
+    mv "$man" "${man/\/dosbox./\/dosbox-staging.}"
+  done
+  sed -i 's/^Exec=dosbox\b/Exec=dosbox-staging/' "$pkgdir"/usr/share/applications/*.desktop
+  # DOSBox Staging installs its licence texts in /usr/share/doc/dosbox-staging
+  install -Dm644 "dosbox-staging-$pkgver/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "iir1-$_iir1/COPYING" "$pkgdir/usr/share/licenses/$pkgname/COPYING.iir1"
+  install -Dm644 "munt-libmt32emu_${_mt32emu//./_}/mt32emu/COPYING.LESSER.txt" \
+    "$pkgdir/usr/share/licenses/$pkgname/COPYING.LESSER.libmt32emu"
+}

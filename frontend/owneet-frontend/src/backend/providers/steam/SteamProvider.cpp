@@ -23,8 +23,11 @@
 #include "providers/SearchContext.h"
 #include "providers/steam/SteamGamelist.h"
 #include "providers/steam/SteamMetadata.h"
+#include "providers/steam/SteamOwned.h"
 #include "providers/steam/SteamPlaytime.h"
+#include "model/gaming/Assets.h"
 #include "model/gaming/Game.h"
+#include "types/AssetType.h"
 #include "utils/StdHelpers.h"
 
 #include <QDir>
@@ -153,6 +156,62 @@ void fill_metadata_from_cache(HashMap<QString, model::Game*>& appid_game_map, co
         appid_game_map.erase(appid);
 }
 
+// OwneetOS: a picture of Steam's artwork cache for one app (appcache/librarycache/<appid>/): older
+// clients keep it at the top of the app's folder, newer ones in a sub-folder named after its
+// hash; the newest copy wins. Empty when Steam has none.
+QString find_cached_art(const QDir& app_dir, const QStringList& names)
+{
+    QFileInfo best;
+    const auto consider = [&](const QDir& dir) {
+        for (const QString& name : names) {
+            const QFileInfo finfo(dir, name);
+            if (finfo.isFile() && finfo.size() > 0 && (!best.exists() || finfo.lastModified() > best.lastModified()))
+                best = finfo;
+        }
+    };
+    consider(app_dir);
+    for (const QString& sub : app_dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot))
+        consider(QDir(app_dir.filePath(sub)));
+    return best.exists() ? best.absoluteFilePath() : QString();
+}
+
+// OwneetOS: covers from Steam's own artwork cache ([[step-4.4-artwork]]), only what Steam has
+// already downloaded for its library (nothing is downloaded here): the portrait cover (poster),
+// the wide picture of its library page (background: the home screen's card) and the title
+// header (banner: shown whole in a cover without a portrait one, and in the home screen's card
+// without a wide picture)
+void add_cached_artwork(const QString& log_tag, const QString& steam_datadir, const HashMap<QString, model::Game*>& appid_game_map)
+{
+    const QDir cache(steam_datadir + QLatin1String("appcache/librarycache"));
+    if (!cache.exists())
+        return;
+    static const QStringList portrait { QStringLiteral("library_600x900.jpg"), QStringLiteral("library_capsule.jpg") };
+    static const QStringList wide { QStringLiteral("library_hero.jpg") };
+    static const QStringList header { QStringLiteral("header.jpg"), QStringLiteral("library_header.jpg") };
+    int covers = 0, headers = 0;
+    for (const auto& entry : appid_game_map) {
+        const QDir app_dir(cache.filePath(entry.first));
+        if (!app_dir.exists())
+            continue;
+        model::Assets& assets = entry.second->assetsMut();
+        const QString cover = find_cached_art(app_dir, portrait);
+        const QString hero = find_cached_art(app_dir, wide);
+        const QString banner = find_cached_art(app_dir, header);
+        if (!cover.isEmpty()) {
+            assets.add_file(AssetType::POSTER, cover);
+            covers++;
+        } else if (!banner.isEmpty()) {
+            headers++;
+        }
+        if (!hero.isEmpty())
+            assets.add_file(AssetType::BACKGROUND, hero);
+        if (!banner.isEmpty())
+            assets.add_file(AssetType::UI_BANNER, banner);
+    }
+    Log::info(log_tag, LOGMSG("Artwork from Steam's cache: %1 portrait covers, %2 games with a header only")
+        .arg(QString::number(covers), QString::number(headers)));
+}
+
 void fill_metadata_from_network(
     const HashMap<QString, model::Game*>& appid_game_map,
     const providers::steam::Metadata& metahelper,
@@ -222,12 +281,60 @@ Provider& SteamProvider::run(SearchContext& sctx)
     }
 
     Log::info(display_name(), LOGMSG("%1 games found").arg(QString::number(appid_game_map.size())));
+
+    // OwneetOS: every game of the account, installed or not ([[step-4.2c-steam-without-its-interface]]):
+    // the ones not installed are started the same way (Steam installs them first, asked by the
+    // interface). Every Steam game carries its app id; whether it is installed now, being
+    // downloaded or on a disk that is not connected comes from owneetd while the interface runs.
+    const auto mark = [](model::Game& game, const QString& appid, bool installed) {
+        game.extraMapMut().insert(QStringLiteral("steam.appid"), appid);
+        game.extraMapMut().insert(QStringLiteral("steam.installed"), installed);
+    };
+    for (const auto& entry : appid_game_map)
+        mark(*entry.second, entry.first, true);
+    int not_installed = 0;
+    const std::vector<OwnedApp> owned_games = read_owned_games(steamdir_path);
+    for (const OwnedApp& owned : owned_games) {
+        if (appid_game_map.find(owned.appid) != appid_game_map.cend())
+            continue;
+        const QString steam_uri = QStringLiteral("steam:") + owned.appid;
+        model::Game* game_ptr = sctx.game_by_uri(steam_uri);
+        if (!game_ptr) {
+            game_ptr = sctx.create_game_for(collection);
+            sctx.game_add_uri(*game_ptr, steam_uri);
+        }
+        sctx.game_add_to(*game_ptr, collection);
+        (*game_ptr)
+            .setTitle(owned.name)
+            .setSortBy(owned.name)
+            .setLaunchCmd(steam_call % QLatin1String(" steam://rungameid/") % owned.appid);
+        mark(*game_ptr, owned.appid, false);
+        appid_game_map.emplace(owned.appid, game_ptr);
+        not_installed++;
+    }
+    Log::info(display_name(), LOGMSG("%1 games owned but not installed").arg(QString::number(not_installed)));
     if (appid_game_map.empty())
         return *this;
 
 
     // OwneetOS: play time and last played as Steam counts them ([[step-4.1-steam-library]])
     const HashMap<QString, PlayStats> playtime = read_playtime(steamdir_path);
+
+    // OwneetOS: a licence agreement Steam will ask to accept at the first start: the interface
+    // shows its address before (Steam's window may not be readable, 4.2c)
+    int with_eula = 0;
+    for (const OwnedApp& owned : owned_games) {
+        const auto game = appid_game_map.find(owned.appid);
+        if (owned.eula_id.isEmpty() || game == appid_game_map.cend())
+            continue;
+        const auto stats = playtime.find(owned.appid);
+        if (stats != playtime.cend() && stats->second.eulas.contains(owned.eula_id.toLower()))
+            continue;
+        game->second->extraMapMut().insert(QStringLiteral("steam.eula.name"), owned.eula_name);
+        game->second->extraMapMut().insert(QStringLiteral("steam.eula.url"), owned.eula_url);
+        with_eula++;
+    }
+    Log::info(display_name(), LOGMSG("%1 games with a licence agreement not accepted yet").arg(QString::number(with_eula)));
     int with_playtime = 0;
     for (const auto& entry : appid_game_map) {
         const auto it = playtime.find(entry.first);
@@ -238,6 +345,8 @@ Provider& SteamProvider::run(SearchContext& sctx)
     }
     Log::info(display_name(), LOGMSG("Play time found for %1 games").arg(QString::number(with_playtime)));
 
+    // (before the metadata: filling it takes the games it finds out of the map)
+    add_cached_artwork(display_name(), steamdir_path, appid_game_map);
     const Metadata metahelper(display_name());
     fill_metadata_from_cache(appid_game_map, metahelper);
     fill_metadata_from_network(appid_game_map, metahelper, sctx);

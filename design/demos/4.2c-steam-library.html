@@ -1,0 +1,1125 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS — interactive demo for [[step-4.2c-steam-without-its-interface]]: every owned Steam
+     game in the library, installing and uninstalling through Steam's confirmation window, the
+     download shown by the console, the notice before Steam's window on PCs where it shows display
+     errors, and what happens without internet. Built on the approved demo 4.2. Open in a browser;
+     drive it with a gamepad or the keyboard. Fonts come from Google Fonts for the demo only (the
+     console bundles them); sounds come from sounds.js (frontend/sounds/). Game names, covers,
+     sizes and disks are invented; Steam's windows are only stand-ins (the console never draws
+     them). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS — Steam library (demo 4.2c)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1; --motion: 1; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+.frame { position: relative; flex: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+
+/* ---------- 1280 × 720 grid, 5% horizontal safe area ---------- */
+.stage {
+  width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px;
+  display: grid; grid-template-rows: auto 1fr auto; gap: 20px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350;
+}
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); } .t-xl { font-size: calc(40px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+
+/* ---------- Focus ring ---------- */
+[data-f] { outline: none; position: relative; transition: transform calc(.16s * var(--motion)) ease, box-shadow calc(.16s * var(--motion)) ease; }
+[data-f].focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); transform: scale(calc(1 + .035 * var(--motion))); z-index: 2; }
+
+/* ---------- Top bar ---------- */
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 36px; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.status { display: flex; align-items: center; gap: 20px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status svg { width: calc(19px * var(--ts)); height: calc(19px * var(--ts)); }
+.status .clock { color: var(--fg); font-weight: 500; }
+
+/* ---------- Library ---------- */
+.page { min-height: 0; display: none; }
+.page.on { display: grid; }
+.lib { grid-template-rows: auto auto minmax(0, 1fr); gap: 16px; }
+.lib-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
+.lib-title { display: flex; align-items: baseline; gap: 14px; }
+.disks { display: flex; gap: 22px; color: var(--muted); font-variant-numeric: tabular-nums; padding: 8px 12px; margin: -8px -12px; border-radius: 14px; }
+.disks .summary { display: grid; gap: 5px; min-width: 190px; }
+.disk-list { display: grid; gap: 14px; width: 560px; text-align: left; }
+.disk-row { display: grid; gap: 6px; padding: 12px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.disk-row .name { display: flex; justify-content: space-between; gap: 16px; }
+.disk-row .bar { height: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.disk-row .bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.disk-row .note { color: var(--muted); display: flex; gap: 8px; align-items: flex-start; }
+.disk-row .note::before { content: "!"; flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+.disk { display: grid; gap: 5px; min-width: 150px; }
+.disks .bar { height: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.disks .bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.filters { display: flex; align-items: center; gap: 8px; }
+.chip { padding: 6px 15px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 500; }
+.filters .sortnote { margin-left: auto; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
+.grid-wrap { min-height: 0; overflow-y: auto; scrollbar-width: none; padding: 18px; margin: -18px; }
+/* room for the focus ring and lift when the grid scrolls to the first or last row */
+.grid .cover { scroll-margin-block: 18px; }
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 16px 14px; align-content: start; }
+.cover {
+  position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 4 / 5; color: #fff;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; padding: 10px;
+  background:
+    radial-gradient(120% 80% at 80% 10%, hsl(var(--h) 85% 62% / .95), transparent 60%),
+    radial-gradient(90% 70% at 0% 100%, hsl(calc(var(--h) + 40) 70% 35%), transparent 70%),
+    linear-gradient(160deg, hsl(var(--h) 45% 26%), hsl(calc(var(--h) + 25) 50% 12%));
+}
+.cover .art { position: absolute; inset: 0; background: inherit; border-radius: inherit; transition: filter .3s; }
+.cover > :not(.art) { position: relative; }
+.cover .ttl { font-family: var(--display); font-weight: 750; font-variation-settings: "wdth" 80; line-height: 1.05; text-shadow: 0 2px 10px rgba(0,0,0,.4); }
+.cover .src { position: absolute; top: 8px; left: 8px; padding: 2px 9px; border-radius: 999px; background: rgba(0,0,0,.45); }
+.cover .marks { position: absolute; top: 8px; right: 8px; display: flex; gap: 5px; }
+.cover .mk { width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,.55); display: grid; place-items: center; }
+.cover svg { width: 15px; height: 15px; }
+/* not installed: a dimmed cover with a download mark */
+.cover.dim .art { filter: saturate(.25) brightness(.55); }
+/* the state line under the title, and the download's progress */
+.cover .state { display: grid; gap: 5px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+.cover .prog { height: 5px; border-radius: 999px; background: rgba(255,255,255,.25); overflow: hidden; }
+.cover .prog i { display: block; height: 100%; background: #fff; border-radius: 999px; transition: width .25s linear; }
+/* "Add games": the last place of the grid, like "All games" on the home screen */
+.cover.add { background: transparent; border: 2px dashed var(--line); color: var(--fg); align-items: center; justify-content: center; gap: 12px; text-align: center; }
+.cover.add .plus { width: 46px; height: 46px; border-radius: 50%; background: var(--raised); display: grid; place-items: center; }
+.cover.add .plus svg { width: 22px; height: 22px; }
+.empty { display: grid; place-items: center; align-content: center; gap: 8px; text-align: center; color: var(--muted); height: 100%; }
+
+/* ---------- Home (only what this step changes: the downloads notice and the store) ---------- */
+.home { grid-template-rows: auto auto auto 1fr; gap: 18px; align-content: start; }
+.home .hint { color: var(--muted); }
+.notice { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 11px 14px; background: var(--surface); border-radius: 14px; border: 1px solid var(--line); width: 100%; font-variant-numeric: tabular-nums; }
+.notice .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+.notice .more { color: var(--muted); white-space: nowrap; }
+.apps { display: flex; gap: 14px; }
+.app { width: 170px; height: 104px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); display: grid; place-items: center; align-content: center; gap: 8px; }
+.app svg { width: 30px; height: 30px; }
+
+/* ---------- Prompt bar and glyphs ---------- */
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 24px; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+
+/* ---------- Windows ---------- */
+.overlay { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 85%, transparent); display: none; z-index: 10; }
+.overlay.open { display: block; }
+.sheet { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -58%); width: max-content; min-width: 520px; max-width: 760px;
+         text-align: center; justify-items: center; background: var(--bg); border: 1px solid var(--line); border-radius: 18px;
+         padding: 20px 24px 24px; display: grid; gap: 14px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.7); }
+.sheet .list { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 20px; margin-top: 6px; }
+.sheet .item { padding: 11px 26px; border-radius: 999px; font-weight: 500; background: var(--raised); color: var(--fg); }
+.sheet .item.primary { background: var(--accent); color: var(--on-accent); }
+.sheet .facts { display: grid; grid-template-columns: auto auto; gap: 6px 18px; text-align: left; font-variant-numeric: tabular-nums; }
+.sheet .facts span:nth-child(odd) { color: var(--muted); }
+.sheet .text { max-width: 600px; }
+.sheet .big-ico { width: 52px; height: 52px; border-radius: 16px; background: var(--raised); display: grid; place-items: center; }
+.sheet .big-ico svg { width: 28px; height: 28px; }
+.sheet .big-ico.attention { background: var(--accent); color: var(--on-accent); }
+.sheet .wide-prog { width: 420px; height: 8px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.sheet .wide-prog i { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .25s linear; }
+.check { display: inline-flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 999px; }
+.check .box { width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--muted); display: grid; place-items: center; }
+.check[aria-checked="true"] .box { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.check .box svg { width: 16px; height: 16px; visibility: hidden; }
+.check[aria-checked="true"] .box svg { visibility: visible; }
+.spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--raised); border-top-color: var(--accent); animation: spin calc(.9s / max(var(--motion), .2)) linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.sheet-prompts { position: absolute; left: 64px; right: 64px; bottom: 28px; }
+.choices { display: grid; grid-auto-flow: column; gap: 16px; margin-top: 6px; }
+.choice { width: 250px; padding: 20px 16px 18px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); display: grid; justify-items: center; align-content: start; gap: 8px; text-align: center; }
+.choice svg { width: 32px; height: 32px; }
+.choice .sub { color: var(--muted); }
+.guide { display: grid; gap: 14px; width: 720px; text-align: left; }
+.tree { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 20px; display: grid; gap: 3px; font-variant-numeric: tabular-nums; }
+.tree .row { display: grid; grid-template-columns: 300px 1fr; gap: 12px; align-items: baseline; }
+.tree .name { white-space: pre; }
+.tree .dir { color: var(--fg); font-weight: 500; }
+.tree .file { color: var(--muted); }
+.tree .cmt { color: var(--accent); }
+.steps { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+
+/* ---------- Banners (demo 3.11): top right, under the top bar ---------- */
+.banners { position: absolute; top: 88px; right: 64px; width: 400px; display: grid; gap: 10px; z-index: 25; pointer-events: none; }
+.banner { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 16px;
+          background: var(--surface); border: 1px solid var(--line); box-shadow: 0 18px 40px -16px rgba(0,0,0,.65);
+          animation: in calc(.25s * var(--motion)) ease; }
+.banner.out { animation: out calc(.25s * var(--motion)) ease forwards; }
+@keyframes in { from { transform: translateX(40px); opacity: 0; } }
+@keyframes out { to { transform: translateX(40px); opacity: 0; } }
+.banner .ico { width: 40px; height: 40px; border-radius: 12px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; }
+.banner .ico svg { width: 22px; height: 22px; }
+.banner .txt { display: grid; gap: 2px; min-width: 0; }
+
+/* ---------- Steam's own windows (stand-ins: the console never draws them) ---------- */
+.steam-sim { position: absolute; inset: 0; z-index: 30; display: none; place-items: center; align-content: center; gap: 14px; text-align: center; padding: 0 160px;
+             background: repeating-linear-gradient(135deg, #10141c 0 22px, #131823 22px 44px); color: #e8ebf2; }
+.steam-sim.open { display: grid; }
+.steam-sim .note { color: #9aa3b5; }
+.steam-sim kbd { font: inherit; padding: 1px 8px; border: 1px solid #4a5263; border-radius: 6px; }
+.steam-dlg { position: relative; width: 560px; padding: 22px 26px; border-radius: 6px; background: #1f2633; border: 1px solid #3a4558; text-align: left; display: grid; gap: 10px; overflow: hidden; }
+.steam-dlg .btns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+.steam-dlg .btn { padding: 8px 22px; border-radius: 3px; background: #3a4558; }
+.steam-dlg .btn.go { background: #4a8be8; color: #fff; }
+/* what the display errors look like on the PCs that have them (pieces of earlier pictures) */
+.glitch { position: absolute; pointer-events: none; opacity: 0; animation: glitch 1.7s steps(1) infinite; }
+@keyframes glitch { 0%, 100% { opacity: 0; } 12% { opacity: .9; } 30% { opacity: 0; } 55% { opacity: .75; } 63% { opacity: 0; } }
+
+.has-sheet > .prompts { visibility: hidden; }
+.toast { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); padding: 9px 18px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; white-space: nowrap; }
+.toast.show { opacity: 1; }
+
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <header class="top">
+    <div class="top-left">
+      <span class="mark">Owneet<i>OS</i></span>
+      <nav class="tabs t-s">
+        <span data-glyph="lb"></span>
+        <span class="tab" data-tab="home" data-i18n="tab.home">Home</span>
+        <span class="tab" data-tab="library" aria-current="page" data-i18n="tab.library">Library</span>
+        <span class="tab" data-tab="settings" data-i18n="tab.settings">Settings</span>
+        <span data-glyph="rb"></span>
+      </nav>
+    </div>
+    <div class="status t-s">
+      <span id="net-ico"></span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z"/></svg>
+      <span class="clock" id="clock">21:40</span>
+    </div>
+  </header>
+
+  <main style="min-height:0; display:grid">
+    <section class="page lib on" id="page-library">
+      <div class="lib-head">
+        <div class="lib-title"><span class="disp t-xl" data-i18n="tab.library">Library</span><span class="muted t-m" id="count"></span></div>
+        <button class="disks t-xs" id="disks" data-f data-disks></button>
+      </div>
+      <div class="filters t-s" id="filters"></div>
+      <div class="grid-wrap" id="grid-wrap"><div class="grid t-s" id="grid" data-group="grid"></div></div>
+    </section>
+    <section class="page home" id="page-home">
+      <span class="disp t-xl" data-i18n="tab.home">Home</span>
+      <span class="hint t-s" data-i18n="home.hint"></span>
+      <div id="notice-slot"></div>
+      <div class="apps" id="apps"></div>
+    </section>
+    <section class="page" id="page-settings" style="place-items:center; align-content:center; gap:10px; text-align:center; color:var(--muted)"><span class="disp t-l" data-i18n="tab.settings">Settings</span><span class="t-m" data-i18n="later.settings">Settings have their own demo (step 3.9).</span></section>
+  </main>
+
+  <footer class="prompts t-s" id="prompts"></footer>
+  <div class="toast t-s" id="toast"></div>
+  <div class="banners" id="banners"></div>
+  <div class="steam-sim t-m" id="steam-sim"></div>
+  <div class="overlay" id="overlay">
+    <div class="sheet" id="sheet"></div>
+    <div class="prompts t-s sheet-prompts" id="sheet-prompts"></div>
+  </div>
+</div></div>
+<p class="help"><b>New in 4.2c:</b> every Steam game you own is in the Library; the ones not installed are dimmed with a download mark (A installs them). Filter <b>Installed</b> is back; in “Recently played” downloads come first. Menu on a Steam game: <b>Uninstall</b>, or <b>Cancel installation</b> while it downloads. Downloads run much faster than in reality.<br>
+<b>Gamepad / keyboard</b> as in demo 4.2 (A play / install, X details, Menu options); in Steam's windows A confirms, B cancels; <b>H</b> or Guide = Home.<br>
+<b>Demo only:</b> V this PC's display (<span id="gpu-state">with display errors</span>), I internet (<span id="net-state">on</span>), S Steam (<span id="steam-state">running hidden</span>), F Steam set up (<span id="first-state">yes</span>), R show the notice again, D disks (1, 2, 4: with 4 the “Games SSD” is connected), P palette, T text size, G prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#gpu=amd&amp;net=off&amp;steam=off&amp;first=1&amp;disks=4&amp;filter=installed&amp;lang=it&amp;open=install|notice|steam|uninstall|details|offline|store|add</code></p>
+
+<script src="sounds.js"></script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 120) / 720);
+    stage.style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+
+  /* ---------- Palettes ---------- */
+  const PALETTES = [
+    ['dusk', '#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+    ['tide', '#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+    ['bloom', '#1A1020', '#25182D', '#33223D', '#45304F', '#F7EEF6', '#AE93AE', '#FF7AA8', '#2A0614'],
+    ['ember', '#1C0F0C', '#2A1713', '#3A201A', '#4E2C24', '#FBEDE9', '#C49C93', '#FF6B47', '#2A0A03'],
+    ['espresso', '#1A1310', '#261C17', '#33261F', '#47362C', '#F5ECE4', '#BBA693', '#D9A066', '#2A1707'],
+    ['harbor', '#0D1B2E', '#14263D', '#1D3350', '#2A4566', '#F3EAD8', '#B7AE99', '#E8D3A8', '#142033'],
+    ['forest', '#0E1A14', '#15261D', '#1E3428', '#2B4636', '#ECF5EE', '#95B2A0', '#7BD88F', '#072012'],
+    ['lagoon', '#0A1426', '#101E38', '#182A4B', '#23395F', '#EAF1FF', '#90A4C9', '#4DA3FF', '#03162E'],
+    ['amethyst', '#15121F', '#1F1A2E', '#2A2340', '#3A3155', '#F1EDFA', '#A99FC4', '#B69CFF', '#1B0E3A'],
+    ['crimson', '#170A0E', '#241018', '#321722', '#47202F', '#FCECEF', '#C597A1', '#FF4D6D', '#2B0510'],
+    ['synthwave', '#140B24', '#1F1236', '#2B1A4A', '#3D2563', '#FBEFFF', '#B99DD8', '#FF4FD8', '#2B0326'],
+    ['amber', '#0F0B05', '#1A1409', '#251C0D', '#3A2C14', '#FFE8C2', '#C9AA78', '#FFB000', '#241700'],
+    ['olive', '#14160E', '#1E2116', '#292D1F', '#3A402B', '#F1F3E6', '#ABB092', '#C5D86D', '#1C2306'],
+    ['graphite', '#121212', '#1C1C1C', '#262626', '#383838', '#F2F2F2', '#A6A6A6', '#DADADA', '#121212'],
+    ['daylight', '#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+    ['arctic', '#EEF5FA', '#FFFFFF', '#DCE9F3', '#C3D5E4', '#0F1E2B', '#4E6577', '#0A78B8', '#FFFFFF'],
+    ['sand', '#F4EEE3', '#FFFBF4', '#E8DFD0', '#D3C6B1', '#2A2117', '#6A5C49', '#B04A28', '#FFFFFF'],
+    ['latte', '#F3ECE4', '#FFFAF5', '#E6DACD', '#D2C1AF', '#2B1E14', '#6B5746', '#8B5A2B', '#FFFFFF'],
+    ['sakura', '#FBEFF3', '#FFFFFF', '#F3DDE5', '#E3C3CF', '#2A1420', '#76505F', '#C92A62', '#FFFFFF'],
+    ['contrast', '#000000', '#000000', '#161616', '#FFFFFF', '#FFFFFF', '#E0E0E0', '#FFE14D', '#000000'],
+    ['contrast-light', '#FFFFFF', '#FFFFFF', '#EDEDED', '#000000', '#000000', '#262626', '#0038B8', '#FFFFFF'],
+  ];
+  const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
+  let palIndex = 0;
+  function setPalette(i) {
+    palIndex = (i + PALETTES.length) % PALETTES.length;
+    TOKENS.forEach((t, k) => stage.style.setProperty('--' + t, PALETTES[palIndex][1 + k]));
+  }
+
+  /* ---------- i18n ---------- */
+  const EN = {
+    'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings',
+    'later.settings': 'Settings have their own demo (step 3.9).',
+    'home.hint': 'Only what step 4.2c changes on the home screen (demo 3.6): the downloads notice and the store.',
+    'count': '{n} games', 'count.one': '1 game',
+    'f.all': 'All', 'f.installed': 'Installed', 'f.favorites': 'Favorites', 'f.steam': 'Steam', 'f.local': 'Local',
+    'sort.recent': 'Recently played', 'sort.name': 'Name', 'sort.time': 'Most played', 'sort.title': 'Sort by',
+    'disk.internal': 'Internal disk', 'disk.usb': 'USB disk', 'disk.free': '{n} free',
+    'disk.windows': 'Windows disk', 'disk.games': 'Games SSD', 'disk.of': '{free} free of {total}',
+    'disks.title': 'Disks', 'disks.summary': '{n} disks · {free} free', 'p.disks': 'Disks', 'p.close': 'Close',
+    'disk.note.readonly': 'Read only: Windows was not shut down completely. Shut it down from Windows (or turn off Fast Startup) to add games here.',
+    'disk.note.ntfs': 'Windows games on this disk may not work well: move them to a Linux disk.',
+    'src.local': 'Local',
+    'empty.favorites': 'No favorites yet', 'empty.favorites.hint': 'Press Menu on a game and choose “Add to favorites”.',
+    'played.never': 'Not played yet', 'played.today': 'Played today', 'played.yesterday': 'Played yesterday', 'played.days': 'Played {n} days ago',
+    'time.total': '{h} h {m} min in total', 'time.min': '{m} min in total',
+    'det.source': 'Source', 'det.state': 'State', 'det.last': 'Last played', 'det.time': 'Play time', 'det.disk': 'Installed on', 'det.size': 'Size',
+    'det.done': 'Downloaded', 'det.done.v': '{done} of {total}', 'det.speed': 'Speed', 'det.left': 'Time left', 'det.left.v': 'about {n} min', 'det.left.less': 'less than a minute',
+    'det.queue': 'Waiting for: {title}', 'det.away': 'Connect the “{disk}” disk to play it.',
+    'st.installed': 'Installed', 'st.none': 'Not installed', 'st.queued': 'Waiting', 'st.downloading': 'Downloading · {p}%',
+    'st.updating': 'Updating · {p}%', 'st.paused': 'Paused: no internet', 'st.away': 'On a disk that is not connected',
+    'p.play': 'Play', 'p.install': 'Install', 'p.details': 'Details', 'p.options': 'Options', 'p.sort': 'Sort', 'p.filter': 'Filter',
+    'p.sections': 'Sections', 'p.home': 'Home', 'p.select': 'Select', 'p.back': 'Back', 'p.open': 'Open',
+    'opt.play': 'Play', 'opt.install': 'Install', 'opt.details': 'Details', 'opt.fav': 'Add to favorites', 'opt.unfav': 'Remove from favorites',
+    'opt.uninstall': 'Uninstall', 'opt.cancel': 'Cancel installation',
+    'toast.launch': 'Starting {title}…', 'toast.fav': 'Added to favorites', 'toast.unfav': 'Removed from favorites',
+    'toast.queued': 'Steam is installing {title}', 'toast.unchanged': 'Nothing changed', 'toast.uninstalled': '{title} uninstalled',
+    'toast.cancelled': 'Installation of {title} cancelled', 'toast.network': '(demo) Settings → Network (demo 3.9)',
+    'add.tile': 'Add games', 'p.add': 'Add games', 'p.menu': 'Menu', 'toast.quick': '(demo) B opens the quick menu here (demo 3.13)',
+    'add.title': 'Add games', 'add.steam': 'Steam', 'add.steam.sub': 'Buy new games in Steam’s store: the games you own are already in your library',
+    'add.disk': 'From a USB stick or disk', 'add.disk.sub': 'Games copied into a “Games” folder',
+    'disk.title': 'Games on a USB stick or disk',
+    'tree.root': 'USB stick or disk', 'tree.games': 'Games/', 'tree.c.games': 'at the top of the disk',
+    'tree.c.game': 'one folder per game, named after it', 'tree.c.any': 'anything inside, sub-folders too',
+    'tree.c.cover': 'optional: its cover', 'tree.setup': 'setup.exe',
+    'tree.c.setup': 'an installer is fine too',
+    'step.plug': 'Plug the disk into the console: the games appear in the Library by themselves.',
+    'step.find': 'The console finds what to start in each folder. If it is not sure, it asks you once.',
+    'step.install': 'Games with an installer are installed by the console, after you accept their licence.',
+    'step.win': 'Games for Windows work too: nothing else to do.',
+    'app.store': 'Steam Store',
+    'notice.dl': 'Downloading {title} · {p}%', 'notice.up': 'Updating {title} · {p}%', 'notice.more': '+{n} waiting',
+    'notice.paused': 'Downloads paused: no internet connection.',
+    'install.title': 'Install {title}?', 'install.text': 'Steam downloads it. You can keep using the console meanwhile: the download shows here, on the game.',
+    'install.go': 'Install', 'cancel': 'Cancel',
+    'uninstall.title': 'Uninstall {title}?', 'uninstall.text': 'It is removed from this PC. You can install it again whenever you like.', 'uninstall.go': 'Uninstall',
+    'cancelinst.title': 'Cancel the installation of {title}?', 'cancelinst.text': 'What has been downloaded so far is deleted.',
+    'cancelinst.go': 'Cancel installation', 'cancelinst.keep': 'Keep downloading',
+    'notice.title': 'Steam asks you to confirm',
+    'notice.text': 'On this PC, Steam’s window may show display errors for a moment, such as leftover pieces of earlier pictures. They are harmless and go away when the window closes.',
+    'notice.never': 'Don’t show again', 'notice.go': 'Continue',
+    'starting': 'Starting Steam…',
+    'prep.title': 'Preparing Steam…', 'prep.first': 'The first time takes a few minutes: Steam downloads its files. It opens by itself when it is ready.',
+    'offline.title': 'No internet connection',
+    'offline.install': 'Installing a game needs the internet. Connect to a network, then try again.',
+    'offline.store': 'The store needs the internet. Connect to a network, then try again.',
+    'offline.first': 'The first time, Steam needs the internet to download its files and to sign you in. Connect to a network, then try again.',
+    'offline.net': 'Network settings',
+    'ready.title': '{title} is ready', 'ready.text': 'It is in the Library: press A on it to play.',
+    'steamw.note': 'Steam’s own window — a stand-in: the console never draws it',
+    'steamw.install': 'Install {title}', 'steamw.size': 'Disk space required: {n} GB', 'steamw.to': 'Install to: Internal disk',
+    'steamw.uninstall': 'Uninstall {title}?', 'steamw.untext': 'The game’s files are removed from this computer.',
+    'steamw.ok.install': 'Install', 'steamw.ok.uninstall': 'Uninstall', 'steamw.cancel': 'Cancel',
+    'steamw.keys': 'Demo: <kbd>Enter</kbd> / A confirms in Steam, <kbd>Esc</kbd> / B cancels.',
+    'steamw.glitch': 'This PC: Steam’s window shows display errors (as announced).',
+    'store.title': 'Steam’s store opens here',
+    'store.text': 'Until the browser app arrives (step 5.1) this is Steam’s own store, used with the controller; then it is Steam’s website. A game you buy appears in the Library, ready to install.',
+    'store.back': 'Home brings you back where you were.', 'store.key': 'Demo: press <kbd>H</kbd> (or the Guide button) for Home.',
+  };
+  const IT = {
+    'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni',
+    'later.settings': 'Le impostazioni hanno la loro demo (step 3.9).',
+    'home.hint': 'Solo ciò che lo step 4.2c cambia nella Home (demo 3.6): l’avviso dei download e il negozio.',
+    'count': '{n} giochi', 'count.one': '1 gioco',
+    'f.all': 'Tutti', 'f.installed': 'Installati', 'f.favorites': 'Preferiti', 'f.steam': 'Steam', 'f.local': 'Locali',
+    'sort.recent': 'Giocati di recente', 'sort.name': 'Nome', 'sort.time': 'Più giocati', 'sort.title': 'Ordina per',
+    'disk.internal': 'Disco interno', 'disk.usb': 'Disco USB', 'disk.free': '{n} liberi',
+    'disk.windows': 'Disco di Windows', 'disk.games': 'SSD giochi', 'disk.of': '{free} liberi su {total}',
+    'disks.title': 'Dischi', 'disks.summary': '{n} dischi · {free} liberi', 'p.disks': 'Dischi', 'p.close': 'Chiudi',
+    'disk.note.readonly': 'Sola lettura: Windows non è stato spento del tutto. Spegnilo da Windows (o disattiva l’avvio rapido) per aggiungere giochi qui.',
+    'disk.note.ntfs': 'I giochi Windows su questo disco potrebbero non funzionare bene: spostali su un disco Linux.',
+    'src.local': 'Locale',
+    'empty.favorites': 'Ancora nessun preferito', 'empty.favorites.hint': 'Premi Menu su un gioco e scegli “Aggiungi ai preferiti”.',
+    'played.never': 'Mai giocato', 'played.today': 'Giocato oggi', 'played.yesterday': 'Giocato ieri', 'played.days': 'Giocato {n} giorni fa',
+    'time.total': '{h} h {m} min in totale', 'time.min': '{m} min in totale',
+    'det.source': 'Origine', 'det.state': 'Stato', 'det.last': 'Ultima partita', 'det.time': 'Tempo di gioco', 'det.disk': 'Installato su', 'det.size': 'Dimensione',
+    'det.done': 'Scaricati', 'det.done.v': '{done} su {total}', 'det.speed': 'Velocità', 'det.left': 'Tempo rimanente', 'det.left.v': 'circa {n} min', 'det.left.less': 'meno di un minuto',
+    'det.queue': 'In attesa di: {title}', 'det.away': 'Collega il disco “{disk}” per giocarci.',
+    'st.installed': 'Installato', 'st.none': 'Non installato', 'st.queued': 'In attesa', 'st.downloading': 'Download · {p}%',
+    'st.updating': 'Aggiornamento · {p}%', 'st.paused': 'In pausa: niente internet', 'st.away': 'Su un disco non collegato',
+    'p.play': 'Gioca', 'p.install': 'Installa', 'p.details': 'Dettagli', 'p.options': 'Opzioni', 'p.sort': 'Ordina', 'p.filter': 'Filtro',
+    'p.sections': 'Sezioni', 'p.home': 'Home', 'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.open': 'Apri',
+    'opt.play': 'Gioca', 'opt.install': 'Installa', 'opt.details': 'Dettagli', 'opt.fav': 'Aggiungi ai preferiti', 'opt.unfav': 'Togli dai preferiti',
+    'opt.uninstall': 'Disinstalla', 'opt.cancel': 'Annulla installazione',
+    'toast.launch': 'Avvio di {title}…', 'toast.fav': 'Aggiunto ai preferiti', 'toast.unfav': 'Tolto dai preferiti',
+    'toast.queued': 'Steam sta installando {title}', 'toast.unchanged': 'Non è cambiato nulla', 'toast.uninstalled': '{title} disinstallato',
+    'toast.cancelled': 'Installazione di {title} annullata', 'toast.network': '(demo) Impostazioni → Rete (demo 3.9)',
+    'add.tile': 'Aggiungi giochi', 'p.add': 'Aggiungi giochi', 'p.menu': 'Menu', 'toast.quick': '(demo) Qui B apre il menu rapido (demo 3.13)',
+    'add.title': 'Aggiungi giochi', 'add.steam': 'Steam', 'add.steam.sub': 'Compra nuovi giochi nel negozio di Steam: quelli che possiedi sono già nella tua libreria',
+    'add.disk': 'Da chiavetta USB o disco', 'add.disk.sub': 'Giochi copiati in una cartella “Giochi”',
+    'disk.title': 'Giochi su chiavetta USB o disco',
+    'tree.root': 'Chiavetta USB o disco', 'tree.games': 'Giochi/  (o Games/)', 'tree.c.games': 'nella radice del disco',
+    'tree.c.game': 'una cartella per gioco, col suo nome', 'tree.c.any': 'qualsiasi contenuto, anche sottocartelle',
+    'tree.c.cover': 'facoltativa: la copertina', 'tree.setup': 'setup.exe',
+    'tree.c.setup': 'va bene anche un installer',
+    'step.plug': 'Collega il disco alla console: i giochi compaiono da soli nella Libreria.',
+    'step.find': 'In ogni cartella la console trova da sola cosa avviare. Se non è sicura, te lo chiede una volta.',
+    'step.install': 'I giochi con un installer li installa la console, dopo che hai accettato la loro licenza.',
+    'step.win': 'Funzionano anche i giochi per Windows: non devi fare altro.',
+    'app.store': 'Negozio Steam',
+    'notice.dl': 'Download di {title} · {p}%', 'notice.up': 'Aggiornamento di {title} · {p}%', 'notice.more': '+{n} in attesa',
+    'notice.paused': 'Download in pausa: niente connessione a internet.',
+    'install.title': 'Installare {title}?', 'install.text': 'Lo scarica Steam. Intanto puoi continuare a usare la console: il download si vede qui, sul gioco.',
+    'install.go': 'Installa', 'cancel': 'Annulla',
+    'uninstall.title': 'Disinstallare {title}?', 'uninstall.text': 'Viene tolto da questo PC. Puoi reinstallarlo quando vuoi.', 'uninstall.go': 'Disinstalla',
+    'cancelinst.title': 'Annullare l’installazione di {title}?', 'cancelinst.text': 'Quello che è stato scaricato finora viene cancellato.',
+    'cancelinst.go': 'Annulla installazione', 'cancelinst.keep': 'Continua il download',
+    'notice.title': 'Steam ti chiede di confermare',
+    'notice.text': 'Su questo PC la finestra di Steam può mostrare per un attimo dei difetti d’immagine, come pezzi di immagini precedenti. Sono innocui e spariscono quando la finestra si chiude.',
+    'notice.never': 'Non mostrare più', 'notice.go': 'Continua',
+    'starting': 'Avvio di Steam…',
+    'prep.title': 'Preparazione di Steam…', 'prep.first': 'La prima volta servono alcuni minuti: Steam scarica i suoi file. Si apre da solo quando è pronto.',
+    'offline.title': 'Nessuna connessione a internet',
+    'offline.install': 'Per installare un gioco serve internet. Collegati a una rete e riprova.',
+    'offline.store': 'Per il negozio serve internet. Collegati a una rete e riprova.',
+    'offline.first': 'La prima volta Steam ha bisogno di internet per scaricare i suoi file e farti accedere. Collegati a una rete e riprova.',
+    'offline.net': 'Impostazioni di rete',
+    'ready.title': '{title} è pronto', 'ready.text': 'È nella Libreria: premi A sul gioco per giocare.',
+    'steamw.note': 'La finestra di Steam — un sostituto: la console non la disegna mai',
+    'steamw.install': 'Installa {title}', 'steamw.size': 'Spazio su disco richiesto: {n} GB', 'steamw.to': 'Installa su: Disco interno',
+    'steamw.uninstall': 'Disinstallare {title}?', 'steamw.untext': 'I file del gioco vengono rimossi da questo computer.',
+    'steamw.ok.install': 'Installa', 'steamw.ok.uninstall': 'Disinstalla', 'steamw.cancel': 'Annulla',
+    'steamw.keys': 'Demo: <kbd>Invio</kbd> / A conferma in Steam, <kbd>Esc</kbd> / B annulla.',
+    'steamw.glitch': 'Questo PC: la finestra di Steam mostra difetti d’immagine (come annunciato).',
+    'store.title': 'Qui si apre il negozio di Steam',
+    'store.text': 'Finché non arriva l’app del browser (step 5.1) è il negozio di Steam stesso, usato col controller; poi è il sito di Steam. Un gioco che compri compare nella Libreria, pronto da installare.',
+    'store.back': 'Home ti riporta dov’eri.', 'store.key': 'Demo: premi <kbd>H</kbd> (o il tasto Guide) per Home.',
+  };
+  let lang = 'en';
+  const tr = (k, args = {}) => ((lang === 'it' ? IT[k] : null) || EN[k] || k).replace(/\{(\w+)\}/g, (_, a) => args[a] ?? '');
+
+  /* ---------- Glyphs ---------- */
+  let glyphSetting = 'auto', padKind = 'xbox';
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const home = circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`);
+  const GLYPHS = {
+    xbox: { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lb: pill('LB', 34), rb: pill('RB', 34), lt: pill('LT', 32), rt: pill('RT', 32),
+            menu: circle(`<path d="M8.5 10h9M8.5 13h9M8.5 16h9" ${S}/>`), guide: home },
+    ps: { a: circle(`<path d="M9.2 9.2l7.6 7.6M16.8 9.2l-7.6 7.6" ${S}/>`), b: circle(`<circle cx="13" cy="13" r="4.6" ${S}/>`),
+          x: circle(`<rect x="8.8" y="8.8" width="8.4" height="8.4" rx="1" ${S}/>`), y: circle(`<path d="M13 8.4l4.8 8.2H8.2z" ${S}/>`),
+          lb: pill('L1', 30), rb: pill('R1', 30), lt: pill('L2', 30), rt: pill('R2', 30), menu: pill('OPTIONS', 62), guide: home },
+    nintendo: { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lb: pill('L', 28), rb: pill('R', 28), lt: pill('ZL', 32), rt: pill('ZR', 32),
+                menu: circle(`<path d="M13 8.5v9M8.5 13h9" ${S}/>`), guide: home },
+  };
+  const glyphHTML = b => GLYPHS[glyphSetting === 'auto' ? padKind : glyphSetting][b];
+  const P = (btns, label) => `<span class="prompt">${btns.map(glyphHTML).join('')}<span>${label}</span></span>`;
+  const ICON = n => `<svg viewBox="0 0 24 24" ${S}>${{
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    store: '<path d="M4 9h16l-1.2 10a1 1 0 0 1-1 .9H6.2a1 1 0 0 1-1-.9z"/><path d="M8.5 9V7a3.5 3.5 0 0 1 7 0v2"/>',
+    usb: '<path d="M9 3h6v6H9zM7 9h10v8a4 4 0 0 1-4 4h-2a4 4 0 0 1-4-4z"/><path d="M11 5.5v1M13 5.5v1"/>',
+    download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    unplug: '<path d="M9 8V4M15 8V4M7 8h10v3a5 5 0 0 1-10 0zM12 16v4M4 4l16 16"/>',
+    wifi: '<path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.6 16a5 5 0 0 1 6.8 0M12 19.5h.01"/>',
+    wifioff: '<path d="M2.5 9a14 14 0 0 1 5-2.9M11 5.6A14 14 0 0 1 21.5 9M5.5 12.5a9.5 9.5 0 0 1 4-2.2M16 10.6a9.5 9.5 0 0 1 2.5 1.9M8.6 16a5 5 0 0 1 6.8 0M12 19.5h.01M3 3l18 18"/>',
+    alert: '<path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17h.01"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
+    trash: '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/>' }[n]}</svg>`;
+  const HEART = '<svg viewBox="0 0 24 24" fill="#fff"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg>';
+
+  /* ---------- Sounds (Web Audio, one per press) ---------- */
+  let soundOn = true, ctx = null;
+  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', back: 'nav-confirm', section: 'nav-section',
+    tab: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', launch: 'game-launch', notify: 'notify', 'notify-error': 'notify-error' };
+  const buffers = {};
+  function startAudio() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    if (!window.OWNEET_SOUNDS) return;
+    ctx = new AudioContext();
+    for (const [kind, file] of Object.entries(SOUNDS)) {
+      const url = window.OWNEET_SOUNDS[file];
+      if (!url) continue;
+      const bytes = Uint8Array.from(atob(url.split(',')[1]), c => c.charCodeAt(0));
+      ctx.decodeAudioData(bytes.buffer).then(b => { buffers[kind] = b; });
+    }
+  }
+  addEventListener('keydown', startAudio, true);
+  addEventListener('pointerdown', startAudio, true);
+  function play(kind) {
+    if (!soundOn || !ctx || !buffers[kind]) return;
+    const src = ctx.createBufferSource(); src.buffer = buffers[kind]; src.connect(ctx.destination); src.start();
+  }
+  let pendingConfirm = false;
+  function feedback(kind) {
+    if (kind === 'confirm') { pendingConfirm = true; queueMicrotask(() => { if (pendingConfirm) { pendingConfirm = false; play('confirm'); } }); return; }
+    pendingConfirm = false; play(kind);
+  }
+
+  /* ---------- Demo switches ---------- */
+  let glitchy = true;        // V: this PC's display shows errors in Steam's window (the FrankenPC's case)
+  let online = true;         // I: internet connection
+  let steamRunning = true;   // S: Steam already running hidden
+  let steamSetUp = true;     // F: Steam prepared and signed in once (its caches exist)
+  let noticeNever = false;   // "Don't show again" ticked (R resets it)
+
+  /* ---------- Data (invented) ---------- */
+  // Installed Steam games and local games, as in demo 4.2, then owned Steam games not installed
+  const N = ['Nebula Drift', 'Moss Garden', 'SuperTuxKart', 'Ember Run', 'Harbor Lights', '0 A.D.', 'Velvet Road', 'Copper Coast',
+    'Lantern Keep', 'Quiet Orbit', 'Saltwind', 'Pixel Quest', 'Starfall', 'Tiny Tactics', 'Glass Canyon', 'Paper Comets',
+    'Northbound', 'Rust & Rain', 'Hollow Pines', 'Signal Lost', 'Bright Harbour', 'Clockwork Bay', 'Lumen', 'Oak & Iron',
+    'Sky Ferry', 'Tidebreak', 'Wildflower', 'Zephyr Run', 'Night Market', 'Coral Line'];
+  const OWNED = ['Iron Tundra', 'Feather Fall', 'Deep Lantern', 'Marble Sky', 'Echo Valley', 'Frost Relay', 'Sunken Bell',
+    'Orchard', 'Brass Comet', 'Wander Isle', 'Quartz Run', 'Mirror Lake', 'Kite Season', 'Ashen Gate'];
+  const hue = t => { let h = 2166136261; for (const ch of t) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0; return h % 360; };
+  const GAMES = [...N.map((title, i) => {
+    const local = ['SuperTuxKart', '0 A.D.', 'Pixel Quest', 'Lumen', 'Wildflower', 'Glass Canyon', 'Night Market'].includes(title);
+    const played = i % 3 !== 2;
+    return { id: 'g' + i, title, h: hue(title), src: local ? 'local' : 'Steam', fav: i % 7 === 0, state: 'installed',
+             last: played ? (i % 11) : -1, total: played ? (i * 97) % 2400 : 0,
+             disk: title === 'Copper Coast' ? 'games' : local && i % 2 ? 'usb' : 'internal', size: 2 + (i * 7) % 60, done: 0 };
+  }), ...OWNED.map((title, i) => ({ id: 'o' + i, title, h: hue(title), src: 'Steam', fav: i === 3, state: 'none',
+    last: -1, total: i % 4 === 1 ? 140 + i * 31 : 0, disk: 'internal', size: 4 + (i * 13) % 70, done: 0 }))];
+  const game = id => GAMES.find(g => g.id === id);
+  // Steam downloads one game at a time; the others wait in its queue
+  let queue = [];
+  function enqueue(g, kind) { g.state = kind; if (kind === 'downloading') g.done = 0; queue.push(g.id); }
+  enqueue(game('o0'), 'downloading'); game('o0').done = game('o0').size * 0.37;
+  enqueue(game('o1'), 'downloading');
+  const hl = GAMES.find(g => g.title === 'Harbor Lights'); hl.upd = 3.2; enqueue(hl, 'updating');
+
+  // Disks found by auto-mount (phase 6): free / total in GB
+  const ALL_DISKS = [
+    { key: 'internal', free: 212, total: 512 },
+    { key: 'usb', free: 1100, total: 2000 },
+    { key: 'games', free: 640, total: 1000 },
+    { key: 'windows', free: 310, total: 1000, notes: ['disk.note.readonly', 'disk.note.ntfs'] },
+  ];
+  let diskCount = 2;
+  const disks = () => ALL_DISKS.slice(0, diskCount);
+  const gb = n => n >= 1000 ? (n / 1000).toLocaleString(lang, { maximumFractionDigits: 1 }) + ' TB' : n + ' GB';
+  const gb1 = n => n.toLocaleString(lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' GB';
+  const FILTERS = ['all', 'installed', 'favorites', 'steam', 'local'];
+  const SORTS = ['recent', 'name', 'time'];
+  let filter = 'all', sort = 'recent', section = 'library';
+
+  // What the user sees of a game: installed, not installed, in Steam's queue, or on a disk not connected
+  function stateOf(g) {
+    if (g.state === 'installed') return g.src === 'Steam' && !disks().some(d => d.key === g.disk) ? 'away' : 'installed';
+    if (g.state === 'none') return 'none';
+    if (!online) return 'paused';
+    return queue[0] === g.id ? g.state : 'queued';
+  }
+  const pct = g => Math.floor(100 * (g.state === 'updating' ? g.done / g.upd : g.done / g.size));
+  const visible = g => g.src === 'local' || steamSetUp;     // without Steam's caches no Steam game is known
+  const srcName = g => g.src === 'local' ? tr('src.local') : g.src;
+  const lastPlayed = g => g.last < 0 ? tr('played.never') : g.last === 0 ? tr('played.today') : g.last === 1 ? tr('played.yesterday') : tr('played.days', { n: g.last });
+  const totalTime = g => g.total < 60 ? tr('time.min', { m: g.total }) : tr('time.total', { h: Math.floor(g.total / 60), m: g.total % 60 });
+  const matches = (g, f) => visible(g) && (f === 'all' || (f === 'installed' && (g.src === 'local' || g.state === 'installed' || g.state === 'updating'))
+    || (f === 'favorites' && g.fav) || (f === 'steam' && g.src === 'Steam') || (f === 'local' && g.src === 'local'));
+  // "Recently played": downloads first (in Steam's order), then installed games (by last played), then the others by name
+  const rank = g => queue.includes(g.id) ? 0 : g.state === 'installed' ? 1 : 2;
+  function shown() {
+    const list = GAMES.filter(g => matches(g, filter));
+    const byName = (a, b) => a.title.localeCompare(b.title);
+    if (sort === 'name') list.sort(byName);
+    else if (sort === 'time') list.sort((a, b) => b.total - a.total || byName(a, b));
+    else list.sort((a, b) => rank(a) - rank(b) || (rank(a) === 0 ? queue.indexOf(a.id) - queue.indexOf(b.id) : 0)
+      || (rank(a) === 1 ? (a.last < 0) - (b.last < 0) || a.last - b.last : 0) || byName(a, b));
+    return list;
+  }
+
+  /* ---------- Rendering ---------- */
+  function renderHead() {
+    const list = shown();
+    $('#count').textContent = list.length === 1 ? tr('count.one') : tr('count', { n: list.length });
+    $('#filters').innerHTML = glyphHTML('lt') + FILTERS.map(f => `<span class="chip" aria-pressed="${f === filter}">${tr('f.' + f)} ${GAMES.filter(g => matches(g, f)).length}</span>`).join('') + glyphHTML('rt') +
+      `<span class="sortnote">${glyphHTML('y')}<span>${tr('sort.' + sort)}</span></span>`;
+    // Up to two disks are shown; with more, one summary. Either way it opens the list of disks.
+    const found = disks();
+    const bar = d => `<span class="bar"><i style="width:${Math.round(100 - d.free / d.total * 100)}%"></i></span>`;
+    if (found.length <= 2) {
+      $('#disks').innerHTML = found.map(d => `<div class="disk"><span>${tr('disk.' + d.key)} · ${tr('disk.free', { n: gb(d.free) })}</span>${bar(d)}</div>`).join('');
+    } else {
+      const free = found.reduce((s, d) => s + d.free, 0), total = found.reduce((s, d) => s + d.total, 0);
+      $('#disks').innerHTML = `<div class="summary"><span>${tr('disks.summary', { n: found.length, free: gb(free) })}</span>${bar({ free, total })}</div>`;
+    }
+    $('#net-ico').innerHTML = ICON(online ? 'wifi' : 'wifioff');
+  }
+  function stateLine(g) {
+    const s = stateOf(g);
+    if (s === 'installed') return '';
+    const label = s === 'downloading' || s === 'updating' ? tr('st.' + s, { p: pct(g) }) : tr('st.' + s);
+    const bar = ['downloading', 'updating', 'queued', 'paused'].includes(s) ? `<span class="prog"><i style="width:${pct(g)}%"></i></span>` : '';
+    return `<span class="t-xs">${label}</span>${bar}`;
+  }
+  function coverHTML(g) {
+    const s = stateOf(g);
+    const dim = s === 'none' || s === 'away' || (g.state === 'downloading');
+    const mark = s === 'none' ? ICON('download') : s === 'away' ? ICON('unplug') : '';
+    return `<button class="cover${dim ? ' dim' : ''}" data-f data-game="${g.id}" style="--h:${g.h}"><span class="art"></span>
+        <span class="src t-xs">${srcName(g)}</span>
+        <span class="marks">${g.fav ? `<span class="mk">${HEART}</span>` : ''}${mark ? `<span class="mk">${mark}</span>` : ''}</span>
+        <span class="ttl t-m">${g.title}</span><span class="state">${stateLine(g)}</span></button>`;
+  }
+  function renderGrid(keepId) {
+    const list = shown();
+    const add = filter === 'favorites' ? '' : `<button class="cover add" data-f data-add><span class="plus">${ICON('plus')}</span><span class="t-m">${tr('add.tile')}</span></button>`;
+    $('#grid').innerHTML = list.length || add ? list.map(coverHTML).join('') + add
+      : `<div class="empty" style="grid-column: 1 / -1; padding-top: 120px"><span class="disp t-l">${tr('empty.favorites')}</span><span class="t-m">${tr('empty.favorites.hint')}</span></div>`;
+    if (section !== 'library' || sheetOpen) return;
+    if (focused && focused.hasAttribute('data-disks')) return;   // the selection stays on the disks
+    const keep = keepId && $(`#grid [data-game="${keepId}"]`);
+    focus(keep || $('#grid [data-f]'), true);
+    if (!keep) $('#grid-wrap').scrollTop = 0;
+  }
+  // A download's progress changes only its own cover, so the selection does not move
+  function updateCover(g) {
+    const el = $(`#grid [data-game="${g.id}"]`);
+    if (!el) return;
+    const st = $('.state', el), next = document.createElement('span');
+    next.innerHTML = stateLine(g);
+    const label = $('.t-xs', st), bar = $('.prog i', st), nLabel = $('.t-xs', next), nBar = $('.prog i', next);
+    if (label && nLabel && !!bar === !!nBar) { label.textContent = nLabel.textContent; if (bar) bar.style.width = nBar.style.width; }
+    else st.innerHTML = next.innerHTML;
+  }
+  function renderHome() {
+    const cur = queue.length && game(queue[0]);
+    let notice = '';
+    if (cur && steamSetUp) {
+      const text = !online ? tr('notice.paused') : tr(cur.state === 'updating' ? 'notice.up' : 'notice.dl', { title: cur.title, p: pct(cur) });
+      const more = online && queue.length > 1 ? `<span class="more">${tr('notice.more', { n: queue.length - 1 })}</span>` : '<span></span>';
+      notice = `<button class="notice t-xs" data-f data-act="notice"><span class="dot"></span><span>${text}</span>${more}</button>`;
+    }
+    $('#notice-slot').innerHTML = notice;
+    $('#apps').innerHTML = `<button class="app" data-f data-act="store">${ICON('store')}<span class="t-s">${tr('app.store')}</span></button>`;
+  }
+  function renderAll() {
+    $$('[data-i18n]').forEach(el => { el.textContent = tr(el.dataset.i18n); });
+    $$('[data-glyph]').forEach(el => { el.innerHTML = glyphHTML(el.dataset.glyph); });
+    renderHead(); renderGrid(focused && focused.dataset.game); renderHome(); renderPrompts();
+  }
+  function renderPrompts() {
+    const g = focused && focused.dataset.game && game(focused.dataset.game);
+    const page = [P(['y'], tr('p.sort')), P(['lt', 'rt'], tr('p.filter')), P(['b'], tr('p.menu'))];
+    let left = [];
+    if (section === 'home') left = focused ? [P(['a'], tr('p.open')), P(['b'], tr('p.menu'))] : [];
+    else if (section === 'library') {
+      if (focused && focused.hasAttribute('data-disks')) left = [P(['a'], tr('p.disks')), ...page];
+      else if (focused && focused.hasAttribute('data-add')) left = [P(['a'], tr('p.add')), ...page];
+      else if (g) {
+        const s = stateOf(g);
+        // A: play an installed game, install one that is not; on the others it shows the details
+        const a = s === 'installed' ? P(['a'], tr('p.play')) : s === 'none' ? P(['a'], tr('p.install')) : P(['a'], tr('p.details'));
+        left = [a, ...(s === 'installed' || s === 'none' ? [P(['x'], tr('p.details'))] : []), P(['menu'], tr('p.options')), ...page];
+      } else left = page;
+    }
+    $('#prompts').innerHTML = `<div class="set">${left.join('')}</div><div class="set">${P(['lb', 'rb'], tr('p.sections'))}${P(['guide'], tr('p.home'))}</div>`;
+  }
+
+  /* ---------- Focus and navigation ---------- */
+  let focused = null;
+  function focus(el, silent) {
+    if (focused) focused.classList.remove('focus');
+    focused = el || null;
+    if (!el) { renderPrompts(); return; }
+    el.classList.add('focus');
+    // the grid scrolls to follow the selection (at once with "Reduce motion")
+    el.scrollIntoView({ block: 'nearest', behavior: getComputedStyle(document.documentElement).getPropertyValue('--motion').trim() === '0' ? 'auto' : 'smooth' });
+    if (!silent) feedback('move');
+    if (!sheetOpen) renderPrompts();
+  }
+  const overlap = (a0, a1, b0, b1) => Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
+  function best(items, from, dir, aligned) {
+    const a = from.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    let pick = null, score = Infinity;
+    for (const el of items) {
+      if (el === from) continue;
+      const b = el.getBoundingClientRect(), dx = b.left + b.width / 2 - ax, dy = b.top + b.height / 2 - ay;
+      if (!(dir === 'left' ? dx < -4 : dir === 'right' ? dx > 4 : dir === 'up' ? dy < -4 : dy > 4)) continue;
+      const horiz = dir === 'left' || dir === 'right';
+      if (aligned && (horiz ? overlap(a.top, a.bottom, b.top, b.bottom) : overlap(a.left, a.right, b.left, b.right)) < 4) continue;
+      const s = horiz ? Math.abs(dx) + 2.5 * Math.abs(dy) : Math.abs(dy) + 2.5 * Math.abs(dx);
+      if (s < score) { score = s; pick = el; }
+    }
+    return pick;
+  }
+  function move(dir) {
+    if (sheetOpen) { if (!focused) return; const n = best($$('#sheet [data-f]'), focused, dir); n ? focus(n) : feedback('edge'); return; }
+    if (section === 'home') { if (!focused) return; const n = best($$('#page-home [data-f]'), focused, dir); n ? focus(n) : feedback('edge'); return; }
+    if (section !== 'library' || !focused) { feedback('edge'); return; }
+    if (focused.hasAttribute('data-disks')) {
+      if (dir !== 'down') { feedback('edge'); return; }
+      const back = lastInGrid && document.contains(lastInGrid) ? lastInGrid : $('#grid [data-f]');
+      back ? focus(back) : feedback('edge');
+      return;
+    }
+    const n = best($$('#grid [data-f]'), focused, dir, true);
+    if (n) focus(n);
+    else if (dir === 'up') { lastInGrid = focused; focus($('#disks')); }   // from the first row
+    else feedback('edge');
+  }
+  let lastInGrid = null;
+  // Right stick: about three rows at a time
+  function scroll(step) {
+    if (sheetOpen || section !== 'library' || !focused) { feedback('edge'); return; }
+    const items = $$('#grid [data-f]'), i = items.indexOf(focused);
+    const target = Math.max(0, Math.min(items.length - 1, i + step * 7 * 3));
+    target === i ? feedback('edge') : focus(items[target]);
+  }
+
+  /* ---------- Windows ---------- */
+  let sheetOpen = false, sheetReturn = null, sheetAccept = null, sheetBack = null, sheetGame = null;
+  function openSheet(html, prompts, onAccept, defaultSel, onBack, quiet) {
+    if (!sheetOpen) sheetReturn = focused;       // a window opened from another keeps where to go back
+    sheetOpen = true; sheetAccept = onAccept; sheetBack = onBack || null; sheetGame = null;
+    $('#sheet').innerHTML = html;
+    $('#sheet-prompts').innerHTML = prompts ? `<div class="set">${prompts.join('')}</div><div class="set">${P(['guide'], tr('p.home'))}</div>` : '';
+    $('#overlay').classList.add('open'); stage.classList.add('has-sheet');
+    if (!quiet) feedback('sheet-open');
+    focus((defaultSel && $(defaultSel)) || $('#sheet [data-default]') || $('#sheet [data-f]'), true);
+  }
+  function closeSheet(sound = true) {
+    if (!sheetOpen) return;
+    sheetOpen = false; sheetGame = null; $('#overlay').classList.remove('open'); stage.classList.remove('has-sheet');
+    if (sound) feedback('sheet-close');
+    const back = sheetReturn && document.contains(sheetReturn) ? sheetReturn
+      : sheetReturn && sheetReturn.dataset.game ? $(`#grid [data-game="${sheetReturn.dataset.game}"]`) : null;
+    focus(back || (section === 'library' ? $('#grid [data-f]') : $('#page-home [data-f]')), true);
+  }
+  const buttons = list => `<div class="list t-m">${list.map(([key, label, primary]) =>
+    `<button class="item${primary ? ' primary' : ''}" data-f data-sheet="${key}">${label}</button>`).join('')}</div>`;
+  const selectPrompts = () => [P(['a'], tr('p.select')), P(['b'], tr('p.back'))];
+
+  // Details: what the console knows of the game; while it downloads, the figures change by themselves
+  function detailsFacts(g) {
+    const s = stateOf(g), facts = [['det.source', srcName(g)]];
+    if (g.src === 'Steam') facts.push(['det.state', s === 'downloading' || s === 'updating' ? tr('st.' + s, { p: pct(g) }) : tr('st.' + s)]);
+    if (['downloading', 'updating'].includes(s)) {
+      const total = g.state === 'updating' ? g.upd : g.size, left = (total - g.done) * 1000 / speed;
+      facts.push(['det.done', tr('det.done.v', { done: gb1(g.done), total: gb1(total) })], ['det.speed', speed.toFixed(1).replace('.', lang === 'it' ? ',' : '.') + ' MB/s'],
+        ['det.left', left < 60 ? tr('det.left.less') : tr('det.left.v', { n: Math.round(left / 60) })]);
+    } else if (s === 'paused') {
+      facts.push(['det.done', tr('det.done.v', { done: gb1(g.done), total: gb1(g.state === 'updating' ? g.upd : g.size) })]);
+    } else if (s === 'queued' && queue.length) facts.push(['det.done', tr('det.queue', { title: game(queue[0]).title })]);
+    facts.push(['det.last', lastPlayed(g)], ['det.time', g.total ? totalTime(g) : '—']);
+    if (s === 'installed' || s === 'away') facts.push(['det.disk', tr('disk.' + g.disk)], ['det.size', g.size + ' GB']);
+    return `<div class="facts t-s">${facts.map(([k, v]) => `<span>${tr(k)}</span><span>${v}</span>`).join('')}</div>`;
+  }
+  function detailsSheet(g) {
+    const s = stateOf(g);
+    const prog = ['downloading', 'updating', 'queued', 'paused'].includes(s) ? `<span class="wide-prog"><i style="width:${pct(g)}%"></i></span>` : '';
+    const away = s === 'away' ? `<span class="muted t-s">${tr('det.away', { disk: tr('disk.' + g.disk) })}</span>` : '';
+    const main = s === 'installed' ? ['play', tr('opt.play'), true] : s === 'none' ? ['install', tr('opt.install'), true] : ['close', tr('p.close'), true];
+    openSheet(`<span class="disp t-l">${g.title}</span><div id="det-facts">${detailsFacts(g)}</div>${prog}${away}${buttons([main])}`,
+      [P(['a'], main[1]), P(['b'], tr('p.back'))], () => {
+        if (main[0] === 'play') { closeSheet(false); start(g); }
+        else if (main[0] === 'install') { closeSheet(false); askInstall(g); }
+        else closeSheet();
+      });
+    sheetGame = g;
+  }
+  function refreshDetails() {
+    if (!sheetGame || !$('#det-facts')) return;
+    $('#det-facts').innerHTML = detailsFacts(sheetGame);
+    const bar = $('#sheet .wide-prog i'); if (bar) bar.style.width = pct(sheetGame) + '%';
+  }
+  function optionsSheet(g) {
+    const s = stateOf(g), steam = g.src === 'Steam';
+    const list = [];
+    if (s === 'installed') list.push(['play', tr('opt.play'), true]);
+    if (s === 'none') list.push(['install', tr('opt.install'), true]);
+    list.push(['details', tr('opt.details')], ['fav', tr(g.fav ? 'opt.unfav' : 'opt.fav')]);
+    if (steam && (s === 'installed' || g.state === 'updating')) list.push(['uninstall', tr('opt.uninstall')]);
+    if (steam && g.state === 'downloading') list.push(['cancel', tr('opt.cancel')]);
+    openSheet(`<span class="disp t-l">${g.title}</span>${buttons(list)}`, selectPrompts(), el => {
+      const what = el.dataset.sheet;
+      if (what === 'play') { closeSheet(false); start(g); }
+      else if (what === 'install') { closeSheet(false); askInstall(g); }
+      else if (what === 'details') { closeSheet(false); detailsSheet(g); }
+      else if (what === 'uninstall') { closeSheet(false); askUninstall(g, false); }
+      else if (what === 'cancel') { closeSheet(false); askUninstall(g, true); }
+      else { g.fav = !g.fav; closeSheet(); toast(tr(g.fav ? 'toast.fav' : 'toast.unfav')); renderHead(); renderGrid(g.id); }
+    });
+  }
+  function disksSheet() {
+    openSheet(`<span class="disp t-l">${tr('disks.title')}</span><div class="disk-list">${disks().map(d => `<div class="disk-row">
+        <div class="name t-m"><span>${tr('disk.' + d.key)}</span><span class="muted t-s">${tr('disk.of', { free: gb(d.free), total: gb(d.total) })}</span></div>
+        <span class="bar"><i style="width:${Math.round(100 - d.free / d.total * 100)}%"></i></span>
+        ${(d.notes || []).map(n => `<span class="note t-xs">${tr(n)}</span>`).join('')}</div>`).join('')}</div>
+      ${buttons([['close', tr('p.close'), true]])}`,
+      [P(['a'], tr('p.close')), P(['b'], tr('p.back'))], () => closeSheet());
+  }
+  function sortSheet() {
+    openSheet(`<span class="disp t-l">${tr('sort.title')}</span><div class="list t-m">${SORTS.map(s =>
+      `<button class="item${s === sort ? ' primary' : ''}" data-f data-sort="${s}">${tr('sort.' + s)}</button>`).join('')}</div>`,
+      selectPrompts(), el => {
+        sort = el.dataset.sort; const keep = sheetReturn && sheetReturn.dataset.game;
+        closeSheet(); renderHead(); renderGrid(keep);
+      }, `#sheet [data-sort="${sort}"]`);
+  }
+
+  /* ---------- Steam's actions: no internet, the notice, Steam's own window ---------- */
+  // Without internet the action stops here, with what to do: nothing is started and nothing pretends to be
+  function offlineSheet(kind) {
+    feedback('notify-error');
+    openSheet(`<span class="big-ico attention">${ICON('wifioff')}</span><span class="disp t-l">${tr('offline.title')}</span>
+      <span class="text t-m">${tr('offline.' + kind)}</span>${buttons([['net', tr('offline.net'), true], ['close', tr('p.close')]])}`,
+      selectPrompts(), el => { closeSheet(); if (el.dataset.sheet === 'net') toast(tr('toast.network')); }, null, null, true);
+  }
+  // Before Steam's window on the PCs where it shows display errors, every time until "Don't show again"
+  function withNotice(next) {
+    if (!glitchy || noticeNever) { next(); return; }
+    openSheet(`<span class="big-ico">${ICON('alert')}</span><span class="disp t-l">${tr('notice.title')}</span>
+      <span class="text t-m">${tr('notice.text')}</span>
+      <button class="check t-s" data-f data-check aria-checked="false"><span class="box">${ICON('check')}</span><span>${tr('notice.never')}</span></button>
+      ${buttons([['go', tr('notice.go'), true], ['cancel', tr('cancel')]])}`,
+      selectPrompts(), el => {
+        if (el.hasAttribute('data-check')) { el.setAttribute('aria-checked', el.getAttribute('aria-checked') === 'true' ? 'false' : 'true'); return; }
+        if (el.dataset.sheet === 'cancel') { closeSheet(); return; }
+        noticeNever = $('#sheet [data-check]').getAttribute('aria-checked') === 'true';
+        closeSheet(false); next();
+      }, '#sheet [data-sheet="go"]');
+  }
+  // Steam runs hidden: if it is not running yet, it is started first (no window)
+  function withSteam(next) {
+    if (steamRunning) { next(); return; }
+    openSheet(`<span class="spinner"></span><span class="t-m">${tr('starting')}</span>`, null, null, null, () => {}, true);
+    setTimeout(() => { steamRunning = true; demoState(); closeSheet(false); next(); }, 1400);
+  }
+  // Steam's confirmation window (steam://install or steam://uninstall): a stand-in
+  let steamDialog = null;
+  function steamWindow(kind, g, onYes) {
+    const box = $('#steam-sim');
+    const body = kind === 'install'
+      ? `<span class="t-l">${tr('steamw.install', { title: g.title })}</span><span class="t-s" style="color:#aab4c6">${tr('steamw.size', { n: g.size })}</span><span class="t-s" style="color:#aab4c6">${tr('steamw.to')}</span>`
+      : `<span class="t-l">${tr('steamw.uninstall', { title: g.title })}</span><span class="t-s" style="color:#aab4c6">${tr('steamw.untext')}</span>`;
+    const glitches = glitchy ? Array.from({ length: 5 }, (_, i) => `<span class="glitch" style="left:${[8, 52, 30, 70, 14][i]}%; top:${[10, 22, 58, 64, 78][i]}%;
+      width:${[38, 30, 46, 22, 30][i]}%; height:${[14, 22, 10, 26, 12][i]}%; animation-delay:${i * .31}s;
+      background:linear-gradient(90deg, hsl(${(g.h + i * 70) % 360} 60% 45%), hsl(${(g.h + i * 70 + 40) % 360} 50% 25%))"></span>`).join('') : '';
+    box.innerHTML = `<span class="note t-s">${tr('steamw.note')}</span>
+      <div class="steam-dlg">${body}<div class="btns t-s"><span class="btn">${tr('steamw.cancel')}</span><span class="btn go">${tr('steamw.ok.' + kind)}</span></div>${glitches}</div>
+      ${glitchy ? `<span class="note t-xs">${tr('steamw.glitch')}</span>` : ''}<span class="note t-s">${tr('steamw.keys')}</span>`;
+    box.classList.add('open'); feedback('sheet-open');
+    steamDialog = yes => {
+      steamDialog = null; box.classList.remove('open'); feedback(yes ? 'confirm' : 'sheet-close');
+      if (yes) onYes(); else toast(tr('toast.unchanged'));
+      if (section === 'library') renderGrid(g.id);
+    };
+  }
+  function askInstall(g) {
+    if (!online) { offlineSheet('install'); return; }
+    openSheet(`<span class="big-ico">${ICON('download')}</span><span class="disp t-l">${tr('install.title', { title: g.title })}</span>
+      <span class="text t-m">${tr('install.text')}</span>${buttons([['go', tr('install.go'), true], ['cancel', tr('cancel')]])}`,
+      selectPrompts(), el => {
+        if (el.dataset.sheet !== 'go') { closeSheet(); return; }
+        closeSheet(false);
+        withNotice(() => withSteam(() => steamWindow('install', g, () => {
+          enqueue(g, 'downloading'); toast(tr('toast.queued', { title: g.title })); renderHead(); renderHome();
+        })));
+      });
+  }
+  // Uninstalling, and cancelling a download, both go through steam://uninstall/<appid>
+  function askUninstall(g, cancelling) {
+    const k = cancelling ? 'cancelinst' : 'uninstall';
+    openSheet(`<span class="big-ico">${ICON('trash')}</span><span class="disp t-l">${tr(k + '.title', { title: g.title })}</span>
+      <span class="text t-m">${tr(k + '.text')}</span>${buttons([['go', tr(k + '.go')], ['keep', tr(cancelling ? 'cancelinst.keep' : 'cancel'), true]])}`,
+      selectPrompts(), el => {
+        if (el.dataset.sheet !== 'go') { closeSheet(); return; }
+        closeSheet(false);
+        withNotice(() => withSteam(() => steamWindow('uninstall', g, () => {
+          queue = queue.filter(id => id !== g.id); g.state = 'none'; g.done = 0; g.disk = 'internal';
+          toast(tr(cancelling ? 'toast.cancelled' : 'toast.uninstalled', { title: g.title })); renderHead(); renderHome();
+        })));
+      }, '#sheet [data-sheet="keep"]');
+  }
+  // The store (from "Add games" or the home screen): Steam's store until the browser app (5.1)
+  let storeOpen = false, storeReturn = null;
+  function openStore() {
+    if (!online) { offlineSheet(steamSetUp ? 'store' : 'first'); return; }
+    const show = () => {
+      storeOpen = true; storeReturn = focused; feedback('launch');
+      $('#steam-sim').innerHTML = `<span class="disp t-l">${tr('store.title')}</span><span>${tr('store.text')}</span>
+        <span class="note t-s">${tr('store.back')}</span><span class="note t-s">${tr('store.key')}</span>`;
+      $('#steam-sim').classList.add('open');
+    };
+    if (!steamSetUp) {
+      // Steam's first start, only with internet: the approved "Preparing Steam" screen
+      openSheet(`<span class="spinner"></span><span class="disp t-l">${tr('prep.title')}</span><span class="text t-m">${tr('prep.first')}</span>`, null, null, null, () => {}, true);
+      setTimeout(() => { steamSetUp = true; steamRunning = true; demoState(); closeSheet(false); renderAll(); show(); }, 2600);
+      return;
+    }
+    withNotice(() => withSteam(show));
+  }
+  function guide() {
+    if (steamDialog) { steamDialog(false); return; }
+    if (!storeOpen) { feedback('edge'); return; }
+    storeOpen = false; $('#steam-sim').classList.remove('open');
+    feedback('launch');
+    focus(storeReturn && document.contains(storeReturn) ? storeReturn : $('#grid [data-add]'), true);
+  }
+
+  // Add games: where the games come from (Steam's store, and games on a disk)
+  function addSheet(sel, quiet) {
+    openSheet(`<span class="disp t-l">${tr('add.title')}</span><div class="choices">
+        <button class="choice" data-f data-src="steam">${ICON('store')}<span class="t-m">${tr('add.steam')}</span><span class="sub t-xs">${tr('add.steam.sub')}</span></button>
+        <button class="choice" data-f data-src="disk">${ICON('usb')}<span class="t-m">${tr('add.disk')}</span><span class="sub t-xs">${tr('add.disk.sub')}</span></button></div>`,
+      selectPrompts(), el => {
+        if (el.dataset.src === 'steam') { closeSheet(false); openStore(); }
+        else diskGuide();
+      }, sel || '#sheet [data-src="steam"]', null, quiet);
+  }
+  // Read only: how to put games on a disk (B goes back to the choice)
+  function diskGuide() {
+    const row = (depth, name, kind, cmt) => `<div class="row"><span class="name ${kind}">${'   '.repeat(depth)}${name}</span><span class="cmt t-xs">${cmt ? '← ' + tr(cmt) : ''}</span></div>`;
+    openSheet(`<span class="disp t-l">${tr('disk.title')}</span><div class="guide">
+        <div class="tree t-s">${[
+          row(0, tr('tree.root'), 'dir'),
+          row(1, tr('tree.games'), 'dir', 'tree.c.games'),
+          row(2, 'Celeste/', 'dir', 'tree.c.game'),
+          row(3, 'bin/ …  Celeste', 'file', 'tree.c.any'),
+          row(3, 'cover.jpg', 'file', 'tree.c.cover'),
+          row(2, 'Stardew Valley/', 'dir'),
+          row(3, tr('tree.setup'), 'file', 'tree.c.setup')].join('')}</div>
+        <ul class="steps t-s">${['step.plug', 'step.find', 'step.install', 'step.win'].map(k => `<li>${tr(k)}</li>`).join('')}</ul>
+        </div>${buttons([['back', tr('p.back'), true]])}`,
+      [P(['a', 'b'], tr('p.back'))], () => backToAdd(), null, () => backToAdd());
+  }
+  function backToAdd() { feedback('sheet-close'); addSheet('#sheet [data-src="disk"]', true); }
+
+  /* ---------- Downloads (Steam's appmanifest files, read by the console) ---------- */
+  // Demo speed: a game downloads in about 25 seconds; the speed shown is a realistic one
+  let speed = 41.6;
+  function banner(g) {
+    feedback('notify');
+    const el = document.createElement('div');
+    el.className = 'banner';
+    el.innerHTML = `<span class="ico">${ICON('check')}</span><span class="txt"><span class="t-m">${tr('ready.title', { title: g.title })}</span><span class="t-xs muted">${tr('ready.text')}</span></span>`;
+    $('#banners').append(el);
+    setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, 4500);
+  }
+  setInterval(() => {
+    if (!online || !queue.length) return;
+    const g = game(queue[0]), total = g.state === 'updating' ? g.upd : g.size;
+    speed = 36 + Math.random() * 11;
+    g.done = Math.min(total, g.done + total / 100);
+    if (g.done >= total) {
+      // ready: the cover lights up and moves among the installed games; the next download starts
+      queue.shift(); g.state = 'installed'; g.done = 0; delete g.upd;
+      banner(g); renderHead(); renderGrid(focused && focused.dataset.game);
+    } else updateCover(g);
+    renderHome(); refreshDetails();
+    if (section === 'home' && !sheetOpen) { const f = focused && focused.dataset.act; focus($(`#page-home [data-act="${f}"]`) || $('#page-home [data-f]'), true); }
+  }, 250);
+
+  /* ---------- Actions ---------- */
+  let toastTimer;
+  function toast(text) { const t = $('#toast'); t.textContent = text; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1800); }
+  function start(g) { feedback('launch'); toast(tr('toast.launch', { title: g.title })); g.last = 0; }
+  function accept() {
+    if (sheetOpen) { if (!focused) return; feedback('confirm'); sheetAccept && sheetAccept(focused); return; }
+    if (section === 'home') {
+      if (!focused) return;
+      feedback('confirm');
+      if (focused.dataset.act === 'store') openStore();
+      else if (focused.dataset.act === 'notice' && queue.length) detailsSheet(game(queue[0]));
+      return;
+    }
+    if (section !== 'library' || !focused) return;
+    feedback('confirm');
+    if (focused.hasAttribute('data-disks')) disksSheet();
+    else if (focused.hasAttribute('data-add')) addSheet();
+    else {
+      const g = game(focused.dataset.game), s = stateOf(g);
+      if (s === 'installed') start(g); else if (s === 'none') askInstall(g); else detailsSheet(g);
+    }
+  }
+  function cycleFilter(step) {
+    if (sheetOpen || section !== 'library') { feedback('edge'); return; }
+    filter = FILTERS[(FILTERS.indexOf(filter) + step + FILTERS.length) % FILTERS.length];
+    feedback('tab'); renderHead(); renderGrid(focused && focused.dataset.game);
+  }
+  function goSection(name) {
+    section = name;
+    $$('[data-tab]').forEach(t => t.dataset.tab === name ? t.setAttribute('aria-current', 'page') : t.removeAttribute('aria-current'));
+    $$('.page').forEach(p => p.classList.toggle('on', p.id === 'page-' + name));
+    feedback('section');
+    if (name === 'library') focus($('#grid [data-f]'), true);
+    else if (name === 'home') { renderHome(); focus($('#page-home [data-f]'), true); }
+    else focus(null);
+  }
+  const onGame = () => !sheetOpen && section === 'library' && focused && focused.dataset.game;
+  const SECTIONS = ['home', 'library', 'settings'];
+  const press = {
+    a: accept,
+    b: () => { if (sheetOpen) { if (sheetBack) sheetBack(); else closeSheet(); } else if (section !== 'settings') toast(tr('toast.quick')); else feedback('back'); },
+    x: () => { if (onGame()) { feedback('confirm'); detailsSheet(game(focused.dataset.game)); } else feedback('edge'); },
+    y: () => { if (!sheetOpen && section === 'library') sortSheet(); else feedback('edge'); },
+    menu: () => { if (onGame()) optionsSheet(game(focused.dataset.game)); else feedback('edge'); },
+    lb: () => sheetOpen ? feedback('edge') : goSection(SECTIONS[(SECTIONS.indexOf(section) + 2) % 3]),
+    rb: () => sheetOpen ? feedback('edge') : goSection(SECTIONS[(SECTIONS.indexOf(section) + 1) % 3]),
+    lt: () => cycleFilter(-1), rt: () => cycleFilter(1),
+    'rs-up': () => scroll(-1), 'rs-down': () => scroll(1),
+  };
+  function demoState() {
+    $('#gpu-state').textContent = glitchy ? 'with display errors' : 'clean';
+    $('#net-state').textContent = online ? 'on' : 'off';
+    $('#steam-state').textContent = steamRunning ? 'running hidden' : 'closed';
+    $('#first-state').textContent = steamSetUp ? 'yes' : 'not yet';
+  }
+  const DEMO = {
+    v: () => { glitchy = !glitchy; demoState(); toast(glitchy ? 'Display errors in Steam’s window (as on the FrankenPC)' : 'No display errors (as on the NiPoGi)'); },
+    i: () => { online = !online; demoState(); feedback(online ? 'notify' : 'notify-error'); renderHead(); renderGrid(focused && focused.dataset.game); renderHome(); toast(online ? 'Internet on' : 'Internet off'); },
+    s: () => { steamRunning = !steamRunning; demoState(); toast(steamRunning ? 'Steam running (hidden)' : 'Steam closed'); },
+    f: () => { steamSetUp = !steamSetUp; if (!steamSetUp) steamRunning = false; demoState(); renderAll(); toast(steamSetUp ? 'Steam set up' : 'Steam never started on this PC'); },
+    r: () => { noticeNever = false; toast('The notice shows again'); },
+    d: () => { diskCount = { 1: 2, 2: 4, 4: 1 }[diskCount]; renderHead(); renderGrid(focused && focused.dataset.game); toast(diskCount + ' disk' + (diskCount > 1 ? 's' : '')); },
+    p: () => { setPalette(palIndex + 1); toast(PALETTES[palIndex][0]); },
+    t: () => { const sizes = [0.9, 1, 1.2, 1.4]; const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts')) || 1;
+               const next = sizes[(sizes.indexOf(cur) + 1) % sizes.length]; document.documentElement.style.setProperty('--ts', next); toast('Text ' + next); },
+    g: () => { glyphSetting = { auto: 'xbox', xbox: 'ps', ps: 'nintendo', nintendo: 'auto' }[glyphSetting]; renderAll(); },
+    l: () => { lang = lang === 'en' ? 'it' : 'en'; renderAll(); },
+    n: () => { soundOn = !soundOn; $('#snd-state').textContent = soundOn ? 'on' : 'off'; },
+  };
+  // Held sections (LB / RB) and filters (LT / RT) repeat at half the speed of the directions:
+  // the first step at once, the next after 0.72 s, then every 0.36 s.
+  const REPEAT_FIRST = 720, REPEAT_NEXT = 360;
+  const heldKeys = {};
+  function holdStart(name) {
+    if (heldKeys[name]) return;
+    press[name]();
+    const step = () => { press[name](); heldKeys[name] = setTimeout(step, REPEAT_NEXT); };
+    heldKeys[name] = setTimeout(step, REPEAT_FIRST);
+  }
+  function holdEnd(name) { clearTimeout(heldKeys[name]); delete heldKeys[name]; }
+  const REPEATING = { q: 'lb', e: 'rb', z: 'lt', c: 'rt' };
+  document.addEventListener('keyup', e => { const n = REPEATING[e.key.toLowerCase()]; if (n) holdEnd(n); });
+  document.addEventListener('keydown', e => {
+    if (e.key.toLowerCase() === 'h') { e.preventDefault(); guide(); return; }
+    // Steam's confirmation window has the controller: A confirms, B cancels
+    if (steamDialog) { if (['Enter', ' '].includes(e.key)) { e.preventDefault(); steamDialog(true); } else if (['Escape', 'Backspace'].includes(e.key)) { e.preventDefault(); steamDialog(false); } return; }
+    if (storeOpen) return;                    // Steam has the controller: only Guide comes to the console
+    const rep = e.key.length === 1 && REPEATING[e.key.toLowerCase()];
+    if (rep) { e.preventDefault(); if (!e.repeat) holdStart(rep); return; }
+    const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    const keys = { Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b', x: 'x', y: 'y', m: 'menu', q: 'lb', e: 'rb', z: 'lt', c: 'rt', PageUp: 'rs-up', PageDown: 'rs-down' };
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (dirs[e.key]) { e.preventDefault(); move(dirs[e.key]); }
+    else if (keys[k]) { e.preventDefault(); if (!e.repeat || k.startsWith('Page')) press[keys[k]](); }
+    else if (DEMO[k]) { e.preventDefault(); DEMO[k](); }
+  });
+  document.addEventListener('click', e => {
+    if (steamDialog) { const b = e.target.closest('.btn'); if (b) steamDialog(b.classList.contains('go')); return; }
+    const el = e.target.closest('[data-f]');
+    if (el) { focus(el, true); accept(); } else if (sheetOpen && sheetAccept && e.target === $('#overlay')) closeSheet();
+  });
+
+  /* ---------- Gamepad ---------- */
+  const prev = {};
+  let guidePrev = false;
+  const on16 = pad => { const p = !!(pad.buttons[16] && pad.buttons[16].pressed), edge = p && !guidePrev; guidePrev = p; return edge; };
+  let repeatAt = 0, lastDir = null, scrollAt = 0;
+  const padRepeat = {};
+  const kindOf = id => /xbox|microsoft|045e/i.test(id) ? 'xbox' : /nintendo|switch|joy-?con|057e/i.test(id) ? 'nintendo'
+    : /054c|sony|dualsense|dualshock|playstation|wireless controller|\bps[345]\b/i.test(id) ? 'ps' : 'xbox';
+  function poll(ts) {
+    const pad = (navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [])[0];
+    if (pad && on16(pad)) guide();
+    if (pad && steamDialog) {
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const edge = i => { const p = on(i), was = prev[i]; prev[i] = p; return p && !was; };
+      if (edge(0)) steamDialog(true); else if (edge(1)) steamDialog(false);
+    } else if (pad && !storeOpen) {
+      const k = kindOf(pad.id);
+      if (k !== padKind) { padKind = k; renderAll(); }
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const edge = i => { const p = on(i), was = prev[i]; prev[i] = p; return p && !was; };
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0, ry = pad.axes[3] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+      if (Math.abs(ry) > 0.5 && ts > scrollAt) { press[ry < 0 ? 'rs-up' : 'rs-down'](); scrollAt = ts + (scrollAt ? 90 : 360); }
+      if (Math.abs(ry) <= 0.5) scrollAt = 0;
+      [['a', 0], ['b', 1], ['x', 2], ['y', 3], ['menu', 9]].forEach(([name, i]) => { if (edge(i)) press[name](); });
+      // LB / RB / LT / RT: once, then repeated while held (same timing as the directions)
+      [['lb', 4], ['rb', 5], ['lt', 6], ['rt', 7]].forEach(([name, i]) => {
+        const p = on(i);
+        if (p && !prev[i]) { press[name](); padRepeat[name] = ts + REPEAT_FIRST; }
+        else if (p && ts > padRepeat[name]) { press[name](); padRepeat[name] = ts + REPEAT_NEXT; }
+        prev[i] = p;
+      });
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+  const tick = () => { $('#clock').textContent = new Date().toTimeString().slice(0, 5); };
+  tick(); setInterval(tick, 10000);
+
+  /* ---------- Start state from the address ---------- */
+  const q = new URLSearchParams(location.hash.slice(1));
+  const pi = PALETTES.findIndex(p => p[0] === q.get('pal'));
+  setPalette(pi >= 0 ? pi : 0);
+  if (q.get('ts')) document.documentElement.style.setProperty('--ts', q.get('ts'));
+  if (q.get('motion') === 'off') document.documentElement.style.setProperty('--motion', 0);
+  if (['xbox', 'ps', 'nintendo'].includes(q.get('glyphs'))) glyphSetting = q.get('glyphs');
+  if (q.get('lang') === 'it') lang = 'it';
+  if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
+  if (FILTERS.includes(q.get('filter'))) filter = q.get('filter');
+  if (SORTS.includes(q.get('sort'))) sort = q.get('sort');
+  if (['1', '2', '4'].includes(q.get('disks'))) diskCount = +q.get('disks');
+  if (q.get('gpu') === 'amd') glitchy = false;
+  if (q.get('net') === 'off') online = false;
+  if (q.get('steam') === 'off') steamRunning = false;
+  if (q.get('first') === '1') { steamSetUp = false; steamRunning = false; }
+  demoState();
+  renderAll();
+  const open = q.get('open');
+  if (open) setTimeout(() => {
+    const first = GAMES.find(g => g.state === 'none'), inst = GAMES.find(g => g.src === 'Steam' && g.state === 'installed');
+    focus($(`#grid [data-game="${(open === 'uninstall' ? inst : first).id}"]`) || $('#grid [data-add]'), true);
+    if (open === 'install') askInstall(first);
+    else if (open === 'uninstall') askUninstall(inst, false);
+    else if (open === 'details') detailsSheet(game(queue[0] || first.id));
+    else if (open === 'offline') { online = false; demoState(); renderAll(); offlineSheet(steamSetUp ? 'install' : 'first'); }
+    else if (open === 'notice') { noticeNever = false; glitchy = true; demoState(); withNotice(() => steamWindow('install', first, () => enqueue(first, 'downloading'))); }
+    else if (open === 'steam') steamWindow('install', first, () => { enqueue(first, 'downloading'); renderHead(); renderHome(); });
+    else if (open === 'store') { focus($('#grid [data-add]'), true); openStore(); }
+    else if (open === 'add') { focus($('#grid [data-add]'), true); addSheet(); }
+  }, 300);
+})();
+</script>
+</body>
+</html>

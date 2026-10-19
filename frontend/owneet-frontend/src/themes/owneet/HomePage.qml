@@ -19,7 +19,7 @@ NavArea {
     readonly property var hero: games.length > 0 ? games[0] : null
     // with a game running, the hero shows it and the row starts from the most recent game
     readonly property var recent: running ? games.slice(0, 6) : games.slice(1, 7)
-    property var notices: []                   // [{ text }], from owneetd later (3.11)
+    property var notices: []                   // [{ text, game }]: Steam's downloads (4.2c)
     // The web apps of the catalogue (owneetd): { id, nameKey, icon, installed, busy, sizeMiB }
     property var webApps: []
     // Their ids, changed only when apps come or go: the tiles stay (and stay selected) while an
@@ -49,6 +49,11 @@ NavArea {
         ? Math.max(0, Math.floor((now - new Date(running.started).getTime()) / 60000)) : 0
     signal resume(var app)
     signal closeApp(var app)
+    // The controller as a mouse (4.7, approved demo design/demos/4.7-controller-pointer.html): on
+    // for the running game's window, with a "Pointer on" badge on its card
+    property bool pointerOn: false
+    signal resumeWithPointer(var app)
+    signal pointerOff()
 
     signal launch(var game)
     signal details(var game)
@@ -60,6 +65,9 @@ NavArea {
     signal openStore()                         // Steam's store (4.2)
     signal openWebApp(var app)                 // A on a web app: install it, or open it
     signal webAppOptions(var app)              // Menu on a web app
+    signal openNotice(var notice)              // the downloads notice: the game's details (4.2c)
+    property bool steamRunning: false           // Steam runs (hidden or not): Menu on its tile closes it
+    signal steamOptions()
     onCancelled: quickMenu()
     backFeedback: ""                           // the quick menu plays its own sound
 
@@ -74,6 +82,8 @@ NavArea {
             return [P("a", "prompt.resume")];
         if (k === "close")
             return [P("a", "prompt.close")];
+        if (k === "pointer" || k === "pointerOff")
+            return [P("a", "prompt.select")];
         if (k === "game" || k === "play")
             return [P("a", "prompt.play"), P("x", "prompt.details"), P("menu", "prompt.options")];
         if (k === "details")
@@ -82,6 +92,8 @@ NavArea {
             return current.webApp.busy ? [] : [P("a", isOpen(current.webApp) ? "prompt.resume"
                                                     : current.webApp.installed ? "prompt.open" : "prompt.install"),
                                                P("menu", "prompt.options")];
+        if (k === "app" && current.steamStore && steamRunning)
+            return [P("a", "prompt.open"), P("menu", "prompt.options")];
         if (k === "app" || k === "all" || k === "notice" || k === "store")
             return [P("a", "prompt.open")];
         return k ? [P("a", "prompt.select")] : [];
@@ -89,12 +101,25 @@ NavArea {
     function gameOf(item) { return item ? (item.game || null) : null; }
 
     function focusStart() { focusItem(Nav.navigables(heroGroup)[0] || null); }
+    // Selects the first item; a window over the page keeps the focus (e.g. "Close …?" while the
+    // game ends by itself, FrankenPC 2026-10-16): the page takes it back when it gets it again
+    function selectStart() {
+        const item = Nav.navigables(heroGroup)[0] || null;
+        if (!item || activeFocus) { focusStart(); return; }
+        const group = Nav.groupOf(page, item);
+        if (group) group.remembered = item;
+        current = item;
+    }
     // The games arrive after the page: keep a visible item selected (e.g. Play instead of the
     // welcome buttons)
-    onHeroChanged: Qt.callLater(() => { if (!current || !current.visible) focusStart(); })
-    onRunningChanged: Qt.callLater(() => { if (visible) focusStart(); })
+    onHeroChanged: Qt.callLater(() => { if (!current || !current.visible) selectStart(); })
+    onRunningChanged: Qt.callLater(() => { if (visible) selectStart(); })
     // While the boot splash is shown the page is disabled and nothing can be selected yet
-    onActiveFocusChanged: if (activeFocus && (!current || !current.visible)) focusStart()
+    onActiveFocusChanged: {
+        if (!activeFocus) return;
+        if (!current || !current.visible) focusStart();
+        else if (!current.activeFocus) focusItem(current);
+    }
 
     onAccepted: {
         const k = item.kind;
@@ -104,9 +129,12 @@ NavArea {
         else if (k === "how") howToAdd();
         else if (k === "resume") resume(running);
         else if (k === "close") closeApp(running);
+        else if (k === "pointer") resumeWithPointer(running);
+        else if (k === "pointerOff") pointerOff();
         else if (k === "store" || item.steamStore) openStore();
         else if (k === "app" && item.webApp) openWebApp(item.webApp);
-        else notYet();                         // apps and notices (later steps)
+        else if (k === "notice" && page.notices.length > 0) openNotice(page.notices[0]);
+        else notYet();                         // apps (later steps)
     }
     onOtherAction: {
         const game = gameOf(current);
@@ -116,6 +144,7 @@ NavArea {
             webAppOptions(current.webApp);
             event.accepted = true;
         }
+        else if (action === "options" && current && current.steamStore && steamRunning) { steamOptions(); event.accepted = true; }
     }
 
     // ---- Top: hero (2/3) and side column (1/3)
@@ -134,7 +163,14 @@ NavArea {
                 visible: (page.hero !== null || page.running !== null) && !page.webOpen
                 radius: Theme.radiusL
                 seed: page.running ? page.running.name : (page.hero ? page.hero.title : "")
-                image: game ? (game.assets.background || game.assets.screenshot || game.assets.banner || "") : ""
+                // Art (4.4): a Steam game's wide picture, else its header, else the generated art; a
+                // game on a disk shows its cover whole, on the right (owner 2026-10-16)
+                readonly property string wide: game ? (game.assets.background || game.assets.banner || "") : ""
+                readonly property string cover: game && GameInfo.onDisk(game) ? (game.assets.boxFront || "") : ""
+                image: wide || cover
+                fit: wide === "" && cover !== ""
+                fitX: 0.92
+                fitMargin: Theme.px(22)
                 scrim: true
             }
             Rectangle {                         // welcome card, when there are no games; an open web app
@@ -247,6 +283,28 @@ NavArea {
                         font.pixelSize: Theme.fs(14.5)
                         anchors.verticalCenter: parent.verticalCenter
                     }
+                    Rectangle {      // the pointer is on for the running game (4.7)
+                        visible: page.running !== null && page.pointerOn
+                        width: pointerBadge.implicitWidth + Theme.px(34); height: pointerBadge.implicitHeight + Theme.px(6)
+                        radius: height / 2
+                        color: Theme.accent
+                        anchors.verticalCenter: parent.verticalCenter
+                        Icon {
+                            x: Theme.px(9); anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(15); height: width
+                            name: "pointer"
+                            color: Theme.onAccent
+                        }
+                        Text {
+                            id: pointerBadge
+                            x: Theme.px(26); anchors.verticalCenter: parent.verticalCenter
+                            text: Tr.tr("home.pointer.on")
+                            color: Theme.onAccent
+                            font.family: Theme.textFont
+                            font.weight: Font.Medium
+                            font.pixelSize: Theme.fs(12.5)
+                        }
+                    }
                 }
                 Row {
                     spacing: Theme.px(20)
@@ -256,6 +314,12 @@ NavArea {
                         readonly property string kind: "resume"
                         text: Tr.tr("home.resume")
                         style: page.webOpen ? "primary" : "light"
+                    }
+                    Button {
+                        visible: page.running !== null && page.canResume
+                        property string kind: page.pointerOn ? "pointerOff" : "pointer"
+                        text: Tr.tr(page.pointerOn ? "home.pointer.off" : "home.pointer")
+                        style: "glass"
                     }
                     Button {
                         visible: page.running !== null
@@ -382,7 +446,7 @@ NavArea {
                         }
                     }
                 }
-                Repeater {                      // the latest notice (3.11), A opens, X dismisses
+                Repeater {                      // Steam's downloads (4.2c), A opens the game's details
                     model: page.notices.length > 0 ? 1 : 0
                     Rectangle {
                         readonly property bool navigable: true

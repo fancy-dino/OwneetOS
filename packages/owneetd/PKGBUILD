@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneetd
-pkgver=0.12.9
+pkgver=0.16.2
 pkgrel=1
 pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps, display, web apps) and owneetctl"
 arch=('x86_64')
@@ -11,6 +11,8 @@ url="https://github.com/fancy-dino/OwneetOS"
 # godbus/dbus BSD-2-Clause, golang.org/x/sys BSD-3-Clause, jezek/xgb BSD-3-Clause, jfreymuth/pulse MIT
 license=('GPL-3.0-or-later' 'Zlib' 'BSD-2-Clause' 'BSD-3-Clause' 'MIT')
 # ddcutil: brightness of monitors (DDC/CI); hwdata: screen makers' names (as gamescope shows them)
+# (umu-launcher, which owneetd uses for Windows games, comes with owneet-base: it is in [multilib],
+# which the build chroot does not have)
 depends=('systemd' 'bluez' 'networkmanager' 'polkit' 'pipewire-pulse' 'ddcutil' 'hwdata')
 makedepends=('go')
 options=('!debug')
@@ -20,7 +22,7 @@ _sdldb=c1d5289a1f713b30a2c121e9fe6529d39360be0f
 # owneetd-src.tar.gz is generated from daemon/ by tools/build-packages (listed in source-dirs).
 source=('owneetd-src.tar.gz' 'owneetd.service' '50-owneetd.preset'
         '70-owneet-uinput.rules' 'owneet-uinput.modules-load.conf' '50-owneet-networkmanager.rules'
-        'owneet-screens-off@.service' '50-owneet-screens.rules'
+        'owneet-screens-off@.service' '50-owneet-screens.rules' 'owneet-windows-run' 'owneet-dos-run'
         "gamecontrollerdb-$_sdldb.txt::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/gamecontrollerdb.txt"
         "gamecontrollerdb-LICENSE-$_sdldb::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/LICENSE")
 sha256sums=('SKIP'
@@ -31,6 +33,8 @@ sha256sums=('SKIP'
             'fd39be370627656bfc6ac2df05fbace5fced1699b1a1b62fac77d5d1a99d2536'
             '53db6bb4d6294d2a72032d440cedd8221a54fa24a89a717efb7eab557ffaa504'
             '2eef4c58614327306c3346fbb04fe242b2be8f6cbcc521e4fdec6655e4e96208'
+            '5c6fe4dd1f35027245436b565a8a2e3ddaf0862c9c627797dedd5045c842d573'
+            'c83933112b546701d5d6466d7958916d8ffbd120cf048ef1e5be4cb4221e051b'
             'e606134678e6b3fdbdec9081289a1f0ba3e25d53b59b2aa3cdfe69bf491ad18f'
             '97f35b302b361680ec1e891e95d2d52097bb95abff361434916d99dc1305f127')
 
@@ -58,6 +62,7 @@ package() {
   install -Dm755 daemon/owneetd daemon/owneetctl -t "$pkgdir/usr/bin/"
   # owneet-screens-off; owneet-bridge, started by Brave for the console's extension ([[extension-design]])
   install -Dm755 daemon/owneet-screens-off daemon/owneet-bridge -t "$pkgdir/usr/lib/owneet/"
+  install -Dm755 owneet-windows-run owneet-dos-run -t "$pkgdir/usr/lib/owneet/"
   # Testers: owneet-xprobe (gamescope's windows and focus), recorded by owneet-testlog every 10 s
   # without anything copied onto a stick (2026-10-17)
   install -Dm755 daemon/owneet-xprobe -t "$pkgdir/usr/lib/owneet/"

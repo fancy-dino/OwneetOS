@@ -53,6 +53,12 @@ type Server struct {
 	Catalog Catalog
 	// WebApps connects the console's Brave extension with the interface (nil: not available).
 	WebApps WebApps
+	// Windows makes Windows games ready (nil: not available).
+	Windows Windows
+	// Installs installs games from their installers (nil: not available).
+	Installs Installs
+	// Pointer makes the controller a mouse for an app's window (nil: not available).
+	Pointer Pointer
 
 	started time.Time
 }
@@ -119,6 +125,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/update", s.handleUpdate)
 	mux.HandleFunc("POST /v1/update/check", s.handleUpdateAction(Update.Check))
 	mux.HandleFunc("POST /v1/update/apply", s.handleUpdateAction(Update.Apply))
+	mux.HandleFunc("GET /v1/windows", s.handleWindows)
+	mux.HandleFunc("POST /v1/windows/needed", s.handleWindowsNeeded)
+	mux.HandleFunc("GET /v1/installs", s.handleInstalls)
+	mux.HandleFunc("POST /v1/installs", s.handleInstall)
+	mux.HandleFunc("POST /v1/installs/inspect", s.handleInstallInspect)
+	mux.HandleFunc("POST /v1/installs/stop", s.handleInstallStop)
+	mux.HandleFunc("POST /v1/installs/uninstall", s.handleUninstall)
+	mux.HandleFunc("GET /v1/pointer", s.handlePointer)
+	mux.HandleFunc("POST /v1/pointer", s.handlePointerSet)
 	mux.HandleFunc("GET /v1/steam", s.handleSteamStatus)
 	mux.HandleFunc("POST /v1/steam", s.handleSteam)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

@@ -1,0 +1,108 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Starts a GOG DOS game with DOSBox Staging (built by OwneetOS) instead of the Windows DOSBox GOG
+# ships with it ([[step-4.5-windows-games-proton]], owner 2026-10-16: no Proton for them; under
+# Proton GOG's DOSBox ended when the home screen was shown, and Arch's DOSBox 0.74.3 could not start
+# Stargunner). GOG's own DOSBox configuration files are used, with Linux paths: the game runs from
+# its folder on its disk (read only until [[step-6.5-automatic-disk-mounting]]) and everything it
+# writes goes to GOG's "cloud_saves" overlay, here a folder of the game on the console's disk,
+# seeded with GOG's starting saves (__support/save). The game's disk is never written.
+#
+#   owneet-dos-run DATA GAME_DIR WORKDIR [GOG's ARGUMENTS...]
+#
+# DATA: the game's folder on the console's disk; WORKDIR: GOG's working folder, relative to the
+# game's folder (e.g. DOSBOX); the arguments are GOG's play task's (-conf FILE …, -c COMMAND).
+
+set -u
+
+if [[ $# -lt 3 ]]; then
+    echo "usage: owneet-dos-run DATA GAME_DIR WORKDIR [ARGUMENTS...]" >&2
+    exit 2
+fi
+data="$1" game="$2" work="$3"
+shift 3
+saves="$data/cloud_saves"
+
+# A path written for Windows (backslashes, any case), relative to a folder, as found on the disk
+resolve() {
+    local out="$1" part m
+    local path="${2//\\//}"
+    local -a parts
+    IFS=/ read -ra parts <<< "$path"
+    for part in "${parts[@]}"; do
+        case "$part" in
+            ''|.) continue ;;
+            ..) out="$(dirname "$out")"; continue ;;
+        esac
+        m="$(find "$out" -mindepth 1 -maxdepth 1 -iname "$part" -print -quit 2>/dev/null)"
+        if [[ -z "$m" ]]; then
+            echo "$out/$part"
+            return 1
+        fi
+        out="$m"
+    done
+    echo "$out"
+}
+
+# ---- The overlay for what the game writes, with GOG's starting saves the first time
+# (owneetd 0.14 copied the whole game instead: that copy is no longer used; only testers had it)
+if [[ -f "$data/copied" ]]; then
+    rm -rf "$data/game" "$data/copied"
+fi
+mkdir -p "$saves" "$data/conf"
+if [[ ! -f "$data/seeded" ]]; then
+    start="$(resolve "$game" "__support/save")"
+    [[ -d "$start" ]] && cp -an "$start/." "$saves/"
+    touch "$data/seeded"
+fi
+
+cwd="$(resolve "$game" "$work")" || cwd="$game"
+
+# ---- GOG's configuration files: DOS text (code page 437, CR LF) to UTF-8, which DOSBox Staging
+# reads (the boxes of GOG's menus), and Linux paths in the [autoexec] mounts; GOG's cloud_saves
+# overlay goes to the console's disk
+rewrite() {
+    local in="$1" out="$2" section="" line rest path
+    : > "$out"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%$'\r'}"
+        if [[ "$line" =~ ^[[:space:]]*\[([A-Za-z0-9_]+)\] ]]; then
+            section="${BASH_REMATCH[1],,}"
+        fi
+        if [[ "$section" == autoexec && "$line" =~ ^([[:space:]]*@?([Ii][Mm][Gg])?[Mm][Oo][Uu][Nn][Tt][[:space:]]+[^[:space:]]+[[:space:]]+)\"([^\"]*)\"(.*)$ ]]; then
+            rest="${BASH_REMATCH[4]}"
+            if [[ "${rest,,}" == *"-t overlay"* ]]; then
+                path="$saves"
+            else
+                path="$(resolve "$cwd" "${BASH_REMATCH[3]}")"
+            fi
+            line="${BASH_REMATCH[1]}\"$path\"$rest"
+        fi
+        printf '%s\n' "$line" >> "$out"
+    done < <(iconv -f CP437 -t UTF-8 "$in" 2>/dev/null || cat "$in")
+}
+
+args=() n=0
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -conf)
+            if [[ $# -ge 2 ]]; then
+                n=$((n + 1))
+                src="$(resolve "$cwd" "$2")" && rewrite "$src" "$data/conf/$n.conf" && args+=(-conf "$data/conf/$n.conf")
+                shift 2
+                continue
+            fi
+            ;;
+        -noconsole) shift; continue ;;          # Windows only
+    esac
+    args+=("$1")
+    shift
+done
+
+# On the console's screen: full screen (DOSBox Staging scales to the screen by itself)
+printf '[sdl]\nfullscreen=true\n' > "$data/conf/owneet.conf"
+
+cd "$cwd" || exit 1
+echo "owneet-dos-run: dosbox-staging ${args[*]} -conf $data/conf/owneet.conf  (in $cwd)"
+exec dosbox-staging "${args[@]}" -conf "$data/conf/owneet.conf"

@@ -1,0 +1,16 @@
+@nogames
+@owneetd
+@steam
+@disk
+# Artwork ([[step-4.4-artwork]]): Steam games with a portrait cover (Glass Canyon, Iron Tundra),
+# with a header only, shown whole over the generated art (Paper Comets, Sunken Bell; option A),
+# without any (generated art); games on a disk with a cover (Beneath a steel sky, Starfall) and
+# without; the home screen's card with a game on a disk's cover shown whole.
+wait 3
+shot 01-home-disk-cover
+pad rb
+wait 2
+shot 02-library
+pad rt rt rt
+wait 2
+shot 03-steam-filter

@@ -3,7 +3,8 @@
 // Nintendo-style sets show letters, the PlayStation-style set shows the four shapes; Theme.glyphs
 // picks the set. On Nintendo pads SDL follows the printed labels (sdl2-compat's default
 // SDL_GAMECONTROLLER_USE_BUTTON_LABELS), so "a" is the button labelled A there too.
-// button: a, b, x, y, lb, rb, lt, rt, menu, guide; on every controller: lr, rs, dpad.
+// button: a, b, x, y, lb, rb, lt, rt, menu, guide; on every controller: lr, rs, dpad, ls (the
+// left stick moving the pointer, 4.7).
 import QtQuick 2.15
 
 Item {
@@ -32,9 +33,10 @@ Item {
         "lr": "M15 8l-5 5 5 5M29 8l5 5-5 5",
         "rs": "M13 9.4a3.6 3.6 0 1 1-0.01 0M13 3.8v2.4M11 5.6l2-2 2 2M13 22.2v-2.4M11 20.4l2 2 2-2",
         // the D-pad (and left stick): moving the selection
-        "dpad": "M11 7.5h4v3.5h3.5v4H15v3.5h-4V15H7.5v-4H11z"
+        "dpad": "M11 7.5h4v3.5h3.5v4H15v3.5h-4V15H7.5v-4H11z",
+        "ls": "M13 9.4a3.6 3.6 0 1 1-0.01 0M13 3.8v2.4M11 5.6l2-2 2 2M13 22.2v-2.4M11 20.4l2 2 2-2M3.8 13h2.4M5.6 11l-2 2 2 2M22.2 13h-2.4M20.4 11l2 2-2 2"
     })
-    readonly property string path: paths[["guide", "lr", "rs", "dpad"].indexOf(button) >= 0 ? button : set + "." + button] || ""
+    readonly property string path: paths[["guide", "lr", "rs", "dpad", "ls"].indexOf(button) >= 0 ? button : set + "." + button] || ""
     readonly property string letter: set !== "ps" && ["a", "b", "x", "y"].indexOf(button) >= 0
                                      ? button.toUpperCase() : ""
 

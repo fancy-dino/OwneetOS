@@ -54,6 +54,7 @@ Item {
     onKindChanged: canvas.requestPaint()
     onWidthChanged: canvas.requestPaint()
     onHeightChanged: canvas.requestPaint()
+    onVisibleChanged: if (visible) canvas.requestPaint()   // drawn while hidden, e.g. in a window
 
     Repeater {
         model: root.presses

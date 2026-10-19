@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jezek/xgb"
+	"github.com/jezek/xgb/res"
 	"github.com/jezek/xgb/xproto"
 )
 
@@ -38,6 +39,8 @@ type Gamescope struct {
 	watchOnce sync.Once
 	stop      chan struct{}
 	written   []written // owneetd's recent writes of GAMESCOPECTRL_BASELAYER_APPID
+
+	repaintStop chan struct{} // the overlay that keeps gamescope composing runs (repaint.go)
 }
 
 // written is a value owneetd wrote: its change notification is not someone else's request.
@@ -232,6 +235,10 @@ func (g *Gamescope) Close() {
 		close(g.stop)
 		g.stop = nil
 	}
+	if g.repaintStop != nil {
+		close(g.repaintStop)
+		g.repaintStop = nil
+	}
 }
 
 // Watch tags every window, present and future, with the app id that tag returns for its process
@@ -291,12 +298,14 @@ func (g *Gamescope) watchConn(tag func(pid int) uint32, request func([]uint32), 
 		g.mu.Unlock()
 		setCardinals(conn, root, atoms["GAMESCOPECTRL_BASELAYER_APPID"], []uint32{HomeAppID})
 	}
+	// X-Resource tells the process of windows without _NET_WM_PID (Xwayland has it)
+	xres := res.Init(conn) == nil
 	tree, err := xproto.QueryTree(conn, root).Reply()
 	if err != nil {
 		return err
 	}
 	for _, w := range tree.Children {
-		g.tagWindow(conn, atoms, w, tag)
+		g.tagWindow(conn, atoms, w, tag, xres)
 	}
 	for {
 		ev, xerr := conn.WaitForEvent()
@@ -305,7 +314,7 @@ func (g *Gamescope) watchConn(tag func(pid int) uint32, request func([]uint32), 
 		}
 		switch e := ev.(type) {
 		case xproto.MapNotifyEvent:
-			if g.tagWindow(conn, atoms, e.Window, tag) != HomeAppID {
+			if g.tagWindow(conn, atoms, e.Window, tag, xres) != HomeAppID {
 				clearWindow(conn, e.Window)
 			}
 		case xproto.PropertyNotifyEvent:
@@ -327,12 +336,26 @@ func (g *Gamescope) watchConn(tag func(pid int) uint32, request func([]uint32), 
 }
 
 // tagWindow tags a window with its app's id and returns that id (0: not an app's window).
-func (g *Gamescope) tagWindow(conn *xgb.Conn, atoms map[string]xproto.Atom, w xproto.Window, tag func(pid int) uint32) uint32 {
-	pids, err := cardinals(conn, w, atoms["_NET_WM_PID"])
-	if err != nil || len(pids) == 0 {
+func (g *Gamescope) tagWindow(conn *xgb.Conn, atoms map[string]xproto.Atom, w xproto.Window, tag func(pid int) uint32, xres bool) uint32 {
+	// Wine's console window (a Windows program "for the console", e.g. GOG's DOSBox, or Proton's
+	// launcher) is never shown: an empty black terminal for a moment before the game (FrankenPC,
+	// 2026-10-16)
+	if consoleWindow(conn, w) {
 		return 0
 	}
-	appID := tag(int(pids[0]))
+	pid, appID := 0, uint32(0)
+	if pids, err := cardinals(conn, w, atoms["_NET_WM_PID"]); err == nil && len(pids) > 0 && pids[0] > 0 {
+		pid = int(pids[0])
+		appID = tag(pid)
+	}
+	// No _NET_WM_PID, or one that leads to no app (e.g. a process id from inside a container):
+	// the process the X server knows
+	if appID == 0 && xres {
+		if p := clientPID(conn, w); p > 0 && p != pid {
+			pid = p
+			appID = tag(pid)
+		}
+	}
 	if appID == 0 {
 		return 0
 	}
@@ -340,9 +363,40 @@ func (g *Gamescope) tagWindow(conn *xgb.Conn, atoms map[string]xproto.Atom, w xp
 		return appID
 	}
 	if err := setCardinals(conn, w, atoms["STEAM_GAME"], []uint32{appID}); err == nil && g.Log != nil {
-		g.Log.Debug("window tagged", "window", w, "pid", pids[0], "app_id", appID)
+		g.Log.Debug("window tagged", "window", w, "pid", pid, "app_id", appID)
 	}
 	return appID
+}
+
+// consoleWindow tells Wine's console host by its class ("conhost.exe")
+func consoleWindow(conn *xgb.Conn, w xproto.Window) bool {
+	reply, err := xproto.GetProperty(conn, false, w, xproto.AtomWmClass, xproto.AtomString, 0, 256).Reply()
+	if err != nil || reply == nil {
+		return false
+	}
+	for _, part := range strings.Split(string(reply.Value), "\x00") {
+		if strings.EqualFold(part, "conhost.exe") {
+			return true
+		}
+	}
+	return false
+}
+
+// clientPID is the process of the program that made a window, as the X server knows it
+// (X-Resource): for windows without _NET_WM_PID, e.g. Unity 5 games such as CAYNE, whose window
+// stayed behind the home screen (FrankenPC, 2026-10-16). 0 when unknown.
+func clientPID(conn *xgb.Conn, w xproto.Window) int {
+	spec := res.ClientIdSpec{Client: uint32(w), Mask: res.ClientIdMaskLocalClientPID}
+	reply, err := res.QueryClientIds(conn, 1, []res.ClientIdSpec{spec}).Reply()
+	if err != nil || reply == nil {
+		return 0
+	}
+	for _, id := range reply.Ids {
+		if id.Spec.Mask&res.ClientIdMaskLocalClientPID != 0 && len(id.Value) > 0 {
+			return int(id.Value[0])
+		}
+	}
+	return 0
 }
 
 // clearWindow gives a newly shown window a background (black, transparent with an alpha

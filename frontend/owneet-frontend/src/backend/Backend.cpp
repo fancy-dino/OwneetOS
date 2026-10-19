@@ -20,6 +20,7 @@
 #include "AppSettings.h"
 #include "Log.h"
 #include "FrontendLayer.h"
+#include "owneet/DiskGames.h"
 #include "ProcessLauncher.h"
 #include "owneet/Daemon.h"
 #include "ScriptRunner.h"
@@ -266,7 +267,10 @@ void Backend::start()
 
 void Backend::onScanRequested(const bool force_refresh)
 {
-    m_api_public->clearGameData();
+    // OwneetOS: a quiet reading (a disk plugged in or out, 4.3) keeps the games and the interface
+    // until the new games are ready
+    if (!m_frontend->diskGames()->quietReading())
+        m_api_public->clearGameData();
     m_providerman->run(force_refresh);
 }
 
@@ -278,7 +282,9 @@ void Backend::onScanFinished()
     std::vector<model::Game*> games;
     std::swap(m_providerman->foundGames(), games);
 
+    m_api_public->clearGameData(); // OwneetOS: after a quiet reading, the old games go only now
     m_api_public->setGameData(std::move(colls), std::move(games));
+    m_frontend->diskGames()->setQuietReading(false);
 }
 
 void Backend::onFavoritesChanged()
@@ -290,8 +296,11 @@ void Backend::onProcessLaunched()
 {
     // OwneetOS: the interface is not unloaded while a game runs, so that it can be shown again
     // at once (Guide button). Gamepad input is paused so that the hidden interface does not react
-    // to the game's buttons.
-    m_api_private->gamepad().stop();
+    // to the game's buttons. With owneetd it pauses when the game is on screen (focus.changed),
+    // not before: a game whose window never shows up leaves the home screen usable (CAYNE's
+    // window stayed hidden and the console did not answer, FrankenPC 2026-10-16).
+    if (!m_frontend->daemon()->available())
+        m_api_private->gamepad().stop();
 }
 
 void Backend::onProcessFinished()

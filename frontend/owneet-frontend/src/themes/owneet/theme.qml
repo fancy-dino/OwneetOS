@@ -53,6 +53,8 @@ FocusScope {
         }
         refreshGames();
         refreshDaemon();          // owneetd may have connected before the theme was loaded
+        knownVolumes = volumeKeys();
+        diskNotices();            // a disk plugged in or out made the games be read again (4.3)
     }
     function save(key, value) {
         if (loaded && api.memory.get(key) !== value)
@@ -102,26 +104,94 @@ FocusScope {
     }
     Component.onDestruction: Theme.previewKey = ""
 
-    // ---- Games, most recently played first (shared by the sections)
+    // ---- Games, most recently played first (shared by the sections); the home screen shows the
+    // installed ones only (every owned Steam game is in the library, 4.2c)
     property var games: []
     function refreshGames() { games = GameInfo.recent(api.allGames); }
-    // Steam's installed games, as owneetd last listed them: a game installed or removed in Steam
-    // makes the console read its games again when you come back from Steam (4.2)
-    property var steamGamesKey: null
-    function checkSteamGames() {
+    readonly property var homeGames: GameInfo.sorted(games.filter(g => GameInfo.installed(g)), "played")
+
+    // ---- Steam's games as owneetd sees them (4.2c): installed, downloading, on a disk that is not
+    // connected (GET /v1/steam and "steam.changed"). The console reads its games again when you
+    // come back to the home screen and Steam has a game it does not list (e.g. a free game
+    // installed from the store), or the licences changed after a visit to the store.
+    readonly property bool online: network === null || (network.available !== false
+        && ((network.ethernet && network.ethernet.connected) || (network.wifi && network.wifi.state === "connected")))
+    Binding { target: GameInfo; property: "online"; value: root.online }
+    property var steamBaseline: null          // app ids Steam had when the games were read
+    property real steamLicencesSeen: 0
+    property bool storeVisited: false
+    property var steamAsked: ({})             // app id → { title, kind: install / uninstall / cancel }
+    function steamIds(st) { return (st.games || []).concat((st.downloads || []).map(d => d.appid)); }
+    function steamGame(appid) { return games.find(g => GameInfo.appid(g) === appid) || null; }
+    function refreshSteam(check) {
         if (!owneetd.connected) return;
         owneetd.get("/v1/steam", (status, st) => {
-            if (status !== 200 || !st.games) return;
-            const key = st.games.join(",");
-            if (root.steamGamesKey !== null && key !== root.steamGamesKey) {
-                console.log("Steam's games changed: reading the games again");
-                // reading the games again rebuilds the interface: it comes back where it was
-                api.memory.set("rescanReturn", [Date.now(), root.section,
-                    root.section === "library" && library.addGamesSelected ? "add" : ""].join("|"));
-                Internal.settings.reloadProviders();
-            }
-            root.steamGamesKey = key;
+            if (status !== 200) return;
+            root.steamChanged(st);
+            if (check) root.checkSteamGames();
         });
+    }
+    function checkSteamGames() {
+        const st = GameInfo.steam;
+        if (!st) return;
+        const known = {};
+        games.forEach(g => { const id = GameInfo.appid(g); if (id) known[id] = true; });
+        const fresh = steamIds(st).filter(id => !steamBaseline[id] && !known[id]);
+        const bought = storeVisited && (st.licences || 0) > steamLicencesSeen;
+        if (fresh.length === 0 && !bought)
+            return;
+        console.log("Steam has games the console does not list yet: reading the games again");
+        // reading the games again rebuilds the interface: it comes back where it was
+        api.memory.set("rescanReturn", [Date.now(), root.section,
+            root.section === "library" && library.addGamesSelected ? "add" : ""].join("|"));
+        Internal.settings.reloadProviders();
+    }
+    // What changed: a download asked here has started, a game is ready, a game is gone
+    function steamChanged(st) {
+        const before = GameInfo.steam;
+        GameInfo.steam = st;
+        if (steamBaseline === null) {
+            const base = {};
+            steamIds(st).forEach(id => { base[id] = true; });
+            steamBaseline = base;
+            steamLicencesSeen = st.licences || 0;
+        }
+        if (!before) return;
+        const has = (list, id) => (list || []).indexOf(id) >= 0;
+        const downloading = s => (s.downloads || []).map(d => d.appid);
+        const asked = Object.assign({}, steamAsked);
+        Object.keys(asked).forEach(id => {
+            const a = asked[id];
+            if (a.kind === "install" && has(downloading(st), id)) {
+                toast.show(Tr.tr("toast.steam.queued", { title: a.title }));
+                delete asked[id];
+            } else if (a.kind !== "install" && !has(st.games, id) && !has(downloading(st), id)) {
+                toast.show(Tr.tr(a.kind === "cancel" ? "toast.steam.cancelled" : "toast.steam.uninstalled", { title: a.title }));
+                delete asked[id];
+            }
+        });
+        steamAsked = asked;
+        downloading(before).forEach(id => {
+            if (!has(downloading(st), id) && has(st.games, id)) {
+                const g = steamGame(id);
+                // not for the game starting or running (Steam updated it before starting it)
+                const starting = g && ((steamPrep.visible && steamPrep.gameTitle === g.title)
+                                       || (runningGame && runningGame.name === g.title));
+                if (g && !starting) notify({ key: "notices.steam.ready", args: { name: g.title }, icon: "check", kind: "info",
+                                action: "play", game: g.title });
+            }
+        });
+    }
+    // The downloads notice on the home screen: the game Steam works on, and how many wait
+    readonly property var steamNotices: {
+        const ds = GameInfo.steam && GameInfo.steam.downloads ? GameInfo.steam.downloads : [];
+        const g = ds.length > 0 ? steamGame(ds[0].appid) : null;
+        if (!g) return [];
+        const p = ds[0].total > 0 ? Math.floor(ds[0].done * 100 / ds[0].total) : 0;
+        const text = !online ? Tr.tr("home.notice.paused")
+            : Tr.tr(ds[0].state === "updating" ? "home.notice.update" : "home.notice.download", { title: g.title, p: p })
+              + (ds.length > 1 ? "  ·  " + Tr.tr("home.notice.more", { n: ds.length - 1 }) : "");
+        return [{ text: text, game: g }];
     }
     Connections {
         target: api.allGames
@@ -199,7 +269,10 @@ FocusScope {
         refreshApps();
         refreshControllers();
         applyKeyboard();          // the on-screen keyboard and physical keyboards follow the chosen layout
-        checkSteamGames();
+        refreshSteam(false);
+        refreshWindows();
+        refreshInstalls();
+        owneetd.get("/v1/pointer", (status, data) => { if (status === 200) root.pointerStatus = data; });
         owneetd.get("/v1/update", (status, data) => { if (status === 200) root.updateStatus = data; });
         refreshCatalog();
         checkDisplayPending();
@@ -216,12 +289,17 @@ FocusScope {
                 // caught up (it selects its hero when the running app changes, which would take
                 // the selection away from a question opened before)
                 root.refreshApps(type === "app.exited" && data.id === root.termsAppId ? root.termsClosed : null);
+                // a Steam game started: its licence agreement, if any, has been accepted
+                if (type === "app.started" && String(data.id).startsWith("steam:"))
+                    root.agreementAccepted(String(data.id).slice(6));
                 if (type === "app.exited" && (data.id === "steam" || String(data.id).startsWith("steam:")))
-                    root.checkSteamGames();
+                    root.refreshSteam(true);
                 if (type === "app.exited")
                     refreshTimer.restart();       // play time and "last played" have changed
+            } else if (type === "steam.launch_failed") {
+                if (data && data.reason === "linux_version") root.askWindowsVersion(String(data.appid));
             } else if (type === "focus.changed") {
-                if (data.focus === "home") root.checkSteamGames();
+                if (data.focus === "home") root.refreshSteam(true);
                 // Guide brings the home screen over a running game: the "launch" sound, the other way
                 const fromGame = root.gameOnScreen;
                 root.focusedApp = data.focus;
@@ -238,6 +316,18 @@ FocusScope {
                 root.pairingEvent(type, data);
             } else if (type.startsWith("display.")) {
                 root.displayEvent(type, data);
+            } else if (type === "steam.changed") {
+                root.steamChanged(data);
+            } else if (type === "windows.changed") {
+                root.windowsChanged(data);
+            } else if (type === "pointer.changed") {
+                root.pointerStatus = data || { on: false };
+            } else if (type === "pointer.type") {
+                if (data) root.showPointerKeyboard(String(data.app));
+            } else if (type === "installs.changed") {
+                GameInfo.installs = (data && data.installs) || [];
+            } else if (type === "install.done" || type === "install.failed") {
+                root.installEnded(type, data);
             } else if (type === "update.changed") {
                 root.updateStatus = data;
                 root.showUpdate(data);
@@ -290,11 +380,85 @@ FocusScope {
         if (app)
             confirmClose(app, () => root.resume(app));
     }
+    // ---- The controller as a mouse (4.7, approved demo design/demos/4.7-controller-pointer.html):
+    // "Resume with the pointer" on the running game's card; owneetd follows that window only and
+    // turns it off when another window takes the screen. Its buttons are explained once (until
+    // "Don't show again") and always in the quick menu's Controls. GET / POST /v1/pointer,
+    // "pointer.changed"; "pointer.type": the keyboard here, its text then goes to the window.
+    property var pointerStatus: ({ on: false })
+    property string pointerText: ""            // typed for the window, sent once it is back on screen
+    function resumeWithPointer(app) {
+        if (api.memory.has("pointerHelpHidden")) { startPointer(app); return; }
+        dialog.game = null;
+        dialog.mode = "pointerHelp";
+        dialog.contentWidth = Theme.px(1000);
+        dialog.icon = "";
+        dialog.title = Tr.tr("pointer.help.title");
+        dialog.text = Tr.tr("pointer.help.text");
+        noticeNever.checked = false;
+        dialog.buttons = [{ text: Tr.tr("pointer.help.ok"), style: "primary", action: () => {
+            if (noticeNever.checked) api.memory.set("pointerHelpHidden", true);
+            dialog.close(true);
+            root.startPointer(app);
+        } }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function startPointer(app) {
+        owneetd.post("/v1/pointer", { on: true, app: app.id }, status => {
+            if (status === 204) { Nav.feedback("launch"); root.resume(app); return; }
+            toast.show(Tr.tr("error.pointer"));
+            Nav.feedback("error");
+        });
+    }
+    function turnPointerOff() {
+        owneetd.post("/v1/pointer", { on: false }, status => { if (status === 204) toast.show(Tr.tr("toast.pointer.off")); });
+    }
+    // Y in the window, or a click on a text field: owneetd shows the home screen; the keyboard
+    // opens here, Send types the text into the window once it is back on screen
+    function showPointerKeyboard(appId) {
+        const app = apps.find(a => a.id === appId);
+        if (!app) return;
+        pointerInput.text = "";
+        dialog.game = null;
+        dialog.mode = "pointerType";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.title = Tr.tr("pointer.type.title", { app: app.name });
+        dialog.text = "";
+        dialog.buttons = [
+            { text: Tr.tr("pointer.type.send"), style: "primary", action: () => root.sendPointerText(app) },
+            { text: Tr.tr("prompt.cancel"), action: () => { osk.close(true); dialog.close(); root.resume(app); } }];
+        dialog.defaultIndex = 0;
+        dialog.initialItem = pointerField;
+        dialog.open();
+        dialog.backAction = () => { osk.close(true); dialog.close(true); root.resume(app); };
+        Qt.callLater(() => { if (dialog.visible && dialog.mode === "pointerType") osk.open(pointerInput, false); });
+    }
+    function sendPointerText(app) {
+        pointerText = pointerInput.text;
+        osk.close(true);
+        dialog.close(true);
+        root.resume(app);
+        if (pointerText !== "") pointerSend.restart();
+    }
+    Timer {                                   // the window is on screen again: the text goes to it
+        id: pointerSend
+        interval: 400
+        onTriggered: {
+            const text = root.pointerText;
+            root.pointerText = "";
+            owneetd.post("/v1/input/text", { text: text }, status => {
+                if (status !== 204) toast.show(Tr.tr("error.pointer.text"));
+            });
+        }
+    }
     // back: what Cancel and B also do (e.g. bring the web app back)
     function confirmClose(app, back) {
         const web = app.kind === "webapp";
         dialog.game = null;
         dialog.mode = "close";
+        dialog.appId = app.id;
         dialog.contentWidth = 0;
         dialog.title = Tr.tr("close.title", { title: web ? openName() : app.name });
         dialog.text = Tr.tr(web ? "closeapp.text" : "close.text");
@@ -399,7 +563,10 @@ FocusScope {
             }
         } else if (type === "app.exited" && data) {
             const app = apps.find(a => a.id === data.id);
-            const wanted = closingApps[data.id];
+            // "Close …?" open for it: it went by itself, as the user wanted; no notice
+            const asked = dialog.visible && dialog.mode === "close" && dialog.appId === data.id;
+            if (asked) dialog.close(true);
+            const wanted = closingApps[data.id] || asked;
             delete closingApps[data.id];
             if (wanted || !app || app.kind !== "game" || ["exit-code", "signal", "core-dump"].indexOf(data.result) < 0)
                 return;
@@ -419,7 +586,29 @@ FocusScope {
     }
 
     // ---- Games: launch, details, options
-    function launch(game) {
+    function launch(game, agreementShown) {
+        // a game with only an installer (4.6): installed first, after the console's question
+        if (GameInfo.hasInstaller(game)) { installStart(game); return; }
+        // Steam (4.2c): a game not installed is installed first; one being downloaded or on a disk
+        // that is not connected shows its details; Steam's first start needs the internet; a
+        // licence agreement Steam asks to accept at the first start is shown here first
+        if (GameInfo.isSteam(game)) {
+            const s = GameInfo.steamState(game);
+            if (s === "none") { askInstall(game); return; }
+            if (s !== "installed" && s !== "updating") { showDetails(game); return; }
+            if (!(runningGame && runningGame.name === game.title) && steamOffline("play")) return;
+            if (!agreementShown && !runningGame && agreementPending(game)) { showAgreement(game); return; }
+        }
+        // a Windows game before what it needs is ready: its progress, or "connect" (4.5)
+        if (GameInfo.isWindows(game) && !windowsReady && !(runningGame && runningGame.name === game.title)) {
+            showWindowsNotReady(game);
+            return;
+        }
+        // a game on a disk with several files to start: which one, asked once (4.3)
+        if (GameInfo.onDisk(game) && diskGames.chosen(game) === "" && !(runningGame && runningGame.name === game.title)) {
+            chooseFile(game, true);
+            return;
+        }
         // the game already running (same title, as on the home screen): back to it
         if (runningGame && owneetd.connected && runningGame.name === game.title) {
             Nav.feedback("launch");
@@ -437,35 +626,88 @@ FocusScope {
             return;
         }
         Nav.feedback("launch");
-        toast.show(Tr.tr("toast.launch", { title: game.title }));
+        if (GameInfo.isWindows(game))               // "Preparing {game}…" until its first picture (4.5)
+            steamPrep.start(diskGames.firstStart(game), game.title, true);
+        else
+            toast.show(Tr.tr("toast.launch", { title: game.title }));
         if (GameInfo.isSteam(game) && owneetd.connected) {
             // Steam starts the game; while Steam itself starts, the console says so
             owneetd.get("/v1/steam", (status, st) => {
-                if (status === 200 && st.allowed && !st.running) steamPrep.start(!st.prepared);
+                // also when Steam runs: it stays hidden, e.g. while it prepares the game's shaders
+                if (status === 200 && st.allowed) steamPrep.start(!st.prepared, game.title);
             });
         }
         game.launch();                    // through owneetd, [[step-3.8-frontend-daemon-bridge]]
         refreshTimer.restart();           // "last played" changes once the game has started
     }
     Timer { id: refreshTimer; interval: 3000; onTriggered: root.refreshGames() }
+    // Details: Play an installed game, Install one that is not, otherwise Close; the facts follow
+    // the download while the window is open (4.2c)
     function showDetails(game) {
+        const s = GameInfo.steamState(game);
         dialog.game = game;
         dialog.mode = "details";
         dialog.contentWidth = 0;
         dialog.title = game.title;
         dialog.text = "";
-        dialog.buttons = [{ text: Tr.tr("home.play"), style: "primary", action: () => { dialog.close(true); root.launch(game); } }];
+        dialog.buttons = [s === "installed" || s === "updating"
+            ? { text: Tr.tr("home.play"), style: "primary", action: () => { dialog.close(true); root.launch(game); } }
+            : s === "none"
+            ? { text: Tr.tr("options.install"), style: "primary", action: () => {
+                    dialog.close(true);
+                    if (GameInfo.hasInstaller(game)) root.installStart(game); else root.askInstall(game);
+                } }
+            : { text: Tr.tr("prompt.close"), style: "primary", action: () => dialog.close() }];
+        if (GameInfo.hasInstaller(game) && GameInfo.usableInstaller(game))
+            inspectInstaller(game, null);     // the space it needs, for the facts
         dialog.defaultIndex = 0;
         dialog.open();
     }
+    function detailsFacts(game) {
+        const facts = [[Tr.tr("details.source"), GameInfo.source(game)]];
+        const s = GameInfo.steamState(game), d = GameInfo.download(game);
+        if (GameInfo.isSteam(game))
+            facts.push([Tr.tr("details.state"), s === "installed" ? Tr.tr("steam.state.installed") : GameInfo.stateText(game)]);
+        if (GameInfo.hasInstaller(game)) {        // 4.6: its state, its installer, the space it needs
+            facts.push([Tr.tr("details.state"), GameInfo.stateText(game)],
+                       [Tr.tr("details.installer"), String(game.extra["disk.installer"]).split("/").pop()]);
+            const info = installInfos[game.extra["disk.installer"]];
+            if (info && GameInfo.usableInstaller(game))
+                facts.push([Tr.tr("details.needs"), GameInfo.sizeAuto(info.need)]);
+        }
+        if (d && (s === "downloading" || s === "updating" || s === "paused"))
+            facts.push([Tr.tr("details.done"), Tr.tr("details.done.value", { done: GameInfo.size1(d.done), total: GameInfo.size1(d.total) })]);
+        if (d && (s === "downloading" || s === "updating") && d.rate > 0) {
+            const left = (d.total - d.done) / d.rate;
+            facts.push([Tr.tr("details.speed"), Number(d.rate / 1e6).toLocaleString(Qt.locale(), "f", 1) + " MB/s"],
+                       [Tr.tr("details.left"), left < 60 ? Tr.tr("details.left.less") : Tr.tr("details.left.minutes", { n: Math.round(left / 60) })]);
+        }
+        if (s === "queued") {
+            const first = (GameInfo.steam.downloads || [])[0];
+            const g = first && first.appid !== GameInfo.appid(game) ? steamGame(first.appid) : null;
+            if (g) facts.push([Tr.tr("details.done"), Tr.tr("details.queue", { title: g.title })]);
+        }
+        facts.push([Tr.tr("details.last"), GameInfo.lastPlayed(game)],
+                   [Tr.tr("details.time"), GameInfo.played(game) ? GameInfo.playTime(game) : "\u2014"]);
+        if (GameInfo.onDisk(game))
+            facts.push([Tr.tr("details.disk"), diskName(GameInfo.diskRoot(game))]);
+        return facts;
+    }
     function showOptions(game) {
+        const s = GameInfo.steamState(game), steam = GameInfo.isSteam(game);
         dialog.game = game;
         dialog.mode = "options";
         dialog.contentWidth = 0;
         dialog.title = game.title;
         dialog.text = "";
-        dialog.buttons = [
-            { text: Tr.tr("home.play"), style: "primary", action: () => { dialog.close(true); root.launch(game); } },
+        dialog.buttons = (s === "installed"
+            ? [{ text: Tr.tr("home.play"), style: "primary", action: () => { dialog.close(true); root.launch(game); } }]
+            : s === "none"
+            ? [{ text: Tr.tr("options.install"), style: "primary", action: () => {
+                    dialog.close(true);
+                    if (GameInfo.hasInstaller(game)) root.installStart(game); else root.askInstall(game);
+                } }]
+            : []).concat([
             { text: Tr.tr("home.details"), action: () => { dialog.close(true); root.showDetails(game); } },
             { text: Tr.tr(game.favorite ? "options.unfavorite" : "options.favorite"), action: () => {
                 game.favorite = !game.favorite;
@@ -473,7 +715,19 @@ FocusScope {
                 dialog.close();
                 toast.show(Tr.tr(game.favorite ? "toast.favorite" : "toast.unfavorite"));
             } }
-        ];
+        ]);
+        // a Steam game can always be uninstalled, and its download cancelled, without Steam's interface
+        if (steam && (s === "installed" || s === "updating"))
+            dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.uninstall"), action: () => { dialog.close(true); root.askUninstall(game, false); } }]);
+        if (steam && (s === "downloading" || s === "queued" || s === "paused"))
+            dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.cancel_install"), action: () => { dialog.close(true); root.askUninstall(game, true); } }]);
+        if (GameInfo.diskFiles(game).length > 1)
+            dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.choose_file"), action: () => { dialog.close(true); root.chooseFile(game, false); } }]);
+        // 4.6: an install stops; a game the console installed is uninstalled (its installer stays)
+        if (GameInfo.hasInstaller(game) && (s === "installing" || s === "queued"))
+            dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.stop_install"), action: () => { dialog.close(true); root.askStopInstall(game); } }]);
+        if (GameInfo.installedHere(game) && !(runningGame && runningGame.name === game.title))
+            dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.uninstall"), action: () => { dialog.close(true); root.askRemoveInstalled(game); } }]);
         if (section !== "library")
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.library"), action: () => {
                 dialog.close(true);
@@ -707,6 +961,367 @@ FocusScope {
         dialog.open();
     }
 
+    // ---- Windows games (4.5, approved demo design/demos/4.5-windows-games.html): what they need is
+    // downloaded once by owneetd, only once the library has one (POST /v1/windows/needed), while
+    // the console is online; its progress in the home screen's notices and Settings → System, a
+    // banner when ready. GET /v1/windows and "windows.changed": { state, percent, needed }.
+    property var windowsStatus: null
+    readonly property bool windowsReady: windowsStatus !== null && windowsStatus.state === "ready"
+    readonly property bool hasWindowsGames: games.some(g => GameInfo.isWindows(g)
+        || ["inno", "nsis", "msi"].indexOf(GameInfo.installerKind(g)) >= 0)
+    onHasWindowsGamesChanged: tellWindowsNeeded()
+    function refreshWindows() {
+        if (!owneetd.connected) return;
+        owneetd.get("/v1/windows", (status, st) => {
+            if (status !== 200) return;
+            windowsStatus = st;
+            tellWindowsNeeded();
+        });
+    }
+    function tellWindowsNeeded() {
+        if (hasWindowsGames && owneetd.connected && windowsStatus !== null && !windowsStatus.needed)
+            owneetd.post("/v1/windows/needed", {});
+    }
+    function windowsChanged(st) {
+        const before = windowsStatus;
+        windowsStatus = st;
+        if (before && before.state !== "ready" && st.state === "ready")
+            notify({ key: "notices.windows.ready", args: {}, icon: "check", kind: "info" });
+        if (dialog.visible && dialog.mode === "windowsWait" && dialog.game) {
+            if (st.state === "ready") { const g = dialog.game; dialog.close(true); root.launch(g); }
+            else showWindowsNotReady(dialog.game, true);
+        }
+    }
+    function windowsText(st) {           // Settings → System and the home screen's notice
+        if (!st) return "";
+        if (st.state === "ready") return Tr.tr("windows.ready");
+        if (st.state === "downloading") return Tr.tr("windows.getting", { p: st.percent });
+        if (st.state === "failed") return Tr.tr("windows.failed");
+        return Tr.tr("windows.waiting");
+    }
+    readonly property var windowsNotices: windowsStatus && windowsStatus.needed && windowsStatus.state !== "ready"
+        ? [{ text: windowsStatus.state === "downloading" ? Tr.tr("windows.notice", { p: windowsStatus.percent }) : Tr.tr("windows.notice.wait"),
+             game: null }]
+        : []
+    // A Windows game started before it can: the progress (online), or "connect to the internet"
+    function showWindowsNotReady(game, refresh) {
+        const st = windowsStatus;
+        const offline = !online || !st || st.state === "waiting" || st.state === "failed";
+        dialog.game = game;
+        dialog.mode = "windowsWait";
+        dialog.contentWidth = Theme.px(560);
+        if (offline) {
+            dialog.title = Tr.tr("windows.off.title", { title: game.title });
+            dialog.text = Tr.tr("windows.off.text");
+            dialog.buttons = [
+                { text: Tr.tr("windows.off.network"), style: "primary", action: () => {
+                    dialog.close(true);
+                    settings.section = "network";
+                    root.goSection("settings");
+                } },
+                { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        } else {
+            dialog.title = Tr.tr("windows.wait.title");
+            dialog.text = Tr.tr(GameInfo.hasInstaller(game) ? "windows.wait.text.install" : "windows.wait.text", { p: st.percent, title: game.title });
+            dialog.buttons = [{ text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() }];
+        }
+        dialog.defaultIndex = 0;
+        if (refresh) dialog.focusDefault(); else dialog.open();
+    }
+
+    // ---- Installers (4.6, approved demo design/demos/4.6-installers.html): a game with only an
+    // installer is installed by owneetd on the console's disk, one at a time, after the console's
+    // question with the game's licence ([[games-on-disk]]). GOG's Linux installers show their
+    // percentage, Windows installers a moving bar; Windows installers wait for Windows games to be
+    // ready. The installed copy replaces the game in the library (the games are read again
+    // quietly); Options stop an install or uninstall a game the console installed.
+    property var installInfos: ({})           // installer → { need, exact, free, licence }
+    function refreshInstalls() {
+        if (!owneetd.connected) return;
+        owneetd.get("/v1/installs", (status, st) => { if (status === 200) GameInfo.installs = st.installs || []; });
+    }
+    function inspectInstaller(game, done) {
+        const installer = game.extra["disk.installer"];
+        owneetd.post("/v1/installs/inspect", { installer: installer, kind: GameInfo.installerKind(game) }, (status, info) => {
+            if (status !== 200) {
+                if (done) { toast.show(Tr.tr("error.installer")); Nav.feedback("error"); }
+                return;
+            }
+            const infos = Object.assign({}, installInfos);
+            infos[installer] = info;
+            installInfos = infos;
+            if (done) done(info);
+        });
+    }
+    function installStart(game) {
+        const s = GameInfo.steamState(game);
+        if (s === "unusable") { showInstallUnusable(game); return; }
+        if (s !== "none") { showDetails(game); return; }
+        if (!owneetd.connected) { toast.show(Tr.tr("error.daemon.unavailable")); Nav.feedback("error"); return; }
+        // a Windows installer runs with what Windows games need (4.5)
+        if (GameInfo.installerKind(game) !== "sh" && !windowsReady) { showWindowsNotReady(game); return; }
+        inspectInstaller(game, info => {
+            if (info.free > 0 && info.need > info.free) showInstallSpace(game, info);
+            else showInstallAsk(game, info, false);
+        });
+    }
+    function showInstallAsk(game, info, back) {
+        dialog.game = game;
+        dialog.mode = "installAsk";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.prompts = dialog.defaultPrompts;
+        dialog.backAction = null;
+        dialog.title = Tr.tr("installer.ask.title", { title: game.title });
+        dialog.text = Tr.tr("installer.ask.text", { size: GameInfo.sizeAuto(info.need) });
+        dialog.buttons = [
+            { text: Tr.tr("installer.read"), action: () => root.showInstallLicence(game, info) },
+            { text: Tr.tr("installer.go"), style: "primary", action: () => { dialog.close(true); root.requestInstall(game); } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 1;
+        dialog.open(back);
+    }
+    // [Read]: the licence's text when the console found it (the right stick scrolls it), else
+    // where to find it; B goes back to the question
+    function showInstallLicence(game, info) {
+        const back = () => { Nav.feedback("sheet-close"); root.showInstallAsk(game, info, true); };
+        dialog.mode = "licence";
+        dialog.licence = info.licence || "";
+        dialog.contentWidth = Theme.px(680);
+        dialog.title = Tr.tr("installer.licence.title", { title: game.title });
+        dialog.text = info.licence ? "" : Tr.tr("installer.licence.missing");
+        dialog.prompts = info.licence ? [{ buttons: ["rs"], label: Tr.tr("prompt.scroll") }, { buttons: ["a", "b"], label: Tr.tr("prompt.back") }]
+                                      : [{ buttons: ["a", "b"], label: Tr.tr("prompt.back") }];
+        dialog.backAction = back;
+        dialog.buttons = [{ text: Tr.tr("prompt.back"), style: "primary", action: back }];
+        dialog.defaultIndex = 0;
+        licenceFlick.contentY = 0;
+        dialog.open(true);
+    }
+    function showInstallSpace(game, info) {
+        dialog.game = game;
+        dialog.mode = "installSpace";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.prompts = dialog.defaultPrompts;
+        dialog.backAction = null;
+        dialog.title = Tr.tr("installer.space.title", { title: game.title });
+        dialog.text = Tr.tr("installer.space.text", { title: game.title, size: GameInfo.sizeAuto(info.need), free: GameInfo.sizeAuto(info.free) });
+        dialog.buttons = [{ text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function showInstallUnusable(game) {
+        dialog.game = game;
+        dialog.mode = "installUnusable";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.prompts = dialog.defaultPrompts;
+        dialog.backAction = null;
+        dialog.title = Tr.tr("installer.unusable.title", { title: game.title });
+        dialog.text = Tr.tr(GameInfo.installerKind(game) === "galaxy" ? "installer.unusable.galaxy" : "installer.unusable.unknown");
+        dialog.buttons = [{ text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function requestInstall(game) {
+        const req = diskGames.installRequest(game, Tr.language);
+        const waiting = (GameInfo.installs || []).length > 0;     // another one in progress: this one waits
+        Nav.feedback("launch");
+        owneetd.post("/v1/installs", req, (status, data) => {
+            if (status === 202) {
+                if (waiting) toast.show(Tr.tr("toast.install.queued", { title: game.title }));
+                return;
+            }
+            const code = data && data.error ? data.error.code : "";
+            if (code === "installs.no_space") { root.inspectInstaller(game, info => root.showInstallSpace(game, info)); return; }
+            toast.show(Tr.tr(code === "installs.exists" ? "error.install.exists" : "error.installer"));
+            Nav.feedback("error");
+        });
+    }
+    function askStopInstall(game) {
+        const inst = GameInfo.install(game);
+        if (!inst) return;
+        dialog.game = null;
+        dialog.mode = "installStop";
+        dialog.contentWidth = 0;
+        dialog.icon = "";
+        dialog.prompts = dialog.defaultPrompts;
+        dialog.backAction = null;
+        dialog.title = Tr.tr("installer.stop.title", { title: game.title });
+        dialog.text = Tr.tr("installer.stop.text");
+        dialog.buttons = [
+            { text: Tr.tr("installer.stop.go"), style: "primary", action: () => {
+                dialog.close(true);
+                owneetd.post("/v1/installs/stop", { dest: inst.dest }, status => {
+                    toast.show(Tr.tr(status === 204 ? "toast.install.stopped" : "error.installer"));
+                });
+            } },
+            { text: Tr.tr("installer.stop.keep"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    // Uninstalling a game the console installed: its folder on the console's disk goes, its
+    // installer stays where it is (it can be installed again); its saves in its prefix stay
+    function askRemoveInstalled(game) {
+        const dir = String(game.extra["disk.dir"]);
+        const from = String(game.extra["disk.installed.from"] || "");
+        const vol = storage.volumes().find(v => v.key !== "internal" && from.startsWith(v.key + "/"));
+        dialog.game = null;
+        dialog.mode = "installRemove";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.prompts = dialog.defaultPrompts;
+        dialog.backAction = null;
+        dialog.title = Tr.tr("installer.uninstall.title", { title: game.title });
+        dialog.text = Tr.tr("installer.uninstall.text", { size: GameInfo.sizeAuto(diskGames.folderSize(dir)),
+                                                           disk: vol ? diskName(vol.key) : diskName("internal") });
+        dialog.buttons = [
+            { text: Tr.tr("uninstall.go"), style: "primary", action: () => {
+                dialog.close(true);
+                owneetd.post("/v1/installs/uninstall", { dest: dir }, (status, data) => {
+                    if (status !== 204) {
+                        const code = data && data.error ? data.error.code : "";
+                        toast.show(Tr.tr(code === "installs.in_use" ? "error.install.in_use" : "error.installer"));
+                        Nav.feedback("error");
+                        return;
+                    }
+                    toast.show(Tr.tr("toast.install.removed", { title: game.title }));
+                    root.readGamesQuietly();
+                });
+            } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 1;             // Cancel first: nothing removed by accident
+        dialog.open();
+    }
+    // The end of an install: the installed copy replaces the game (read again quietly), a notice
+    // says so; or why it stopped
+    function installEnded(type, data) {
+        if (!data) return;
+        if (type === "install.done") {
+            notify({ key: "notices.install.ready", args: { name: data.title }, icon: "check", kind: "info", action: "play", game: data.title });
+            readGamesQuietly();
+        } else if (data.reason === "source_gone") {
+            notify({ key: "notices.install.stopped", args: { name: data.title }, icon: "usb", kind: "info" });
+        } else if (data.reason === "no_space") {
+            notify({ key: "notices.install.space", args: { name: data.title }, icon: "alert", kind: "attention" });
+        } else if (data.reason === "windows") {
+            toast.show(Tr.tr("error.install.windows"));
+        } else if (data.reason !== "cancelled") {
+            notify({ key: "notices.install.failed", args: { name: data.title }, icon: "alert", kind: "attention" });
+        }
+    }
+    // An install or uninstall changes the library at once, also while a game runs (owner,
+    // 2026-10-19: the uninstalled game kept its place until the game on screen closed); the
+    // reading is quiet and short (the games folders only change)
+    function readGamesQuietly() {
+        console.log("Installs changed: reading the games again, quietly");
+        diskGames.quietReading = true;
+        Internal.settings.reloadProviders();
+    }
+    // The home screen's notice of the install in progress (and how many wait)
+    readonly property var installNotices: {
+        const list = GameInfo.installs || [];
+        const cur = list.find(i => i.state === "installing");
+        if (!cur) return [];
+        const text = (cur.total > 0 ? Tr.tr("home.notice.install", { title: cur.title, p: Math.floor(cur.done * 100 / cur.total) })
+                                    : Tr.tr("home.notice.install.busy", { title: cur.title }))
+                     + (list.length > 1 ? "  ·  " + Tr.tr("home.notice.more", { n: list.length - 1 }) : "");
+        return [{ text: text, game: games.find(g => g.title === cur.title) || null }];
+    }
+
+    // ---- Games on a disk (4.3, approved demo design/demos/4.3-games-on-disk.html)
+    // "Which file starts {title}?": every file the console could start, with its folder; the
+    // choice is remembered (diskGames) and changed from Options
+    function chooseFile(game, thenStart) {
+        const files = GameInfo.diskFiles(game);
+        dialog.game = game;
+        dialog.mode = "chooseFile";
+        dialog.files = files;
+        dialog.thenStart = thenStart;
+        dialog.contentWidth = Theme.px(560);
+        dialog.title = Tr.tr("choose.title", { title: game.title });
+        dialog.text = Tr.tr("choose.text");
+        dialog.buttons = [];
+        dialog.initialItem = fileRepeater.itemAt(Math.max(0, files.indexOf(diskGames.chosen(game))));
+        dialog.open();
+    }
+    function fileChosen(file) {
+        const game = dialog.game, thenStart = dialog.thenStart;
+        if (!diskGames.choose(game, file)) {
+            dialog.close();
+            return;
+        }
+        dialog.close(true);
+        if (thenStart)
+            root.launch(game);
+        else
+            toast.show(Tr.tr("toast.chosen", { title: game.title, file: file.split("/").pop() }));
+    }
+    // A disk's name for people: its label, or "Internal disk" for the console's own
+    function diskName(root) {
+        if (root === "internal")
+            return Tr.tr("disk.internal");
+        const v = storage.volumes().find(v => v.key === root);
+        return v && v.name ? v.name : root.split("/").pop();
+    }
+    // A disk plugged in or out: its games come and go and a notice says so; disks without a Games
+    // folder change nothing. The games are read again quietly: the interface stays on screen and
+    // the games change once the new ones are ready (diskGames.quietReading). While a game runs,
+    // the reading waits for the game's end. The notice is kept in the theme's memory, in case
+    // something else reads the games again meanwhile and rebuilds the interface.
+    property var knownVolumes: []
+    property bool disksPending: false
+    onRunningGameChanged: if (disksPending && !runningGame) checkDisks()
+    function volumeKeys() { return storage.volumes().map(v => v.key).filter(k => k !== "internal"); }
+    function checkDisks() {
+        const now = volumeKeys();
+        const plugged = now.filter(k => knownVolumes.indexOf(k) < 0 && diskGames.hasGames(k));
+        const unplugged = knownVolumes.filter(k => now.indexOf(k) < 0 && games.some(g => GameInfo.diskRoot(g) === k));
+        knownVolumes = now;
+        if (plugged.length > 0 || unplugged.length > 0) {
+            const prev = api.memory.has("diskNotice") ? JSON.parse(api.memory.get("diskNotice")) : { plugged: [], unplugged: [] };
+            api.memory.set("diskNotice", JSON.stringify({ time: Date.now(), plugged: prev.plugged.concat(plugged),
+                                                          unplugged: prev.unplugged.concat(unplugged) }));
+            disksPending = true;
+        }
+        if (!disksPending || runningGame)
+            return;
+        disksPending = false;
+        console.log("Disks changed: reading the games again, quietly");
+        // a window about a game of the disk that is gone closes
+        if (dialog.visible && dialog.game && unplugged.indexOf(GameInfo.diskRoot(dialog.game)) >= 0)
+            dialog.close(true);
+        diskGames.quietReading = true;
+        Internal.settings.reloadProviders();
+    }
+    function diskNotices() {
+        if (!api.memory.has("diskNotice"))
+            return;
+        const d = JSON.parse(api.memory.get("diskNotice"));
+        api.memory.unset("diskNotice");
+        if (Date.now() - d.time > 600000)
+            return;
+        d.plugged.forEach(k => {
+            const n = games.filter(g => GameInfo.diskRoot(g) === k).length;
+            if (n > 0)
+                notify({ key: "notices.disk.plugged", args: { n: n }, icon: "usb", kind: "info" });
+        });
+        if (d.unplugged.length > 0)
+            notify({ key: "notices.disk.unplugged", args: {}, icon: "usb", crossed: true, kind: "info" });
+    }
+    Connections {
+        target: storage
+        function onVolumesChanged() { root.checkDisks(); }
+    }
+    Connections {                         // the games read again quietly are ready
+        target: api
+        function onGamedataReady() {
+            root.refreshGames();
+            root.diskNotices();
+        }
+    }
+
     // ---- Updates from the USB stick (testers, 4.2b): check, install, restart
     property var updateStatus: null
     function checkUpdates() {
@@ -769,8 +1384,17 @@ FocusScope {
         Qt.callLater(dialog.focusDefault);
     }
 
-    // ---- Steam (4.2): its library or store; owneetd starts Steam when needed
+    // ---- Steam (4.2, 4.2c): its store, installing and uninstalling; owneetd starts Steam when
+    // needed. Steam's window shows only for its store and its confirmations.
     function openSteam(page) {
+        if (steamOffline(page === "store" ? "store" : "play")) return;
+        withSteamNotice(() => {
+            if (page === "store") root.storeVisited = true;
+            steamRequest({ open: page }, null);
+        });
+    }
+    // Asks owneetd; Steam starts if needed (its first start: "Preparing Steam")
+    function steamRequest(body, done) {
         if (!owneetd.connected) {
             toast.show(Tr.tr("error.daemon.unavailable"));
             Nav.feedback("error");
@@ -787,9 +1411,10 @@ FocusScope {
                 return;
             }
             Nav.feedback("launch");
-            owneetd.post("/v1/steam", { open: page, language: Tr.language }, (status2, data) => {
+            owneetd.post("/v1/steam", Object.assign({ language: Tr.language }, body), (status2, data) => {
                 if (status2 === 202) {
-                    if (!st.running) steamPrep.start(!st.prepared);
+                    if (!st.running) steamPrep.start(!st.prepared, "");
+                    if (done) done();
                     return;
                 }
                 const code = data && data.error ? data.error.code : "";
@@ -798,6 +1423,201 @@ FocusScope {
                 Nav.feedback("error");
             });
         });
+    }
+    // Without internet, what needs it stops here with a clear message (owner, 2026-10-14):
+    // installing, the store, and Steam's first start or sign-in ("play" when Steam is ready
+    // needs nothing). True when blocked.
+    function steamOffline(kind) {
+        if (online)
+            return false;
+        const st = GameInfo.steam;
+        const ready = st !== null && st.prepared && st.account;
+        if (kind === "play" && ready)
+            return false;
+        if (kind === "play" || (kind === "store" && !ready))
+            kind = "first";
+        dialog.game = null;
+        dialog.mode = "offline";
+        dialog.contentWidth = 0;
+        dialog.icon = "wifi";
+        dialog.iconCrossed = true;
+        dialog.iconAttention = true;
+        dialog.title = Tr.tr("offline.title");
+        dialog.text = Tr.tr("offline." + kind);
+        dialog.buttons = [
+            { text: Tr.tr("offline.network"), style: "primary", action: () => {
+                dialog.close(true);
+                settings.section = "network";
+                root.goSection("settings");
+            } },
+            { text: Tr.tr("prompt.close"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        Nav.feedback("notify-error");
+        dialog.open(true);
+        return true;
+    }
+    // Before Steam's window (installing, uninstalling, the store), on PCs where it may show display
+    // errors (NVIDIA's driver) only: that they are harmless; every time until "Don't show again"
+    // (owner, 2026-10-14). Since Steam's window is readable there (repaint overlay, 2026-10-15) it
+    // no longer says what to press (owner, 2026-10-15).
+    function withSteamNotice(next) {
+        withSteamReturn(() => nvidiaNotice(next));
+    }
+    // How to come back from Steam (owner, 2026-10-15): at the first time Steam's window opens
+    // after each start of the console, until "Don't show again". Hold Home comes back; a Steam
+    // page that keeps loading is left by holding Home and closing Steam (Menu on its tile).
+    function withSteamReturn(next) {
+        if (api.memory.has("steamReturnNoticeHidden") || !systemInfo.onceThisBoot("steam-return-notice")) {
+            next();
+            return;
+        }
+        dialog.game = null;
+        dialog.mode = "steamReturn";
+        dialog.contentWidth = 0;
+        dialog.icon = "controller";
+        dialog.title = Tr.tr("steam.return.title");
+        dialog.text = Tr.tr("steam.return.text");
+        noticeNever.checked = false;
+        dialog.buttons = [
+            { text: Tr.tr("steam.notice.go"), style: "primary", action: () => {
+                if (noticeNever.checked) api.memory.set("steamReturnNoticeHidden", true);
+                dialog.close(true);
+                next();
+            } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function nvidiaNotice(next) {
+        const nvidia = GameInfo.steam !== null && GameInfo.steam.nvidia;
+        if (!nvidia || api.memory.has("steamConfirmNoticeHidden")) {
+            next();
+            return;
+        }
+        dialog.game = null;
+        dialog.mode = "steamNotice";
+        dialog.contentWidth = 0;
+        dialog.icon = "warning";
+        dialog.title = Tr.tr("steam.notice.title");
+        dialog.text = Tr.tr("steam.notice.text");
+        noticeNever.checked = false;
+        dialog.buttons = [
+            { text: Tr.tr("steam.notice.go"), style: "primary", action: () => {
+                if (noticeNever.checked) api.memory.set("steamConfirmNoticeHidden", true);
+                dialog.close(true);
+                next();
+            } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    // A licence agreement Steam asks to accept at the first start (owner, 2026-10-14): Steam's
+    // window may not be readable, and its selection starts on "Decline". The console shows the
+    // agreement's official address as a code to read on a phone, and what to press; owneetd shows
+    // Steam at once for that start (ask). Known from Steam's caches; remembered here once the game
+    // has started (it was accepted).
+    function agreementPending(game) {
+        const id = GameInfo.appid(game);
+        return id !== "" && !!game.extra["steam.eula.url"] && !api.memory.has("steamEulaDone." + id);
+    }
+    function agreementAccepted(appid) {
+        const g = steamGame(appid);
+        if (g && g.extra["steam.eula.url"] && !api.memory.has("steamEulaDone." + appid))
+            api.memory.set("steamEulaDone." + appid, true);
+    }
+    function showAgreement(game) {
+        const id = GameInfo.appid(game);
+        dialog.game = null;
+        dialog.mode = "agreement";
+        // Steam's caches give "http://store.steampowered.com//eula/…": the secure address, one slash
+        dialog.agreementUrl = String(game.extra["steam.eula.url"]).replace(/^http:/, "https:").replace(/([^:\/])\/\/+/g, "$1/");
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.title = Tr.tr("eula.title", { title: game.title });
+        dialog.text = Tr.tr("eula.text");
+        dialog.buttons = [
+            { text: Tr.tr("steam.notice.go"), style: "primary", action: () => {
+                dialog.close(true);
+                root.withSteamReturn(() => owneetd.post("/v1/steam", { ask: id }, () => root.launch(game, true)));
+            } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    // A Steam game whose Linux version does not start (4.5, approved demo): owneetd read Steam's
+    // "missing program" and kept Steam's error hidden. Try: owneetd closes Steam, sets the game's
+    // version for Windows and starts it again; "Starting …" stays meanwhile
+    function askWindowsVersion(appid) {
+        const game = steamGame(appid);
+        const title = game ? game.title : "Steam";
+        steamPrep.close(true);
+        dialog.game = null;
+        dialog.mode = "steamBroken";
+        dialog.contentWidth = 0;
+        dialog.icon = "";
+        dialog.title = Tr.tr("steam.broken.title", { title: title });
+        dialog.text = Tr.tr("steam.broken.text");
+        dialog.buttons = [
+            { text: Tr.tr("steam.broken.try"), style: "primary", action: () => {
+                dialog.close(true);
+                Nav.feedback("launch");
+                steamPrep.start(false, title);
+                steamPrep.steamRestart = true;
+                owneetd.post("/v1/steam", { windows: appid, name: title, language: Tr.language }, status => {
+                    if (status === 202) return;
+                    steamPrep.close(true);
+                    toast.show(Tr.tr("error.apps.failed"));
+                    Nav.feedback("error");
+                });
+            } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function askInstall(game) {
+        if (steamOffline("install")) return;
+        const id = GameInfo.appid(game);
+        dialog.game = null;
+        dialog.mode = "install";
+        dialog.contentWidth = 0;
+        dialog.icon = "download";
+        dialog.title = Tr.tr("install.title", { title: game.title });
+        dialog.text = Tr.tr("install.text");
+        dialog.buttons = [
+            { text: Tr.tr("install.go"), style: "primary", action: () => {
+                dialog.close(true);
+                root.withSteamNotice(() => root.steamRequest({ install: id }, () => {
+                    const asked = Object.assign({}, root.steamAsked);
+                    asked[id] = { title: game.title, kind: "install" };
+                    root.steamAsked = asked;
+                }));
+            } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    // Uninstalling, and cancelling a download: Steam's steam://uninstall, after the console asks
+    function askUninstall(game, cancelling) {
+        const id = GameInfo.appid(game);
+        const k = cancelling ? "cancelinst" : "uninstall";
+        dialog.game = null;
+        dialog.mode = "uninstall";
+        dialog.contentWidth = 0;
+        dialog.icon = "trash";
+        dialog.title = Tr.tr(k + ".title", { title: game.title });
+        dialog.text = Tr.tr(k + ".text");
+        dialog.buttons = [
+            { text: Tr.tr(k + ".go"), action: () => {
+                dialog.close(true);
+                root.withSteamNotice(() => root.steamRequest({ uninstall: id }, () => {
+                    const asked = Object.assign({}, root.steamAsked);
+                    asked[id] = { title: game.title, kind: cancelling ? "cancel" : "uninstall" };
+                    root.steamAsked = asked;
+                }));
+            } },
+            { text: Tr.tr(cancelling ? "cancelinst.keep" : "prompt.cancel"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 1;             // keep it: nothing removed by accident
+        dialog.open();
     }
     // The live system keeps Steam's files in RAM: with less than 12 GB, install first
     function showSteamNeedsInstall() {
@@ -810,6 +1630,30 @@ FocusScope {
         dialog.defaultIndex = 0;
         Nav.feedback("error");
         dialog.open(true);
+    }
+    // Closing Steam from the console (owner, 2026-10-15): Menu on the Steam tile of the home screen
+    // while Steam runs, also to leave a Steam page that never finishes loading. Downloads stop; a
+    // Steam game running closes too. Cancel first.
+    function confirmCloseSteam() {
+        const game = runningGame && String(runningGame.id).startsWith("steam:") ? runningGame : null;
+        dialog.game = null;
+        dialog.mode = "closeSteam";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("steam.close.title");
+        dialog.text = Tr.tr("steam.close.text") + (game ? "\n\n" + Tr.tr("steam.close.game", { title: game.name }) : "");
+        dialog.buttons = [
+            { text: Tr.tr("steam.close.go"), action: () => {
+                dialog.close();
+                closingApps["steam"] = true;             // closed on purpose: no "closed unexpectedly"
+                if (game) closingApps[game.id] = true;
+                owneetd.post("/v1/apps/steam/close", {}, (status) => {
+                    if (status >= 300 || status === 0) toast.show(Tr.tr("steam.close.failed"));
+                });
+            } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }
+        ];
+        dialog.defaultIndex = 1;
+        dialog.open();
     }
     // Library → Add games (approved demo 4.2): where games come from
     function showAddGames(selectDisk, quiet) {
@@ -827,7 +1671,7 @@ FocusScope {
     function addFrom(source) {
         if (source === "steam") {
             dialog.close(true);
-            root.openSteam("library");
+            root.openSteam("store");            // owned games are in the library already (4.2c)
         } else {
             showDiskGuide();
         }
@@ -1419,7 +2263,11 @@ FocusScope {
             anchors.fill: parent
             visible: root.section === "home"
             focus: visible
-            games: root.games
+            games: root.homeGames
+            notices: root.steamNotices.concat(root.installNotices).concat(root.windowsNotices)
+            onOpenNotice: if (notice.game) root.showDetails(notice.game)
+            steamRunning: root.apps.some(a => a.id === "steam")
+            onSteamOptions: root.confirmCloseSteam()
             onLaunch: root.launch(game)
             onDetails: root.showDetails(game)
             onOptions: root.showOptions(game)
@@ -1430,6 +2278,9 @@ FocusScope {
             canResume: root.sessionMode === "gamescope"
             onResume: root.resume(app)
             onCloseApp: root.confirmClose(app)
+            pointerOn: root.pointerStatus.on === true && root.runningGame !== null && root.pointerStatus.app === root.runningGame.id
+            onResumeWithPointer: root.resumeWithPointer(app)
+            onPointerOff: root.turnPointerOff()
             onNotYet: root.notYet()
             onQuickMenu: quick.openMenu()
             webApps: root.webApps
@@ -1464,6 +2315,7 @@ FocusScope {
             onOpenCredits: credits.openCredits()
             onNotYet: root.notYet()
             network: root.network
+            windowsText: root.windowsStatus && root.windowsStatus.needed ? root.windowsText(root.windowsStatus) : ""
             controllers: root.controllers
             onConnectNetwork: root.connectNetwork(net)
             onNetworkOptions: root.networkOptions(net)
@@ -1525,6 +2377,12 @@ FocusScope {
         property string updateNote: ""
         property var facts: []              // app: [label, value] lines
         property string note: ""            // app: Google's terms for Widevine come at the first opening
+        property string agreementUrl: ""    // agreement: the licence agreement's address (4.2c)
+        property string licence: ""         // licence: an installer's licence text (4.6)
+        scrollTarget: mode === "licence" && licence !== "" ? licenceFlick : null
+        property string appId: ""           // close: the app it asks about
+        property var files: []              // chooseFile: what the game on a disk can start (4.3)
+        property bool thenStart: false      // chooseFile: the game starts once chosen
         property int seconds: 0             // displayConfirm: until it goes back
         property real deadline: 0
         onSecondsChanged: if (mode === "displayConfirm") text = Tr.tr("display.keep.text", { n: seconds })
@@ -1771,23 +2629,208 @@ FocusScope {
             Text { text: Tr.tr("widevine.terms"); color: Theme.muted; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
             Text { text: root.termsAddress; color: Theme.fg; font.family: Theme.displayFont; font.weight: Font.Bold; font.pixelSize: Theme.fs(14.5) }
         }
-        Column {                          // details: facts about the game
+        Column {                          // details: facts about the game (Steam: its download, 4.2c)
             visible: dialog.mode === "details" && dialog.game !== null
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Theme.px(6)
-            Repeater {
-                model: dialog.game ? [
-                    [Tr.tr("details.source"), GameInfo.source(dialog.game)],
-                    [Tr.tr("details.last"), GameInfo.lastPlayed(dialog.game)],
-                    [Tr.tr("details.time"), GameInfo.played(dialog.game) ? GameInfo.playTime(dialog.game) : "\u2014"]
-                ] : []
-                Row {
-                    spacing: Theme.px(18)
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    Text { text: modelData[0]; color: Theme.muted; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
-                    Text { text: modelData[1]; color: Theme.fg; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
+            Grid {
+                anchors.horizontalCenter: parent.horizontalCenter
+                columns: 2
+                columnSpacing: Theme.px(18)
+                rowSpacing: Theme.px(6)
+                Repeater {
+                    model: dialog.game && dialog.mode === "details" ? root.detailsFacts(dialog.game).reduce((a, f) => a.concat(f), []) : []
+                    Text {
+                        text: modelData
+                        color: index % 2 === 0 ? Theme.muted : Theme.fg
+                        font.family: Theme.textFont
+                        font.pixelSize: Theme.fs(14.5)
+                    }
                 }
             }
+            Rectangle {                   // the download's progress
+                readonly property string s: dialog.game ? GameInfo.steamState(dialog.game) : ""
+                visible: s === "downloading" || s === "updating" || s === "queued" || s === "paused"
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Theme.px(420); height: Theme.px(8); radius: height / 2
+                color: Theme.raised
+                Rectangle {
+                    width: parent.width * (dialog.game ? GameInfo.progress(dialog.game) : 0) / 100
+                    height: parent.height; radius: height / 2
+                    color: Theme.accent
+                    Behavior on width { NumberAnimation { duration: Theme.motionMs } }
+                }
+            }
+            Text {                        // on a disk that is not connected
+                visible: dialog.game !== null && GameInfo.steamState(dialog.game) === "away"
+                anchors.horizontalCenter: parent.horizontalCenter
+                readonly property string disk: dialog.game ? GameInfo.awayDisk(dialog.game) : ""
+                text: disk !== "" ? Tr.tr("details.away", { disk: disk }) : Tr.tr("details.away.unnamed")
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(14.5)
+            }
+        }
+        Column {                          // chooseFile: the files a game on a disk can start (demo 4.3)
+            visible: dialog.mode === "chooseFile"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(560)
+            spacing: Theme.px(10)
+            Repeater {
+                id: fileRepeater
+                model: dialog.mode === "chooseFile" ? dialog.files : []
+                Rectangle {
+                    readonly property bool navigable: true
+                    readonly property bool current: dialog.game !== null && diskGames.chosen(dialog.game) === modelData
+                    signal activated()
+                    onActivated: root.fileChosen(modelData)
+                    width: parent.width
+                    height: fileColumn.height + Theme.px(24)
+                    radius: Theme.radiusM
+                    color: Theme.surface
+                    border.color: current ? Theme.accent : Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                    Column {
+                        id: fileColumn
+                        anchors { left: parent.left; leftMargin: Theme.px(18); right: parent.right; rightMargin: Theme.px(18)
+                                  verticalCenter: parent.verticalCenter }
+                        spacing: Theme.px(2)
+                        Text {
+                            width: parent.width
+                            text: modelData.split("/").pop()
+                            color: Theme.fg
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(17)
+                            elide: Text.ElideMiddle
+                        }
+                        Text {
+                            readonly property string folder: modelData.indexOf("/") < 0 ? "" : modelData.slice(0, modelData.lastIndexOf("/"))
+                            width: parent.width
+                            text: folder === "" ? Tr.tr("choose.file.top") : Tr.tr("choose.file.in", { folder: folder })
+                            color: Theme.muted
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(12.5)
+                            elide: Text.ElideMiddle
+                        }
+                    }
+                    FocusFrame {}
+                }
+            }
+        }
+        Rectangle {                       // licence: an installer's licence, scrolled (4.6)
+            visible: dialog.mode === "licence" && dialog.licence !== ""
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(680); height: Theme.px(300)
+            radius: Theme.radiusM
+            color: Theme.surface
+            border.color: Theme.line
+            Flickable {
+                id: licenceFlick
+                anchors { fill: parent; margins: Theme.px(16) }
+                clip: true
+                contentHeight: licenceText.implicitHeight
+                boundsBehavior: Flickable.StopAtBounds
+                Behavior on contentY { enabled: !Theme.reduceMotion; NumberAnimation { duration: Theme.motionMs; easing.type: Easing.OutCubic } }
+                Text {
+                    id: licenceText
+                    width: licenceFlick.width
+                    text: dialog.mode === "licence" ? dialog.licence : ""
+                    textFormat: Text.PlainText
+                    color: Theme.fg
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(14.5)
+                    wrapMode: Text.Wrap
+                }
+            }
+        }
+        Column {                          // agreement: the licence agreement's address, as a code (4.2c)
+            visible: dialog.mode === "agreement"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(8)
+            QrCode {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Theme.px(200); height: width
+                text: dialog.mode === "agreement" ? dialog.agreementUrl : ""
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: dialog.agreementUrl.replace(/^https?:\/\//, "")
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(12.5)
+            }
+        }
+        Row {                             // pointerHelp: the controller, a label at each button (4.7)
+            visible: dialog.mode === "pointerHelp"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(26)
+            Column {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Theme.px(14)
+                Repeater {
+                    model: [["ls", "pointer.help.move"], ["dpad", "pointer.help.steps"], ["guide", "pointer.help.home"]]
+                    Prompt { anchors.right: parent.right; buttons: [modelData[0]]; label: Tr.tr(modelData[1]) }
+                }
+            }
+            PadDrawing {
+                anchors.verticalCenter: parent.verticalCenter
+                width: Theme.px(240); height: Theme.px(150)
+                kind: "plain"
+                color: Theme.fg
+            }
+            Column {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Theme.px(14)
+                Repeater {
+                    model: [["a", "pointer.help.click"], ["x", "pointer.help.right"], ["rs", "pointer.help.scroll"], ["y", "pointer.help.type"]]
+                    Prompt { buttons: [modelData[0]]; label: Tr.tr(modelData[1]) }
+                }
+            }
+        }
+        Column {                          // pointerType: what goes to the window (4.7)
+            visible: dialog.mode === "pointerType"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(480)
+            FocusScope {
+                id: pointerField
+                // A opens the on-screen keyboard; a keyboard plugged in types here, Enter sends
+                readonly property bool navigable: true
+                signal activated()
+                onActivated: osk.open(pointerInput, false)
+                width: parent.width
+                height: Theme.px(52)
+                Rectangle {
+                    anchors.fill: parent
+                    radius: Theme.radiusS + Theme.px(2)
+                    color: Theme.surface
+                    border.color: osk.visible && osk.target === pointerInput ? Theme.accent : Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                }
+                TextInput {
+                    id: pointerInput
+                    focus: true
+                    anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: Theme.px(16) }
+                    color: Theme.fg
+                    selectionColor: Theme.accent
+                    selectedTextColor: Theme.onAccent
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(17)
+                    maximumLength: 256
+                    clip: true
+                    cursorVisible: pointerField.activeFocus || (osk.visible && osk.target === pointerInput)
+                    Keys.onReturnPressed: if (dialog.buttons.length > 0) dialog.buttons[0].action()
+                    Keys.onEnterPressed: if (dialog.buttons.length > 0) dialog.buttons[0].action()
+                }
+                FocusFrame { shown: pointerField.activeFocus }
+            }
+        }
+        SettingRow {                      // steamNotice: "Don't show again" (4.2c)
+            id: noticeNever
+            visible: dialog.mode === "steamNotice" || dialog.mode === "steamReturn" || dialog.mode === "pointerHelp"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(360)
+            text: Tr.tr("steam.notice.never")
+            onActivated: checked = !checked
         }
         Column {                          // connect: password, what went wrong, "Connecting…"
             visible: dialog.mode === "connect"
@@ -2065,7 +3108,7 @@ FocusScope {
         showPassword: showPassword.checked
         onTogglePassword: showPassword.checked = !showPassword.checked
         onDone: {
-            if (dialog.visible && dialog.mode === "connect" && dialog.buttons.length > 0)
+            if (dialog.visible && (dialog.mode === "connect" || dialog.mode === "pointerType") && dialog.buttons.length > 0)
                 dialog.buttons[0].action();      // Done = Connect
             else
                 close(true);
@@ -2120,8 +3163,13 @@ FocusScope {
         function onEvent(type, data) {
             if (!steamPrep.visible || !data) return;
             const id = data.id || "";
-            if ((type === "app.window" && (id === "steam" || id.startsWith("steam:")))
-                    || (type === "app.exited" && id === "steam")
+            // Steam closed to set a game's version for Windows comes back for it (4.5)
+            if (type === "app.started" && id === "steam") steamPrep.steamRestart = false;
+            // started for a game, Steam stays hidden: wait for the game's window (owneetd keeps
+            // Steam behind until then), or Steam, if it needs the user (focus.changed)
+            const steamWindow = id === "steam" && steamPrep.gameTitle === "";
+            if ((type === "app.window" && (steamWindow || id.startsWith("steam:")))
+                    || (type === "app.exited" && ((id === "steam" && !steamPrep.steamRestart) || id.startsWith("steam:") || steamPrep.windows))
                     || (type === "focus.changed" && data.focus !== "home"))
                 steamPrep.close(true);
         }

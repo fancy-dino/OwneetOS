@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Writes an invented Steam folder for the frontend preview ([[step-4.2c-steam-without-its-interface]]):
+# the account's licences (appcache/packageinfo.vdf, binary version 28), the apps' types and names
+# (appcache/appinfo.vdf, binary version 29 with its table of keys), a few installed games, a game
+# on a disk that is not connected, a signed-in account and artwork (4.4). Names, ids and pictures
+# are invented.
+#
+#   fake-steam.py STEAM_DIR
+import os
+import struct
+import sys
+
+# app id → (name, type, installed)
+APPS = {
+    2001: ("Glass Canyon", "game", True),
+    2002: ("Paper Comets", "game", True),
+    2003: ("Coral Line", "game", False),     # installed on a disk that is not connected
+    2004: ("Iron Tundra", "game", False),
+    2005: ("Feather Fall", "game", False),
+    2006: ("Deep Lantern", "game", False),
+    2007: ("Marble Sky", "game", False),
+    2008: ("Echo Valley", "game", False),
+    2009: ("Frost Relay", "game", False),
+    2010: ("Sunken Bell", "game", True),
+    2011: ("Orchard", "game", False),
+    2012: ("Brass Comet", "game", False),
+    2013: ("Rust Harbor", "game", False),       # a free weekend that ended: not owned
+    2014: ("Velvet Tide", "game", False),       # given for free, no longer offered: owned
+    2101: ("Glass Canyon Soundtrack", "music", False),
+    2102: ("Paper Comets: Extra Levels", "dlc", False),
+    2103: ("Iron Tundra Demo", "demo", False),
+}
+# games with a licence agreement Steam asks to accept at the first start (not accepted yet)
+AGREEMENTS = {2010}
+# packages: id → (status, app ids, extended); package 0 is everyone's and free weekends have
+# ended: both left out by the console. "status" is whether the store still offers the package.
+PACKAGES = {
+    0: (0, [7, 2001], {}),
+    3001: (0, [2001, 2101], {}),
+    3002: (0, [2002, 2102], {}),
+    3003: (0, [2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2103], {}),
+    3004: (2, [2014], {}),
+    3005: (0, [2013], {"freeweekend": 1, "expirytime": 1588870800}),
+}
+
+
+def kv_text(value, keys=None):
+    """Binary KeyValues of a dict: strings, ints, nested dicts; keys as C strings or table indices."""
+    out = b""
+    for k, v in value.items():
+        if isinstance(v, dict):
+            t, data = 0, kv_text(v, keys) + b"\x08"
+        elif isinstance(v, int):
+            t, data = 2, struct.pack("<i", v)
+        else:
+            t, data = 1, v.encode() + b"\0"
+        if keys is None:
+            name = k.encode() + b"\0"
+        else:
+            if k not in keys:
+                keys.append(k)
+            name = struct.pack("<i", keys.index(k))
+        out += bytes([t]) + name + data
+    return out
+
+
+def packageinfo():
+    out = struct.pack("<II", 0x06565528, 1)
+    for pid, (status, apps, extended) in PACKAGES.items():
+        body = {str(pid): {"packageid": pid, "status": status, "appids": {str(i): a for i, a in enumerate(apps)},
+                           "extended": extended}}
+        out += struct.pack("<I", pid) + b"\0" * 20 + struct.pack("<I", 1) + struct.pack("<Q", 0)
+        out += kv_text(body) + b"\x08"
+    return out + struct.pack("<I", 0xFFFFFFFF)
+
+
+def appinfo():
+    keys = []
+    entries = b""
+    for appid, (name, kind, _) in APPS.items():
+        common = {"name": name, "type": kind.capitalize()}
+        if appid in AGREEMENTS:     # as Steam writes them: http and a double slash
+            common["eulas"] = {"0": {"id": "%d_eula_0" % appid, "name": name + " EULA",
+                                     "url": "http://store.steampowered.com//eula/%d_eula_0" % appid}}
+        body = kv_text({"appinfo": {"appid": appid, "common": common}}, keys) + b"\x08"
+        head = struct.pack("<IIQ", 2, 0, 0) + b"\0" * 20 + struct.pack("<I", 1) + b"\0" * 20
+        entries += struct.pack("<II", appid, len(head) + len(body)) + head + body
+    entries += struct.pack("<I", 0)
+    start = 8 + 8                               # magic, universe, offset of the table of keys
+    table = struct.pack("<I", len(keys)) + b"".join(k.encode() + b"\0" for k in keys)
+    return struct.pack("<IIq", 0x07564429, 1, start + len(entries)) + entries + table
+
+
+def main():
+    steam = sys.argv[1]
+    for d in ("appcache", "steamapps", "config", "ubuntu12_32"):
+        os.makedirs(os.path.join(steam, d), exist_ok=True)
+    with open(os.path.join(steam, "appcache", "packageinfo.vdf"), "wb") as f:
+        f.write(packageinfo())
+    with open(os.path.join(steam, "appcache", "appinfo.vdf"), "wb") as f:
+        f.write(appinfo())
+    with open(os.path.join(steam, "steamapps", "libraryfolders.vdf"), "w") as f:
+        f.write('"libraryfolders"\n{\n\t"0"\n\t{\n\t\t"path"\t\t"%s"\n\t\t"apps"\n\t\t{\n%s\t\t}\n\t}\n'
+                '\t"1"\n\t{\n\t\t"path"\t\t"/run/media/owneet/Games SSD/SteamLibrary"\n\t\t"label"\t\t""\n'
+                '\t\t"apps"\n\t\t{\n\t\t\t"2003"\t\t"9000000000"\n\t\t}\n\t}\n}\n'
+                % (steam, "".join('\t\t\t"%d"\t\t"1000"\n' % a for a, v in APPS.items() if v[2])))
+    for appid, (name, _, installed) in APPS.items():
+        if installed:
+            with open(os.path.join(steam, "steamapps", "appmanifest_%d.acf" % appid), "w") as f:
+                f.write('"AppState"\n{\n\t"appid"\t\t"%d"\n\t"name"\t\t"%s"\n\t"StateFlags"\t\t"4"\n}\n' % (appid, name))
+    with open(os.path.join(steam, "config", "loginusers.vdf"), "w") as f:
+        f.write('"users"\n{\n\t"76561190000000001"\n\t{\n\t\t"AccountName"\t\t"preview"\n\t\t"MostRecent"\t\t"1"\n\t}\n}\n')
+    open(os.path.join(steam, "ubuntu12_32", "steam"), "w").close()
+    artwork(steam)
+
+
+# Steam's artwork cache (appcache/librarycache, step 4.4), invented pictures drawn here: a portrait
+# cover and a wide picture (older layout, at the top of the app's folder), a header only (newer
+# layout, in a sub-folder named after a hash), and games without any
+ART = {
+    2001: [("library_600x900.jpg", "300x450", "#264653-#2a9d8f"), ("library_hero.jpg", "1920x620", "#264653-#e9c46a"),
+           ("header.jpg", "460x215", "#264653-#2a9d8f")],
+    2002: [("0f3a/library_header.jpg", "460x215", "#6d597a-#e56b6f")],
+    2010: [("header.jpg", "460x215", "#003049-#f77f00")],
+    2004: [("9b1c/library_capsule.jpg", "300x450", "#3d405b-#81b29a")],
+}
+
+
+def artwork(steam):
+    import subprocess
+    for appid, pictures in ART.items():
+        for name, size, colours in pictures:
+            path = os.path.join(steam, "appcache", "librarycache", str(appid), name)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            label = APPS[appid][0].upper()
+            text = ["-gravity", "center", "-fill", "white", "-pointsize", "28", "-annotate", "0", label]
+            # with the game's name when a font is found, otherwise the colours alone
+            for args in ([t] + ["-size", size, "gradient:" + colours] + x + [path]
+                         for x in (text, []) for t in ("magick", "convert")):
+                try:
+                    subprocess.run(args, check=True, capture_output=True)
+                    break
+                except (OSError, subprocess.CalledProcessError):
+                    continue
+
+
+if __name__ == "__main__":
+    main()

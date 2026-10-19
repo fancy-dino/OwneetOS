@@ -144,7 +144,10 @@ HashMap<QString, PlayStats> read_playtime(const QString& steam_datadir)
         const qint64 last = app.value(QLatin1String("lastplayed")).toLongLong();
         if (last > 0)
             stats.last_played = QDateTime::fromSecsSinceEpoch(last);
-        if (stats.seconds > 0 || stats.last_played.isValid())
+        for (auto entry = app.cbegin(); entry != app.cend(); ++entry)
+            if (entry.key().contains(QLatin1String("_eula_")))
+                stats.eulas.append(entry.key());
+        if (stats.seconds > 0 || stats.last_played.isValid() || !stats.eulas.isEmpty())
             result.emplace(it.key(), stats);
     }
     return result;

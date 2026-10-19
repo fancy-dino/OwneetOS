@@ -1,0 +1,10 @@
+@owneetd
+@steam
+# The library's selection goes round each row (owner, 2026-10-15): left on a row's first game goes
+# to its last, right on its last goes back to its first.
+pad rb
+shot 01-first-game
+pad left
+shot 02-left-to-row-end
+pad right
+shot 03-right-back-to-row-start

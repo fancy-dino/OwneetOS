@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The start-up animation ([[step-3.13-start-up-animation-and-power-options]], approved demo
 // design/demos/3.13-startup-power.html), once per boot with the start-up sound: it starts from the
-// boot splash's own picture (the wordmark centred, at 46 % of the height, as Plymouth shows it),
-// the letters of "Owneet" ripple, "OS" pops with a coral glow, then the wordmark flies to its place
-// in the top bar while the pages rise under it. "Reduce motion": a plain fade.
+// boot splash's own picture (the wordmark centred, at 46 % of the height, as Plymouth shows it,
+// white on black for every palette since 2026-10-15), the letters of "Owneet" ripple, "OS" pops
+// and takes the palette's accent with its glow, then the wordmark flies to its place in the top
+// bar, taking the palette's text colour, while the black fades into the pages rising under it.
+// "Reduce motion": a plain fade.
 import QtQuick 2.15
 import "foundation"
 
@@ -23,11 +25,16 @@ Item {
     // owneetos-wordmark.svg (viewBox 3521.8 x 844.5, baseline 752.3 from the top) and shown
     // unscaled by Plymouth, centred, its top at 46 % of the height left free
     readonly property real splashWidth: 420
+    // the wordmark's colours: the splash's white, then the palette's (set by the animation)
+    property color inkLetters: Theme.splashFg
+    property color inkOS: Theme.splashFg
     // Shown at once, still (the splash's picture), until go(): the start-up sound plays then
     function show() {
         place();
         mark.opacity = 1;
         backdrop.opacity = 1;
+        inkLetters = Theme.splashFg;
+        inkOS = Theme.splashFg;
         if (pages) { pages.opacity = 0; pageShift.y = Theme.px(14); }
         visible = true;
     }
@@ -69,7 +76,7 @@ Item {
     Rectangle {
         id: backdrop
         anchors.fill: parent
-        color: Theme.bg
+        color: Theme.splashBg
     }
     // A soft coral glow behind "OS", drawn once
     Canvas {
@@ -108,7 +115,7 @@ Item {
                     property real lift: 0
                     transform: Translate { y: -letter.lift }
                     text: modelData
-                    color: Theme.fg
+                    color: root.inkLetters
                     font.family: Theme.displayFont
                     font.weight: Font.ExtraBold
                     font.pixelSize: mark.size
@@ -129,7 +136,7 @@ Item {
             id: os
             x: letters.width - mark.size * 0.03
             text: "OS"
-            color: Theme.accent
+            color: root.inkOS
             font.family: Theme.displayFont
             font.weight: Font.ExtraBold
             font.pixelSize: mark.size
@@ -142,7 +149,10 @@ Item {
         PauseAnimation { duration: 480 }
         ParallelAnimation {
             SequentialAnimation {
-                NumberAnimation { target: os; property: "scale"; to: 1.16; duration: 200; easing.type: Easing.OutCubic }
+                ParallelAnimation {
+                    NumberAnimation { target: os; property: "scale"; to: 1.16; duration: 200; easing.type: Easing.OutCubic }
+                    ColorAnimation { target: root; property: "inkOS"; to: Theme.accent; duration: 200 }
+                }
                 NumberAnimation { target: os; property: "scale"; to: 1; duration: 320; easing.type: Easing.OutBack }
             }
             SequentialAnimation {
@@ -154,6 +164,7 @@ Item {
             NumberAnimation { id: toX; target: mark; property: "x"; duration: 750; easing.type: Easing.InOutCubic }
             NumberAnimation { id: toY; target: mark; property: "y"; duration: 750; easing.type: Easing.InOutCubic }
             NumberAnimation { id: toScale; target: mark; property: "scale"; duration: 750; easing.type: Easing.InOutCubic }
+            ColorAnimation { target: root; property: "inkLetters"; to: Theme.fg; duration: 750 }
             SequentialAnimation {
                 PauseAnimation { duration: 200 }
                 NumberAnimation { target: backdrop; property: "opacity"; to: 0; duration: 600 }

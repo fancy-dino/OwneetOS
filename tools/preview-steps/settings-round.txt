@@ -1,0 +1,9 @@
+@owneetd
+# Settings' sections go round (owner, 2026-10-16): up on the first section goes to the last
+# (System), down on the last back to the first (Network).
+pad rb rb
+shot 01-network
+pad up
+shot 02-up-to-system
+pad down
+shot 03-down-to-network

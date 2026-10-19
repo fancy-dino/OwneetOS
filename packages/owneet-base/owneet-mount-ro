@@ -1,0 +1,73 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Minimal mounting of USB disks ([[step-4.3-local-drm-free-games]], owner 2026-10-15): a USB disk's
+# file system is mounted READ ONLY at /run/media/owneet/<label>, just enough for the console to
+# find and start the games on it; everything else (read-write, internal disks, notices, moving
+# games) is step 6.5 ([[disks]]). Read only also keeps the guard on Windows disks left dirty
+# (Fast Startup, hibernation): they are never written.
+#
+#   owneet-mount-ro start <kernel name>   mount /dev/<kernel name> (e.g. sdb1)
+#   owneet-mount-ro stop <kernel name>    unmount it and remove its folder
+#
+# Runs as root, started by owneet-mount-ro@<kernel name>.service, which the udev rule
+# 90-owneet-usb-disks.rules pulls in when a USB file system appears and which stops when it goes.
+
+set -uo pipefail
+
+MODE="${1:-}"
+NAME="${2:-}"
+BASE=/run/media/owneet
+STATE=/run/owneet-mount-ro
+[[ "$NAME" =~ ^[a-z0-9]+$ ]] || { echo "usage: owneet-mount-ro start|stop <kernel name>" >&2; exit 2; }
+dev="/dev/$NAME"
+mkdir -p "$STATE"
+
+case "$MODE" in
+    start)
+        [[ -b "$dev" ]] || exit 0
+        # Already mounted (e.g. the system's own disk, or the OWNEETLOG stick): left alone
+        if findmnt -nS "$dev" >/dev/null 2>&1; then exit 0; fi
+        fstype="$(blkid -po value -s TYPE "$dev" 2>/dev/null)"
+        label="$(blkid -po value -s LABEL "$dev" 2>/dev/null)"
+        [[ "$label" == OWNEETLOG ]] && exit 0
+        # Games start from the disk, so it is not noexec. Journals left by an unclean removal are
+        # not replayed (that would write). The console user (uid/gid 1000) owns the files of file
+        # systems without owners
+        case "$fstype" in
+            ext2) type="$fstype"; opts="ro,nosuid,nodev" ;;
+            ext3|ext4) type="$fstype"; opts="ro,nosuid,nodev,noload" ;;
+            btrfs) type="$fstype"; opts="ro,nosuid,nodev,rescue=nologreplay" ;;
+            xfs) type="$fstype"; opts="ro,nosuid,nodev,norecovery" ;;
+            vfat|exfat) type="$fstype"; opts="ro,nosuid,nodev,uid=1000,gid=1000,umask=022" ;;
+            ntfs) type=ntfs3; opts="ro,nosuid,nodev,uid=1000,gid=1000,umask=022" ;;
+            *) exit 0 ;;
+        esac
+        # The folder's name is the disk's label (what the user named it), otherwise the kernel
+        # name; "/" and leading dots are not allowed in a folder name
+        dir="$(printf '%s' "${label:-$NAME}" | tr '/' '_' | sed 's/^\.*//')"
+        [[ -n "$dir" ]] || dir="$NAME"
+        target="$BASE/$dir"
+        if mountpoint -q "$target"; then target="$BASE/$dir-$NAME"; fi
+        mkdir -p "$target"
+        if ! mount -t "$type" -o "$opts" "$dev" "$target"; then
+            rmdir "$target" 2>/dev/null
+            exit 1
+        fi
+        printf '%s\n' "$target" > "$STATE/$NAME"
+        echo "owneet-mount-ro: $dev ($fstype) mounted read only at $target"
+        ;;
+    stop)
+        [[ -f "$STATE/$NAME" ]] || exit 0
+        target="$(cat "$STATE/$NAME")"
+        # The disk may be gone already (unplugged): a lazy unmount always lets go of it
+        umount "$target" 2>/dev/null || umount -l "$target" 2>/dev/null
+        rmdir "$target" 2>/dev/null
+        rm -f "$STATE/$NAME"
+        ;;
+    *)
+        echo "usage: owneet-mount-ro start|stop <kernel name>" >&2
+        exit 2
+        ;;
+esac
+exit 0

@@ -2,7 +2,9 @@
 // A game's art with rounded corners: its own image from local files when there is one (cropped to
 // fill), otherwise soft colour fields from a hue derived from the title, so every game keeps the
 // same colours (no third-party images). `shade` darkens the bottom (for a title) and `scrim` the
-// left side (for text over the art).
+// left side (for text over the art). With `fit` the image is shown whole, over the generated art,
+// at `fitX` / `fitY` (0…1: where the free room goes), e.g. a Steam game's wide header in a
+// portrait cover, or a game's portrait cover in the home screen's wide card (step 4.4).
 import QtQuick 2.15
 
 Canvas {
@@ -12,6 +14,10 @@ Canvas {
     property real radius: Theme.radiusM
     property bool shade: false
     property bool scrim: false
+    property bool fit: false
+    property real fitX: 0.5
+    property real fitY: 0.5
+    property real fitMargin: Theme.px(10)
     readonly property real hue: {        // FNV-1a hash of the title, spread over the colour wheel
         let h = 2166136261;
         for (let i = 0; i < seed.length; i++)
@@ -23,15 +29,17 @@ Canvas {
     onHueChanged: requestPaint()
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
-    onImageChanged: {
-        imageReady = false;
-        if (image.toString() !== "") {
-            if (isImageLoaded(image)) imageReady = true; else loadImage(image);
-        }
+    // An image another art has loaded already gives no imageLoaded signal: ready at once
+    function useImage() {
+        const src = image.toString();
+        imageReady = src !== "" && isImageLoaded(src);
+        if (src !== "" && !imageReady)
+            loadImage(src);
         requestPaint();
     }
-    onImageLoaded: { imageReady = isImageLoaded(image); requestPaint(); }
-    Component.onCompleted: if (image.toString() !== "") loadImage(image)
+    onImageChanged: useImage()
+    onImageLoaded: { imageReady = image.toString() !== "" && isImageLoaded(image.toString()); requestPaint(); }
+    Component.onCompleted: useImage()
 
     function hsl(h, s, l, a) { return Qt.hsla((((h % 360) + 360) % 360) / 360, s, l, a === undefined ? 1 : a); }
     function rounded(ctx, w, h, r) {
@@ -39,6 +47,7 @@ Canvas {
         ctx.moveTo(r, 0); ctx.arcTo(w, 0, w, h, r); ctx.arcTo(w, h, 0, h, r);
         ctx.arcTo(0, h, 0, 0, r); ctx.arcTo(0, 0, w, 0, r); ctx.closePath();
     }
+    onFitChanged: requestPaint()
     onPaint: {
         const ctx = getContext("2d");
         const w = width, h = height;
@@ -46,11 +55,12 @@ Canvas {
         ctx.save();
         rounded(ctx, w, h, Math.min(radius, w / 2, h / 2));
         ctx.clip();
-        const img = imageReady ? ctx.createImageData(image) : null;
-        if (img && img.width > 0) {
+        // (the Canvas functions take the image's address as text, not as a url)
+        const img = imageReady ? ctx.createImageData(image.toString()) : null;
+        if (img && img.width > 0 && !fit) {
             const s = Math.max(w / img.width, h / img.height);   // crop to fill
             const iw = img.width * s, ih = img.height * s;
-            ctx.drawImage(image, (w - iw) / 2, (h - ih) / 2, iw, ih);
+            ctx.drawImage(image.toString(), (w - iw) / 2, (h - ih) / 2, iw, ih);
         } else {
             let g = ctx.createLinearGradient(0, 0, w, h);
             g.addColorStop(0, hsl(hue, 0.45, 0.26));
@@ -67,6 +77,18 @@ Canvas {
             g.addColorStop(1, hsl(hue + 40, 0.70, 0.35, 0));
             ctx.fillStyle = g;
             ctx.fillRect(0, 0, w, h);
+        }
+        if (img && img.width > 0 && fit) {      // the whole image, over the generated art
+            const m = fitMargin;
+            const s = Math.min((w - 2 * m) / img.width, (h - 2 * m) / img.height);
+            const iw = img.width * s, ih = img.height * s;
+            const x = m + (w - 2 * m - iw) * fitX, y = m + (h - 2 * m - ih) * fitY;
+            ctx.save();
+            ctx.translate(x, y);
+            rounded(ctx, iw, ih, Math.min(radius / 2, iw / 2, ih / 2));
+            ctx.clip();
+            ctx.drawImage(image.toString(), 0, 0, iw, ih);
+            ctx.restore();
         }
         if (shade) {
             const g = ctx.createLinearGradient(0, h * 0.45, 0, h);

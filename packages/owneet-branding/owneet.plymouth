@@ -1,6 +1,6 @@
 [Plymouth Theme]
 Name=OwneetOS
-Description=OwneetOS boot splash: the wordmark and a coral spinner on deep navy.
+Description=OwneetOS boot splash: the wordmark and a spinner, white on black (neutral for every palette).
 ModuleName=two-step
 
 [two-step]
@@ -18,10 +18,10 @@ WatermarkHorizontalAlignment=.5
 WatermarkVerticalAlignment=.46
 Transition=none
 TransitionDuration=0.0
-BackgroundStartColor=0x0e1424
-BackgroundEndColor=0x0e1424
-ProgressBarBackgroundColor=0x222d4a
-ProgressBarForegroundColor=0xff8a5b
+BackgroundStartColor=0x000000
+BackgroundEndColor=0x000000
+ProgressBarBackgroundColor=0x262626
+ProgressBarForegroundColor=0xffffff
 MessageBelowAnimation=true
 
 [boot-up]

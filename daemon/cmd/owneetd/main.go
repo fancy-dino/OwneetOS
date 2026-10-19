@@ -25,14 +25,17 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/display"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/installs"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/live"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/network"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/pointer"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/power"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/sdldb"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/update"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/vinput"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/webapps"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/windows"
 )
 
 func main() {
@@ -110,12 +113,20 @@ func run(configPath string) error {
 		}
 	}()
 
+	// The virtual keyboard and mouse: made as soon as /dev/uinput can be opened (the session may
+	// not be active yet when owneetd starts)
 	var input api.VirtualInput
-	if vin, err := vinput.New(cfg.KeyboardLayout); err != nil {
+	vin, err := vinput.NewRetrying(ctx, cfg.KeyboardLayout, 3*time.Second, log)
+	if err != nil {
 		log.Warn("virtual keyboard and mouse not available", "err", err)
 	} else {
 		defer vin.Close()
 		input = vin
+		select {
+		case <-vin.Ready():
+		default:
+			log.Info("virtual keyboard and mouse: waiting for access to /dev/uinput")
+		}
 	}
 
 	var btAPI api.Bluetooth
@@ -230,6 +241,54 @@ func run(configPath string) error {
 	}
 	go hub.Follow(ctx.Done())
 
+	// Windows games ([[step-4.5-windows-games-proton]]): Proton and its runtime, downloaded once
+	// by umu-launcher when the library has a Windows game and the console is online
+	home, _ := os.UserHomeDir()
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		cacheDir = filepath.Join(home, ".cache")
+	}
+	winData := filepath.Join(home, ".local", "share", "owneet", "windows")
+	winMgr := &windows.Manager{Broker: broker, Log: log, DataDir: winData}
+	if netAPI != nil {
+		winMgr.Online = func() bool { return netAPI.Status().State == "connected" }
+	}
+	if umu, err := exec.LookPath("umu-run"); err == nil {
+		winMgr.Preparer = &windows.Umu{Command: umu, PrefixDir: filepath.Join(winData, "prepare"),
+			CacheDir: filepath.Join(cacheDir, "umu")}
+	} else {
+		log.Warn("Windows games not available: umu-run not found")
+	}
+	go winMgr.Run(ctx)
+
+	// Games installed from their installers ([[step-4.6-installers]]), on the console's disk;
+	// Windows installers run in the console's session (its DISPLAY), never shown
+	instMgr := &installs.Manager{Broker: broker, Log: log, Home: home,
+		StateDir: filepath.Join(home, ".config", "owneet"), WindowsRun: "/usr/lib/owneet/owneet-windows-run",
+		Env: func() []string {
+			if sess, err := appsMgr.Session(); err == nil {
+				return sess.Env
+			}
+			return nil
+		}}
+	go instMgr.Run(ctx)
+
+	// The controller as a mouse for an app's window ([[step-4.7-controller-pointer]]): the
+	// virtual mouse, the controllers read without a grab, gamescope's X server for what is on
+	// screen and the pointer's shape
+	var pointerAPI api.Pointer
+	if vin != nil && appsAPI != nil {
+		pointerAPI = &pointer.Manager{Broker: broker, Log: log, Mouse: vin, Apps: appsMgr,
+			Screen: func() (pointer.Screen, error) {
+				sess, err := appsMgr.Session()
+				if err != nil {
+					return nil, err
+				}
+				return pointer.DialX(sess.Display)
+			},
+			Pads: pointer.ReadPads(db, log)}
+	}
+
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
@@ -245,6 +304,9 @@ func run(configPath string) error {
 		Update:          updateAPI,
 		Catalog:         catalogAPI,
 		WebApps:         hub,
+		Windows:         winMgr,
+		Installs:        instMgr,
+		Pointer:         pointerAPI,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

@@ -1,0 +1,43 @@
+@owneetd
+@disk
+# Installers ([[step-4.6-installers]], approved demo 4.6): a Windows installer (no percentage: a
+# moving bar), stopped from Options; a game the console installed, uninstalled
+wait 10
+pad rb
+wait 1
+pad rt rt rt rt
+wait 1
+shot 01-local-with-installed
+pad down down
+wait 1
+shot 02-row-three
+pad down
+pad a
+wait 1.5
+shot 03-windows-question
+pad a
+wait 2.5
+shot 04-windows-installing
+pad menu
+wait 1
+shot 05-options-stop
+pad right right
+pad a
+wait 1
+shot 06-stop-question
+pad a
+wait 1.5
+shot 07-stopped
+pad up up
+pad right right right
+pad menu
+wait 1
+shot 08-options-uninstall
+pad right right right
+pad a
+wait 1
+shot 09-uninstall-question
+pad left
+pad a
+wait 3
+shot 10-uninstalled

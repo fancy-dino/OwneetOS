@@ -15,6 +15,7 @@ NavArea {
     property var network: null          // owneetd's network state (from the shell)
     property var controllers: []        // connected controllers (from the shell)
     property bool updatesFromStick: false   // a tester's PC: updates from the USB stick (4.2b)
+    property string windowsText: ""     // Windows games: getting ready, ready… (4.5); "" without any
     signal checkUpdates()
 
     signal openPalettes()
@@ -241,10 +242,24 @@ NavArea {
             width: parent.width
             spacing: Theme.px(6)
             Repeater {
+                id: navRepeater
                 model: page.sections
                 Rectangle {
                     readonly property string section: modelData
                     readonly property bool navigable: true
+                    // the list goes round: up on the first section to the last, down on the last
+                    // to the first (owner, 2026-10-16)
+                    Keys.onPressed: {
+                        const a = Nav.action(event);
+                        const last = page.sections.length - 1;
+                        if ((a === "up" && index === 0) || (a === "down" && index === last)) {
+                            Nav.feedback("move");
+                            page.focusItem(navRepeater.itemAt(a === "up" ? last : 0));
+                            event.accepted = true;
+                        } else {
+                            event.accepted = false;
+                        }
+                    }
                     readonly property bool shown: page.section === modelData
                     width: navColumn.width
                     height: navText.implicitHeight + Theme.px(22)
@@ -783,6 +798,13 @@ NavArea {
                         width: parent.width
                         text: Tr.tr("system.version")
                         value: systemInfo.version || "—"
+                    }
+                    InfoRow {                   // what Windows games need, downloaded once (4.5)
+                        visible: page.windowsText !== ""
+                        width: parent.width
+                        text: Tr.tr("system.windows")
+                        detail: Tr.tr("system.windows.detail")
+                        value: page.windowsText
                     }
                     SettingRow {
                         width: parent.width

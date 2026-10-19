@@ -1,0 +1,14 @@
+@owneetd
+@steam
+# A Steam game with a licence agreement Steam asks to accept at the first start
+# ([[step-4.2c-steam-without-its-interface]]): the console shows its address as a code to read on a
+# phone, and what to press in Steam's window, before starting it.
+pad rb
+pad rt rt rt
+pad right right
+shot 01-game-with-agreement
+pad a
+shot 02-agreement
+pad a
+wait 2
+shot 03-starting

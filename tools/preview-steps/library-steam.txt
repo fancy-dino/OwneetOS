@@ -1,0 +1,55 @@
+@owneetd
+@steam
+# Steam without its interface ([[step-4.2c-steam-without-its-interface]], approved demo 4.2c):
+# every owned game in the library, the Installed filter, installing with the notice before
+# Steam's window, the download, its details and options, the "ready" banner, a game on a disk
+# that is not connected, uninstalling, no internet, and the downloads notice on the home screen.
+shot 01-home-installed-only
+pad rb
+shot 02-library-all
+pad rt
+shot 03-installed-filter
+pad rt rt
+shot 04-steam-filter
+pad right right right
+shot 05-not-installed-selected
+pad a
+shot 06-install-question
+pad a
+shot 07-notice
+pad up a
+shot 08-dont-show-again
+pad down a
+shot 09-starting-steam
+wait 4
+shot 10-downloading
+pad x
+shot 11-details-download
+pad b
+pad menu
+shot 12-options-cancel
+pad b
+wait 14
+shot 13-ready-banner
+pad right right right right
+shot 14-away-selected
+pad a
+shot 15-away-details
+pad b
+pad left left left left
+pad menu
+shot 16-options-uninstall
+pad right right right a
+shot 17-uninstall-question
+pad left a
+wait 3
+shot 18-uninstalled
+event network.changed {"available": true, "ethernet": {"present": true, "connected": false}, "wifi": {"present": true, "enabled": true, "state": "disconnected"}}
+pad a
+shot 19-offline-install
+pad b
+event network.changed {"available": true, "ethernet": {"present": true, "connected": false}, "wifi": {"present": true, "enabled": true, "state": "connected", "ssid": "Casa Rossi", "strength": 80}}
+pad a a
+wait 3
+pad lb
+shot 20-home-download-notice

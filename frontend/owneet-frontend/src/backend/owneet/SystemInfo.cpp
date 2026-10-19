@@ -9,6 +9,8 @@
 
 #include <algorithm>
 
+#include "qrcodegen.hpp"
+
 
 namespace owneet {
 
@@ -55,11 +57,16 @@ QString SystemInfo::soundsDir() const
 
 bool SystemInfo::firstStartThisBoot() const
 {
+    return onceThisBoot(QStringLiteral("interface-started"));
+}
+
+bool SystemInfo::onceThisBoot(const QString& name) const
+{
     const QString runtime = qEnvironmentVariable("XDG_RUNTIME_DIR");
-    if (runtime.isEmpty())
+    if (runtime.isEmpty() || name.isEmpty() || name.contains(QLatin1Char('/')))
         return true;
     const QString dir = runtime + QStringLiteral("/owneet");
-    const QString mark = dir + QStringLiteral("/interface-started");
+    const QString mark = dir + QLatin1Char('/') + name;
     if (QFile::exists(mark))
         return false;
     QDir().mkpath(dir);
@@ -131,6 +138,26 @@ QVariantList SystemInfo::packages() const
         });
     }
     return out;
+}
+
+QStringList SystemInfo::qrCode(const QString& text) const
+{
+    QStringList rows;
+    if (text.isEmpty() || text.size() > 1000)     // an address: far within what a code holds
+        return rows;
+    try {
+        const qrcodegen::QrCode qr = qrcodegen::QrCode::encodeText(text.toUtf8().constData(), qrcodegen::QrCode::Ecc::MEDIUM);
+        for (int y = 0; y < qr.getSize(); y++) {
+            QString row;
+            row.reserve(qr.getSize());
+            for (int x = 0; x < qr.getSize(); x++)
+                row.append(qr.getModule(x, y) ? QLatin1Char('1') : QLatin1Char('0'));
+            rows.append(row);
+        }
+    } catch (const qrcodegen::data_too_long&) {
+        rows.clear();
+    }
+    return rows;
 }
 
 } // namespace owneet

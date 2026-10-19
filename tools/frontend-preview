@@ -23,6 +23,15 @@
 #   @nogames         (first line) start with no games, as on a new system
 #   @owneetd         (first line) with a pretend owneetd: invented networks, controllers and
 #                    Bluetooth devices (tools/preview-steps/fake-owneetd.py)
+#   @steam           (with @owneetd) an invented Steam folder with owned games, installed or not
+#                    (tools/preview-steps/fake-steam.py); the pretend owneetd installs and
+#                    uninstalls them, with downloads
+#   @disk            an invented USB disk "SSD-256GB-D" with a Giochi folder (games on a disk, 4.3;
+#                    installers, 4.6):
+#                    scripts, programs, covers (Starfall, Beneath a steel sky), Windows games, and
+#                    folders with only an installer (GOG .sh, Inno Setup, too big, Galaxy, unknown)
+#   @gamescope       (with @owneetd) the pretend session is gamescope's (Resume, the pointer)
+#   unplug / plug    (with @disk) the invented disk is unplugged / plugged in again
 #   event TYPE JSON  (with @owneetd) the pretend owneetd sends an event, e.g.
 #                    event controller.battery {"id":"aa:bb:cc:dd:ee:01","name":"Xbox","battery":12}
 #   # …              comment
@@ -37,7 +46,7 @@ OUT="$ROOT/out/frontend-preview"
 
 die() { echo "error: $*" >&2; exit 1; }
 
-[[ $# -ge 1 && $# -le 2 ]] || { sed -n '4,27p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+[[ $# -ge 1 && $# -le 2 ]] || { sed -n '4,36p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 STEPS="$(realpath "$1")"
 SIZE="${2:-1280x720}"
 [[ -f "$STEPS" ]] || die "$1 not found"
@@ -59,6 +68,7 @@ sudo systemd-nspawn -q -D "$BOX" sh -c \
 sudo cp "$STEPS" "$BOX/steps.txt"
 sudo cp "$ROOT/CREDITS.md" "$BOX/CREDITS.md"   # installed by owneet-base on the console
 sudo cp "$ROOT/tools/preview-steps/fake-owneetd.py" "$BOX/fake-owneetd.py"
+sudo cp "$ROOT/tools/preview-steps/fake-steam.py" "$BOX/fake-steam.py"
 
 # Virtual controller: an "Xbox 360 pad" (SDL maps it with SDL_GameControllerDB), driven
 # through a FIFO.
@@ -138,8 +148,66 @@ if ! grep -q '^@nogames' /steps.txt; then
     done
 fi
 echo "$HOME/games" > "$HOME/.config/owneet-frontend/game_dirs.txt"
+if grep -q '^@steam' /steps.txt; then
+    python3 /fake-steam.py "$HOME/Steam"
+    export OWNEET_STEAM_DIR="$HOME/Steam" FAKE_STEAM=1
+fi
+
+if grep -q '^@disk' /steps.txt; then
+    disk=/tmp/disks/SSD-256GB-D; g="$disk/Giochi"
+    rm -rf /tmp/disks /tmp/unplugged; mkdir -p /tmp/unplugged
+    prog() { mkdir -p "$(dirname "$1")"; cp /usr/bin/true "$1"; chmod +x "$1"; }
+    script() { mkdir -p "$(dirname "$1")"; printf '#!/bin/bash\nexec true\n' > "$1"; chmod +x "$1"; }
+    script "$g/Beneath a steel sky/start.sh"; script "$g/Beneath a steel sky/support/xdg-open.sh"
+    mkdir -p "$g/Beneath a steel sky/docs"
+    script "$g/Cayne/start.sh"; prog "$g/Cayne/game/Cayne.x86_64"; prog "$g/Cayne/game/Cayne_Data/Plugins/helper"
+    prog "$g/Lantern Keep/bin/lantern.x86_64"; script "$g/Lantern Keep/launcher.sh"
+    prog "$g/Lantern Keep/tools/editor.x86_64"; script "$g/Lantern Keep/uninstall.sh"
+    prog "$g/Starfall/Starfall.AppImage"
+    magick -size 600x900 gradient:'#1d3557-#e76f51' "$g/Starfall/cover.jpg" 2>/dev/null \
+        || convert -size 600x900 gradient:'#1d3557-#e76f51' "$g/Starfall/cover.jpg"
+    magick -size 600x900 gradient:'#2b2d42-#8d99ae' "$g/Beneath a steel sky/cover.png" 2>/dev/null \
+        || convert -size 600x900 gradient:'#2b2d42-#8d99ae' "$g/Beneath a steel sky/cover.png"
+    mkdir -p "$g/Windows only"; : > "$g/Windows only/game.exe"
+    # Windows games (4.5): one with GOG's info file (the file to start, in another case), one without
+    mkdir -p "$g/Tyrian 2000/DOSBOX"; : > "$g/Tyrian 2000/DOSBOX/DOSBox.exe"; : > "$g/Tyrian 2000/DOSBOX/GOGDOSConfig.exe"
+    : > "$g/Tyrian 2000/SETUP.EXE"
+    printf '{"playTasks": [{"category": "game", "isPrimary": true, "type": "FileTask", "path": "DOSBOX\\\\dosbox.exe", "arguments": "-conf \\"..\\\\dosboxT2K.conf\\" -noconsole", "workingDir": "DOSBOX"}]}\n' \
+        > "$g/Tyrian 2000/goggame-1.info"
+    mkdir -p "$g/Ashen Gate/bin/x64" "$g/Ashen Gate/__redist"; : > "$g/Ashen Gate/AshenGate.exe"; : > "$g/Ashen Gate/bin/x64/AshenGate.exe"
+    : > "$g/Ashen Gate/unins000.exe"; : > "$g/Ashen Gate/__redist/vcredist_x64.exe"
+    # Installers (4.6): GOG's Linux installer (a script, then a ZIP archive with data/noarch and a
+    # licence), GOG's Windows installer (Inno Setup, with a part), one too big for the console's
+    # disk (a sparse file), GOG Galaxy's online installer, and an unknown kind
+    mkdir -p "$g/Stargunner" "$g/Shadow Harbor" "$g/Titan Fields" "$g/Treasure Adventure Game" "$g/Old Relic"
+    python3 - "$g/Stargunner/gog_stargunner_2.0.0.10.sh" <<'PY'
+import io, sys, zipfile
+buf = io.BytesIO()
+with zipfile.ZipFile(buf, "w") as z:
+    z.writestr("scripts/config.lua", "-- MojoSetup")
+    z.writestr("data/noarch/start.sh", "#!/bin/sh\nexec true\n")
+    z.writestr("data/noarch/game/data.bin", "x" * 4000000)
+    z.writestr("data/noarch/docs/End User License Agreement.txt",
+               "END USER LICENCE AGREEMENT (invented for the preview)\n\n" + "\n\n".join(
+                   f"{n}. A clause of the licence, long enough to need scrolling with the right stick on the console's screen." for n in range(1, 25)))
+open(sys.argv[1], "wb").write(b"#!/bin/sh\n# This script was generated using Makeself 2.4.0\n" + b"#" * 4000 + b"\nexit 0\n" + buf.getvalue())
+PY
+    printf 'MZ... Inno Setup Setup Data (6.2.0)' > "$g/Shadow Harbor/setup_shadow_harbor_1.4.2.exe"
+    head -c 3000000 /dev/zero >> "$g/Shadow Harbor/setup_shadow_harbor_1.4.2.exe"
+    : > "$g/Shadow Harbor/setup_shadow_harbor_1.4.2-1.bin"
+    printf 'MZ... Inno Setup Setup Data (6.2.0)' > "$g/Titan Fields/setup_titan_fields_2.0.exe"
+    truncate -s 300G "$g/Titan Fields/setup_titan_fields_2.0.exe"
+    : > "$g/Treasure Adventure Game/GOG_Galaxy_Treasure_Adventure_Game.exe"
+    printf 'MZ... a packer nobody knows' > "$g/Old Relic/OldRelic_setup.exe"
+    # a game the console installed earlier (it can be uninstalled; its installer is on the disk)
+    script "$HOME/Games/Old Lighthouse/start.sh"; head -c 50000000 /dev/zero > "$HOME/Games/Old Lighthouse/data.bin"
+    printf '{"installer": "%s/Old Lighthouse/gog_old_lighthouse.sh", "kind": "sh"}' "$g" > "$HOME/Games/Old Lighthouse/.owneet-installed"
+    ls -l "$g/Starfall" >> /out/log.txt
+    export OWNEET_DISKS="$disk"
+fi
 
 if grep -q '^@owneetd' /steps.txt; then
+    grep -q '^@gamescope' /steps.txt && export FAKE_SESSION=gamescope
     mkfifo /tmp/owneetd-events
     python3 /fake-owneetd.py "$OWNEETD_SOCKET" /tmp/owneetd-events >> /out/log.txt 2>&1 &
     sleep 0.5
@@ -163,6 +231,8 @@ while IFS= read -r line; do
         shot) sleep 1; import -window root "/out/$2.png"; echo "$2.png" ;;
         wait) sleep "$2" ;;
         restart) kill "$FE"; wait "$FE" 2>/dev/null; start ;;
+        unplug) mv /tmp/disks/SSD-256GB-D /tmp/unplugged/; sleep 1 ;;
+        plug) mv /tmp/unplugged/SSD-256GB-D /tmp/disks/; sleep 1 ;;
         *) echo "unknown step: $line" ;;
     esac
 done < /steps.txt

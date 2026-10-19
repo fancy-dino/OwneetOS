@@ -5,7 +5,10 @@ post_install() {
 }
 
 post_upgrade() {
-  post_install
+  # The splash shown at boot is the copy in the initramfs: an installed system rebuilds it, or a
+  # new splash (e.g. the neutral one, 2026-10-15) would wait for the next kernel update. A fresh
+  # install (the ISO's build, the tester installer) builds the initramfs afterwards anyway.
+  usr/bin/plymouth-set-default-theme -R owneet
 }
 
 post_remove() {
