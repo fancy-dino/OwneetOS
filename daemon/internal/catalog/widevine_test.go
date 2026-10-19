@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 )
 
 // putWidevine puts a Widevine version into a profile folder, as Brave does when it downloads one.
@@ -285,8 +287,11 @@ func TestOneWebAppGetsReadyAtATime(t *testing.T) {
 	waitNotPreparing(t, m)
 }
 
-func TestAFailedFetchStillOpensTheWebApp(t *testing.T) {
+func TestAFailedFetchDoesNotOpenTheWebApp(t *testing.T) {
 	m, fa := newOpenManager(t, ":0")
+	m.Broker = events.NewBroker()
+	evs, stop := m.Broker.Subscribe(16)
+	defer stop()
 	if err := os.RemoveAll(filepath.Join(m.ProfilesDir, "netflix")); err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +303,29 @@ func TestAFailedFetchStillOpensTheWebApp(t *testing.T) {
 	if preparing, err := m.Open("netflix"); err != nil || !preparing {
 		t.Fatalf("first opening: %v, %v", preparing, err)
 	}
-	// opened without Widevine: the next opening tries again
-	waitRunning(t, fa, "web:netflix")
+	for failed := false; !failed; {
+		select {
+		case ev := <-evs:
+			if ev.Type != "apps.open_failed" {
+				continue // the installation's own events
+			}
+			failed = true
+			if data, _ := ev.Data.(map[string]string); data["id"] != "web:netflix" || data["code"] != "apps.widevine_failed" {
+				t.Errorf("event %+v, want web:netflix, apps.widevine_failed", ev)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("no apps.open_failed")
+		}
+	}
+	waitNotPreparing(t, m)
+	// without Widevine the web app does not open; the next opening tries again
+	for _, a := range fa.Status().Apps {
+		if a.ID == "web:netflix" {
+			t.Error("web:netflix started without Widevine")
+		}
+	}
+	if preparing, err := m.Open("netflix"); err != nil || !preparing {
+		t.Errorf("next opening: %v, %v; want it to get Widevine again", preparing, err)
+	}
 	waitNotPreparing(t, m)
 }

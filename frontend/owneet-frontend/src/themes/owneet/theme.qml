@@ -606,8 +606,7 @@ FocusScope {
             if (status === 204 || status === 200)
                 return;
             if (status === 202) {                 // its first opening: Brave first gets Widevine (5.4)
-                webPrep.appId = "web:" + app.id;
-                webPrep.appName = Tr.tr(app.nameKey);
+                webPrep.app = app;
                 webPrep.start(true);
                 return;
             }
@@ -2129,11 +2128,13 @@ FocusScope {
     }
 
     // ---- A web app's first opening (5.4): Brave first downloads Google Widevine, with no window;
-    // until the web app starts, or its opening fails
+    // until the web app starts, or its opening fails. Without Widevine it does not open: the
+    // console says so and offers to try again (also when B hid this screen meanwhile).
     Preparing {
         id: webPrep
-        property string appId: ""           // "web:ID"
-        property string appName: ""
+        property var app: null              // the catalogue entry being prepared
+        readonly property string appId: app ? "web:" + app.id : ""
+        readonly property string appName: app ? Tr.tr(app.nameKey) : ""
         title: Tr.tr("webapp.prep.title", { app: appName })
         text: Tr.tr("webapp.prep.first", { app: appName })
         onVisibleChanged: if (!visible) root.backToPage()
@@ -2141,12 +2142,19 @@ FocusScope {
     Connections {
         target: owneetd
         function onEvent(type, data) {
-            if (!webPrep.visible || !data) return;
+            if (!webPrep.app || !data) return;
             if (type === "apps.open_failed" && data.id === webPrep.appId) {
+                const app = webPrep.app;
+                webPrep.app = null;
                 webPrep.close(true);
-                toast.show(Tr.tr("error.apps.open"));
+                if (data.code === "apps.widevine_failed")
+                    root.appMessage(Tr.tr("widevine.fail.title"), Tr.tr("widevine.fail.text", { app: Tr.tr(app.nameKey) }),
+                                    () => root.openAfterConsent(app));
+                else
+                    toast.show(Tr.tr("error.apps.open"));
             } else if ((type === "app.started" && data.id === webPrep.appId)
                        || (type === "focus.changed" && data.focus === webPrep.appId)) {
+                webPrep.app = null;
                 webPrep.close(true);
             }
         }

@@ -36,7 +36,7 @@ var ErrWidevineConsent = errors.New("the user has not accepted Google's terms fo
 var ErrPreparing = errors.New("a web app is getting ready")
 
 // widevineFetchTimeout: how long a first opening waits for Brave to download Widevine (20 s in the
-// test VM); after it the web app opens anyway, without Widevine until its next opening.
+// test VM); after it the opening fails and the interface says that Widevine was not downloaded.
 const widevineFetchTimeout = 60 * time.Second
 
 // consentUser: the console's only user today; every person on the console gets their own entry
@@ -204,20 +204,29 @@ func (m *Manager) prepareAndLaunch(id string, e Entry) {
 		err = fetch(m.profile(id))
 	}
 	if err != nil {
-		m.Log.Warn("web app opens without Widevine: the next opening tries again", "id", id, "err", err)
-	} else {
-		m.Log.Info("web app got Widevine before its first opening", "id", id, "took", time.Since(start).Round(time.Second))
+		// without Widevine the web app cannot play: it does not open, the interface says why and
+		// offers to try again (owner, 2026-10-19)
+		m.Log.Warn("web app's first opening: Widevine not downloaded", "id", id, "err", err)
+		m.openFailed(id, "apps.widevine_failed", err)
+		return
 	}
+	m.Log.Info("web app got Widevine before its first opening", "id", id, "took", time.Since(start).Round(time.Second))
 	if err := m.launch(id, e, true); err != nil {
 		m.Log.Warn("web app not opened after getting ready", "id", id, "err", err)
-		if m.Broker != nil {
-			m.Broker.Publish("apps.open_failed", map[string]string{"id": AppID(id), "error": err.Error()})
-		}
+		m.openFailed(id, "apps.failed", err)
+	}
+}
+
+// openFailed tells the interface that a web app's first opening failed ("apps.open_failed"; code:
+// apps.widevine_failed, Widevine was not downloaded; apps.failed, the web app did not start).
+func (m *Manager) openFailed(id, code string, err error) {
+	if m.Broker != nil {
+		m.Broker.Publish("apps.open_failed", map[string]string{"id": AppID(id), "code": code, "error": err.Error()})
 	}
 }
 
 // fetchWidevine runs Brave with no window in the profile until it has downloaded Widevine, or
-// for widevineFetchTimeout at most (no internet: the web app then opens without it).
+// for widevineFetchTimeout at most (e.g. no internet).
 func fetchWidevine(profile string) error {
 	cmd := exec.Command("brave", "--headless=new", "--user-data-dir="+profile, "--no-first-run",
 		"--password-store=basic", "--component-updater=fast-update", "about:blank")

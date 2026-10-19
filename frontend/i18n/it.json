@@ -103,6 +103,8 @@
   "webapp.prep.title": "Preparazione di {app}…",
   "webapp.prep.first": "La prima volta servono alcuni secondi: la console scarica Google Widevine. {app} si apre da sola quando è pronta.",
   "error.apps.preparing": "Un’app si sta preparando: attendi un momento.",
+  "widevine.fail.title": "Non è stato possibile scaricare Google Widevine",
+  "widevine.fail.text": "{app} ne ha bisogno per riprodurre video e musica protetti. Controlla la connessione a internet e riprova.",
   "apps.remove.title": "Rimuovere {app}?",
   "apps.remove.text": "Il tuo account resta com’è, ma se la installi di nuovo dovrai accedere di nuovo.",
   "apps.ram.title": "Installa OwneetOS per aggiungere app",
