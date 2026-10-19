@@ -197,3 +197,16 @@ func Decode(buf []byte) []Event {
 
 // Close releases the device; a pending Read returns an error.
 func (d *Device) Close() error { return d.f.Close() }
+
+// AbsRange is an axis's minimum and maximum (EVIOCGABS), e.g. a stick's -32768…32767.
+func (d *Device) AbsRange(code int) (min, max int32, err error) {
+	var info [6]int32 // struct input_absinfo: value, minimum, maximum, fuzz, flat, resolution
+	var ioErr error
+	err = d.withFd(func(fd uintptr) {
+		ioErr = ioctl(fd, eviocg(0x40+uintptr(code), unsafe.Sizeof(info)), unsafe.Pointer(&info[0]))
+	})
+	if err == nil {
+		err = ioErr
+	}
+	return info[1], info[2], err
+}

@@ -30,6 +30,7 @@
 #                    installers, 4.6):
 #                    scripts, programs, covers (Starfall, Beneath a steel sky), Windows games, and
 #                    folders with only an installer (GOG .sh, Inno Setup, too big, Galaxy, unknown)
+#   @gamescope       (with @owneetd) the pretend session is gamescope's (Resume, the pointer)
 #   unplug / plug    (with @disk) the invented disk is unplugged / plugged in again
 #   event TYPE JSON  (with @owneetd) the pretend owneetd sends an event, e.g.
 #                    event controller.battery {"id":"aa:bb:cc:dd:ee:01","name":"Xbox","battery":12}
@@ -206,6 +207,7 @@ PY
 fi
 
 if grep -q '^@owneetd' /steps.txt; then
+    grep -q '^@gamescope' /steps.txt && export FAKE_SESSION=gamescope
     mkfifo /tmp/owneetd-events
     python3 /fake-owneetd.py "$OWNEETD_SOCKET" /tmp/owneetd-events >> /out/log.txt 2>&1 &
     sleep 0.5

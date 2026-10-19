@@ -26,6 +26,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/installs"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/network"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/pointer"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/power"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/sdldb"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/update"
@@ -109,12 +110,20 @@ func run(configPath string) error {
 		}
 	}()
 
+	// The virtual keyboard and mouse: made as soon as /dev/uinput can be opened (the session may
+	// not be active yet when owneetd starts)
 	var input api.VirtualInput
-	if vin, err := vinput.New(cfg.KeyboardLayout); err != nil {
+	vin, err := vinput.NewRetrying(ctx, cfg.KeyboardLayout, 3*time.Second, log)
+	if err != nil {
 		log.Warn("virtual keyboard and mouse not available", "err", err)
 	} else {
 		defer vin.Close()
 		input = vin
+		select {
+		case <-vin.Ready():
+		default:
+			log.Info("virtual keyboard and mouse: waiting for access to /dev/uinput")
+		}
 	}
 
 	var btAPI api.Bluetooth
@@ -220,6 +229,22 @@ func run(configPath string) error {
 		}}
 	go instMgr.Run(ctx)
 
+	// The controller as a mouse for an app's window ([[step-4.7-controller-pointer]]): the
+	// virtual mouse, the controllers read without a grab, gamescope's X server for what is on
+	// screen and the pointer's shape
+	var pointerAPI api.Pointer
+	if vin != nil && appsAPI != nil {
+		pointerAPI = &pointer.Manager{Broker: broker, Log: log, Mouse: vin, Apps: appsMgr,
+			Screen: func() (pointer.Screen, error) {
+				sess, err := appsMgr.Session()
+				if err != nil {
+					return nil, err
+				}
+				return pointer.DialX(sess.Display)
+			},
+			Pads: pointer.ReadPads(db, log)}
+	}
+
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
@@ -235,6 +260,7 @@ func run(configPath string) error {
 		Update:          updateAPI,
 		Windows:         winMgr,
 		Installs:        instMgr,
+		Pointer:         pointerAPI,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

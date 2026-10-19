@@ -30,6 +30,11 @@ NavArea {
         ? Math.max(0, Math.floor((now - new Date(running.started).getTime()) / 60000)) : 0
     signal resume(var app)
     signal closeApp(var app)
+    // The controller as a mouse (4.7, approved demo design/demos/4.7-controller-pointer.html): on
+    // for the running game's window, with a "Pointer on" badge on its card
+    property bool pointerOn: false
+    signal resumeWithPointer(var app)
+    signal pointerOff()
 
     signal launch(var game)
     signal details(var game)
@@ -56,6 +61,8 @@ NavArea {
             return [P("a", "prompt.resume")];
         if (k === "close")
             return [P("a", "prompt.close")];
+        if (k === "pointer" || k === "pointerOff")
+            return [P("a", "prompt.select")];
         if (k === "game" || k === "play")
             return [P("a", "prompt.play"), P("x", "prompt.details"), P("menu", "prompt.options")];
         if (k === "details")
@@ -97,6 +104,8 @@ NavArea {
         else if (k === "how") howToAdd();
         else if (k === "resume") resume(running);
         else if (k === "close") closeApp(running);
+        else if (k === "pointer") resumeWithPointer(running);
+        else if (k === "pointerOff") pointerOff();
         else if (k === "store" || item.steamStore) openStore();
         else if (k === "notice" && page.notices.length > 0) openNotice(page.notices[0]);
         else notYet();                         // apps (later steps)
@@ -226,6 +235,28 @@ NavArea {
                         font.pixelSize: Theme.fs(14.5)
                         anchors.verticalCenter: parent.verticalCenter
                     }
+                    Rectangle {      // the pointer is on for the running game (4.7)
+                        visible: page.running !== null && page.pointerOn
+                        width: pointerBadge.implicitWidth + Theme.px(34); height: pointerBadge.implicitHeight + Theme.px(6)
+                        radius: height / 2
+                        color: Theme.accent
+                        anchors.verticalCenter: parent.verticalCenter
+                        Icon {
+                            x: Theme.px(9); anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(15); height: width
+                            name: "pointer"
+                            color: Theme.onAccent
+                        }
+                        Text {
+                            id: pointerBadge
+                            x: Theme.px(26); anchors.verticalCenter: parent.verticalCenter
+                            text: Tr.tr("home.pointer.on")
+                            color: Theme.onAccent
+                            font.family: Theme.textFont
+                            font.weight: Font.Medium
+                            font.pixelSize: Theme.fs(12.5)
+                        }
+                    }
                 }
                 Row {
                     spacing: Theme.px(20)
@@ -235,6 +266,12 @@ NavArea {
                         readonly property string kind: "resume"
                         text: Tr.tr("home.resume")
                         style: "light"
+                    }
+                    Button {
+                        visible: page.running !== null && page.canResume
+                        property string kind: page.pointerOn ? "pointerOff" : "pointer"
+                        text: Tr.tr(page.pointerOn ? "home.pointer.off" : "home.pointer")
+                        style: "glass"
                     }
                     Button {
                         visible: page.running !== null

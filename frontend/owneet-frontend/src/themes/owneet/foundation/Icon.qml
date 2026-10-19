@@ -66,7 +66,8 @@ Canvas {
         warning: "M12 4 2.8 19.5h18.4zM12 10v4.5M12 17v.5",
         trash: "M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13",
         check: "M5 12.5l4.5 4.5L19 7",
-        info: "M21 12a9 9 0 1 1-18 0a9 9 0 1 1 18 0zM12 11v6M12 7.5v.5"
+        info: "M21 12a9 9 0 1 1-18 0a9 9 0 1 1 18 0zM12 11v6M12 7.5v.5",
+        pointer: "M6 3v15l4.2-4 3 7 2.8-1.2-3-6.8H18z"
     })
     // Wi-Fi: three arcs and a dot, from the largest arc down
     readonly property var wifiArcs: ["M2 9a15 15 0 0 1 20 0", "M5 12.5a10 10 0 0 1 14 0", "M8.5 16a5 5 0 0 1 7 0"]

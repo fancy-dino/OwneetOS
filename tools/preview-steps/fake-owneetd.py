@@ -88,6 +88,8 @@ state = {
     "windows": {"state": "none", "percent": 0, "needed": False},
     # games installed from their installers (4.6): queued or in progress
     "installs": [],
+    # the controller as a mouse (4.7)
+    "pointer": {"on": False},
     "steam": {"installed": True, "allowed": True, "prepared": False, "running": False, "games": [],
               "downloads": [], "away": {}, "account": False, "licences": 0, "nvidia": False},
     "audio": {"available": True, "output": "hdmi", "volume": 60, "muted": False,
@@ -321,12 +323,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.events()
         with lock:
             answers = {
-                "/v1/status": {"session_mode": "cage", "owneetos_version": "preview"},
+                "/v1/status": {"session_mode": os.environ.get("FAKE_SESSION", "cage"), "owneetos_version": "preview"},
                 "/v1/apps": {"apps": state["apps"], "focus": "home"},
                 "/v1/steam": state["steam"],
                 "/v1/update": state["update"],
                 "/v1/windows": state["windows"],
                 "/v1/installs": {"installs": state["installs"]},
+                "/v1/pointer": state["pointer"],
                 "/v1/controllers": {"controllers": state["controllers"]},
                 "/v1/network": state["network"],
                 "/v1/network/wifi": {"networks": state["networks"]},
@@ -411,6 +414,21 @@ class Handler(BaseHTTPRequestHandler):
             publish("app.started", app)
             later(4, lambda: publish("focus.changed", {"focus": app["id"]}))
             return self.reply(201, {"id": app["id"]})
+        if path == "/v1/pointer":   # 4.7: on for a running app, off by hand
+            with lock:
+                if body.get("on"):
+                    if not any(a["id"] == body.get("app") for a in state["apps"]):
+                        return self.error(404, "apps.unknown")
+                    state["pointer"] = {"on": True, "app": body["app"]}
+                else:
+                    state["pointer"] = {"on": False, "reason": "user"}
+                snapshot = dict(state["pointer"])
+            publish("pointer.changed", snapshot)
+            return self.reply(204)
+        if path in ("/v1/input/text", "/v1/input/key", "/v1/input/pointer", "/v1/input/click"):
+            return self.reply(204)
+        if path.startswith("/v1/apps/") and path.endswith("/focus"):
+            return self.reply(204)
         if path == "/v1/installs/inspect":
             return self.reply(200, install_inspect(body))
         if path == "/v1/installs":

@@ -258,6 +258,7 @@ FocusScope {
         refreshSteam(false);
         refreshWindows();
         refreshInstalls();
+        owneetd.get("/v1/pointer", (status, data) => { if (status === 200) root.pointerStatus = data; });
         owneetd.get("/v1/update", (status, data) => { if (status === 200) root.updateStatus = data; });
         checkDisplayPending();
     }
@@ -296,6 +297,10 @@ FocusScope {
                 root.steamChanged(data);
             } else if (type === "windows.changed") {
                 root.windowsChanged(data);
+            } else if (type === "pointer.changed") {
+                root.pointerStatus = data || { on: false };
+            } else if (type === "pointer.type") {
+                if (data) root.showPointerKeyboard(String(data.app));
             } else if (type === "installs.changed") {
                 GameInfo.installs = (data && data.installs) || [];
             } else if (type === "install.done" || type === "install.failed") {
@@ -325,6 +330,79 @@ FocusScope {
             if (status !== 200 && status !== 204)
                 toast.show(Tr.tr("error.resume"));
         });
+    }
+    // ---- The controller as a mouse (4.7, approved demo design/demos/4.7-controller-pointer.html):
+    // "Resume with the pointer" on the running game's card; owneetd follows that window only and
+    // turns it off when another window takes the screen. Its buttons are explained once (until
+    // "Don't show again") and always in the quick menu's Controls. GET / POST /v1/pointer,
+    // "pointer.changed"; "pointer.type": the keyboard here, its text then goes to the window.
+    property var pointerStatus: ({ on: false })
+    property string pointerText: ""            // typed for the window, sent once it is back on screen
+    function resumeWithPointer(app) {
+        if (api.memory.has("pointerHelpHidden")) { startPointer(app); return; }
+        dialog.game = null;
+        dialog.mode = "pointerHelp";
+        dialog.contentWidth = Theme.px(1000);
+        dialog.icon = "";
+        dialog.title = Tr.tr("pointer.help.title");
+        dialog.text = Tr.tr("pointer.help.text");
+        noticeNever.checked = false;
+        dialog.buttons = [{ text: Tr.tr("pointer.help.ok"), style: "primary", action: () => {
+            if (noticeNever.checked) api.memory.set("pointerHelpHidden", true);
+            dialog.close(true);
+            root.startPointer(app);
+        } }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function startPointer(app) {
+        owneetd.post("/v1/pointer", { on: true, app: app.id }, status => {
+            if (status === 204) { Nav.feedback("launch"); root.resume(app); return; }
+            toast.show(Tr.tr("error.pointer"));
+            Nav.feedback("error");
+        });
+    }
+    function turnPointerOff() {
+        owneetd.post("/v1/pointer", { on: false }, status => { if (status === 204) toast.show(Tr.tr("toast.pointer.off")); });
+    }
+    // Y in the window, or a click on a text field: owneetd shows the home screen; the keyboard
+    // opens here, Send types the text into the window once it is back on screen
+    function showPointerKeyboard(appId) {
+        const app = apps.find(a => a.id === appId);
+        if (!app) return;
+        pointerInput.text = "";
+        dialog.game = null;
+        dialog.mode = "pointerType";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.title = Tr.tr("pointer.type.title", { app: app.name });
+        dialog.text = "";
+        dialog.buttons = [
+            { text: Tr.tr("pointer.type.send"), style: "primary", action: () => root.sendPointerText(app) },
+            { text: Tr.tr("prompt.cancel"), action: () => { osk.close(true); dialog.close(); root.resume(app); } }];
+        dialog.defaultIndex = 0;
+        dialog.initialItem = pointerField;
+        dialog.open();
+        dialog.backAction = () => { osk.close(true); dialog.close(true); root.resume(app); };
+        Qt.callLater(() => { if (dialog.visible && dialog.mode === "pointerType") osk.open(pointerInput, false); });
+    }
+    function sendPointerText(app) {
+        pointerText = pointerInput.text;
+        osk.close(true);
+        dialog.close(true);
+        root.resume(app);
+        if (pointerText !== "") pointerSend.restart();
+    }
+    Timer {                                   // the window is on screen again: the text goes to it
+        id: pointerSend
+        interval: 400
+        onTriggered: {
+            const text = root.pointerText;
+            root.pointerText = "";
+            owneetd.post("/v1/input/text", { text: text }, status => {
+                if (status !== 204) toast.show(Tr.tr("error.pointer.text"));
+            });
+        }
     }
     function confirmClose(app) {
         dialog.game = null;
@@ -1921,6 +1999,9 @@ FocusScope {
             canResume: root.sessionMode === "gamescope"
             onResume: root.resume(app)
             onCloseApp: root.confirmClose(app)
+            pointerOn: root.pointerStatus.on === true && root.runningGame !== null && root.pointerStatus.app === root.runningGame.id
+            onResumeWithPointer: root.resumeWithPointer(app)
+            onPointerOff: root.turnPointerOff()
             onNotYet: root.notYet()
             onQuickMenu: quick.openMenu()
         }
@@ -2353,9 +2434,73 @@ FocusScope {
                 font.pixelSize: Theme.fs(12.5)
             }
         }
+        Row {                             // pointerHelp: the controller, a label at each button (4.7)
+            visible: dialog.mode === "pointerHelp"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(26)
+            Column {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Theme.px(14)
+                Repeater {
+                    model: [["ls", "pointer.help.move"], ["dpad", "pointer.help.steps"], ["guide", "pointer.help.home"]]
+                    Prompt { anchors.right: parent.right; buttons: [modelData[0]]; label: Tr.tr(modelData[1]) }
+                }
+            }
+            PadDrawing {
+                anchors.verticalCenter: parent.verticalCenter
+                width: Theme.px(240); height: Theme.px(150)
+                kind: "plain"
+                color: Theme.fg
+            }
+            Column {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: Theme.px(14)
+                Repeater {
+                    model: [["a", "pointer.help.click"], ["x", "pointer.help.right"], ["rs", "pointer.help.scroll"], ["y", "pointer.help.type"]]
+                    Prompt { buttons: [modelData[0]]; label: Tr.tr(modelData[1]) }
+                }
+            }
+        }
+        Column {                          // pointerType: what goes to the window (4.7)
+            visible: dialog.mode === "pointerType"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(480)
+            FocusScope {
+                id: pointerField
+                // A opens the on-screen keyboard; a keyboard plugged in types here, Enter sends
+                readonly property bool navigable: true
+                signal activated()
+                onActivated: osk.open(pointerInput, false)
+                width: parent.width
+                height: Theme.px(52)
+                Rectangle {
+                    anchors.fill: parent
+                    radius: Theme.radiusS + Theme.px(2)
+                    color: Theme.surface
+                    border.color: osk.visible && osk.target === pointerInput ? Theme.accent : Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                }
+                TextInput {
+                    id: pointerInput
+                    focus: true
+                    anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: Theme.px(16) }
+                    color: Theme.fg
+                    selectionColor: Theme.accent
+                    selectedTextColor: Theme.onAccent
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(17)
+                    maximumLength: 256
+                    clip: true
+                    cursorVisible: pointerField.activeFocus || (osk.visible && osk.target === pointerInput)
+                    Keys.onReturnPressed: if (dialog.buttons.length > 0) dialog.buttons[0].action()
+                    Keys.onEnterPressed: if (dialog.buttons.length > 0) dialog.buttons[0].action()
+                }
+                FocusFrame { shown: pointerField.activeFocus }
+            }
+        }
         SettingRow {                      // steamNotice: "Don't show again" (4.2c)
             id: noticeNever
-            visible: dialog.mode === "steamNotice" || dialog.mode === "steamReturn"
+            visible: dialog.mode === "steamNotice" || dialog.mode === "steamReturn" || dialog.mode === "pointerHelp"
             anchors.horizontalCenter: parent.horizontalCenter
             width: Theme.px(360)
             text: Tr.tr("steam.notice.never")
@@ -2637,7 +2782,7 @@ FocusScope {
         showPassword: showPassword.checked
         onTogglePassword: showPassword.checked = !showPassword.checked
         onDone: {
-            if (dialog.visible && dialog.mode === "connect" && dialog.buttons.length > 0)
+            if (dialog.visible && (dialog.mode === "connect" || dialog.mode === "pointerType") && dialog.buttons.length > 0)
                 dialog.buttons[0].action();      // Done = Connect
             else
                 close(true);
