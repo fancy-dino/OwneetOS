@@ -257,6 +257,7 @@ FocusScope {
         applyKeyboard();          // the on-screen keyboard and physical keyboards follow the chosen layout
         refreshSteam(false);
         refreshWindows();
+        refreshInstalls();
         owneetd.get("/v1/update", (status, data) => { if (status === 200) root.updateStatus = data; });
         checkDisplayPending();
     }
@@ -295,6 +296,10 @@ FocusScope {
                 root.steamChanged(data);
             } else if (type === "windows.changed") {
                 root.windowsChanged(data);
+            } else if (type === "installs.changed") {
+                GameInfo.installs = (data && data.installs) || [];
+            } else if (type === "install.done" || type === "install.failed") {
+                root.installEnded(type, data);
             } else if (type === "update.changed") {
                 root.updateStatus = data;
                 root.showUpdate(data);
@@ -451,6 +456,8 @@ FocusScope {
 
     // ---- Games: launch, details, options
     function launch(game, agreementShown) {
+        // a game with only an installer (4.6): installed first, after the console's question
+        if (GameInfo.hasInstaller(game)) { installStart(game); return; }
         // Steam (4.2c): a game not installed is installed first; one being downloaded or on a disk
         // that is not connected shows its details; Steam's first start needs the internet; a
         // licence agreement Steam asks to accept at the first start is shown here first
@@ -510,8 +517,13 @@ FocusScope {
         dialog.buttons = [s === "installed" || s === "updating"
             ? { text: Tr.tr("home.play"), style: "primary", action: () => { dialog.close(true); root.launch(game); } }
             : s === "none"
-            ? { text: Tr.tr("options.install"), style: "primary", action: () => { dialog.close(true); root.askInstall(game); } }
+            ? { text: Tr.tr("options.install"), style: "primary", action: () => {
+                    dialog.close(true);
+                    if (GameInfo.hasInstaller(game)) root.installStart(game); else root.askInstall(game);
+                } }
             : { text: Tr.tr("prompt.close"), style: "primary", action: () => dialog.close() }];
+        if (GameInfo.hasInstaller(game) && GameInfo.usableInstaller(game))
+            inspectInstaller(game, null);     // the space it needs, for the facts
         dialog.defaultIndex = 0;
         dialog.open();
     }
@@ -520,6 +532,13 @@ FocusScope {
         const s = GameInfo.steamState(game), d = GameInfo.download(game);
         if (GameInfo.isSteam(game))
             facts.push([Tr.tr("details.state"), s === "installed" ? Tr.tr("steam.state.installed") : GameInfo.stateText(game)]);
+        if (GameInfo.hasInstaller(game)) {        // 4.6: its state, its installer, the space it needs
+            facts.push([Tr.tr("details.state"), GameInfo.stateText(game)],
+                       [Tr.tr("details.installer"), String(game.extra["disk.installer"]).split("/").pop()]);
+            const info = installInfos[game.extra["disk.installer"]];
+            if (info && GameInfo.usableInstaller(game))
+                facts.push([Tr.tr("details.needs"), GameInfo.sizeAuto(info.need)]);
+        }
         if (d && (s === "downloading" || s === "updating" || s === "paused"))
             facts.push([Tr.tr("details.done"), Tr.tr("details.done.value", { done: GameInfo.size1(d.done), total: GameInfo.size1(d.total) })]);
         if (d && (s === "downloading" || s === "updating") && d.rate > 0) {
@@ -548,7 +567,10 @@ FocusScope {
         dialog.buttons = (s === "installed"
             ? [{ text: Tr.tr("home.play"), style: "primary", action: () => { dialog.close(true); root.launch(game); } }]
             : s === "none"
-            ? [{ text: Tr.tr("options.install"), style: "primary", action: () => { dialog.close(true); root.askInstall(game); } }]
+            ? [{ text: Tr.tr("options.install"), style: "primary", action: () => {
+                    dialog.close(true);
+                    if (GameInfo.hasInstaller(game)) root.installStart(game); else root.askInstall(game);
+                } }]
             : []).concat([
             { text: Tr.tr("home.details"), action: () => { dialog.close(true); root.showDetails(game); } },
             { text: Tr.tr(game.favorite ? "options.unfavorite" : "options.favorite"), action: () => {
@@ -565,6 +587,11 @@ FocusScope {
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.cancel_install"), action: () => { dialog.close(true); root.askUninstall(game, true); } }]);
         if (GameInfo.diskFiles(game).length > 1)
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.choose_file"), action: () => { dialog.close(true); root.chooseFile(game, false); } }]);
+        // 4.6: an install stops; a game the console installed is uninstalled (its installer stays)
+        if (GameInfo.hasInstaller(game) && (s === "installing" || s === "queued"))
+            dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.stop_install"), action: () => { dialog.close(true); root.askStopInstall(game); } }]);
+        if (GameInfo.installedHere(game))
+            dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.uninstall"), action: () => { dialog.close(true); root.askRemoveInstalled(game); } }]);
         if (section !== "library")
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.library"), action: () => {
                 dialog.close(true);
@@ -592,7 +619,8 @@ FocusScope {
     // banner when ready. GET /v1/windows and "windows.changed": { state, percent, needed }.
     property var windowsStatus: null
     readonly property bool windowsReady: windowsStatus !== null && windowsStatus.state === "ready"
-    readonly property bool hasWindowsGames: games.some(g => GameInfo.isWindows(g))
+    readonly property bool hasWindowsGames: games.some(g => GameInfo.isWindows(g)
+        || ["inno", "nsis", "msi"].indexOf(GameInfo.installerKind(g)) >= 0)
     onHasWindowsGamesChanged: tellWindowsNeeded()
     function refreshWindows() {
         if (!owneetd.connected) return;
@@ -646,11 +674,203 @@ FocusScope {
                 { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
         } else {
             dialog.title = Tr.tr("windows.wait.title");
-            dialog.text = Tr.tr("windows.wait.text", { p: st.percent, title: game.title });
+            dialog.text = Tr.tr(GameInfo.hasInstaller(game) ? "windows.wait.text.install" : "windows.wait.text", { p: st.percent, title: game.title });
             dialog.buttons = [{ text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() }];
         }
         dialog.defaultIndex = 0;
         if (refresh) dialog.focusDefault(); else dialog.open();
+    }
+
+    // ---- Installers (4.6, approved demo design/demos/4.6-installers.html): a game with only an
+    // installer is installed by owneetd on the console's disk, one at a time, after the console's
+    // question with the game's licence ([[games-on-disk]]). GOG's Linux installers show their
+    // percentage, Windows installers a moving bar; Windows installers wait for Windows games to be
+    // ready. The installed copy replaces the game in the library (the games are read again
+    // quietly); Options stop an install or uninstall a game the console installed.
+    property var installInfos: ({})           // installer → { need, exact, free, licence }
+    function refreshInstalls() {
+        if (!owneetd.connected) return;
+        owneetd.get("/v1/installs", (status, st) => { if (status === 200) GameInfo.installs = st.installs || []; });
+    }
+    function inspectInstaller(game, done) {
+        const installer = game.extra["disk.installer"];
+        owneetd.post("/v1/installs/inspect", { installer: installer, kind: GameInfo.installerKind(game) }, (status, info) => {
+            if (status !== 200) {
+                if (done) { toast.show(Tr.tr("error.installer")); Nav.feedback("error"); }
+                return;
+            }
+            const infos = Object.assign({}, installInfos);
+            infos[installer] = info;
+            installInfos = infos;
+            if (done) done(info);
+        });
+    }
+    function installStart(game) {
+        const s = GameInfo.steamState(game);
+        if (s === "unusable") { showInstallUnusable(game); return; }
+        if (s !== "none") { showDetails(game); return; }
+        if (!owneetd.connected) { toast.show(Tr.tr("error.daemon.unavailable")); Nav.feedback("error"); return; }
+        // a Windows installer runs with what Windows games need (4.5)
+        if (GameInfo.installerKind(game) !== "sh" && !windowsReady) { showWindowsNotReady(game); return; }
+        inspectInstaller(game, info => {
+            if (info.free > 0 && info.need > info.free) showInstallSpace(game, info);
+            else showInstallAsk(game, info, false);
+        });
+    }
+    function showInstallAsk(game, info, back) {
+        dialog.game = game;
+        dialog.mode = "installAsk";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.prompts = dialog.defaultPrompts;
+        dialog.backAction = null;
+        dialog.title = Tr.tr("installer.ask.title", { title: game.title });
+        dialog.text = Tr.tr("installer.ask.text", { size: GameInfo.sizeAuto(info.need) });
+        dialog.buttons = [
+            { text: Tr.tr("installer.read"), action: () => root.showInstallLicence(game, info) },
+            { text: Tr.tr("installer.go"), style: "primary", action: () => { dialog.close(true); root.requestInstall(game); } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 1;
+        dialog.open(back);
+    }
+    // [Read]: the licence's text when the console found it (the right stick scrolls it), else
+    // where to find it; B goes back to the question
+    function showInstallLicence(game, info) {
+        const back = () => { Nav.feedback("sheet-close"); root.showInstallAsk(game, info, true); };
+        dialog.mode = "licence";
+        dialog.licence = info.licence || "";
+        dialog.contentWidth = Theme.px(680);
+        dialog.title = Tr.tr("installer.licence.title", { title: game.title });
+        dialog.text = info.licence ? "" : Tr.tr("installer.licence.missing");
+        dialog.prompts = info.licence ? [{ buttons: ["rs"], label: Tr.tr("prompt.scroll") }, { buttons: ["a", "b"], label: Tr.tr("prompt.back") }]
+                                      : [{ buttons: ["a", "b"], label: Tr.tr("prompt.back") }];
+        dialog.backAction = back;
+        dialog.buttons = [{ text: Tr.tr("prompt.back"), style: "primary", action: back }];
+        dialog.defaultIndex = 0;
+        licenceFlick.contentY = 0;
+        dialog.open(true);
+    }
+    function showInstallSpace(game, info) {
+        dialog.game = game;
+        dialog.mode = "installSpace";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.prompts = dialog.defaultPrompts;
+        dialog.backAction = null;
+        dialog.title = Tr.tr("installer.space.title", { title: game.title });
+        dialog.text = Tr.tr("installer.space.text", { title: game.title, size: GameInfo.sizeAuto(info.need), free: GameInfo.sizeAuto(info.free) });
+        dialog.buttons = [{ text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function showInstallUnusable(game) {
+        dialog.game = game;
+        dialog.mode = "installUnusable";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.prompts = dialog.defaultPrompts;
+        dialog.backAction = null;
+        dialog.title = Tr.tr("installer.unusable.title", { title: game.title });
+        dialog.text = Tr.tr(GameInfo.installerKind(game) === "galaxy" ? "installer.unusable.galaxy" : "installer.unusable.unknown");
+        dialog.buttons = [{ text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function requestInstall(game) {
+        const req = diskGames.installRequest(game, Tr.language);
+        const waiting = (GameInfo.installs || []).length > 0;     // another one in progress: this one waits
+        Nav.feedback("launch");
+        owneetd.post("/v1/installs", req, (status, data) => {
+            if (status === 202) {
+                if (waiting) toast.show(Tr.tr("toast.install.queued", { title: game.title }));
+                return;
+            }
+            const code = data && data.error ? data.error.code : "";
+            if (code === "installs.no_space") { root.inspectInstaller(game, info => root.showInstallSpace(game, info)); return; }
+            toast.show(Tr.tr(code === "installs.exists" ? "error.install.exists" : "error.installer"));
+            Nav.feedback("error");
+        });
+    }
+    function askStopInstall(game) {
+        const inst = GameInfo.install(game);
+        if (!inst) return;
+        dialog.game = null;
+        dialog.mode = "installStop";
+        dialog.contentWidth = 0;
+        dialog.icon = "";
+        dialog.prompts = dialog.defaultPrompts;
+        dialog.backAction = null;
+        dialog.title = Tr.tr("installer.stop.title", { title: game.title });
+        dialog.text = Tr.tr("installer.stop.text");
+        dialog.buttons = [
+            { text: Tr.tr("installer.stop.go"), style: "primary", action: () => {
+                dialog.close(true);
+                owneetd.post("/v1/installs/stop", { dest: inst.dest }, status => {
+                    toast.show(Tr.tr(status === 204 ? "toast.install.stopped" : "error.installer"));
+                });
+            } },
+            { text: Tr.tr("installer.stop.keep"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    // Uninstalling a game the console installed: its folder on the console's disk goes, its
+    // installer stays where it is (it can be installed again); its saves in its prefix stay
+    function askRemoveInstalled(game) {
+        const dir = String(game.extra["disk.dir"]);
+        const from = String(game.extra["disk.installed.from"] || "");
+        const vol = storage.volumes().find(v => v.key !== "internal" && from.startsWith(v.key + "/"));
+        dialog.game = null;
+        dialog.mode = "installRemove";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.prompts = dialog.defaultPrompts;
+        dialog.backAction = null;
+        dialog.title = Tr.tr("installer.uninstall.title", { title: game.title });
+        dialog.text = Tr.tr("installer.uninstall.text", { size: GameInfo.sizeAuto(diskGames.folderSize(dir)),
+                                                           disk: vol ? diskName(vol.key) : diskName("internal") });
+        dialog.buttons = [
+            { text: Tr.tr("uninstall.go"), style: "primary", action: () => {
+                dialog.close(true);
+                owneetd.post("/v1/installs/uninstall", { dest: dir }, status => {
+                    if (status !== 204) { toast.show(Tr.tr("error.installer")); Nav.feedback("error"); return; }
+                    toast.show(Tr.tr("toast.install.removed", { title: game.title }));
+                    root.readGamesQuietly();
+                });
+            } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 1;             // Cancel first: nothing removed by accident
+        dialog.open();
+    }
+    // The end of an install: the installed copy replaces the game (read again quietly), a notice
+    // says so; or why it stopped
+    function installEnded(type, data) {
+        if (!data) return;
+        if (type === "install.done") {
+            notify({ key: "notices.install.ready", args: { name: data.title }, icon: "check", kind: "info", action: "play", game: data.title });
+            readGamesQuietly();
+        } else if (data.reason === "source_gone") {
+            notify({ key: "notices.install.stopped", args: { name: data.title }, icon: "usb", kind: "info" });
+        } else if (data.reason === "no_space") {
+            notify({ key: "notices.install.space", args: { name: data.title }, icon: "alert", kind: "attention" });
+        } else if (data.reason === "windows") {
+            toast.show(Tr.tr("error.install.windows"));
+        } else if (data.reason !== "cancelled") {
+            notify({ key: "notices.install.failed", args: { name: data.title }, icon: "alert", kind: "attention" });
+        }
+    }
+    function readGamesQuietly() {
+        disksPending = true;
+        checkDisks();
+    }
+    // The home screen's notice of the install in progress (and how many wait)
+    readonly property var installNotices: {
+        const list = GameInfo.installs || [];
+        const cur = list.find(i => i.state === "installing");
+        if (!cur) return [];
+        const text = (cur.total > 0 ? Tr.tr("home.notice.install", { title: cur.title, p: Math.floor(cur.done * 100 / cur.total) })
+                                    : Tr.tr("home.notice.install.busy", { title: cur.title }))
+                     + (list.length > 1 ? "  ·  " + Tr.tr("home.notice.more", { n: list.length - 1 }) : "");
+        return [{ text: text, game: games.find(g => g.title === cur.title) || null }];
     }
 
     // ---- Games on a disk (4.3, approved demo design/demos/4.3-games-on-disk.html)
@@ -1687,7 +1907,7 @@ FocusScope {
             visible: root.section === "home"
             focus: visible
             games: root.homeGames
-            notices: root.steamNotices.concat(root.windowsNotices)
+            notices: root.steamNotices.concat(root.installNotices).concat(root.windowsNotices)
             onOpenNotice: if (notice.game) root.showDetails(notice.game)
             steamRunning: root.apps.some(a => a.id === "steam")
             onSteamOptions: root.confirmCloseSteam()
@@ -1793,6 +2013,8 @@ FocusScope {
         property var updateLines: []        // update: "name  from  →  to"
         property string updateNote: ""
         property string agreementUrl: ""    // agreement: the licence agreement's address (4.2c)
+        property string licence: ""         // licence: an installer's licence text (4.6)
+        scrollTarget: mode === "licence" && licence !== "" ? licenceFlick : null
         property string appId: ""           // close: the app it asks about
         property var files: []              // chooseFile: what the game on a disk can start (4.3)
         property bool thenStart: false      // chooseFile: the game starts once chosen
@@ -2085,6 +2307,32 @@ FocusScope {
                         }
                     }
                     FocusFrame {}
+                }
+            }
+        }
+        Rectangle {                       // licence: an installer's licence, scrolled (4.6)
+            visible: dialog.mode === "licence" && dialog.licence !== ""
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(680); height: Theme.px(300)
+            radius: Theme.radiusM
+            color: Theme.surface
+            border.color: Theme.line
+            Flickable {
+                id: licenceFlick
+                anchors { fill: parent; margins: Theme.px(16) }
+                clip: true
+                contentHeight: licenceText.implicitHeight
+                boundsBehavior: Flickable.StopAtBounds
+                Behavior on contentY { enabled: !Theme.reduceMotion; NumberAnimation { duration: Theme.motionMs; easing.type: Easing.OutCubic } }
+                Text {
+                    id: licenceText
+                    width: licenceFlick.width
+                    text: dialog.mode === "licence" ? dialog.licence : ""
+                    textFormat: Text.PlainText
+                    color: Theme.fg
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(14.5)
+                    wrapMode: Text.Wrap
                 }
             }
         }

@@ -7,6 +7,7 @@
 
 #include <QCryptographicHash>
 #include <QDir>
+#include <QDirIterator>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -128,6 +129,56 @@ QString DiskGames::gameDataDir(const QString& kind, const QString& game_dir)
     slug = slug.left(40).remove(QRegularExpression(QStringLiteral("^-+|-+$")));
     const QString hash = QString::fromLatin1(QCryptographicHash::hash(game_dir.toUtf8(), QCryptographicHash::Sha1).toHex().left(10));
     return paths::homePath() + QStringLiteral("/.local/share/owneet/") + kind + QChar('/') + slug + QChar('-') + hash;
+}
+
+QVariantMap DiskGames::installRequest(QObject* game_obj, const QString& language) const
+{
+    const auto* game = qobject_cast<model::Game*>(game_obj);
+    if (!game)
+        return {};
+    const QVariantMap& extra = game->extraMap();
+    const QString installer = extra.value(QStringLiteral("disk.installer")).toString();
+    const QString kind = extra.value(QStringLiteral("disk.installer.kind")).toString();
+    const QString game_dir = extra.value(QStringLiteral("disk.dir")).toString();
+    if (installer.isEmpty() || game_dir.isEmpty())
+        return {};
+    QString dest;
+    if (extra.value(QStringLiteral("disk.root")).toString() == QLatin1String("internal")) {
+        dest = game_dir;                 // already on the console's disk: installed in place
+    } else {
+        // the home folder's games folder, or a new one named in the console's language
+        QString games_dir;
+        const QDir home(paths::homePath());
+        for (const QString& folder : home.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+            if (folderNames().contains(folder.toLower())) {
+                games_dir = home.filePath(folder);
+                break;
+            }
+        }
+        if (games_dir.isEmpty())
+            games_dir = home.filePath(language.startsWith(QLatin1String("it")) ? QStringLiteral("Giochi") : QStringLiteral("Games"));
+        dest = games_dir + QChar('/') + QFileInfo(game_dir).fileName();
+    }
+    QVariantMap out {
+        { QStringLiteral("installer"), installer },
+        { QStringLiteral("kind"), kind },
+        { QStringLiteral("dest"), dest },
+        { QStringLiteral("title"), game->title() },
+    };
+    if (kind != QLatin1String("sh"))
+        out.insert(QStringLiteral("prefix"), windowsPrefix(dest));
+    return out;
+}
+
+double DiskGames::folderSize(const QString& path) const
+{
+    qint64 bytes = 0;
+    QDirIterator it(path, QDir::Files | QDir::Hidden | QDir::NoSymLinks, QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        it.next();
+        bytes += it.fileInfo().size();
+    }
+    return static_cast<double>(bytes);
 }
 
 bool DiskGames::firstStart(QObject* game_obj) const

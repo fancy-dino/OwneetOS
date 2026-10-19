@@ -19,11 +19,14 @@
 import json
 import os
 import queue
+import re
+import shutil
 import socketserver
 import sys
 import threading
 import time
 import urllib.parse
+import zipfile
 from http.server import BaseHTTPRequestHandler
 
 lock = threading.Lock()
@@ -83,6 +86,8 @@ state = {
     # Windows games (4.5): nothing until the interface says the library has one; then about
     # 20 seconds of "getting ready"
     "windows": {"state": "none", "percent": 0, "needed": False},
+    # games installed from their installers (4.6): queued or in progress
+    "installs": [],
     "steam": {"installed": True, "allowed": True, "prepared": False, "running": False, "games": [],
               "downloads": [], "away": {}, "account": False, "licences": 0, "nvidia": False},
     "audio": {"available": True, "output": "hdmi", "volume": 60, "muted": False,
@@ -132,6 +137,64 @@ def steam_tick():
             state["steam"]["games"].append(d["appid"])
     steam_publish()
     later(0.5, steam_tick)
+
+
+# Installers (4.6): an install takes a few seconds (GOG's .sh with a percentage, Windows
+# installers without), then the game is in the home folder's games folder with owneetd's mark
+def install_inspect(body):
+    path = body.get("installer", "")
+    info = {"need": 0, "exact": False, "free": 212 * 10**9, "licence": ""}
+    if body.get("kind") == "sh":
+        try:
+            with zipfile.ZipFile(path) as z:
+                info["need"] = sum(f.file_size for f in z.infolist() if f.filename.startswith("data/noarch/"))
+                info["exact"] = True
+                for f in z.infolist():
+                    if re.search(r"(?i)(eula|licen[cs]e|terms)[^/]*\.txt$", f.filename):
+                        info["licence"] = z.read(f).decode("utf-8", "replace")
+                        break
+        except (OSError, zipfile.BadZipFile):
+            pass
+    else:
+        try:
+            info["need"] = 2 * os.path.getsize(path)
+        except OSError:
+            pass
+    return info
+
+
+def installs_copy():
+    return {"installs": json.loads(json.dumps(state["installs"]))}
+
+
+def install_tick():
+    with lock:
+        cur = next((i for i in state["installs"] if i["state"] == "installing"), None)
+        if cur is None:
+            return
+        cur["done"] += cur["total"] // 6 if cur["total"] else 1
+        finished = cur["done"] >= (cur["total"] or 30)   # Windows installers: half a minute
+        if finished:
+            state["installs"].remove(cur)
+            nxt = next((i for i in state["installs"] if i["state"] == "queued"), None)
+            if nxt:
+                nxt["state"] = "installing"
+        snapshot = installs_copy()
+        more = bool(state["installs"])
+    if finished:
+        dest = cur["dest"]
+        os.makedirs(dest, exist_ok=True)
+        start = os.path.join(dest, "start.sh" if cur["kind"] == "sh" else "game.exe")
+        with open(start, "w") as f:
+            f.write("#!/bin/sh\nexec true\n")
+        os.chmod(start, 0o755)
+        with open(os.path.join(dest, ".owneet-installed"), "w") as f:
+            json.dump({"installer": cur["installer"], "kind": cur["kind"]}, f)
+    publish("installs.changed", snapshot)
+    if finished:
+        publish("install.done", {"dest": cur["dest"], "title": cur["title"]})
+    if more:
+        later(1, install_tick)
 
 
 def windows_tick():
@@ -263,6 +326,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/v1/steam": state["steam"],
                 "/v1/update": state["update"],
                 "/v1/windows": state["windows"],
+                "/v1/installs": {"installs": state["installs"]},
                 "/v1/controllers": {"controllers": state["controllers"]},
                 "/v1/network": state["network"],
                 "/v1/network/wifi": {"networks": state["networks"]},
@@ -347,6 +411,40 @@ class Handler(BaseHTTPRequestHandler):
             publish("app.started", app)
             later(4, lambda: publish("focus.changed", {"focus": app["id"]}))
             return self.reply(201, {"id": app["id"]})
+        if path == "/v1/installs/inspect":
+            return self.reply(200, install_inspect(body))
+        if path == "/v1/installs":
+            info = install_inspect(body)
+            with lock:
+                first = not state["installs"]
+                state["installs"].append({"dest": body["dest"], "title": body.get("title", ""), "kind": body["kind"],
+                                          "installer": body["installer"], "state": "installing" if first else "queued",
+                                          "done": 0, "total": info["need"] if body["kind"] == "sh" else 0})
+                snapshot = installs_copy()
+            publish("installs.changed", snapshot)
+            if first:
+                later(1, install_tick)
+            return self.reply(202)
+        if path == "/v1/installs/stop":
+            with lock:
+                gone = [i for i in state["installs"] if i["dest"] == body.get("dest")]
+                state["installs"] = [i for i in state["installs"] if i["dest"] != body.get("dest")]
+                if gone and gone[0]["state"] == "installing":
+                    nxt = next((i for i in state["installs"] if i["state"] == "queued"), None)
+                    if nxt:
+                        nxt["state"] = "installing"
+                snapshot = installs_copy()
+            if not gone:
+                return self.error(404, "installs.not_found")
+            publish("installs.changed", snapshot)
+            publish("install.failed", {"dest": gone[0]["dest"], "title": gone[0]["title"], "reason": "cancelled"})
+            return self.reply(204)
+        if path == "/v1/installs/uninstall":
+            dest = body.get("dest", "")
+            if not os.path.exists(os.path.join(dest, ".owneet-installed")):
+                return self.error(404, "installs.not_found")
+            shutil.rmtree(dest)
+            return self.reply(204)
         if path == "/v1/windows/needed":
             with lock:
                 w = state["windows"]

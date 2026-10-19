@@ -26,9 +26,10 @@
 #   @steam           (with @owneetd) an invented Steam folder with owned games, installed or not
 #                    (tools/preview-steps/fake-steam.py); the pretend owneetd installs and
 #                    uninstalls them, with downloads
-#   @disk            an invented USB disk "SSD-256GB-D" with a Giochi folder (games on a disk, 4.3):
-#                    scripts, programs, covers (Starfall, Beneath a steel sky), a Windows-only game and an
-#                    installer-only folder (both not listed yet)
+#   @disk            an invented USB disk "SSD-256GB-D" with a Giochi folder (games on a disk, 4.3;
+#                    installers, 4.6):
+#                    scripts, programs, covers (Starfall, Beneath a steel sky), Windows games, and
+#                    folders with only an installer (GOG .sh, Inno Setup, too big, Galaxy, unknown)
 #   unplug / plug    (with @disk) the invented disk is unplugged / plugged in again
 #   event TYPE JSON  (with @owneetd) the pretend owneetd sends an event, e.g.
 #                    event controller.battery {"id":"aa:bb:cc:dd:ee:01","name":"Xbox","battery":12}
@@ -174,7 +175,32 @@ if grep -q '^@disk' /steps.txt; then
         > "$g/Tyrian 2000/goggame-1.info"
     mkdir -p "$g/Ashen Gate/bin/x64" "$g/Ashen Gate/__redist"; : > "$g/Ashen Gate/AshenGate.exe"; : > "$g/Ashen Gate/bin/x64/AshenGate.exe"
     : > "$g/Ashen Gate/unins000.exe"; : > "$g/Ashen Gate/__redist/vcredist_x64.exe"
-    mkdir -p "$g/Installer only"; printf '#!/bin/sh\n# This script was generated using Makeself 2.4.0\n' > "$g/Installer only/gog_game.sh"
+    # Installers (4.6): GOG's Linux installer (a script, then a ZIP archive with data/noarch and a
+    # licence), GOG's Windows installer (Inno Setup, with a part), one too big for the console's
+    # disk (a sparse file), GOG Galaxy's online installer, and an unknown kind
+    mkdir -p "$g/Stargunner" "$g/Shadow Harbor" "$g/Titan Fields" "$g/Treasure Adventure Game" "$g/Old Relic"
+    python3 - "$g/Stargunner/gog_stargunner_2.0.0.10.sh" <<'PY'
+import io, sys, zipfile
+buf = io.BytesIO()
+with zipfile.ZipFile(buf, "w") as z:
+    z.writestr("scripts/config.lua", "-- MojoSetup")
+    z.writestr("data/noarch/start.sh", "#!/bin/sh\nexec true\n")
+    z.writestr("data/noarch/game/data.bin", "x" * 4000000)
+    z.writestr("data/noarch/docs/End User License Agreement.txt",
+               "END USER LICENCE AGREEMENT (invented for the preview)\n\n" + "\n\n".join(
+                   f"{n}. A clause of the licence, long enough to need scrolling with the right stick on the console's screen." for n in range(1, 25)))
+open(sys.argv[1], "wb").write(b"#!/bin/sh\n# This script was generated using Makeself 2.4.0\n" + b"#" * 4000 + b"\nexit 0\n" + buf.getvalue())
+PY
+    printf 'MZ... Inno Setup Setup Data (6.2.0)' > "$g/Shadow Harbor/setup_shadow_harbor_1.4.2.exe"
+    head -c 3000000 /dev/zero >> "$g/Shadow Harbor/setup_shadow_harbor_1.4.2.exe"
+    : > "$g/Shadow Harbor/setup_shadow_harbor_1.4.2-1.bin"
+    printf 'MZ... Inno Setup Setup Data (6.2.0)' > "$g/Titan Fields/setup_titan_fields_2.0.exe"
+    truncate -s 300G "$g/Titan Fields/setup_titan_fields_2.0.exe"
+    : > "$g/Treasure Adventure Game/GOG_Galaxy_Treasure_Adventure_Game.exe"
+    printf 'MZ... a packer nobody knows' > "$g/Old Relic/OldRelic_setup.exe"
+    # a game the console installed earlier (it can be uninstalled; its installer is on the disk)
+    script "$HOME/Games/Old Lighthouse/start.sh"; head -c 50000000 /dev/zero > "$HOME/Games/Old Lighthouse/data.bin"
+    printf '{"installer": "%s/Old Lighthouse/gog_old_lighthouse.sh", "kind": "sh"}' "$g" > "$HOME/Games/Old Lighthouse/.owneet-installed"
     ls -l "$g/Starfall" >> /out/log.txt
     export OWNEET_DISKS="$disk"
 fi

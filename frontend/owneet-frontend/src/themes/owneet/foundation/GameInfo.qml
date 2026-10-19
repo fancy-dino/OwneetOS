@@ -25,6 +25,25 @@ QtObject {
     // A Windows game on a disk (4.5): never named so to the user, it only needs what owneetd
     // downloads once
     function isWindows(game) { return onDisk(game) && game.extra["disk.windows"] === true; }
+
+    // ---- Games with only an installer ([[step-4.6-installers]]): owneetd installs them on the
+    // console's disk (GET /v1/installs and "installs.changed": { installs: [{ dest, state, done,
+    // total }] }). "disk.installer.kind": sh (GOG's Linux installer: a percentage), inno, nsis,
+    // msi (Windows installers: no percentage), galaxy, unknown (cannot be installed yet)
+    property var installs: []
+    function installerKind(game) { return onDisk(game) ? String(game.extra["disk.installer.kind"] || "") : ""; }
+    function hasInstaller(game) { return installerKind(game) !== ""; }
+    function usableInstaller(game) { return ["sh", "inno", "nsis", "msi"].indexOf(installerKind(game)) >= 0; }
+    // Installed by the console: it can be uninstalled
+    function installedHere(game) { return onDisk(game) && game.extra["disk.installed"] === true; }
+    // The install of a game in progress or waiting: its folder on the console's disk has the
+    // game's folder name
+    function install(game) {
+        if (!hasInstaller(game))
+            return null;
+        const name = String(game.extra["disk.dir"]).split("/").pop();
+        return installs.find(i => String(i.dest).split("/").pop() === name) || null;
+    }
     // The same game after the games were read again (new objects): by app id, folder or title
     function sameGame(a, b) {
         if (!a || !b)
@@ -94,6 +113,12 @@ QtObject {
     // "installed", "none", "downloading", "updating", "queued" (waiting for its turn), "paused"
     // (waiting, no internet), "away" (installed on a disk that is not connected)
     function steamState(game) {
+        if (hasInstaller(game)) {           // 4.6: none, queued, installing, unusable
+            if (!usableInstaller(game))
+                return "unusable";
+            const i = install(game);
+            return i ? (i.state === "installing" ? "installing" : "queued") : "none";
+        }
         const id = appid(game);
         if (!id || !isSteam(game))
             return "installed";
@@ -109,6 +134,9 @@ QtObject {
     }
     function download(game) { return downloads[appid(game)] || null; }
     function progress(game) {                   // 0…100
+        const i = install(game);
+        if (i)
+            return i.total > 0 ? Math.min(100, Math.floor(i.done * 100 / i.total)) : 0;
         const d = download(game);
         return d && d.total > 0 ? Math.min(100, Math.floor(d.done * 100 / d.total)) : 0;
     }
@@ -125,6 +153,12 @@ QtObject {
         const s = steamState(game);
         if (s === "installed")
             return "";
+        if (s === "installing") {
+            const i = install(game);
+            return i && i.total > 0 ? Tr.tr("installer.state.installing", { p: progress(game) }) : Tr.tr("installer.state.busy");
+        }
+        if (s === "unusable")
+            return Tr.tr("installer.state.unusable");
         if (s === "downloading" || s === "updating")
             return Tr.tr("steam.state." + s, { p: progress(game) });
         return Tr.tr("steam.state." + s);
@@ -156,6 +190,11 @@ QtObject {
     // Sizes for people: "212 GB", "1.1 TB" (decimal units, as disks are sold)
     function size1(bytes) {                    // "2.4 GB": downloads, with one decimal
         return Number(bytes / 1e9).toLocaleString(Qt.locale(), "f", 1) + " GB";
+    }
+    function sizeAuto(bytes) {                 // "40 MB" under 1 GB, else "2.4 GB": installs (4.6)
+        if (bytes < 1e9)
+            return Number(Math.max(1, Math.round(bytes / 1e6))).toLocaleString(Qt.locale(), "f", 0) + " MB";
+        return size1(bytes);
     }
     function size(bytes) {
         const gb = bytes / 1e9;

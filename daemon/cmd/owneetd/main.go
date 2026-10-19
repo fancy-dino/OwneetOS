@@ -24,6 +24,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/display"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/installs"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/network"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/power"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/sdldb"
@@ -207,6 +208,18 @@ func run(configPath string) error {
 	}
 	go winMgr.Run(ctx)
 
+	// Games installed from their installers ([[step-4.6-installers]]), on the console's disk;
+	// Windows installers run in the console's session (its DISPLAY), never shown
+	instMgr := &installs.Manager{Broker: broker, Log: log, Home: home,
+		StateDir: filepath.Join(home, ".config", "owneet"), WindowsRun: "/usr/lib/owneet/owneet-windows-run",
+		Env: func() []string {
+			if sess, err := appsMgr.Session(); err == nil {
+				return sess.Env
+			}
+			return nil
+		}}
+	go instMgr.Run(ctx)
+
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
@@ -221,6 +234,7 @@ func run(configPath string) error {
 		Display:         screen,
 		Update:          updateAPI,
 		Windows:         winMgr,
+		Installs:        instMgr,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

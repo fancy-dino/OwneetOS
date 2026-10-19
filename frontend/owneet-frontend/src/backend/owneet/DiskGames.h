@@ -8,6 +8,7 @@
 
 #include <QObject>
 #include <QStringList>
+#include <QVariantMap>
 
 namespace model { class Game; }
 
@@ -44,6 +45,13 @@ public:
     Q_INVOKABLE bool choose(QObject* game, const QString& file);
     /// Whether a Windows game has never started (its prefix is made at its first start: longer)
     Q_INVOKABLE bool firstStart(QObject* game) const;
+    /// What owneetd needs to install a game that has only an installer ([[step-4.6-installers]]):
+    /// {installer, kind, dest, prefix, title}. dest is the game's folder on the console's disk, in
+    /// the home folder's games folder (made in the console's language when there is none), under
+    /// the same name; or the game's own folder when its installer is already there
+    Q_INVOKABLE QVariantMap installRequest(QObject* game, const QString& language) const;
+    /// The bytes a game's folder takes (what uninstalling it frees)
+    Q_INVOKABLE double folderSize(const QString& path) const;
 
     bool quietReading() const { return m_quiet_reading; }
     void setQuietReading(bool quiet);
