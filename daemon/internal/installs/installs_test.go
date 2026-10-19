@@ -363,3 +363,35 @@ func TestCutShortCleaned(t *testing.T) {
 		t.Fatalf("half %v, done %v", exists(dest), exists(done))
 	}
 }
+
+// A real GOG installer, when given (OWNEET_GOG_SH=path): what the console reads and extracts
+// from it (checked with Beneath a Steel Sky's on 2026-10-19).
+func TestRealGOGScript(t *testing.T) {
+	path := os.Getenv("OWNEET_GOG_SH")
+	if path == "" {
+		t.Skip("no real GOG installer given (OWNEET_GOG_SH)")
+	}
+	a, err := openArchive(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	lic := a.licence()
+	t.Logf("%d files, %d bytes; licence: %d characters, starts %q", len(a.files), a.total, len(lic), firstLine(lic))
+	if a.total == 0 || lic == "" {
+		t.Fatal("nothing to install, or no licence")
+	}
+	dest := t.TempDir()
+	if err := a.extract(context.Background(), dest, func(int64) {}); err != nil {
+		t.Fatal(err)
+	}
+	st, err := os.Stat(filepath.Join(dest, "start.sh"))
+	if err != nil || st.Mode().Perm()&0o100 == 0 {
+		t.Fatalf("start.sh %v %v", st, err)
+	}
+}
+
+func firstLine(s string) string {
+	line, _, _ := strings.Cut(strings.TrimSpace(s), "\n")
+	return line
+}
