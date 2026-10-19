@@ -6,7 +6,8 @@
      used are shown). Folders with only an installer are games "Not installed"; A asks before
      installing ("By installing you accept the game's licence" [Read] [Install] [Cancel]), with the
      free space checked; the install goes on in the background with its percentage on the cover and
-     in the home screen's notices (none for NSIS / MSI installers, which do not tell); a banner
+     in the home screen's notices (only GOG's .sh: Windows installers show a moving bar, owner
+     2026-10-19); a banner
      when ready; Options stop an install or uninstall the game. Below, what demo 4.5 already showed:
      Windows games on the USB disk, listed like the others; the download
      they need the first time (about 650 MB, only once a Windows game is in the library): its
@@ -111,7 +112,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .cover .state { display: grid; gap: 5px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
 .cover .prog { height: 5px; border-radius: 999px; background: rgba(255,255,255,.25); overflow: hidden; }
 .cover .prog i { display: block; height: 100%; background: #fff; border-radius: 999px; transition: width .25s linear; }
-/* no percentage (NSIS / MSI): a bar that keeps moving */
+/* no percentage (Windows installers): a bar that keeps moving */
 .cover .prog.busy i, .pbar.busy i { width: 35% !important; animation: busy calc(1.4s / max(var(--motion), .2)) ease-in-out infinite; }
 @keyframes busy { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
 /* the licence's text, scrolled with the right stick */
@@ -251,7 +252,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     <div class="prompts t-s sheet-prompts" id="sheet-prompts"></div>
   </div>
 </div></div>
-<p class="help"><b>New in 4.6:</b> on the USB disk, folders with only an installer: <b>Stargunner</b> (GOG for Linux, extracted), <b>Shadow Harbor</b> (GOG for Windows, run silently: Windows games must be ready first), <b>Lantern Keep</b> (an installer that tells no percentage; licence not found), <b>Titan Fields</b> (too big for the free space), <b>Treasure Adventure Game</b> (GOG Galaxy's online installer) and <b>Old Relic</b> (unknown kind): both shown, “cannot be installed yet”. A installs (licence first; Read shows it, the right stick scrolls); Home's notices follow the install; Menu stops it, or uninstalls an installed game. Installed games stay when the disk is unplugged; unplugging it during an install stops it. Still from 4.5: Windows games (<b>Tyrian 2000</b>, <b>Ashen Gate</b>) and <b>Iron Tundra</b> (Steam).<br>
+<p class="help"><b>New in 4.6:</b> on the USB disk, folders with only an installer: <b>Stargunner</b> (GOG for Linux, extracted), <b>Shadow Harbor</b> (GOG for Windows, run silently: Windows games must be ready first; no percentage, a moving bar), <b>Lantern Keep</b> (another kind of Windows installer; licence not found), <b>Titan Fields</b> (too big for the free space), <b>Treasure Adventure Game</b> (GOG Galaxy's online installer) and <b>Old Relic</b> (unknown kind): both shown, “cannot be installed yet”. A installs (licence first; Read shows it, the right stick scrolls); Home's notices follow the install; Menu stops it, or uninstalls an installed game. Installed games stay when the disk is unplugged; unplugging it during an install stops it. Still from 4.5: Windows games (<b>Tyrian 2000</b>, <b>Ashen Gate</b>) and <b>Iron Tundra</b> (Steam).<br>
 <b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A play, B menu (back in windows), X details, Y sort, Menu options, LT/RT filters, LB/RB sections.
 <b>Keyboard:</b> arrows, Page Up/Down = right stick, Enter = A, Esc = B, X, Y, M = Menu, Z/C = LT/RT, Q/E = LB/RB.<br>
 <b>Demo only:</b> O internet on / off (<span id="net-state">on</span>), W download state (<span id="win-state">getting ready</span>), R forget first starts, choices and installs, U plug in / unplug the disk (<span id="disk-state">plugged in</span>), P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#win=waiting|downloading|ready&amp;net=off&amp;section=home|settings&amp;filter=local&amp;lang=it&amp;open=install|licence|nolicence|installing|space|unusable|uninstall|offline|progress|prep|choose|broken|steamdl</code></p>
@@ -525,8 +526,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     { title: 'Ashen Gate', win: true, files: [['AshenGate.exe', ''], ['AshenGate.exe', 'bin\\x64']] },
   ];
   // Step 4.6: folders with only an installer. kind: sh (GOG for Linux, extracted: exact
-  // percentage), inno (GOG for Windows, run silently under Proton: percentage from its size),
-  // nsis (run silently, no percentage), galaxy / unknown (cannot be installed yet). need: GB on
+  // percentage), inno (GOG for Windows) and nsis (run silently under Proton: no percentage,
+  // owner 2026-10-19), galaxy / unknown (cannot be installed yet). need: GB on
   // the console's disk; licence: found before installing
   const INSTALLERS = [
     { title: 'Stargunner', kind: 'sh', file: 'gog_stargunner_2.0.0.10.sh', need: 0.04, licence: true },
@@ -616,12 +617,12 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     }
   }
   // an installer's game: its state under the title (demo 4.2c), the percentage while installing
-  const pctLabel = g => g.inst === 'nsis' ? tr('st.installing.np') : tr('st.installing', { p: g.pct });
+  const pctLabel = g => g.inst !== 'sh' ? tr('st.installing.np') : tr('st.installing', { p: g.pct });
   function stateLine(g) {
     if (!g.inst || g.state === 'installed') return '';
     const label = g.state === 'installing' ? pctLabel(g) : tr('st.' + g.state);
     const bar = g.state === 'installing' || g.state === 'queued'
-      ? `<span class="prog${g.state === 'installing' && g.inst === 'nsis' ? ' busy' : ''}"><i style="width:${g.state === 'installing' ? g.pct : 0}%"></i></span>` : '';
+      ? `<span class="prog${g.state === 'installing' && g.inst !== 'sh' ? ' busy' : ''}"><i style="width:${g.state === 'installing' ? g.pct : 0}%"></i></span>` : '';
     return `<span class="t-xs">${label}</span>${bar}`;
   }
   function coverHTML(g) {
@@ -668,7 +669,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     const cur = GAMES.find(g => g.inst && g.state === 'installing');
     if (!cur) return '';
     const waiting = GAMES.filter(g => g.inst && g.state === 'queued').length;
-    const np = cur.inst === 'nsis';
+    const np = cur.inst !== 'sh';
     return `<div class="notice"><span class="ico">${ICON('down')}</span><span class="txt">
       <span class="t-m">${np ? tr('notice.inst.np', { title: cur.title }) : tr('notice.inst', { title: cur.title, p: cur.pct })}${waiting ? ` <span class="muted t-s">${tr('notice.more', { n: waiting })}</span>` : ''}</span>
       <span class="t-xs muted">${tr('notice.inst.why')}</span><span class="pbar${np ? ' busy' : ''}"><i style="width:${np ? 0 : cur.pct}%"></i></span></span></div>`;
@@ -993,7 +994,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     const n = GAMES.find(x => x.inst && x.state === 'queued');
     if (n) { n.state = 'installing'; n.pct = 0; }
   }
-  // the install goes on by itself (here: quicker than real); NSIS tells no percentage
+  // the install goes on by itself (here: quicker than real); only GOG's .sh tell a percentage
   setInterval(() => {
     const g = GAMES.find(x => x.inst && x.state === 'installing');
     if (!g) return;
