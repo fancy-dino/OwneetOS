@@ -79,7 +79,8 @@ func newManager(t *testing.T) (*Manager, string, string, <-chan events.Event) {
 	t.Cleanup(unsub)
 	m := &Manager{Broker: broker, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), Home: home,
 		StateDir: filepath.Join(home, "state"), WindowsRun: "/usr/lib/owneet/owneet-windows-run",
-		Runner: &fakeRunner{}, Free: func(string) (int64, error) { return 1 << 40, nil }}
+		Runner: &fakeRunner{}, Free: func(string) (int64, error) { return 1 << 40, nil },
+		InUse: func(string) bool { return false }}
 	os.MkdirAll(filepath.Join(home, "Giochi"), 0o755)
 	return m, home, disk, ch
 }
@@ -150,6 +151,12 @@ func TestGOGScriptExtracted(t *testing.T) {
 	if err := m.Install(Request{Installer: installer, Kind: KindSh, Dest: dest}); err != ErrExists {
 		t.Fatalf("again: %v", err)
 	}
+	// a running game is never uninstalled
+	m.InUse = func(dir string) bool { return dir == dest }
+	if err := m.Uninstall(dest); err != ErrInUse || !exists(filepath.Join(dest, "start.sh")) {
+		t.Fatalf("uninstall while running: %v", err)
+	}
+	m.InUse = func(string) bool { return false }
 	if err := m.Uninstall(dest); err != nil || exists(dest) {
 		t.Fatalf("uninstall: %v, still there %v", err, exists(dest))
 	}
@@ -394,4 +401,12 @@ func TestRealGOGScript(t *testing.T) {
 func firstLine(s string) string {
 	line, _, _ := strings.Cut(strings.TrimSpace(s), "\n")
 	return line
+}
+
+// The real /proc: this test's own process works in its folder.
+func TestProcInUse(t *testing.T) {
+	wd, _ := os.Getwd()
+	if !procInUse(wd) || procInUse(t.TempDir()) {
+		t.Fatal("procInUse")
+	}
 }

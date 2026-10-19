@@ -28,6 +28,7 @@ var installErrors = []struct {
 	{installs.ErrNoSpace, http.StatusConflict, "installs.no_space"},
 	{installs.ErrExists, http.StatusConflict, "installs.exists"},
 	{installs.ErrNotFound, http.StatusNotFound, "installs.not_found"},
+	{installs.ErrInUse, http.StatusConflict, "installs.in_use"},
 }
 
 func (s *Server) installsError(w http.ResponseWriter, err error) {

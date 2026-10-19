@@ -67,6 +67,7 @@ var (
 	ErrNoSpace  = errors.New("not enough space on the console's disk")
 	ErrExists   = errors.New("a game with that name is already on the console's disk")
 	ErrNotFound = errors.New("no such install or installed game")
+	ErrInUse    = errors.New("the game is running: close it first")
 )
 
 // Install is one install, queued or in progress.
@@ -121,6 +122,9 @@ type Manager struct {
 	Runner     Runner
 	// Free tells the free bytes of the disk holding path (statfs by default).
 	Free func(path string) (int64, error)
+	// InUse tells whether a process works in a folder (its working folder or its program is in
+	// it: /proc by default)
+	InUse func(dir string) bool
 
 	mu    sync.Mutex
 	queue []*job
@@ -148,6 +152,9 @@ func (m *Manager) init() {
 		}
 		if m.Env == nil {
 			m.Env = func() []string { return nil }
+		}
+		if m.InUse == nil {
+			m.InUse = procInUse
 		}
 	})
 }
@@ -368,6 +375,10 @@ func (m *Manager) Uninstall(dest string) error {
 		return ErrNotFound
 	}
 	_ = json.Unmarshal(data, &mark)
+	// never under a running game (FrankenPC, 2026-10-19: ScummVM lost its files and crashed)
+	if m.InUse(dest) {
+		return ErrInUse
+	}
 	m.mu.Lock()
 	for _, j := range m.queue {
 		if j.Dest == dest {
@@ -591,4 +602,24 @@ func (m *Manager) cleanCutShort() {
 
 func (m *Manager) linksDir() string {
 	return filepath.Join(m.Home, ".local", "share", "owneet", "installs")
+}
+
+// procInUse: a process's working folder or program is in dir (the console user's processes).
+func procInUse(dir string) bool {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.Name()[0] < '0' || e.Name()[0] > '9' {
+			continue
+		}
+		for _, link := range []string{"cwd", "exe"} {
+			if target, err := os.Readlink(filepath.Join("/proc", e.Name(), link)); err == nil &&
+				(target == dir || within(target, dir)) {
+				return true
+			}
+		}
+	}
+	return false
 }

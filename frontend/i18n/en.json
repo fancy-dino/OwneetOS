@@ -527,6 +527,7 @@
   "error.installer": "The game could not be installed.",
   "error.install.exists": "A game with that name is already on the console’s disk.",
   "error.install.windows": "Windows games are not ready yet: try again in a moment.",
+  "error.install.in_use": "Close the game before uninstalling it.",
   "notices.install.ready": "{name} is ready",
   "notices.install.ready.detail": "It is in the Library: press A on it to play.",
   "notices.install.stopped": "Installing {name} stopped",

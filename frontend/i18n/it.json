@@ -527,6 +527,7 @@
   "error.installer": "Non è stato possibile installare il gioco.",
   "error.install.exists": "Sul disco della console c’è già un gioco con questo nome.",
   "error.install.windows": "I giochi Windows non sono ancora pronti: riprova tra poco.",
+  "error.install.in_use": "Chiudi il gioco prima di disinstallarlo.",
   "notices.install.ready": "{name} è pronto",
   "notices.install.ready.detail": "È nella Libreria: premi A per giocare.",
   "notices.install.stopped": "Installazione di {name} interrotta",

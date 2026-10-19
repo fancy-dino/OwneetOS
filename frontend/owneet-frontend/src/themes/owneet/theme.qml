@@ -668,7 +668,7 @@ FocusScope {
         // 4.6: an install stops; a game the console installed is uninstalled (its installer stays)
         if (GameInfo.hasInstaller(game) && (s === "installing" || s === "queued"))
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.stop_install"), action: () => { dialog.close(true); root.askStopInstall(game); } }]);
-        if (GameInfo.installedHere(game))
+        if (GameInfo.installedHere(game) && !(runningGame && runningGame.name === game.title))
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.uninstall"), action: () => { dialog.close(true); root.askRemoveInstalled(game); } }]);
         if (section !== "library")
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.library"), action: () => {
@@ -909,8 +909,13 @@ FocusScope {
         dialog.buttons = [
             { text: Tr.tr("uninstall.go"), style: "primary", action: () => {
                 dialog.close(true);
-                owneetd.post("/v1/installs/uninstall", { dest: dir }, status => {
-                    if (status !== 204) { toast.show(Tr.tr("error.installer")); Nav.feedback("error"); return; }
+                owneetd.post("/v1/installs/uninstall", { dest: dir }, (status, data) => {
+                    if (status !== 204) {
+                        const code = data && data.error ? data.error.code : "";
+                        toast.show(Tr.tr(code === "installs.in_use" ? "error.install.in_use" : "error.installer"));
+                        Nav.feedback("error");
+                        return;
+                    }
                     toast.show(Tr.tr("toast.install.removed", { title: game.title }));
                     root.readGamesQuietly();
                 });
@@ -936,9 +941,13 @@ FocusScope {
             notify({ key: "notices.install.failed", args: { name: data.title }, icon: "alert", kind: "attention" });
         }
     }
+    // An install or uninstall changes the library at once, also while a game runs (owner,
+    // 2026-10-19: the uninstalled game kept its place until the game on screen closed); the
+    // reading is quiet and short (the games folders only change)
     function readGamesQuietly() {
-        disksPending = true;
-        checkDisks();
+        console.log("Installs changed: reading the games again, quietly");
+        diskGames.quietReading = true;
+        Internal.settings.reloadProviders();
     }
     // The home screen's notice of the install in progress (and how many wait)
     readonly property var installNotices: {
