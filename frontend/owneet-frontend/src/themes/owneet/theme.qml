@@ -180,9 +180,11 @@ FocusScope {
         const w = runningWebApp ? webApps.find(a => "web:" + a.id === runningWebApp.id) : null;
         return w ? Tr.tr(w.nameKey) : (runningWebApp ? runningWebApp.name : "");
     }
-    function refreshApps() {
+    // then: called once the list is updated (and the pages have reacted to it)
+    function refreshApps(then) {
         owneetd.get("/v1/apps", (status, data) => {
             if (status === 200) { apps = (data.apps || []).map(named); focusedApp = data.focus || ""; }
+            if (then) Qt.callLater(then);
         });
     }
     // Google's terms page (5.4) runs like a web app: shown by its name, never by its id
@@ -210,9 +212,10 @@ FocusScope {
         function onEvent(type, data) {
             root.noticeFor(type, data);
             if (type === "app.started" || type === "app.exited") {
-                root.refreshApps();
-                if (type === "app.exited" && data.id === root.termsAppId)
-                    root.termsClosed();
+                // Google's terms page closed: its question again, but only once the home screen has
+                // caught up (it selects its hero when the running app changes, which would take
+                // the selection away from a question opened before)
+                root.refreshApps(type === "app.exited" && data.id === root.termsAppId ? root.termsClosed : null);
                 if (type === "app.exited" && (data.id === "steam" || String(data.id).startsWith("steam:")))
                     root.checkSteamGames();
                 if (type === "app.exited")
@@ -619,7 +622,7 @@ FocusScope {
     function showInstall(app, widevineLater) {
         dialog.game = null;
         dialog.mode = "app";
-        dialog.contentWidth = 0;
+        dialog.contentWidth = widevineLater ? Theme.px(640) : 0;      // room for the notice
         dialog.title = Tr.tr("apps.install.title", { app: Tr.tr(app.nameKey) });
         dialog.text = "";
         dialog.facts = [
@@ -1738,7 +1741,8 @@ FocusScope {
         Rectangle {                       // app: Google's terms for Widevine come at the first opening (5.4)
             visible: dialog.mode === "app" && dialog.note !== ""
             anchors.horizontalCenter: parent.horizontalCenter
-            width: noteText.width + Theme.px(32)
+            // never wider than the window's content
+            width: Math.min(noteText.implicitWidth + Theme.px(32), parent.width)
             height: noteText.height + Theme.px(24)
             radius: Theme.radiusM
             color: Theme.surface
@@ -1747,7 +1751,7 @@ FocusScope {
             Text {
                 id: noteText
                 anchors.centerIn: parent
-                width: Math.min(implicitWidth, Theme.px(600))
+                width: parent.width - Theme.px(32)
                 text: dialog.note
                 color: Theme.muted
                 font.family: Theme.textFont
