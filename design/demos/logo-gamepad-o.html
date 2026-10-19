@@ -1,0 +1,332 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS — design demo of a new logo and its start-up animation (owner, 2026-10-19), outside
+     the roadmap. The wordmark stays "OwneetOS" with "OS" in another colour; its first "O" becomes
+     a filled circle in the colour of "OS", 125 % of the old "O" and centred on it, with a compact
+     generic gamepad cut out of it as a hole (D-pad and four buttons back in the circle's colour;
+     no thumbsticks): one straight top edge with corners as round as the grips, two round ends
+     below it as short grips, a narrower middle whose bottom curves inwards. On the boot splash
+     the letters are white, the "O" and "OS" light grey (#B0B0B0). The animation, in the
+     palette's colours: the "O" appears in the middle of the screen, the other letters come out
+     of it as one strip ("S" first) while it moves left, until the wordmark is whole and centred;
+     then the subtitle "don't worry, it's yours!" fades in under it (in the system it would come
+     from the message files, translated). A draft only: nothing in the system uses it (the final logo is step 7.6). The letters
+     are the outlines of the current wordmark (packages/owneet-branding, Bricolage Grotesque, SIL
+     Open Font License 1.1); the gamepad is drawn for OwneetOS. Open in a browser; drive it with a
+     gamepad or the keyboard (A / Enter: play again, left / right: palette). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS — Gamepad O logo (demo)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --bg: #0E1424; --surface: #172036; --raised: #222D4A; --line: #2E3A5C; --fg: #EEF1F8;
+  --muted: #8F9AB5; --accent: #FF8A5B; --on-accent: #1E0E06; --text: "Lexend", system-ui, sans-serif; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--text); font-weight: 350; }
+body { padding: 28px 16px 48px; }
+main { max-width: 1180px; margin: 0 auto; display: grid; gap: 28px; }
+h1 { font-size: 22px; font-weight: 500; margin: 0; }
+h2 { font-size: 13px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+p { margin: 0; color: var(--muted); line-height: 1.45; max-width: 75ch; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 24px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; margin-bottom: 14px; }
+.ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ctl > span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.chip { font: inherit; font-size: 14px; color: var(--fg); background: var(--raised); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 500; }
+.screen { background: #000; border-radius: 12px; overflow: hidden; aspect-ratio: 16 / 9; }
+.screen svg { display: block; width: 100%; height: 100%; }
+.hero svg { display: block; width: min(640px, 100%); height: auto; }
+.before { margin-top: 22px; display: flex; align-items: center; gap: 16px; }
+.before svg { width: min(300px, 60%); height: auto; }
+.topbar { display: flex; align-items: center; gap: 32px; background: var(--bg); border-radius: 12px; padding: 18px 24px; }
+.topbar svg { height: 30px; width: auto; display: block; }
+.tabs { display: flex; gap: 8px; color: var(--muted); font-size: 14.5px; }
+.tabs b { background: var(--fg); color: var(--bg); font-weight: 500; border-radius: 999px; padding: 6px 16px; }
+.tabs i { font-style: normal; padding: 6px 16px; }
+.sizes { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 24px; }
+.sizes figure { margin: 0; display: grid; justify-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.sizes svg { display: block; }
+.boot { background: #000; border-radius: 12px; display: grid; place-items: center; padding: 70px 16px; }
+.boot svg { width: min(420px, 100%); height: auto; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.pal { border-radius: 14px; padding: 16px 18px; display: grid; gap: 10px; border: 1px solid transparent; }
+.pal.on { border-color: var(--accent); }
+.pal header { font-size: 13px; }
+.pal .row { display: flex; align-items: center; gap: 12px; }
+.pal .row svg:first-of-type { width: 160px; height: auto; }
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid; gap:10px">
+    <h1>New logo draft: the gamepad “O”</h1>
+    <p>The first “O” becomes a filled circle in the colour of “OS”, 125 % of the old one, with a
+      gamepad cut out of it; its buttons stay in the circle's colour. A / Enter: play the animation
+      again · left / right: palette.</p>
+  </header>
+
+  <section class="card">
+    <h2>Start-up animation</h2>
+    <div class="controls">
+      <div class="ctl"><button class="chip" id="replay" type="button">Play again</button></div>
+      <div class="ctl"><span>Palette</span><button class="chip" id="palName" type="button"></button></div>
+    </div>
+    <div class="screen" id="screen"></div>
+  </section>
+
+  <section class="card">
+    <h2>Boot splash (a still picture on black, the same for every palette)</h2>
+    <div class="boot" id="boot"></div>
+  </section>
+
+  <section class="card hero">
+    <h2>Wordmark</h2>
+    <div id="hero"></div>
+    <div class="before"><span style="color:var(--muted); font-size:13px">Now:</span><div id="before"></div></div>
+  </section>
+
+  <section class="card">
+    <h2>In the top bar (real size)</h2>
+    <div class="topbar"><div id="bar"></div><div class="tabs"><b>Home</b><i>Library</i><i>Media</i><i>Settings</i></div></div>
+  </section>
+
+  <section class="card">
+    <h2>The “O” alone</h2>
+    <div class="sizes" id="sizes"></div>
+  </section>
+
+  <section>
+    <h2>Every palette</h2>
+    <div class="grid" id="grid"></div>
+  </section>
+</main>
+
+<script>
+const OLD_O = "M234.8 12.3Q177.3 12.3 136.1 -9.5Q94.9 -31.3 69.2 -74.3Q43.4 -117.2 31.5 -180.4Q19.6 -243.6 19.6 -326.3Q19.6 -444.5 42 -520.8Q64.3 -597.2 113 -634.7Q161.6 -672.3 238 -672.3Q296.2 -672.3 337.6 -651.2Q379 -630.2 405.6 -588Q432.1 -545.7 444.8 -481Q457.5 -416.3 457.5 -329.8Q457.5 -245.4 444.7 -181.5Q431.8 -117.5 404.7 -74.6Q377.7 -31.7 335.7 -9.7Q293.7 12.3 234.8 12.3ZM238.2 -103.2Q262.9 -103.2 278.2 -125.6Q293.5 -148 300.5 -197.1Q307.6 -246.2 307.6 -325.9Q307.6 -408.2 300.2 -459Q292.8 -509.7 277.2 -532.9Q261.7 -556.1 237 -556.1Q213.5 -556.1 198.4 -532.8Q183.4 -509.4 176.6 -459Q169.7 -408.5 169.7 -326.9Q169.7 -267 173.5 -224.4Q177.4 -181.7 185.2 -155.1Q193.1 -128.4 206.5 -115.8Q219.9 -103.2 238.2 -103.2Z";
+const WNEET = [
+  "M550.8 0 451.4 -527.7H607.4L643.8 -120.7H648.1L701.4 -527.7H864.6L918.8 -120.7H924L960.6 -527.7H1110.8L1011.8 0H822.6L781.9 -393.8H777.1L736.7 0Z",
+  "M1108.9 0V-312.7L1108.7 -527.7H1235.5L1233.7 -334.5H1241.9Q1243.6 -409.5 1258.9 -454.4Q1274.3 -499.3 1302.3 -519.6Q1330.3 -539.9 1369.8 -539.9Q1435.3 -539.9 1465.8 -488.3Q1496.2 -436.6 1496.2 -326.9V0H1348.2V-292.4Q1348.2 -350.1 1340 -376.4Q1331.9 -402.7 1309.5 -402.7Q1288.1 -402.7 1276.5 -380.1Q1265 -357.5 1260.6 -318.4Q1256.2 -279.2 1256.2 -228.5V0Z",
+  "M1708.7 12.3Q1649.4 12.3 1610 -6.9Q1570.6 -26 1547.4 -61.1Q1524.2 -96.2 1514.4 -144.9Q1504.6 -193.6 1504.6 -252.1Q1504.6 -308.7 1514 -360.1Q1523.3 -411.4 1545.6 -452.2Q1567.8 -493.1 1606.2 -516.5Q1644.5 -539.9 1703.1 -539.9Q1757.9 -539.9 1795.3 -519.2Q1832.7 -498.5 1854.2 -460Q1875.6 -421.5 1881.8 -368.4Q1888 -315.2 1879.1 -250.7L1601.1 -241.9V-314.6L1758.3 -319.5L1742.3 -270.1Q1747.5 -323.2 1745 -357.2Q1742.5 -391.2 1732.4 -407.7Q1722.3 -424.1 1703.1 -424.1Q1682.6 -424.1 1671.2 -405.3Q1659.8 -386.5 1655.3 -352.1Q1650.9 -317.7 1650.9 -270.2Q1650.9 -176.8 1664.8 -137.3Q1678.8 -97.8 1708.9 -97.8Q1723.9 -97.8 1732.9 -106.8Q1741.8 -115.8 1746.2 -131Q1750.5 -146.2 1751.4 -166Q1752.3 -185.8 1750.4 -207.3L1885.5 -195.7Q1891.6 -159.8 1886.7 -123Q1881.9 -86.3 1862.6 -55.5Q1843.3 -24.8 1805.9 -6.3Q1768.5 12.3 1708.7 12.3Z",
+  "M2094.7 12.3Q2035.4 12.3 1996 -6.9Q1956.6 -26 1933.4 -61.1Q1910.2 -96.2 1900.4 -144.9Q1890.6 -193.6 1890.6 -252.1Q1890.6 -308.7 1900 -360.1Q1909.3 -411.4 1931.6 -452.2Q1953.8 -493.1 1992.2 -516.5Q2030.5 -539.9 2089.1 -539.9Q2143.9 -539.9 2181.3 -519.2Q2218.7 -498.5 2240.2 -460Q2261.6 -421.5 2267.8 -368.4Q2274 -315.2 2265.1 -250.7L1987.1 -241.9V-314.6L2144.3 -319.5L2128.3 -270.1Q2133.5 -323.2 2131 -357.2Q2128.5 -391.2 2118.4 -407.7Q2108.3 -424.1 2089.1 -424.1Q2068.6 -424.1 2057.2 -405.3Q2045.8 -386.5 2041.3 -352.1Q2036.9 -317.7 2036.9 -270.2Q2036.9 -176.8 2050.8 -137.3Q2064.8 -97.8 2094.9 -97.8Q2109.9 -97.8 2118.9 -106.8Q2127.8 -115.8 2132.2 -131Q2136.5 -146.2 2137.4 -166Q2138.3 -185.8 2136.4 -207.3L2271.5 -195.7Q2277.6 -159.8 2272.7 -123Q2267.9 -86.3 2248.6 -55.5Q2229.3 -24.8 2191.9 -6.3Q2154.5 12.3 2094.7 12.3Z",
+  "M2461.1 8.6Q2383.4 8.6 2341.4 -36.7Q2299.4 -82 2299.4 -174.8V-413H2263.3V-510.8H2275Q2311.7 -512.3 2325.2 -531.3Q2338.7 -550.2 2342.9 -589L2347.9 -631.3H2443.5V-527.7H2522.7V-410.1H2443.5V-202.5Q2443.5 -165.3 2455.9 -147.4Q2468.4 -129.6 2488.7 -129.6Q2497.8 -129.6 2506.3 -132.7Q2514.9 -135.9 2522.8 -142.2V-0.6Q2506.5 4.4 2491.4 6.5Q2476.3 8.6 2461.1 8.6Z"];
+const OS = [
+  "M2742.8 12.3Q2685.3 12.3 2644.1 -9.5Q2602.9 -31.3 2577.2 -74.3Q2551.4 -117.2 2539.5 -180.4Q2527.6 -243.6 2527.6 -326.3Q2527.6 -444.5 2550 -520.8Q2572.3 -597.2 2621 -634.7Q2669.6 -672.3 2746 -672.3Q2804.2 -672.3 2845.6 -651.2Q2887 -630.2 2913.6 -588Q2940.1 -545.7 2952.8 -481Q2965.5 -416.3 2965.5 -329.8Q2965.5 -245.4 2952.7 -181.5Q2939.8 -117.5 2912.7 -74.6Q2885.7 -31.7 2843.7 -9.7Q2801.7 12.3 2742.8 12.3ZM2746.2 -103.2Q2770.9 -103.2 2786.2 -125.6Q2801.5 -148 2808.5 -197.1Q2815.6 -246.2 2815.6 -325.9Q2815.6 -408.2 2808.2 -459Q2800.8 -509.7 2785.2 -532.9Q2769.7 -556.1 2745 -556.1Q2721.5 -556.1 2706.4 -532.8Q2691.4 -509.4 2684.6 -459Q2677.7 -408.5 2677.7 -326.9Q2677.7 -267 2681.5 -224.4Q2685.4 -181.7 2693.2 -155.1Q2701.1 -128.4 2714.5 -115.8Q2727.9 -103.2 2746.2 -103.2Z",
+  "M3177.1 12.3Q3118.2 12.3 3075.9 -4.9Q3033.7 -22 3008.4 -54.2Q2983.1 -86.4 2975.8 -131.2Q2968.6 -175.9 2980.6 -231L3116.7 -251.6Q3112 -210.6 3116.4 -175.6Q3120.8 -140.7 3136.2 -119.7Q3151.7 -98.7 3180.3 -98.7Q3197.1 -98.7 3209.3 -105.5Q3221.4 -112.3 3228 -125.6Q3234.7 -139 3234.7 -159.4Q3234.7 -195.5 3218.7 -220.3Q3202.7 -245.2 3177.2 -263.4Q3151.8 -281.7 3123.7 -297.4Q3097.4 -312.6 3070.7 -330.2Q3044.1 -347.8 3022.2 -370.8Q3000.3 -393.7 2987.1 -424.5Q2973.8 -455.2 2973.8 -496.4Q2973.8 -549.5 2997.3 -589Q3020.8 -628.5 3065.2 -650.4Q3109.6 -672.3 3171.2 -672.3Q3239.6 -672.3 3285.4 -645.6Q3331.2 -618.9 3351.9 -568.7Q3372.6 -518.5 3364.7 -448.4L3231.2 -430Q3233.8 -455.1 3232 -478.2Q3230.2 -501.2 3223.1 -519.3Q3216.1 -537.4 3202.9 -547.9Q3189.7 -558.4 3170.1 -558.4Q3154.2 -558.4 3142.6 -551.5Q3131 -544.6 3124.8 -532.4Q3118.7 -520.3 3118.7 -503.3Q3118.7 -477.5 3131.9 -459.2Q3145 -440.8 3166.9 -426.9Q3188.7 -413 3213.5 -399.9Q3245.3 -382.3 3275.2 -362.2Q3305 -342.1 3329.1 -316Q3353.2 -289.8 3367.3 -254.6Q3381.4 -219.5 3381.4 -171.8Q3381.4 -117.3 3359.4 -75.6Q3337.5 -33.9 3292.4 -10.8Q3247.4 12.3 3177.1 12.3Z"];
+
+const PALETTES = [
+  ['dusk', 'Dusk', '#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+  ['tide', 'Tide', '#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+  ['bloom', 'Bloom', '#1A1020', '#25182D', '#33223D', '#45304F', '#F7EEF6', '#AE93AE', '#FF7AA8', '#2A0614'],
+  ['ember', 'Ember', '#1C0F0C', '#2A1713', '#3A201A', '#4E2C24', '#FBEDE9', '#C49C93', '#FF6B47', '#2A0A03'],
+  ['espresso', 'Espresso', '#1A1310', '#261C17', '#33261F', '#47362C', '#F5ECE4', '#BBA693', '#D9A066', '#2A1707'],
+  ['harbor', 'Harbor', '#0D1B2E', '#14263D', '#1D3350', '#2A4566', '#F3EAD8', '#B7AE99', '#E8D3A8', '#142033'],
+  ['forest', 'Forest', '#0E1A14', '#15261D', '#1E3428', '#2B4636', '#ECF5EE', '#95B2A0', '#7BD88F', '#072012'],
+  ['lagoon', 'Lagoon', '#0A1426', '#101E38', '#182A4B', '#23395F', '#EAF1FF', '#90A4C9', '#4DA3FF', '#03162E'],
+  ['amethyst', 'Amethyst', '#15121F', '#1F1A2E', '#2A2340', '#3A3155', '#F1EDFA', '#A99FC4', '#B69CFF', '#1B0E3A'],
+  ['crimson', 'Crimson', '#170A0E', '#241018', '#321722', '#47202F', '#FCECEF', '#C597A1', '#FF4D6D', '#2B0510'],
+  ['synthwave', 'Synthwave', '#140B24', '#1F1236', '#2B1A4A', '#3D2563', '#FBEFFF', '#B99DD8', '#FF4FD8', '#2B0326'],
+  ['amber', 'Amber', '#0F0B05', '#1A1409', '#251C0D', '#3A2C14', '#FFE8C2', '#C9AA78', '#FFB000', '#241700'],
+  ['olive', 'Olive', '#14160E', '#1E2116', '#292D1F', '#3A402B', '#F1F3E6', '#ABB092', '#C5D86D', '#1C2306'],
+  ['graphite', 'Graphite', '#121212', '#1C1C1C', '#262626', '#383838', '#F2F2F2', '#A6A6A6', '#DADADA', '#121212'],
+  ['daylight', 'Daylight', '#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+  ['arctic', 'Arctic', '#EEF5FA', '#FFFFFF', '#DCE9F3', '#C3D5E4', '#0F1E2B', '#4E6577', '#0A78B8', '#FFFFFF'],
+  ['sand', 'Sand', '#F4EEE3', '#FFFBF4', '#E8DFD0', '#D3C6B1', '#2A2117', '#6A5C49', '#B04A28', '#FFFFFF'],
+  ['latte', 'Latte', '#F3ECE4', '#FFFAF5', '#E6DACD', '#D2C1AF', '#2B1E14', '#6B5746', '#8B5A2B', '#FFFFFF'],
+  ['sakura', 'Sakura', '#FBEFF3', '#FFFFFF', '#F3DDE5', '#E3C3CF', '#2A1420', '#76505F', '#C92A62', '#FFFFFF'],
+  ['contrast', 'High contrast', '#000000', '#000000', '#161616', '#FFFFFF', '#FFFFFF', '#E0E0E0', '#FFE14D', '#000000'],
+  ['contrast-light', 'High contrast light', '#FFFFFF', '#FFFFFF', '#EDEDED', '#000000', '#000000', '#262626', '#0038B8', '#FFFFFF'],
+];
+const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
+// The boot splash (a still picture): white letters, the "O" and "OS" light grey.
+const SPLASH = { fg: '#FFFFFF', accent: '#B0B0B0' };
+const state = { pal: 0 };
+
+// ---- The mark, in a 100 x 100 box: one even-odd path (the disc, the gamepad cut out of it, the
+// buttons back in the disc's colour). The gamepad is drawn at 1.2 around (50, 50).
+function markData() {
+  const k = 1.2, c = 50, rc = 16;
+  const T = (x, y) => [c + (x - c) * k, c + (y - c) * k];
+  const P = (x, y) => T(x, y).map(v => v.toFixed(2)).join(',');
+  const a = r => (r * k).toFixed(2);
+  const circle = (x, y, r) => { const [u, v] = T(x, y), R = r * k;
+    return `M${(u - R).toFixed(2)},${v.toFixed(2)}a${a(r)},${a(r)} 0 1,0 ${(2 * R).toFixed(2)},0` +
+      `a${a(r)},${a(r)} 0 1,0 ${(-2 * R).toFixed(2)},0Z`; };
+  // body: one straight top edge (y 33.5, x 16..84) whose corners are as round as the grips; the
+  // sides end in two round ends (centres (32, 49.5) and (68, 49.5), radius 16), the short grips;
+  // the middle's bottom curves inwards between them
+  const top = 33.5, r = 16, cy = 49.5, d = r * Math.SQRT1_2;
+  const lb = [32 + d, cy + d], rb = [68 - d, cy + d];
+  const body = `M${P(16 + rc, top)}L${P(84 - rc, top)}A${a(rc)},${a(rc)} 0 0,1 ${P(84, top + rc)}L${P(84, cy)}` +
+    `A${a(r)},${a(r)} 0 0,1 ${P(...rb)}Q${P(50, 54.5)} ${P(...lb)}A${a(r)},${a(r)} 0 0,1 ${P(16, cy)}` +
+    `L${P(16, top + rc)}A${a(rc)},${a(rc)} 0 0,1 ${P(16 + rc, top)}Z`;
+  // D-pad: a cross on the left end; four face buttons on the right end
+  const dx = 32, dy = 48.5, w = 2.6, l = 7.4;
+  const cross = 'M' + [[dx - w, dy - l], [dx + w, dy - l], [dx + w, dy - w], [dx + l, dy - w], [dx + l, dy + w], [dx + w, dy + w],
+    [dx + w, dy + l], [dx - w, dy + l], [dx - w, dy + w], [dx - l, dy + w], [dx - l, dy - w], [dx - w, dy - w]]
+    .map(([x, y]) => P(x, y)).join('L') + 'Z';
+  const fx = 68, fy = 48.5, o = 5.8, br = 2.7;
+  const face = [[fx, fy - o], [fx + o, fy], [fx, fy + o], [fx - o, fy]].map(([x, y]) => circle(x, y, br)).join('');
+  return 'M0,50a50,50 0 1,0 100,0a50,50 0 1,0 -100,0Z' + body + cross + face;
+}
+const MARK = markData();
+const markPath = colour => `<path fill="${colour}" fill-rule="evenodd" d="${MARK}"/>`;
+
+// ---- The wordmark. The old "O" spans x 19.6..457.5, y -672..12 (centre y -330); the new circle
+// is 125 % of its height, on the same centre, and the letters after it move right accordingly.
+const O_X = 19.6, O_CY = -330, O_D = 684 * 1.25, GAP = 30, SHIFT = O_X + O_D - 457.5 + GAP;
+const VB_TOP = Math.min(-752.3, O_CY - O_D / 2 - 60), VB_BOTTOM = Math.max(92.2, O_CY + O_D / 2 + 60);
+const markGroup = colour => `<g transform="translate(${O_X} ${O_CY - O_D / 2}) scale(${O_D / 100})">${markPath(colour)}</g>`;
+function wordmark(cText, cOS, old = false) {
+  const w = 3521.8 + (old ? 0 : SHIFT);
+  const top = old ? -752.3 : VB_TOP, h = (old ? 92.2 : VB_BOTTOM) - top;
+  const o = old ? `<path fill="${cText}" d="${OLD_O}"/>` : markGroup(cOS);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-60.4 ${top.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}" role="img" aria-label="OwneetOS">${o}` +
+    `<g transform="translate(${old ? 0 : SHIFT} 0)">${WNEET.map(d => `<path fill="${cText}" d="${d}"/>`).join('')}` +
+    `${OS.map(d => `<path fill="${cOS}" d="${d}"/>`).join('')}</g></svg>`;
+}
+const markSvg = (px, colour) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${px}" height="${px}">${markPath(colour)}</svg>`;
+
+// ---- The animation, on a 1600 x 900 screen, in the palette's colours. Each glyph is its own
+// group, moved per frame. The letters come out of the "O" as one strip, "S" first: a mask hides
+// them inside the "O"'s circle (its gamepad hole too) and left of its centre, wherever it is.
+// Then the subtitle fades in under the wordmark, rising a little.
+const ANIM = {
+  oIn: [0, 650],          // the "O" appears in the middle (fades in, grows from 70 %)
+  out: [750, 2350],       // the letters come out of it; the "O" moves left, all stays centred
+  subtitle: [2550, 3350], // the subtitle fades in
+};
+const SUBTITLE = "don't worry, it's yours!";   // demo only: in the system, from the message files
+const SUB_SIZE = 40;      // the subtitle's font size, in units of the 1600 x 900 screen
+const SUB_CAP = 0.72;     // Lexend's ascender over the font size: the text's top above its baseline
+const SUB_GAP = 32;       // from the circle's bottom (the wordmark's lowest point) to the subtitle's top (owner)
+const clamp = v => Math.max(0, Math.min(1, v));
+const span = (t, [a, b]) => clamp((t - a) / (b - a));
+const easeOut = x => 1 - Math.pow(1 - x, 3);
+const easeInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+let anim = null;
+// "#t=1500" in the address shows the animation stopped at that time (ms), to look at one frame
+const FROZEN = /t=(\d+)/.exec(location.hash);
+
+function buildScreen(root) {
+  const t = tok(PALETTES[state.pal]), p = 's-';
+  const letters = [...WNEET.map(d => [d, t.fg]), ...OS.map(d => [d, t.accent])].map(([d, fill], i) =>
+    `<g class="gl" id="${p}g${i + 1}" opacity="0"><path transform="translate(${SHIFT} 0)" fill="${fill}" d="${d}"/></g>`).join('');
+  root.style.background = t.bg;
+  root.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">` +
+    `<g class="place"><mask id="${p}behindO" maskUnits="userSpaceOnUse" x="-6000" y="-4000" width="14000" height="8000">` +
+    `<rect x="-6000" y="-4000" width="14000" height="8000" fill="#fff"/><circle class="oShadow" r="0" fill="#000"/>` +
+    `<rect class="oLeft" x="-6000" y="-4000" width="0" height="8000" fill="#000"/></mask>` +
+    `<g mask="url(#${p}behindO)">${letters}</g>` +
+    `<g class="gl" id="${p}g0" opacity="0">${markGroup(t.accent)}</g></g>` +
+    `<text class="subtitle" x="800" y="0" text-anchor="middle" font-family="Lexend, system-ui, sans-serif" font-size="${SUB_SIZE}"` +
+    ` font-weight="350" fill="${t.muted}" opacity="0"></text></svg>`;
+  root.querySelector('.subtitle').textContent = SUBTITLE;
+  // glyphs: 0 the "O", 1-5 "wneet", 6-7 "OS"
+  const els = [root.querySelector(`#${p}g0`), ...root.querySelectorAll('g[mask] > .gl')];
+  // each glyph's box, in the wordmark's units
+  const boxes = els.map(el => { const b = el.getBBox(); return { x0: b.x, x1: b.x + b.width, cx: b.x + b.width / 2, cy: b.y + b.height / 2 }; });
+  const left = boxes[0].x0, right = Math.max(...boxes.map(b => b.x1));
+  const s = 900 / (right - left);       // the whole wordmark is 900 of the screen's 1600 wide
+  root.querySelector('.place').setAttribute('transform', `translate(${800 - s * (left + right) / 2} ${450 - s * O_CY}) scale(${s})`);
+  return { root, els, left, right, oCx: boxes[0].cx, oCy: O_CY, oRight: boxes[0].x1, circleBottom: 450 + s * O_D / 2 };
+}
+
+function draw(a, t) {
+  const { root, els, left, right, oCx, oCy, oRight } = a;
+  // how far the strip of letters has come out, measured from the "O"'s centre to its right end
+  const out = easeInOut(span(t, ANIM.out)) * (right - oCx);
+  // what is shown (the "O" and the letters out) stays centred: where the "O"'s centre goes
+  const shown = (oCx - left) + Math.max(oRight - oCx, out);
+  const centre = (left + right) / 2 - shown / 2 + (oCx - left), dx = centre - oCx;
+  const o = easeOut(span(t, ANIM.oIn)), grow = 0.7 + 0.3 * o;
+  els[0].setAttribute('opacity', o.toFixed(3));
+  els[0].setAttribute('transform', `translate(${(dx + oCx).toFixed(1)} ${oCy}) scale(${grow.toFixed(4)}) translate(${-oCx} ${-oCy})`);
+  const shadow = root.querySelector('.oShadow');
+  shadow.setAttribute('cx', centre.toFixed(1));
+  shadow.setAttribute('cy', oCy);
+  shadow.setAttribute('r', (O_D / 2 * (0.7 + 0.3 * o)).toFixed(1));
+  root.querySelector('.oLeft').setAttribute('width', (centre + 6000).toFixed(1));
+  // the strip: its right end at the "O"'s centre plus what has come out
+  const strip = centre + out - right;
+  for (let i = 1; i < els.length; i++) {
+    els[i].setAttribute('opacity', 1);
+    els[i].setAttribute('transform', `translate(${strip.toFixed(1)} 0)`);
+  }
+  // the subtitle: fades in, rising 16 units
+  const sub = easeOut(span(t, ANIM.subtitle));
+  root.querySelector('.subtitle').setAttribute('opacity', sub.toFixed(3));
+  root.querySelector('.subtitle').setAttribute('y', (a.circleBottom + SUB_GAP + SUB_SIZE * SUB_CAP).toFixed(1));
+  root.querySelector('.subtitle').setAttribute('transform', `translate(0 ${((1 - sub) * 16).toFixed(1)})`);
+}
+
+let start = 0, run = 0;     // run: which play() the frames belong to (a newer one stops them)
+function frame(now, mine = run) {
+  if (mine !== run) return;
+  const t = FROZEN ? +FROZEN[1] : now - start;
+  if (anim) draw(anim, t);
+  if (!FROZEN && t < ANIM.subtitle[1]) requestAnimationFrame(n => frame(n, mine));
+}
+function play() {
+  run++;
+  anim = buildScreen(document.getElementById('screen'));
+  start = performance.now();
+  if (FROZEN) frame(0); else requestAnimationFrame(frame);
+}
+
+const $ = s => document.querySelector(s);
+const tok = p => Object.fromEntries(TOKENS.map((t, i) => [t, p[i + 2]]));
+
+function render() {
+  const p = PALETTES[state.pal], t = tok(p);
+  for (const name of TOKENS) document.documentElement.style.setProperty('--' + name, t[name]);
+  $('#palName').textContent = p[1];
+  $('#hero').innerHTML = wordmark(t.fg, t.accent);
+  $('#before').innerHTML = wordmark(t.fg, t.accent, true);
+  $('#bar').innerHTML = wordmark(t.fg, t.accent);
+  $('#boot').innerHTML = wordmark(SPLASH.fg, SPLASH.accent);
+  $('#sizes').innerHTML = [192, 128, 64, 48, 32, 24, 16]
+    .map(px => `<figure>${markSvg(px, t.accent)}<figcaption>${px} px</figcaption></figure>`).join('');
+  $('#grid').innerHTML = PALETTES.map((q, i) => { const u = tok(q);
+    return `<div class="pal${i === state.pal ? ' on' : ''}" style="background:${u.bg}; color:${u.fg}"><header>${q[1]}</header>` +
+      `<div class="row">${wordmark(u.fg, u.accent)}${markSvg(36, u.accent)}${markSvg(16, u.accent)}</div></div>`; }).join('');
+}
+
+$('#palName').onclick = () => act('right');
+$('#replay').onclick = () => act('a');
+
+function act(a) {
+  if (a === 'left') state.pal = (state.pal + PALETTES.length - 1) % PALETTES.length;
+  else if (a === 'right') state.pal = (state.pal + 1) % PALETTES.length;
+  else if (a !== 'a') return;
+  render();
+  play();
+}
+addEventListener('keydown', e => {
+  const a = { ArrowLeft: 'left', ArrowRight: 'right', Enter: 'a' }[e.key];
+  if (a) { e.preventDefault(); act(a); }
+});
+// gamepad (standard mapping): A 0, D-pad left / right 14 / 15; on press only
+let prev = {};
+(function poll() {
+  for (const gp of navigator.getGamepads ? navigator.getGamepads() : []) {
+    if (!gp) continue;
+    for (const [i, a] of [[0, 'a'], [14, 'left'], [15, 'right']]) {
+      const down = gp.buttons[i] && gp.buttons[i].pressed, id = gp.index + ':' + i;
+      if (down && !prev[id]) act(a);
+      prev[id] = down;
+    }
+  }
+  requestAnimationFrame(poll);
+})();
+render();
+play();
+</script>
+</body>
+</html>
