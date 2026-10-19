@@ -857,9 +857,12 @@ func (m *Manager) Layered() bool {
 	return err == nil && sess.Mode == "gamescope"
 }
 
-// ShowHome brings the home screen to the front; the app keeps running, e.g. a web app while the
-// console's keyboard types into it ([[extension-design]]). In the cage session it only says so:
-// the interface shows its own window again, and cage shows the newest window.
+// ShowHome brings the home screen to the front; the app keeps running, and Guide or Resume goes
+// back to it, as after Guide over an app. For a web app while the console's keyboard types into
+// it or asks "Close {name}?" ([[extension-design]]), and for the controller pointer's keyboard
+// ([[step-4.7-controller-pointer]]). Nothing when the home screen is on screen already. In the
+// cage session it only says so: the interface shows its own window again, and cage shows the
+// newest window.
 func (m *Manager) ShowHome() error {
 	sess, err := m.Session()
 	if err != nil {
@@ -872,6 +875,17 @@ func (m *Manager) ShowHome() error {
 	f := m.focus(sess)
 	if f == nil {
 		return ErrFocusUnsupported
+	}
+	if focused, err := f.Focused(); err == nil {
+		if focused == HomeAppID {
+			return nil
+		}
+		m.mu.Lock()
+		m.init()
+		if shown := m.appOfID(focused); shown != nil {
+			m.lastApp = shown.ID // Guide or Resume goes back to it
+		}
+		m.mu.Unlock()
 	}
 	if err := m.show(f, []uint32{HomeAppID}); err != nil {
 		return err

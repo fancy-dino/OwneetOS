@@ -44,7 +44,7 @@ type fakeApps struct {
 }
 
 func (f *fakeApps) AppIDOf(id string) uint32 { f.mu.Lock(); defer f.mu.Unlock(); return f.ids[id] }
-func (f *fakeApps) ShowHome()                { f.mu.Lock(); defer f.mu.Unlock(); f.homes++ }
+func (f *fakeApps) ShowHome() error          { f.mu.Lock(); defer f.mu.Unlock(); f.homes++; return nil }
 
 type fakeScreen struct {
 	mu          sync.Mutex
