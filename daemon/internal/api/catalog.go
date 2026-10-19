@@ -18,6 +18,11 @@ type Catalog interface {
 	Remove(id string) error
 	// Open opens an installed web app ([[step-5.1-brave-in-the-os]]).
 	Open(id string) error
+	// The user's consent to Google's terms for Widevine ([[step-5.4-netflix]]): asked before a
+	// web app opens, with Google's live terms page to read.
+	Widevine() catalog.WidevineStatus
+	AcceptWidevine() error
+	OpenTerms(language string) error
 }
 
 func (s *Server) catalogAvailable(w http.ResponseWriter) bool {
@@ -87,7 +92,49 @@ func (s *Server) handleCatalogOpen(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusNotFound, "apps.unknown", err.Error())
 	case errors.Is(err, catalog.ErrNotInstalled):
 		WriteError(w, http.StatusConflict, "apps.not_installed", err.Error())
+	case errors.Is(err, catalog.ErrWidevineConsent):
+		WriteError(w, http.StatusConflict, "apps.widevine_consent", err.Error())
 	default:
 		s.appsError(w, err)
 	}
+}
+
+// handleWidevine: whether opening a web app must first ask for the consent to Google's terms.
+func (s *Server) handleWidevine(w http.ResponseWriter, _ *http.Request) {
+	if !s.catalogAvailable(w) {
+		return
+	}
+	WriteJSON(w, http.StatusOK, s.Catalog.Widevine())
+}
+
+// handleWidevineAccept records the user's consent (204).
+func (s *Server) handleWidevineAccept(w http.ResponseWriter, _ *http.Request) {
+	if !s.catalogAvailable(w) {
+		return
+	}
+	if err := s.Catalog.AcceptWidevine(); err != nil {
+		s.Log.Warn("Widevine consent not saved", "err", err)
+		WriteError(w, http.StatusInternalServerError, "apps.consent_not_saved", err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleWidevineTerms opens Google's terms page like a web app (204). Optional body:
+// {"language": "it"}.
+func (s *Server) handleWidevineTerms(w http.ResponseWriter, r *http.Request) {
+	if !s.catalogAvailable(w) {
+		return
+	}
+	var body struct {
+		Language string `json:"language"`
+	}
+	if r.ContentLength != 0 && !decode(w, r, &body) {
+		return
+	}
+	if err := s.Catalog.OpenTerms(body.Language); err != nil {
+		s.appsError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

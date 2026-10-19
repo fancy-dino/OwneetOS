@@ -182,9 +182,12 @@ FocusScope {
     }
     function refreshApps() {
         owneetd.get("/v1/apps", (status, data) => {
-            if (status === 200) { apps = data.apps || []; focusedApp = data.focus || ""; }
+            if (status === 200) { apps = (data.apps || []).map(named); focusedApp = data.focus || ""; }
         });
     }
+    // Google's terms page (5.4) runs like a web app: shown by its name, never by its id
+    readonly property string termsAppId: "web:widevine-terms"
+    function named(a) { return a.id === termsAppId ? Object.assign({}, a, { name: Tr.tr("widevine.terms.name") }) : a; }
     function refreshControllers() {
         owneetd.get("/v1/controllers", (status, data) => { if (status === 200) controllers = data.controllers || []; });
     }
@@ -208,6 +211,8 @@ FocusScope {
             root.noticeFor(type, data);
             if (type === "app.started" || type === "app.exited") {
                 root.refreshApps();
+                if (type === "app.exited" && data.id === root.termsAppId)
+                    root.termsClosed();
                 if (type === "app.exited" && (data.id === "steam" || String(data.id).startsWith("steam:")))
                     root.checkSteamGames();
                 if (type === "app.exited")
@@ -219,6 +224,9 @@ FocusScope {
                 root.focusedApp = data.focus;
                 if (data.focus === "home" && fromGame)
                     sounds.play("launch");
+                // Guide over Google's terms page: back to the question it was opened from
+                if (data.focus === "home")
+                    root.closeTerms();
             } else if (type.startsWith("controller.")) {
                 root.refreshControllers();
             } else if (type === "network.changed") {
@@ -271,6 +279,10 @@ FocusScope {
     // B with nothing to go back to in a web app (5.2): owneetd brought the console in front;
     // Cancel or B bring the web app back
     function askCloseWebApp(data) {
+        if ("web:" + data.app === termsAppId) {       // Google's terms page: back to the question
+            closeTerms();
+            return;
+        }
         const app = apps.find(a => a.id === "web:" + data.app);
         if (app)
             confirmClose(app, () => root.resume(app));
@@ -504,7 +516,73 @@ FocusScope {
     function openWebApp(app) {
         if (app.busy) toast.show(Tr.tr("toast.app.wait"));
         else if (!app.installed) confirmInstall(app);
-        else startWebApp(app);
+        else openAfterConsent(app);
+    }
+
+    // ---- Google's terms for Widevine (5.4, approved demo design/demos/5.4-widevine-consent.html):
+    // asked before a web app opens, the first time and after every Widevine update, one consent per
+    // user (owneetd keeps it). "Read the terms" shows Google's live page in the web apps' window,
+    // never a copy; B, Guide or its end bring the question back.
+    readonly property string termsAddress: "policies.google.com/terms"     // shown, not translated
+    property var termsFor: null           // { app, updated }: the question waiting for Google's page
+    function openAfterConsent(app) {
+        // already open (brought back), or another one open ("close it first"): nothing to ask
+        if (runningGame || runningWebApp) {
+            startWebApp(app);
+            return;
+        }
+        owneetd.get("/v1/webapps/widevine", (status, data) => {
+            if (status === 200 && data.ask) askWidevine(app, data.updated);
+            else startWebApp(app);
+        });
+    }
+    function askWidevine(app, updated) {
+        dialog.game = null;
+        dialog.mode = "widevine";
+        dialog.contentWidth = Theme.px(640);
+        dialog.title = Tr.tr(updated ? "widevine.update.title" : "widevine.first.title");
+        dialog.text = Tr.tr(updated ? "widevine.update.text" : "widevine.first.text", { app: Tr.tr(app.nameKey) });
+        dialog.buttons = [
+            { text: Tr.tr("widevine.accept"), style: "primary", action: () => {
+                owneetd.post("/v1/webapps/widevine/accept", {}, (status) => {
+                    if (status !== 204 && status !== 200) {
+                        toast.show(Tr.tr("error.widevine.accept"));
+                        return;
+                    }
+                    dialog.close(true);
+                    root.startWebApp(app);
+                });
+            } },
+            { text: Tr.tr("widevine.read"), action: () => { dialog.close(true); root.readWidevineTerms(app, updated); } },
+            { text: Tr.tr("widevine.notnow"), action: () => dialog.close() }
+        ];
+        dialog.defaultIndex = 0;
+        dialog.open();
+        dialog.prompts = [{ buttons: ["a"], label: Tr.tr("prompt.select") }, { buttons: ["b"], label: Tr.tr("widevine.notnow") }];
+    }
+    function readWidevineTerms(app, updated) {
+        termsFor = { app: app, updated: updated };
+        Nav.feedback("launch");
+        owneetd.post("/v1/webapps/widevine/terms", { language: Tr.language }, (status, data) => {
+            if (status === 204 || status === 200)
+                return;
+            termsFor = null;
+            const code = data && data.error ? data.error.code : "";
+            toast.show(Tr.tr(code === "apps.game_running" ? "error.apps.game_running" : "error.apps.open"));
+            root.askWidevine(app, updated);
+        });
+    }
+    function closeTerms() {
+        if (!termsFor || termsFor.closing || !apps.some(a => a.id === termsAppId))
+            return;
+        termsFor.closing = true;                 // once: B and Guide may both bring the console back
+        owneetd.post("/v1/apps/" + encodeURIComponent(termsAppId) + "/close", {});
+    }
+    function termsClosed() {
+        const t = termsFor;
+        termsFor = null;
+        if (t)
+            askWidevine(t.app, t.updated);
     }
     // Opens an installed web app ([[step-5.1-brave-in-the-os]]): owneetd starts it like a game, or
     // brings it back when it is already open
@@ -527,11 +605,18 @@ FocusScope {
             const code = data && data.error ? data.error.code : "";
             if (code === "apps.game_running")
                 toast.show(Tr.tr("toast.app.busy", { name: openName() }));
+            else if (code === "apps.not_installed" || code === "apps.widevine_consent")
+                toast.show(Tr.tr("error." + code));
             else
-                toast.show(Tr.tr(code === "apps.not_installed" ? "error.apps.not_installed" : "error.apps.open"));
+                toast.show(Tr.tr("error.apps.open"));
         });
     }
+    // Until the user has accepted Google's terms for Widevine, the confirmation says they come at
+    // the first opening (5.4)
     function confirmInstall(app) {
+        owneetd.get("/v1/webapps/widevine", (status, data) => root.showInstall(app, status !== 200 || data.ask));
+    }
+    function showInstall(app, widevineLater) {
         dialog.game = null;
         dialog.mode = "app";
         dialog.contentWidth = 0;
@@ -540,8 +625,10 @@ FocusScope {
         dialog.facts = [
             [Tr.tr("apps.install.space"), app.sizeMiB > 0 ? Tr.tr("apps.install.space.about", { mb: app.sizeMiB })
                                                           : Tr.tr("apps.install.space.small")],
-            [Tr.tr("apps.install.requirements"), Tr.tr("apps.install.internet")]
+            [Tr.tr("apps.install.requirements"), Tr.tr("apps.install.internet")],
+            [Tr.tr("apps.install.widevine"), Tr.tr("apps.install.widevine.value")]
         ];
+        dialog.note = widevineLater ? Tr.tr("apps.install.widevine.later", { app: Tr.tr(app.nameKey) }) : "";
         dialog.buttons = [
             { text: Tr.tr("apps.install"), style: "primary", action: () => { dialog.close(true); root.installApp(app); } },
             { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }
@@ -585,7 +672,7 @@ FocusScope {
         dialog.title = Tr.tr(app.nameKey);
         dialog.text = "";
         dialog.buttons = app.installed
-            ? [{ text: Tr.tr("prompt.open"), style: "primary", action: () => { dialog.close(true); root.startWebApp(app); } },
+            ? [{ text: Tr.tr("prompt.open"), style: "primary", action: () => { dialog.close(true); root.openAfterConsent(app); } },
                { text: Tr.tr("apps.remove"), action: () => { dialog.close(true); root.confirmRemove(app); } }]
             : [{ text: Tr.tr("apps.install"), style: "primary", action: () => { dialog.close(true); root.confirmInstall(app); } }];
         dialog.defaultIndex = 0;
@@ -1429,6 +1516,7 @@ FocusScope {
         property var updateLines: []        // update: "name  from  →  to"
         property string updateNote: ""
         property var facts: []              // app: [label, value] lines
+        property string note: ""            // app: Google's terms for Widevine come at the first opening
         property int seconds: 0             // displayConfirm: until it goes back
         property real deadline: 0
         onSecondsChanged: if (mode === "displayConfirm") text = Tr.tr("display.keep.text", { n: seconds })
@@ -1646,6 +1734,33 @@ FocusScope {
                     Text { text: modelData[1]; color: Theme.fg; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
                 }
             }
+        }
+        Rectangle {                       // app: Google's terms for Widevine come at the first opening (5.4)
+            visible: dialog.mode === "app" && dialog.note !== ""
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: noteText.width + Theme.px(32)
+            height: noteText.height + Theme.px(24)
+            radius: Theme.radiusM
+            color: Theme.surface
+            border.color: Theme.line
+            border.width: Math.max(1, Theme.px(1))
+            Text {
+                id: noteText
+                anchors.centerIn: parent
+                width: Math.min(implicitWidth, Theme.px(600))
+                text: dialog.note
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(14.5)
+                wrapMode: Text.Wrap
+            }
+        }
+        Row {                             // widevine: where Google's terms are (5.4)
+            visible: dialog.mode === "widevine"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(8)
+            Text { text: Tr.tr("widevine.terms"); color: Theme.muted; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
+            Text { text: root.termsAddress; color: Theme.fg; font.family: Theme.displayFont; font.weight: Font.Bold; font.pixelSize: Theme.fs(14.5) }
         }
         Column {                          // details: facts about the game
             visible: dialog.mode === "details" && dialog.game !== null

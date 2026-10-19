@@ -63,6 +63,11 @@ func newOpenManager(t *testing.T, display string) (*Manager, *fakeApps) {
 	m.Session = func() (apps.Session, error) { return apps.Session{Mode: "gamescope", Display: display}, nil }
 	m.ProfilesDir = filepath.Join(t.TempDir(), "webapps")
 	m.ExtensionDir = t.TempDir()
+	// the user has accepted Google's terms for Widevine (widevine_test.go tests the question)
+	m.ConsentFile = filepath.Join(t.TempDir(), "widevine.json")
+	if err := m.AcceptWidevine(); err != nil {
+		t.Fatal(err)
+	}
 	return m, fa
 }
 
@@ -103,7 +108,7 @@ func TestOpenRunsBraveWithItsOwnProfile(t *testing.T) {
 	if req.Command[len(req.Command)-1] != "https://www.netflix.com/" {
 		t.Errorf("the address must come last: %v", req.Command)
 	}
-	// Widevine turned on before the first start
+	// Widevine turned on before the first start: the user has accepted Google's terms
 	for _, f := range []string{"Local State", filepath.Join("Default", "Preferences")} {
 		data, err := os.ReadFile(filepath.Join(profile, f))
 		if err != nil {
@@ -191,7 +196,7 @@ func TestBraveSettingsLeaveAFileThatIsNotJSON(t *testing.T) {
 	if err := os.WriteFile(path, []byte("not json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := enforcePrefs(path); err == nil {
+	if err := enforcePrefs(path, profilePrefs); err == nil {
 		t.Error("no error for a file that is not JSON")
 	}
 	if data, _ := os.ReadFile(path); string(data) != "not json" {

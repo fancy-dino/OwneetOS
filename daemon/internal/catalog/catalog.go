@@ -117,10 +117,12 @@ type Manager struct {
 	Session      func() (apps.Session, error)
 	ProfilesDir  string // $XDG_DATA_HOME/owneet/webapps: one folder per web app
 	ExtensionDir string // /usr/share/owneet/extension
+	ConsentFile  string // the users' consent to Google's terms for Widevine (widevine.go)
 
 	mu         sync.Mutex
 	busyID     string
 	busyAction string
+	consentMu  sync.Mutex
 }
 
 // spaceMargin is kept free beyond an engine's own size (pacman's database, logs).

@@ -16,6 +16,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
@@ -36,28 +37,33 @@ type Launcher interface {
 // AppID is the id of a running web app in apps.Manager.
 func AppID(id string) string { return "web:" + id }
 
-// profileSeed turns Widevine on (Brave downloads it at runtime, never redistributed;
-// [[architecture-stack]]) and skips Brave's welcome pages. Written once, before the profile's
-// first start; Brave keeps the file up to date afterwards.
+// profileSeed skips Brave's welcome pages. Written once, before the profile's first start; Brave
+// keeps the file up to date afterwards.
 var profileSeed = map[string]any{
-	"brave":   map[string]any{"widevine_opted_in": true},
 	"browser": map[string]any{"has_seen_welcome_page": true},
 }
 
 // profileFiles: Local State holds the browser-wide settings, Default/Preferences the profile's own.
 var profileFiles = []string{"Local State", filepath.Join("Default", "Preferences")}
 
+// pref is a setting of Brave's settings files: its path of keys and its value.
+type pref struct {
+	path  []string
+	value any
+}
+
 // profilePrefs are set again before every start ([[step-5.3-youtube]]): Brave's own windows and
 // panels need a mouse, which the console never requires. Brave's question "Restart browser to
 // enable Google Widevine" comes back after every Widevine download, in old profiles too (the
-// console's own consent to Google's terms comes with [[step-5.4-netflix]]); the sidebar: 3 = never.
-var profilePrefs = []struct {
-	path  []string
-	value any
-}{
+// console asks for the consent instead: widevine.go); the sidebar: 3 = never.
+var profilePrefs = []pref{
 	{[]string{"brave", "ask_widevine_install"}, false},
 	{[]string{"brave", "sidebar", "sidebar_show_option"}, 3},
 }
+
+// widevinePref turns Widevine on or off: on only after the user's consent ([[step-5.4-netflix]]).
+// Brave downloads it at runtime, never redistributed ([[architecture-stack]]).
+func widevinePref(on bool) pref { return pref{[]string{"brave", "widevine_opted_in"}, on} }
 
 // seedProfile creates the profile folder of a web app the first time it is opened.
 func seedProfile(dir string) error {
@@ -79,10 +85,10 @@ func seedProfile(dir string) error {
 	return nil
 }
 
-// enforcePrefs sets profilePrefs in a settings file of a profile whose Brave is not running,
-// keeping everything else as Brave wrote it (numbers included, exactly). A missing file gets only
-// these settings; a file that is not JSON is left alone.
-func enforcePrefs(path string) error {
+// enforcePrefs sets settings in a settings file of a profile whose Brave is not running, keeping
+// everything else as Brave wrote it (numbers included, exactly). A missing file gets only these
+// settings; a file that is not JSON is left alone.
+func enforcePrefs(path string, settings []pref) error {
 	prefs := map[string]any{}
 	data, err := os.ReadFile(path)
 	switch {
@@ -96,7 +102,7 @@ func enforcePrefs(path string) error {
 			return fmt.Errorf("%s is not JSON: %w", path, err)
 		}
 	}
-	for _, p := range profilePrefs {
+	for _, p := range settings {
 		m := prefs
 		for _, key := range p.path[:len(p.path)-1] {
 			next, ok := m[key].(map[string]any)
@@ -188,6 +194,16 @@ func (m *Manager) Open(id string) error {
 	if m.running(id) {
 		return m.Apps.FocusApp(AppID(id))
 	}
+	// Google's terms for Widevine first: the interface asks ([[step-5.4-netflix]])
+	if m.Widevine().Ask {
+		return ErrWidevineConsent
+	}
+	return m.launch(id, e, true)
+}
+
+// launch starts Brave on e's address in the profile `id` (a web app, or Google's terms page),
+// with Widevine on or off.
+func (m *Manager) launch(id string, e Entry, widevine bool) error {
 	sess, err := m.Session()
 	if err != nil {
 		return apps.ErrNoSession
@@ -195,9 +211,10 @@ func (m *Manager) Open(id string) error {
 	if err := seedProfile(m.profile(id)); err != nil {
 		return err
 	}
+	settings := append(slices.Clone(profilePrefs), widevinePref(widevine))
 	for _, f := range profileFiles {
 		// Not fatal: the web app still opens, Brave may then show a window of its own
-		if err := enforcePrefs(filepath.Join(m.profile(id), f)); err != nil {
+		if err := enforcePrefs(filepath.Join(m.profile(id), f), settings); err != nil {
 			m.Log.Warn("web app's Brave settings not set", "id", id, "err", err)
 		}
 	}

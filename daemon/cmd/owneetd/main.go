@@ -212,6 +212,7 @@ func run(configPath string) error {
 		webApps.Apps, webApps.Session = launcher, appsMgr.Session
 		webApps.ProfilesDir = filepath.Join(dataDir, "owneet", "webapps")
 		webApps.ExtensionDir = "/usr/share/owneet/extension"
+		webApps.ConsentFile = filepath.Join(stateDir, "owneetd", "widevine.json")
 		catalogAPI = webApps
 	}
 

@@ -3,6 +3,8 @@
 package api
 
 import (
+	"encoding/json"
+	"slices"
 	"testing"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
@@ -36,8 +38,58 @@ func (f *fakeCatalog) Open(id string) error {
 		return catalog.ErrNotInstalled
 	case "youtube":
 		return apps.ErrGameRunning
+	case "consent":
+		return catalog.ErrWidevineConsent
 	}
 	return f.act("open", id)
+}
+func (f *fakeCatalog) Widevine() catalog.WidevineStatus {
+	return catalog.WidevineStatus{Accepted: true, Ask: true, Updated: true}
+}
+func (f *fakeCatalog) AcceptWidevine() error {
+	f.calls = append(f.calls, "accept")
+	return nil
+}
+func (f *fakeCatalog) OpenTerms(language string) error {
+	if language == "busy" {
+		return apps.ErrGameRunning
+	}
+	f.calls = append(f.calls, "terms "+language)
+	return nil
+}
+
+func TestWidevineEndpoints(t *testing.T) {
+	s, c, _ := start(t)
+	fake := &fakeCatalog{}
+	s.Catalog = fake
+	resp, err := c.Get("http://owneetd/v1/webapps/widevine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var st catalog.WidevineStatus
+	if err := json.NewDecoder(resp.Body).Decode(&st); err != nil || resp.StatusCode != 200 || !st.Ask || !st.Updated {
+		t.Errorf("GET widevine: %d %+v (%v)", resp.StatusCode, st, err)
+	}
+	resp.Body.Close()
+	for _, r := range []struct {
+		path, body string
+		code       int
+		err        string
+	}{
+		{"/v1/webapps/widevine/accept", ``, 204, ""},
+		{"/v1/webapps/widevine/terms", `{"language":"it"}`, 204, ""},
+		{"/v1/webapps/widevine/terms", ``, 204, ""},
+		{"/v1/webapps/widevine/terms", `{"language":"busy"}`, 409, "apps.game_running"},
+		{"/v1/webapps/widevine/terms", `{"lang":"it"}`, 400, "bad_request"},
+		{"/v1/apps/catalog/consent/open", ``, 409, "apps.widevine_consent"},
+	} {
+		if code, errCode := post(t, c, r.path, r.body); code != r.code || errCode != r.err {
+			t.Errorf("%s %s: %d %q, want %d %q", r.path, r.body, code, errCode, r.code, r.err)
+		}
+	}
+	if want := []string{"accept", "terms it", "terms "}; !slices.Equal(fake.calls, want) {
+		t.Errorf("calls = %q, want %q", fake.calls, want)
+	}
 }
 
 func TestCatalogEndpoints(t *testing.T) {
