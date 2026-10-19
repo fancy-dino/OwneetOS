@@ -16,8 +16,9 @@ type Catalog interface {
 	Status() catalog.Status
 	Install(id string) error
 	Remove(id string) error
-	// Open opens an installed web app ([[step-5.1-brave-in-the-os]]).
-	Open(id string) error
+	// Open opens an installed web app ([[step-5.1-brave-in-the-os]]); preparing: its first
+	// opening, it opens once Brave has Widevine ([[step-5.4-netflix]]).
+	Open(id string) (preparing bool, err error)
 	// The user's consent to Google's terms for Widevine ([[step-5.4-netflix]]): asked before a
 	// web app opens, with Google's live terms page to read.
 	Widevine() catalog.WidevineStatus
@@ -67,9 +68,10 @@ func (s *Server) handleCatalogAction(action func(Catalog, string) error) http.Ha
 	}
 }
 
-// handleCatalogOpen opens an installed web app, or brings it back when it is open (204). It runs
-// like a game: one game or web app at a time. The body may carry the look for the extension:
-// {"accent": "#FF8A5B", "language": "it"}.
+// handleCatalogOpen opens an installed web app, or brings it back when it is open (204). Its first
+// opening answers 202: Brave first gets Widevine, then the web app starts ("app.started", or
+// "apps.open_failed"). It runs like a game: one game or web app at a time. The body may carry the
+// look for the extension: {"accent": "#FF8A5B", "language": "it"}.
 func (s *Server) handleCatalogOpen(w http.ResponseWriter, r *http.Request) {
 	if !s.catalogAvailable(w) {
 		return
@@ -84,8 +86,10 @@ func (s *Server) handleCatalogOpen(w http.ResponseWriter, r *http.Request) {
 			s.WebApps.SetLook(look)
 		}
 	}
-	err := s.Catalog.Open(r.PathValue("id"))
+	preparing, err := s.Catalog.Open(r.PathValue("id"))
 	switch {
+	case err == nil && preparing:
+		w.WriteHeader(http.StatusAccepted)
 	case err == nil:
 		w.WriteHeader(http.StatusNoContent)
 	case errors.Is(err, catalog.ErrUnknown):
@@ -94,6 +98,8 @@ func (s *Server) handleCatalogOpen(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusConflict, "apps.not_installed", err.Error())
 	case errors.Is(err, catalog.ErrWidevineConsent):
 		WriteError(w, http.StatusConflict, "apps.widevine_consent", err.Error())
+	case errors.Is(err, catalog.ErrPreparing):
+		WriteError(w, http.StatusConflict, "apps.preparing", err.Error())
 	default:
 		s.appsError(w, err)
 	}
@@ -132,7 +138,13 @@ func (s *Server) handleWidevineTerms(w http.ResponseWriter, r *http.Request) {
 	if r.ContentLength != 0 && !decode(w, r, &body) {
 		return
 	}
-	if err := s.Catalog.OpenTerms(body.Language); err != nil {
+	err := s.Catalog.OpenTerms(body.Language)
+	switch {
+	case err == nil:
+	case errors.Is(err, catalog.ErrPreparing):
+		WriteError(w, http.StatusConflict, "apps.preparing", err.Error())
+		return
+	default:
 		s.appsError(w, err)
 		return
 	}

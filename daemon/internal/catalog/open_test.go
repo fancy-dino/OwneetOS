@@ -68,15 +68,21 @@ func newOpenManager(t *testing.T, display string) (*Manager, *fakeApps) {
 	if err := m.AcceptWidevine(); err != nil {
 		t.Fatal(err)
 	}
+	// and the web apps' profiles already have Widevine, as after their first opening (the first
+	// opening itself: widevine_test.go); Brave is never started by the tests
+	for _, id := range []string{"netflix", "youtube"} {
+		widevineIn(t, m, id, "4.10.3112.0")
+	}
+	m.FetchWidevine = func(profile string) error { return putWidevine(profile, "4.10.3112.0") }
 	return m, fa
 }
 
 func TestOpenNeedsAnInstalledWebApp(t *testing.T) {
 	m, fa := newOpenManager(t, ":0")
-	if err := m.Open("netflix"); !errors.Is(err, ErrNotInstalled) {
+	if _, err := m.Open("netflix"); !errors.Is(err, ErrNotInstalled) {
 		t.Errorf("open before installing: %v, want ErrNotInstalled", err)
 	}
-	if err := m.Open("brave"); !errors.Is(err, ErrUnknown) {
+	if _, err := m.Open("brave"); !errors.Is(err, ErrUnknown) {
 		t.Errorf("open the engine itself: %v, want ErrUnknown", err)
 	}
 	if len(fa.Status().Apps) != 0 {
@@ -90,7 +96,7 @@ func TestOpenRunsBraveWithItsOwnProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitIdle(t, m)
-	if err := m.Open("netflix"); err != nil {
+	if _, err := m.Open("netflix"); err != nil {
 		t.Fatal(err)
 	}
 	req, ok := fa.running["web:netflix"]
@@ -125,7 +131,7 @@ func TestOpenRunsBraveWithItsOwnProfile(t *testing.T) {
 		checkMouseFree(t, f, data)
 	}
 	// open again: brought back, not started twice
-	if err := m.Open("netflix"); err != nil {
+	if _, err := m.Open("netflix"); err != nil {
 		t.Fatal(err)
 	}
 	if !slices.Equal(fa.focused, []string{"web:netflix"}) {
@@ -161,7 +167,7 @@ func TestBraveSettingsSetAgainBeforeEveryOpening(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitIdle(t, m)
-	if err := m.Open("youtube"); err != nil {
+	if _, err := m.Open("youtube"); err != nil {
 		t.Fatal(err)
 	}
 	if err := fa.Close("web:youtube"); err != nil {
@@ -175,7 +181,7 @@ func TestBraveSettingsSetAgainBeforeEveryOpening(t *testing.T) {
 	if err := os.WriteFile(prefsFile, []byte(brave), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := m.Open("youtube"); err != nil {
+	if _, err := m.Open("youtube"); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(prefsFile)
@@ -224,7 +230,7 @@ func TestWaylandWithoutAnXServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitIdle(t, m)
-	if err := m.Open("youtube"); err != nil {
+	if _, err := m.Open("youtube"); err != nil {
 		t.Fatal(err)
 	}
 	cmd := strings.Join(fa.running["web:youtube"].Command, " ")
@@ -240,7 +246,7 @@ func TestUserAgentFromTheCatalogue(t *testing.T) {
 			t.Fatal(err)
 		}
 		waitIdle(t, m)
-		if err := m.Open(id); err != nil {
+		if _, err := m.Open(id); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -264,7 +270,7 @@ func TestRemoveClosesTheWebAppAndDeletesItsData(t *testing.T) {
 		}
 		waitIdle(t, m)
 	}
-	if err := m.Open("youtube"); err != nil {
+	if _, err := m.Open("youtube"); err != nil {
 		t.Fatal(err)
 	}
 	if err := m.Remove("youtube"); err != nil {

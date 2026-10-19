@@ -7,20 +7,53 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
-// widevineIn puts a Widevine version into a profile, as Brave does when it downloads one.
+// putWidevine puts a Widevine version into a profile folder, as Brave does when it downloads one.
+func putWidevine(profile, version string) error {
+	dir := filepath.Join(profile, "WidevineCdm")
+	if err := os.MkdirAll(filepath.Join(dir, version), 0o700); err != nil {
+		return err
+	}
+	hint, err := json.Marshal(map[string]string{"Path": filepath.Join(dir, version)})
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "latest-component-updated-widevine-cdm"), hint, 0o600)
+}
+
+// widevineIn puts a Widevine version into a web app's profile.
 func widevineIn(t *testing.T, m *Manager, profile, version string) {
 	t.Helper()
-	dir := filepath.Join(m.ProfilesDir, profile, "WidevineCdm")
-	if err := os.MkdirAll(filepath.Join(dir, version), 0o700); err != nil {
+	if err := putWidevine(filepath.Join(m.ProfilesDir, profile), version); err != nil {
 		t.Fatal(err)
 	}
-	hint, _ := json.Marshal(map[string]string{"Path": filepath.Join(dir, version)})
-	if err := os.WriteFile(filepath.Join(dir, "latest-component-updated-widevine-cdm"), hint, 0o600); err != nil {
-		t.Fatal(err)
+}
+
+// waitRunning waits until the app runs (a first opening starts it in the background).
+func waitRunning(t *testing.T, fa *fakeApps, id string) {
+	t.Helper()
+	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+		for _, a := range fa.Status().Apps {
+			if a.ID == id {
+				return
+			}
+		}
 	}
+	t.Fatalf("%s did not start", id)
+}
+
+func waitNotPreparing(t *testing.T, m *Manager) {
+	t.Helper()
+	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+		if !m.isPreparing() {
+			return
+		}
+	}
+	t.Fatal("still getting ready")
 }
 
 func widevineOn(t *testing.T, m *Manager, profile string) bool {
@@ -52,7 +85,7 @@ func TestAWebAppOpensOnlyAfterTheConsent(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitIdle(t, m)
-	if err := m.Open("netflix"); !errors.Is(err, ErrWidevineConsent) {
+	if _, err := m.Open("netflix"); !errors.Is(err, ErrWidevineConsent) {
 		t.Fatalf("Open without the consent: %v, want ErrWidevineConsent", err)
 	}
 	if len(fa.running) != 0 {
@@ -64,7 +97,7 @@ func TestAWebAppOpensOnlyAfterTheConsent(t *testing.T) {
 	if st := m.Widevine(); !st.Accepted || st.Ask {
 		t.Errorf("after the consent: %+v", st)
 	}
-	if err := m.Open("netflix"); err != nil {
+	if _, err := m.Open("netflix"); err != nil {
 		t.Fatal(err)
 	}
 	if !widevineOn(t, m, "netflix") {
@@ -92,7 +125,7 @@ func TestTheConsentIsAskedAgainForANewerWidevine(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitIdle(t, m)
-	if err := m.Open("netflix"); !errors.Is(err, ErrWidevineConsent) {
+	if _, err := m.Open("netflix"); !errors.Is(err, ErrWidevineConsent) {
 		t.Errorf("Open after an update: %v, want ErrWidevineConsent", err)
 	}
 	if err := m.AcceptWidevine(); err != nil {
@@ -174,4 +207,98 @@ func TestCompareVersions(t *testing.T) {
 			t.Errorf("compareVersions(%q, %q) = %d, want %d", c.a, c.b, got, c.want)
 		}
 	}
+}
+
+func TestTheFirstOpeningGetsWidevineFirst(t *testing.T) {
+	m, fa := newOpenManager(t, ":0")
+	profile := filepath.Join(m.ProfilesDir, "netflix")
+	if err := os.RemoveAll(profile); err != nil { // a new profile
+		t.Fatal(err)
+	}
+	type fetch struct {
+		profile  string
+		widevine bool // Widevine already on in the profile's settings
+	}
+	fetched := make(chan fetch, 2)
+	m.FetchWidevine = func(p string) error {
+		data, _ := os.ReadFile(filepath.Join(p, "Default", "Preferences"))
+		fetched <- fetch{p, json.Valid(data) && strings.Contains(string(data), `"widevine_opted_in":true`)}
+		return putWidevine(p, "4.10.3112.0")
+	}
+	if err := m.Install("netflix"); err != nil {
+		t.Fatal(err)
+	}
+	waitIdle(t, m)
+	preparing, err := m.Open("netflix")
+	if err != nil || !preparing {
+		t.Fatalf("first opening: preparing %v, %v; want preparing", preparing, err)
+	}
+	select {
+	case f := <-fetched:
+		if f.profile != profile || !f.widevine {
+			t.Errorf("fetched %+v, want netflix's profile with Widevine on", f)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Widevine never fetched")
+	}
+	waitRunning(t, fa, "web:netflix")
+	waitNotPreparing(t, m)
+	// the next opening has Widevine: it opens at once
+	if err := fa.Close("web:netflix"); err != nil {
+		t.Fatal(err)
+	}
+	if preparing, err := m.Open("netflix"); err != nil || preparing {
+		t.Errorf("next opening: preparing %v, %v; want it opened at once", preparing, err)
+	}
+	if len(fetched) != 0 {
+		t.Error("Widevine fetched again")
+	}
+}
+
+func TestOneWebAppGetsReadyAtATime(t *testing.T) {
+	m, fa := newOpenManager(t, ":0")
+	if err := os.RemoveAll(filepath.Join(m.ProfilesDir, "netflix")); err != nil {
+		t.Fatal(err)
+	}
+	release := make(chan struct{})
+	m.FetchWidevine = func(p string) error {
+		<-release
+		return putWidevine(p, "4.10.3112.0")
+	}
+	for _, id := range []string{"netflix", "youtube"} {
+		if err := m.Install(id); err != nil {
+			t.Fatal(err)
+		}
+		waitIdle(t, m)
+	}
+	if preparing, err := m.Open("netflix"); err != nil || !preparing {
+		t.Fatalf("first opening: %v, %v", preparing, err)
+	}
+	if _, err := m.Open("youtube"); !errors.Is(err, ErrPreparing) {
+		t.Errorf("another web app while one gets ready: %v, want ErrPreparing", err)
+	}
+	if err := m.OpenTerms("en"); !errors.Is(err, ErrPreparing) {
+		t.Errorf("Google's terms while a web app gets ready: %v, want ErrPreparing", err)
+	}
+	close(release)
+	waitRunning(t, fa, "web:netflix")
+	waitNotPreparing(t, m)
+}
+
+func TestAFailedFetchStillOpensTheWebApp(t *testing.T) {
+	m, fa := newOpenManager(t, ":0")
+	if err := os.RemoveAll(filepath.Join(m.ProfilesDir, "netflix")); err != nil {
+		t.Fatal(err)
+	}
+	m.FetchWidevine = func(string) error { return errors.New("no internet") }
+	if err := m.Install("netflix"); err != nil {
+		t.Fatal(err)
+	}
+	waitIdle(t, m)
+	if preparing, err := m.Open("netflix"); err != nil || !preparing {
+		t.Fatalf("first opening: %v, %v", preparing, err)
+	}
+	// opened without Widevine: the next opening tries again
+	waitRunning(t, fa, "web:netflix")
+	waitNotPreparing(t, m)
 }

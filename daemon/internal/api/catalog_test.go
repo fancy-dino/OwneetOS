@@ -32,16 +32,20 @@ func (f *fakeCatalog) act(what, id string) error {
 }
 func (f *fakeCatalog) Install(id string) error { return f.act("install", id) }
 func (f *fakeCatalog) Remove(id string) error  { return f.act("remove", id) }
-func (f *fakeCatalog) Open(id string) error {
+func (f *fakeCatalog) Open(id string) (bool, error) {
 	switch id {
 	case "spotify":
-		return catalog.ErrNotInstalled
+		return false, catalog.ErrNotInstalled
 	case "youtube":
-		return apps.ErrGameRunning
+		return false, apps.ErrGameRunning
 	case "consent":
-		return catalog.ErrWidevineConsent
+		return false, catalog.ErrWidevineConsent
+	case "first":
+		return true, nil
+	case "other":
+		return false, catalog.ErrPreparing
 	}
-	return f.act("open", id)
+	return false, f.act("open", id)
 }
 func (f *fakeCatalog) Widevine() catalog.WidevineStatus {
 	return catalog.WidevineStatus{Accepted: true, Ask: true, Updated: true}
@@ -53,6 +57,9 @@ func (f *fakeCatalog) AcceptWidevine() error {
 func (f *fakeCatalog) OpenTerms(language string) error {
 	if language == "busy" {
 		return apps.ErrGameRunning
+	}
+	if language == "wait" {
+		return catalog.ErrPreparing
 	}
 	f.calls = append(f.calls, "terms "+language)
 	return nil
@@ -81,7 +88,10 @@ func TestWidevineEndpoints(t *testing.T) {
 		{"/v1/webapps/widevine/terms", ``, 204, ""},
 		{"/v1/webapps/widevine/terms", `{"language":"busy"}`, 409, "apps.game_running"},
 		{"/v1/webapps/widevine/terms", `{"lang":"it"}`, 400, "bad_request"},
+		{"/v1/webapps/widevine/terms", `{"language":"wait"}`, 409, "apps.preparing"},
 		{"/v1/apps/catalog/consent/open", ``, 409, "apps.widevine_consent"},
+		{"/v1/apps/catalog/first/open", ``, 202, ""},
+		{"/v1/apps/catalog/other/open", ``, 409, "apps.preparing"},
 	} {
 		if code, errCode := post(t, c, r.path, r.body); code != r.code || errCode != r.err {
 			t.Errorf("%s %s: %d %q, want %d %q", r.path, r.body, code, errCode, r.code, r.err)

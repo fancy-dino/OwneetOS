@@ -170,35 +170,45 @@ func (m *Manager) running(id string) bool {
 	return false
 }
 
-// Open opens an installed web app, or brings it back when it is already open.
-func (m *Manager) Open(id string) error {
+// Open opens an installed web app, or brings it back when it is already open. preparing: the
+// web app's first opening, Brave first gets Widevine with no window (widevine.go) and the web app
+// opens afterwards ("app.started", or "apps.open_failed").
+func (m *Manager) Open(id string) (preparing bool, err error) {
 	if m.Apps == nil || m.Session == nil {
-		return apps.ErrNoSession
+		return false, apps.ErrNoSession
 	}
 	m.mu.Lock()
 	cat, err := m.load()
 	if err != nil {
 		m.mu.Unlock()
-		return err
+		return false, err
 	}
 	e, ok := find(cat, id, KindWebApp)
 	if !ok {
 		m.mu.Unlock()
-		return ErrUnknown
+		return false, ErrUnknown
 	}
 	installed := app(m.status(), id).Installed
 	m.mu.Unlock()
 	if !installed {
-		return ErrNotInstalled
+		return false, ErrNotInstalled
 	}
 	if m.running(id) {
-		return m.Apps.FocusApp(AppID(id))
+		return false, m.Apps.FocusApp(AppID(id))
 	}
 	// Google's terms for Widevine first: the interface asks ([[step-5.4-netflix]])
 	if m.Widevine().Ask {
-		return ErrWidevineConsent
+		return false, ErrWidevineConsent
 	}
-	return m.launch(id, e, true)
+	if !m.startPreparing(id) {
+		return false, ErrPreparing
+	}
+	if hasWidevine(m.profile(id)) {
+		m.donePreparing()
+		return false, m.launch(id, e, true)
+	}
+	go m.prepareAndLaunch(id, e)
+	return true, nil
 }
 
 // launch starts Brave on e's address in the profile `id` (a web app, or Google's terms page),
@@ -208,6 +218,17 @@ func (m *Manager) launch(id string, e Entry, widevine bool) error {
 	if err != nil {
 		return apps.ErrNoSession
 	}
+	if err := m.prepareProfile(id, widevine); err != nil {
+		return err
+	}
+	_, err = m.Apps.Launch(apps.LaunchRequest{ID: AppID(id), Name: id, Kind: apps.KindWebApp,
+		Command: m.braveCommand(e, m.profile(id), sess)})
+	return err
+}
+
+// prepareProfile creates the profile `id` the first time and sets Brave's settings in it, with
+// Widevine on or off.
+func (m *Manager) prepareProfile(id string, widevine bool) error {
 	if err := seedProfile(m.profile(id)); err != nil {
 		return err
 	}
@@ -218,9 +239,7 @@ func (m *Manager) launch(id string, e Entry, widevine bool) error {
 			m.Log.Warn("web app's Brave settings not set", "id", id, "err", err)
 		}
 	}
-	_, err = m.Apps.Launch(apps.LaunchRequest{ID: AppID(id), Name: id, Kind: apps.KindWebApp,
-		Command: m.braveCommand(e, m.profile(id), sess)})
-	return err
+	return nil
 }
 
 // closeAndForget closes the web app if it is open and deletes its profile: removing a web app

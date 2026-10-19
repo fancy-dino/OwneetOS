@@ -13,12 +13,15 @@ package catalog
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
@@ -27,6 +30,14 @@ import (
 
 // ErrWidevineConsent: the user must accept Google's terms for Widevine before the web app opens.
 var ErrWidevineConsent = errors.New("the user has not accepted Google's terms for Widevine")
+
+// ErrPreparing: a web app is getting Widevine for its first opening (one game or web app at a
+// time).
+var ErrPreparing = errors.New("a web app is getting ready")
+
+// widevineFetchTimeout: how long a first opening waits for Brave to download Widevine (20 s in the
+// test VM); after it the web app opens anyway, without Widevine until its next opening.
+const widevineFetchTimeout = 60 * time.Second
 
 // consentUser: the console's only user today; every person on the console gets their own entry
 // once the console has people.
@@ -137,12 +148,119 @@ func (m *Manager) OpenTerms(language string) error {
 	if m.running(WidevineTermsID) {
 		return m.Apps.FocusApp(AppID(WidevineTermsID))
 	}
+	if m.isPreparing() {
+		return ErrPreparing
+	}
 	url := widevineTermsURL
 	if languageCode.MatchString(language) {
 		url += "?hl=" + language
 	}
 	// no Widevine in this profile: it only shows a page
 	return m.launch(WidevineTermsID, Entry{URL: url}, false)
+}
+
+// startPreparing marks a web app as getting ready; false when one already is.
+func (m *Manager) startPreparing(id string) bool {
+	m.prepMu.Lock()
+	defer m.prepMu.Unlock()
+	if m.preparing != "" {
+		return false
+	}
+	m.preparing = id
+	return true
+}
+
+func (m *Manager) donePreparing() {
+	m.prepMu.Lock()
+	defer m.prepMu.Unlock()
+	m.preparing = ""
+}
+
+func (m *Manager) isPreparing() bool {
+	m.prepMu.Lock()
+	defer m.prepMu.Unlock()
+	return m.preparing != ""
+}
+
+// hasWidevine: Brave has downloaded Widevine into the profile.
+func hasWidevine(profile string) bool {
+	_, err := os.Stat(filepath.Join(profile, "WidevineCdm", "latest-component-updated-widevine-cdm"))
+	return err == nil
+}
+
+// prepareAndLaunch is a web app's first opening ([[step-5.4-netflix]]): Brave can use a Widevine
+// downloaded during a session only after a restart, so it first runs with no window in the web
+// app's profile until Widevine is there (about 20 s in the test VM), then the web app opens. Each
+// web app does it once, in its own profile.
+func (m *Manager) prepareAndLaunch(id string, e Entry) {
+	defer m.donePreparing()
+	start := time.Now()
+	err := m.prepareProfile(id, true)
+	if err == nil {
+		fetch := m.FetchWidevine
+		if fetch == nil {
+			fetch = fetchWidevine
+		}
+		err = fetch(m.profile(id))
+	}
+	if err != nil {
+		m.Log.Warn("web app opens without Widevine: the next opening tries again", "id", id, "err", err)
+	} else {
+		m.Log.Info("web app got Widevine before its first opening", "id", id, "took", time.Since(start).Round(time.Second))
+	}
+	if err := m.launch(id, e, true); err != nil {
+		m.Log.Warn("web app not opened after getting ready", "id", id, "err", err)
+		if m.Broker != nil {
+			m.Broker.Publish("apps.open_failed", map[string]string{"id": AppID(id), "error": err.Error()})
+		}
+	}
+}
+
+// fetchWidevine runs Brave with no window in the profile until it has downloaded Widevine, or
+// for widevineFetchTimeout at most (no internet: the web app then opens without it).
+func fetchWidevine(profile string) error {
+	cmd := exec.Command("brave", "--headless=new", "--user-data-dir="+profile, "--no-first-run",
+		"--password-store=basic", "--component-updater=fast-update", "about:blank")
+	// a process group of its own: Brave's helper processes stop with it
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	exited := make(chan error, 1)
+	go func() { exited <- cmd.Wait() }()
+	defer stopGroup(cmd.Process.Pid, exited)
+	deadline := time.After(widevineFetchTimeout)
+	tick := time.NewTicker(500 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		select {
+		case <-tick.C:
+			if hasWidevine(profile) {
+				return nil
+			}
+		case err := <-exited:
+			exited <- err // for stopGroup
+			if hasWidevine(profile) {
+				return nil
+			}
+			return fmt.Errorf("the hidden Brave stopped before Widevine was downloaded: %v", err)
+		case <-deadline:
+			return errors.New("Widevine was not downloaded in time")
+		}
+	}
+}
+
+// stopGroup ends the hidden Brave and its helpers: SIGTERM (Brave saves its files), SIGKILL after
+// 5 seconds.
+func stopGroup(pid int, exited chan error) {
+	_ = syscall.Kill(-pid, syscall.SIGTERM)
+	select {
+	case <-exited:
+	case <-time.After(5 * time.Second):
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+		<-exited
+	}
+	_ = syscall.Kill(-pid, syscall.SIGKILL) // helpers still running, if any
 }
 
 var widevineVersion = regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`)

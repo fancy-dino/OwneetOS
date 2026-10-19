@@ -4,7 +4,7 @@
         <file>owneet/theme.qml</file>
         <file>owneet/AddGamesTile.qml</file>
         <file>owneet/ControlsSheet.qml</file>
-        <file>owneet/SteamPreparing.qml</file>
+        <file>owneet/Preparing.qml</file>
         <file>owneet/CageWindow.qml</file>
         <file>owneet/WebKeyboard.qml</file>
         <file>owneet/CreditsSheet.qml</file>

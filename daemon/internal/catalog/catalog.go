@@ -118,11 +118,16 @@ type Manager struct {
 	ProfilesDir  string // $XDG_DATA_HOME/owneet/webapps: one folder per web app
 	ExtensionDir string // /usr/share/owneet/extension
 	ConsentFile  string // the users' consent to Google's terms for Widevine (widevine.go)
+	// FetchWidevine gets Widevine into a profile before its first opening (nil: Brave with no
+	// window, widevine.go; tests replace it)
+	FetchWidevine func(profile string) error
 
 	mu         sync.Mutex
 	busyID     string
 	busyAction string
 	consentMu  sync.Mutex
+	prepMu     sync.Mutex
+	preparing  string // the web app getting Widevine for its first opening
 }
 
 // spaceMargin is kept free beyond an engine's own size (pacman's database, logs).

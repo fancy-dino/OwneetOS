@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// While Steam starts ([[step-4.2-steam-integration]]): Steam shows nothing until its window is
-// ready, which takes a few minutes the first time (it downloads about 2.4 GB). The shell closes
-// this screen when Steam's or the game's window appears, or when Steam stops; B hides it and Steam
-// goes on.
+// "Preparing…": something opens by itself in a while, and B hides this screen meanwhile (it goes
+// on). While Steam starts ([[step-4.2-steam-integration]]): Steam shows nothing until its window
+// is ready, which takes a few minutes the first time (it downloads about 2.4 GB). At a web app's
+// first opening ([[step-5.4-netflix]]): Brave first downloads Google Widevine, a few seconds. The
+// shell gives the texts and closes the screen when the window appears or the start fails.
 import QtQuick 2.15
 import "foundation"
 
@@ -13,7 +14,9 @@ NavArea {
     z: 140
     backFeedback: ""
 
-    property bool firstTime: false          // Steam has never started here: the long download
+    property bool firstTime: false          // the first time here: the long wait
+    property string title: ""
+    property string text: ""
 
     function start(first) {
         firstTime = first;
@@ -46,7 +49,7 @@ NavArea {
         Text {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: Tr.tr("steam.prep.title")
+            text: root.title
             color: Theme.fg
             font.family: Theme.displayFont
             font.weight: Font.Bold
@@ -56,7 +59,7 @@ NavArea {
         Text {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: Tr.tr(root.firstTime ? "steam.prep.first" : "steam.prep.text")
+            text: root.text
             color: Theme.muted
             font.family: Theme.textFont
             font.pixelSize: Theme.fs(17)

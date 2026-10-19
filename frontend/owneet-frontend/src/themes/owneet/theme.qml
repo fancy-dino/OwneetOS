@@ -140,7 +140,7 @@ FocusScope {
         page.focusStart();
     }
     readonly property bool modalOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
-                                      || notices.visible || quick.visible || controls.visible || steamPrep.visible
+                                      || notices.visible || quick.visible || controls.visible || steamPrep.visible || webPrep.visible
                                       || webKeys.shown
     function backToPage() { Qt.callLater(() => { if (!root.modalOpen) root.page.forceActiveFocus(); }); }
 
@@ -605,10 +605,16 @@ FocusScope {
         owneetd.post("/v1/apps/catalog/" + encodeURIComponent(app.id) + "/open", look, (status, data) => {
             if (status === 204 || status === 200)
                 return;
+            if (status === 202) {                 // its first opening: Brave first gets Widevine (5.4)
+                webPrep.appId = "web:" + app.id;
+                webPrep.appName = Tr.tr(app.nameKey);
+                webPrep.start(true);
+                return;
+            }
             const code = data && data.error ? data.error.code : "";
             if (code === "apps.game_running")
                 toast.show(Tr.tr("toast.app.busy", { name: openName() }));
-            else if (code === "apps.not_installed" || code === "apps.widevine_consent")
+            else if (code === "apps.not_installed" || code === "apps.widevine_consent" || code === "apps.preparing")
                 toast.show(Tr.tr("error." + code));
             else
                 toast.show(Tr.tr("error.apps.open"));
@@ -2104,8 +2110,10 @@ FocusScope {
     }
 
     // ---- Steam starting (4.2): until Steam's or the game's window appears, or Steam stops
-    SteamPreparing {
+    Preparing {
         id: steamPrep
+        title: Tr.tr("steam.prep.title")
+        text: Tr.tr(firstTime ? "steam.prep.first" : "steam.prep.text")
         onVisibleChanged: if (!visible) root.backToPage()
     }
     Connections {
@@ -2117,6 +2125,30 @@ FocusScope {
                     || (type === "app.exited" && id === "steam")
                     || (type === "focus.changed" && data.focus !== "home"))
                 steamPrep.close(true);
+        }
+    }
+
+    // ---- A web app's first opening (5.4): Brave first downloads Google Widevine, with no window;
+    // until the web app starts, or its opening fails
+    Preparing {
+        id: webPrep
+        property string appId: ""           // "web:ID"
+        property string appName: ""
+        title: Tr.tr("webapp.prep.title", { app: appName })
+        text: Tr.tr("webapp.prep.first", { app: appName })
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
+    Connections {
+        target: owneetd
+        function onEvent(type, data) {
+            if (!webPrep.visible || !data) return;
+            if (type === "apps.open_failed" && data.id === webPrep.appId) {
+                webPrep.close(true);
+                toast.show(Tr.tr("error.apps.open"));
+            } else if ((type === "app.started" && data.id === webPrep.appId)
+                       || (type === "focus.changed" && data.focus === webPrep.appId)) {
+                webPrep.close(true);
+            }
         }
     }
 
