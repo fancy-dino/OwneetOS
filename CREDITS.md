@@ -107,6 +107,7 @@ logos; Pegasus's copyright notices are kept in its source code.
 |---|---|---|---|
 | [Bricolage Grotesque](https://github.com/ateliertriay/bricolage) | Mathieu Triay | OFL-1.1 | Titles; the OwneetOS wordmark is drawn from its outlines |
 | [Lexend](https://www.lexend.com) | Bonnie Shaver-Troup, Thomas Jockin and the Lexend team | OFL-1.1 | Interface text |
+| [Lucide](https://lucide.dev) | Lucide Icons and contributors; some icons derived from [Feather](https://feathericons.com) by Cole Bemis | ISC (Feather's icons: MIT) | The website's icons (`lucide-static` 1.52.0; for now in its demo, `design/demos/7.8-website-home.html`) |
 
 Both fonts are bundled in `owneet-frontend` as static instances generated from the variable fonts
 by `tools/branding/make-fonts` (Qt 5 cannot select variation axes); their licence texts are

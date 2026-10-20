@@ -14,7 +14,8 @@
      contributing) come with their own demos. The demo panel at the bottom left (not part of the
      site) switches palette, light / dark and the logo (the 7.6 draft or the current one); start
      state in the address: #features&lang=it&pal=dusk&logo=current. The console picture is drawn
-     for the demo; the game names are invented. Fonts come from Google Fonts for the demo only:
+     for the demo; the game names are invented. The icons are Lucide's (1.52.0, ISC License; some
+     derived from Feather, MIT License; CREDITS.md). Fonts come from Google Fonts for the demo only:
      the real site serves its own fonts (no third-party requests, no data collected). Open in a
      browser; mouse, keyboard (arrows in the carousel) and touch. -->
 <html lang="en">
@@ -446,33 +447,34 @@ const SLIDES = [['pad', 's.pad'], ['library', 's.games'], ['disk', 's.disk'], ['
 const APPS = [['play', 'app.video'], ['note', 'app.audio'], ['film', 'app.lvideo'], ['disc', 'app.laudio'], ['image', 'app.pics'], ['grid', 'app.all']];
 const GAMES = [['Star Drift', 330], ['Pixel Garden', 165], ['Night Racer', 215], ['Old Keep', 30], ['Moss & Stone', 110], ['Tiny Tanks', 0], ['Deep Blue', 195]];
 
-// ---- Icons (drawn for the site, stroke in the current colour)
-const S = 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+// ---- Icons: Lucide 1.52.0 (ISC License; some icons derived from Feather, MIT License),
+// https://lucide.dev, drawn in the current colour
+const L = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 const ICONS = {
-  pad: `<svg viewBox="0 0 24 24" ${S}><path d="M7 7h10a5 5 0 0 1 5 5v1.5a3.5 3.5 0 0 1-6.2 2.2L14.5 14h-5l-1.3 1.7A3.5 3.5 0 0 1 2 13.5V12a5 5 0 0 1 5-5z"/><path d="M7 10v4M5 12h4"/><circle cx="16" cy="11" r=".6" fill="currentColor"/><circle cx="18" cy="13" r=".6" fill="currentColor"/></svg>`,
-  padsmall: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z"/></svg>`,
-  wifi: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/></svg>`,
-  library: `<svg viewBox="0 0 24 24" ${S}><rect x="3" y="4" width="5" height="16" rx="1.2"/><rect x="10" y="4" width="5" height="16" rx="1.2"/><path d="M17.5 5.2l3.3 1 -3.6 14.4-3.2-1"/></svg>`,
-  feather: `<svg viewBox="0 0 24 24" ${S}><path d="M20 4C12 4 6 9 6 17v3"/><path d="M20 4c0 8-5 13-12 13"/><path d="M10 13h5"/></svg>`,
-  store: `<svg viewBox="0 0 24 24" ${S}><path d="M4 8h16l-1 11a1.5 1.5 0 0 1-1.5 1.4h-11A1.5 1.5 0 0 1 5 19z"/><path d="M8.5 8V6.5a3.5 3.5 0 0 1 7 0V8"/></svg>`,
-  disk: `<svg viewBox="0 0 24 24" ${S}><rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M7 14h4"/><circle cx="17" cy="14" r=".7" fill="currentColor"/></svg>`,
-  play: `<svg viewBox="0 0 24 24" ${S}><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M10.5 8.5v5l4-2.5z"/><path d="M8 20h8"/></svg>`,
-  note: `<svg viewBox="0 0 24 24" ${S}><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>`,
-  film: `<svg viewBox="0 0 24 24" ${S}><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/></svg>`,
-  disc: `<svg viewBox="0 0 24 24" ${S}><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>`,
-  image: `<svg viewBox="0 0 24 24" ${S}><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-9 9"/></svg>`,
-  grid: `<svg viewBox="0 0 24 24" ${S}><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>`,
-  pads: `<svg viewBox="0 0 24 24" ${S}><path d="M6.5 6h11a4.5 4.5 0 0 1 4.4 5.5l-.9 4a2.4 2.4 0 0 1-4.2 1L15 14.5H9l-1.8 2a2.4 2.4 0 0 1-4.2-1l-.9-4A4.5 4.5 0 0 1 6.5 6z"/><path d="M12 6V3"/></svg>`,
-  update: `<svg viewBox="0 0 24 24" ${S}><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.5 4.5L20 16"/><path d="M20 20v-4h-4"/></svg>`,
-  palette: `<svg viewBox="0 0 24 24" ${S}><path d="M12 3a9 9 0 0 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-.9.7-1.7 1.8-1.7H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r=".9" fill="currentColor"/><circle cx="10" cy="7" r=".9" fill="currentColor"/><circle cx="15" cy="7.5" r=".9" fill="currentColor"/></svg>`,
-  code: `<svg viewBox="0 0 24 24" ${S}><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>`,
-  shield: `<svg viewBox="0 0 24 24" ${S}><path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>`,
-  offline: `<svg viewBox="0 0 24 24" ${S}><path d="M2 9a15 15 0 0 1 6-3.4M22 9a15 15 0 0 0-9-4M5 12.5a10 10 0 0 1 4-2.2M19 12.5a10 10 0 0 0-3-1.9M8.5 16a5 5 0 0 1 7 0"/><path d="M3 3l18 18"/></svg>`,
-  book: `<svg viewBox="0 0 24 24" ${S}><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M8 8h8M8 11.5h6"/></svg>`,
-  question: `<svg viewBox="0 0 24 24" ${S}><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.2-2.5 3.8"/><circle cx="12" cy="17.2" r=".7" fill="currentColor"/></svg>`,
-  people: `<svg viewBox="0 0 24 24" ${S}><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2A5 5 0 0 1 21 19"/></svg>`,
-  left: `<svg viewBox="0 0 24 24" ${S}><path d="M15 5l-7 7 7 7"/></svg>`,
-  right: `<svg viewBox="0 0 24 24" ${S}><path d="M9 5l7 7-7 7"/></svg>`,};
+  pad: `<svg viewBox="0 0 24 24" ${L}><line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/></svg>`,   // gamepad-2
+  padsmall: `<svg viewBox="0 0 24 24" ${L}><line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/></svg>`,   // gamepad-2
+  wifi: `<svg viewBox="0 0 24 24" ${L}><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/></svg>`,   // wifi
+  library: `<svg viewBox="0 0 24 24" ${L}><rect width="8" height="18" x="3" y="3" rx="1"/><path d="M7 3v18"/><path d="M20.4 18.9c.2.5-.1 1.1-.6 1.3l-1.9.7c-.5.2-1.1-.1-1.3-.6L11.1 5.1c-.2-.5.1-1.1.6-1.3l1.9-.7c.5-.2 1.1.1 1.3.6Z"/></svg>`,   // library-big
+  feather: `<svg viewBox="0 0 24 24" ${L}><path d="M14.086 18.412A2 2 0 0112.67 19H5v-7.672a2 2 0 01.586-1.414L11.75 3.75a6 6 0 118.49 8.49z"/><path d="M16 8 2 22"/><path d="M17.488 15H9"/></svg>`,   // feather
+  disk: `<svg viewBox="0 0 24 24" ${L}><path d="M10 16h.01"/><path d="M2.212 11.577a2 2 0 0 0-.212.896V18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5.527a2 2 0 0 0-.212-.896L18.55 5.11A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><path d="M21.946 12.013H2.054"/><path d="M6 16h.01"/></svg>`,   // hard-drive
+  play: `<svg viewBox="0 0 24 24" ${L}><path d="M15.033 9.44a.647.647 0 0 1 0 1.12l-4.065 2.352a.645.645 0 0 1-.968-.56V7.648a.645.645 0 0 1 .967-.56z"/><path d="M12 17v4"/><path d="M8 21h8"/><rect x="2" y="3" width="20" height="14" rx="2"/></svg>`,   // monitor-play
+  note: `<svg viewBox="0 0 24 24" ${L}><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,   // music
+  film: `<svg viewBox="0 0 24 24" ${L}><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/></svg>`,   // film
+  disc: `<svg viewBox="0 0 24 24" ${L}><circle cx="12" cy="12" r="10"/><path d="M6 12c0-1.7.7-3.2 1.8-4.2"/><circle cx="12" cy="12" r="2"/><path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/></svg>`,   // disc-3
+  image: `<svg viewBox="0 0 24 24" ${L}><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`,   // image
+  grid: `<svg viewBox="0 0 24 24" ${L}><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>`,   // layout-grid
+  pads: `<svg viewBox="0 0 24 24" ${L}><line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/><rect width="20" height="12" x="2" y="6" rx="2"/></svg>`,   // gamepad
+  update: `<svg viewBox="0 0 24 24" ${L}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>`,   // history
+  palette: `<svg viewBox="0 0 24 24" ${L}><path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/></svg>`,   // palette
+  code: `<svg viewBox="0 0 24 24" ${L}><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>`,   // code-xml
+  shield: `<svg viewBox="0 0 24 24" ${L}><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>`,   // shield-check
+  offline: `<svg viewBox="0 0 24 24" ${L}><path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/></svg>`,   // wifi-off
+  people: `<svg viewBox="0 0 24 24" ${L}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg>`,   // users
+  book: `<svg viewBox="0 0 24 24" ${L}><path d="M12 5v16"/><path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"/></svg>`,   // book-open
+  question: `<svg viewBox="0 0 24 24" ${L}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>`,   // circle-help
+  left: `<svg viewBox="0 0 24 24" ${L}><path d="m15 18-6-6 6-6"/></svg>`,   // chevron-left
+  right: `<svg viewBox="0 0 24 24" ${L}><path d="m9 18 6-6-6-6"/></svg>`,   // chevron-right
+};
 
 // ---- Palettes (the console's design tokens): bg, surface, raised, line, fg, muted, accent, on-accent
 const PALETTES = [
