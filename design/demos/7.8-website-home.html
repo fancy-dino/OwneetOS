@@ -159,6 +159,15 @@ html, body { overflow-x: clip; }
 
 /* Free and open: four short lines */
 .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+/* Info: the guide and the FAQ, two cards leading to their pages */
+.infos { display: grid; grid-template-columns: repeat(2, minmax(0, 340px)); gap: 20px; justify-content: center; }
+.info { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 32px 24px; text-decoration: none;
+  display: grid; justify-items: center; text-align: center; gap: 10px; transition: transform .15s ease, border-color .15s ease; }
+.info:hover { transform: translateY(-2px); border-color: var(--accent); }
+.info .icon { width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.info .icon svg { width: 30px; height: 30px; }
+.info b { font-family: var(--display); font-variation-settings: "wdth" 85; font-weight: 750; font-size: 24px; }
+.info span { color: var(--muted); font-size: 15.5px; }
 .fact { display: grid; justify-items: center; text-align: center; gap: 12px; padding: 12px; }
 .fact .icon { width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
 .fact .icon svg { width: 30px; height: 30px; }
@@ -194,6 +203,7 @@ footer .marks { flex-basis: 100%; font-size: 12.5px; }
   .hero .text { text-align: center; } .hero p.lede { margin-left: auto; margin-right: auto; } .hero .ctas { justify-content: center; }
   .figs { grid-template-columns: repeat(3, 1fr); }
   .facts { grid-template-columns: repeat(2, 1fr); }
+  .infos { grid-template-columns: minmax(0, 420px); }
   .dots { display: none; }
 }
 @media (max-width: 1100px) {   /* below this the header's links no longer fit: the Menu button */
@@ -222,8 +232,7 @@ footer .marks { flex-basis: 100%; font-size: 12.5px; }
       <li><a href="#features" data-t="nav.features"></a></li>
       <li><a href="#requirements" data-t="nav.requirements"></a></li>
       <li><a href="#open" data-t="nav.open"></a></li>
-      <li><a href="#guide" data-later data-t="nav.guide"></a></li>
-      <li><a href="#faq" data-later data-t="nav.faq"></a></li>
+      <li><a href="#info" data-t="nav.info"></a></li>
       <li><a href="#credits" data-later data-t="foot.credits.short"></a></li>
       <li><a href="#download" data-t="nav.download"></a></li>
     </ul>
@@ -309,6 +318,16 @@ footer .marks { flex-basis: 100%; font-size: 12.5px; }
     </div>
   </section>
 
+  <section class="snap" id="info" data-name="nav.info">
+    <div class="wrap">
+      <div class="head"><h2 class="disp" data-t="info.title"></h2><p data-t="info.lede"></p></div>
+      <div class="infos">
+        <a class="info" href="#guide" data-later><div class="icon" data-icon="book"></div><b data-t="nav.guide"></b><span data-t="info.guide"></span></a>
+        <a class="info" href="#faq" data-later><div class="icon" data-icon="question"></div><b data-t="nav.faq"></b><span data-t="info.faq"></span></a>
+      </div>
+    </div>
+  </section>
+
   <section class="snap last" id="download" data-name="nav.download">
     <div class="wrap">
       <div class="box">
@@ -356,7 +375,9 @@ const T = {
   en: {
     'nav.home': 'Home', 'nav.features': 'Features', 'nav.requirements': 'Requirements', 'nav.open': 'Open', 'nav.guide': 'Guide', 'nav.faq': 'FAQ',
     'nav.download': 'Download', 'nav.get': 'Get OwneetOS', 'nav.menu': 'Menu',
-    'hero.kicker': "Plug it. Play it. It's yours!",
+    'hero.kicker': 'Plug it. Play it. Own it!', 'nav.info': 'Info',
+    'info.title': 'Need a hand?', 'info.lede': 'Everything about installing and using OwneetOS.',
+    'info.guide': 'From the USB stick to your first game.', 'info.faq': 'Answers to the common questions.',
     'hero.title': 'Turn your PC into a game console.',
     'hero.lede': 'Free and open source. You only need a controller.', 'foot.credits.short': 'Credits',
     'hero.download': 'Download', 'hero.features': 'See what it does',
@@ -388,7 +409,9 @@ const T = {
   it: {
     'nav.home': 'Home', 'nav.features': 'Funzionalità', 'nav.requirements': 'Requisiti', 'nav.open': 'Aperto', 'nav.guide': 'Guida', 'nav.faq': 'Domande',
     'nav.download': 'Download', 'nav.get': 'Scarica OwneetOS', 'nav.menu': 'Menu',
-    'hero.kicker': 'Collegalo. Giocaci. È tuo!',
+    'hero.kicker': 'Collegalo. Giocaci. Fallo tuo!', 'nav.info': 'Info',
+    'info.title': 'Serve una mano?', 'info.lede': 'Tutto su come installare e usare OwneetOS.',
+    'info.guide': 'Dalla chiavetta USB al primo gioco.', 'info.faq': 'Le risposte alle domande più comuni.',
     'hero.title': 'Trasforma il tuo PC in una console.',
     'hero.lede': 'Gratuito e open source. Ti basta un controller.', 'foot.credits.short': 'Crediti',
     'hero.download': 'Scarica', 'hero.features': 'Scopri cosa fa',
@@ -445,6 +468,8 @@ const ICONS = {
   code: `<svg viewBox="0 0 24 24" ${S}><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>`,
   shield: `<svg viewBox="0 0 24 24" ${S}><path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>`,
   offline: `<svg viewBox="0 0 24 24" ${S}><path d="M2 9a15 15 0 0 1 6-3.4M22 9a15 15 0 0 0-9-4M5 12.5a10 10 0 0 1 4-2.2M19 12.5a10 10 0 0 0-3-1.9M8.5 16a5 5 0 0 1 7 0"/><path d="M3 3l18 18"/></svg>`,
+  book: `<svg viewBox="0 0 24 24" ${S}><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M8 8h8M8 11.5h6"/></svg>`,
+  question: `<svg viewBox="0 0 24 24" ${S}><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.2-2.5 3.8"/><circle cx="12" cy="17.2" r=".7" fill="currentColor"/></svg>`,
   people: `<svg viewBox="0 0 24 24" ${S}><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2A5 5 0 0 1 21 19"/></svg>`,
   left: `<svg viewBox="0 0 24 24" ${S}><path d="M15 5l-7 7 7 7"/></svg>`,
   right: `<svg viewBox="0 0 24 24" ${S}><path d="M9 5l7 7-7 7"/></svg>`,};
