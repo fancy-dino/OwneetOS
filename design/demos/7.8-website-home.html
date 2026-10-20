@@ -5,8 +5,8 @@
      and the scrolling snaps from one to the next; the address follows the section on screen
      (#features, #requirements, ...) and a link to it scrolls there; less text: the features are
      a carousel, a title and one short line, one card on screen, the next half a screen away; it
-     plays by itself every 5 s and loops (a pause button; paused while pointed at or focused, off
-     screen, or when the visitor asked for reduced motion), also moved by the arrows, the dots and
+     plays by itself every 5 s and loops (it stops only while pointed at or focused, and off
+     screen; no pause button, owner, 2026-10-20), also moved by the arrows, the dots and
      a swipe; the console picture follows the approved
      home screen (demo 3.6) with generic apps (Video streaming, Audio streaming, Local videos,
      Local music, Local pictures, All apps). English and Italian (the real site takes its texts
@@ -145,10 +145,7 @@ html, body { overflow-x: clip; }
 .slide p { margin: 0; color: var(--muted); font-size: 17px; max-width: 24em; }
 .cnav { display: flex; justify-content: center; align-items: center; gap: 18px; margin-top: 22px; }
 .cnav button.arrow { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); cursor: pointer; display: grid; place-items: center; }
-.cnav button.arrow svg { width: 20px; height: 20px; }
-.cnav button.pause { width: 36px; height: 36px; margin-left: 4px; color: var(--muted); }
-.cnav button.pause svg { width: 16px; height: 16px; }
-.cdots { display: flex; gap: 8px; }
+.cnav button.arrow svg { width: 20px; height: 20px; }.cdots { display: flex; gap: 8px; }
 .cdots button { width: 9px; height: 9px; border-radius: 50%; border: 0; padding: 0; background: var(--line); cursor: pointer; }
 .cdots button[aria-current="true"] { background: var(--accent); width: 24px; border-radius: 999px; }
 
@@ -280,7 +277,6 @@ footer .marks { flex-basis: 100%; font-size: 12.5px; }
           <button class="arrow" type="button" id="prev" data-icon="left"></button>
           <div class="cdots" id="cdots"></div>
           <button class="arrow" type="button" id="next" data-icon="right"></button>
-          <button class="arrow pause" type="button" id="playBtn"></button>
         </div>
       </div>
     </div>
@@ -387,7 +383,7 @@ const T = {
     'foot.licence': 'GPL-3.0-or-later · texts CC BY-SA 4.0',
     'foot.marks': 'Steam is a trademark of Valve Corporation, Xbox of Microsoft Corporation, PlayStation of Sony Interactive Entertainment. They only say what works with OwneetOS, which is not affiliated with or endorsed by them.',
     'later': 'This page comes with its own demo.', 'soon': 'The download opens with the first release.',
-    'prev': 'Previous', 'next': 'Next', 'slide': 'Feature %n of %t', 'pause': 'Pause the features', 'play': 'Play the features',
+    'prev': 'Previous', 'next': 'Next', 'slide': 'Feature %n of %t',
   },
   it: {
     'nav.home': 'Home', 'nav.features': 'Funzionalità', 'nav.requirements': 'Requisiti', 'nav.open': 'Aperto', 'nav.guide': 'Guida', 'nav.faq': 'Domande',
@@ -420,7 +416,7 @@ const T = {
     'foot.licence': 'GPL-3.0-or-later · testi CC BY-SA 4.0',
     'foot.marks': 'Steam è un marchio di Valve Corporation, Xbox di Microsoft Corporation, PlayStation di Sony Interactive Entertainment. Indicano solo cosa funziona con OwneetOS, che non è affiliato né approvato da loro.',
     'later': 'Questa pagina arriverà con una sua demo.', 'soon': 'Il download si apre con la prima versione.',
-    'prev': 'Precedente', 'next': 'Successiva', 'slide': 'Funzionalità %n di %t', 'pause': 'Ferma le funzionalità', 'play': 'Riavvia le funzionalità',
+    'prev': 'Precedente', 'next': 'Successiva', 'slide': 'Funzionalità %n di %t',
   },
 };
 const SLIDES = [['pad', 's.pad'], ['library', 's.games'], ['store', 's.steam'], ['disk', 's.disk'], ['play', 's.media'],
@@ -452,10 +448,7 @@ const ICONS = {
   offline: `<svg viewBox="0 0 24 24" ${S}><path d="M2 9a15 15 0 0 1 6-3.4M22 9a15 15 0 0 0-9-4M5 12.5a10 10 0 0 1 4-2.2M19 12.5a10 10 0 0 0-3-1.9M8.5 16a5 5 0 0 1 7 0"/><path d="M3 3l18 18"/></svg>`,
   people: `<svg viewBox="0 0 24 24" ${S}><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2A5 5 0 0 1 21 19"/></svg>`,
   left: `<svg viewBox="0 0 24 24" ${S}><path d="M15 5l-7 7 7 7"/></svg>`,
-  right: `<svg viewBox="0 0 24 24" ${S}><path d="M9 5l7 7-7 7"/></svg>`,
-  pause: `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>`,
-  resume: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l12.5-7.5z"/></svg>`,
-};
+  right: `<svg viewBox="0 0 24 24" ${S}><path d="M9 5l7 7-7 7"/></svg>`,};
 
 // ---- Palettes (the console's design tokens): bg, surface, raised, line, fg, muted, accent, on-accent
 const PALETTES = [
@@ -549,9 +542,8 @@ function render() {
 // ---- The carousel: arrows, dots, swipe (horizontal snapping), left / right when it has focus.
 // It loops: the strip holds a copy of the last card before the first and of the first after the
 // last; once it stops on a copy, it jumps (instantly, unseen) to the card it copies.
-// It plays by itself every AUTOPLAY ms, paused while the pointer is on it or it has focus, while
-// the section or the page is not on screen, and by its pause button (paused from the start when
-// the visitor asked for reduced motion).
+// It plays by itself every AUTOPLAY ms, paused only while the pointer is on it or it has focus
+// from the keyboard, and while the section or the page is not on screen.
 const AUTOPLAY = 5000;
 const cards = () => document.querySelectorAll('#track .slide');      // copy, 0 .. n-1, copy
 const place = pos => { const c = cards()[pos], t = $('#track'); return c.offsetLeft - (t.clientWidth - c.clientWidth) / 2; };
@@ -602,15 +594,11 @@ $('#track').addEventListener('scrollend', settle);
 
 // autoplay
 let timer = null, hovered = false, inView = false;
-let userPaused = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const running = () => !userPaused && !hovered && inView && !document.hidden;
+const running = () => !hovered && inView && !document.hidden;
 function restart() {
   clearInterval(timer); timer = null;
   if (running()) timer = setInterval(() => showSlide(state.slide + 1), AUTOPLAY);
-  $('#playBtn').innerHTML = ICONS[userPaused ? 'resume' : 'pause'];
-  $('#playBtn').setAttribute('aria-label', tr(userPaused ? 'play' : 'pause'));
 }
-$('#playBtn').onclick = () => { userPaused = !userPaused; restart(); };
 $('#carousel').addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { hovered = true; restart(); } });
 $('#carousel').addEventListener('pointerleave', () => { hovered = false; restart(); });
 // focus pauses it only when it comes from the keyboard (a click gives the button focus too)
