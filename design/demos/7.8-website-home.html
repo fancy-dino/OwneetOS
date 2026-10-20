@@ -56,7 +56,7 @@ header.site { position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: v
 .lang button { background: none; border: 0; padding: 4px 10px; border-radius: 999px; font-size: 13px; color: var(--muted); cursor: pointer; }
 .lang button[aria-pressed="true"] { background: var(--raised); color: var(--fg); }
 .btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; border: 1px solid transparent; cursor: pointer;
-  border-radius: 999px; padding: 12px 24px; font-size: 16px; font-weight: 500; transition: transform .15s ease; background: none; }
+  border-radius: 999px; padding: 12px 24px; font-size: 16px; font-weight: 500; transition: transform .15s ease; background: none; white-space: nowrap; }
 .btn:hover { transform: translateY(-1px); }
 .btn.primary { background: var(--accent); color: var(--on-accent); }
 .btn.ghost { border-color: var(--line); color: var(--fg); }
@@ -196,7 +196,7 @@ footer .marks { flex-basis: 100%; font-size: 12.5px; }
   .facts { grid-template-columns: repeat(2, 1fr); }
   .dots { display: none; }
 }
-@media (max-width: 760px) {
+@media (max-width: 1100px) {   /* below this the header's links no longer fit: the Menu button */
   .menu-btn { display: inline-block; }
   .nav ul { display: none; position: absolute; top: var(--head); left: 0; right: 0; flex-direction: column; gap: 0;
     background: var(--bg); border-bottom: 1px solid var(--line); padding: 8px 16px 16px; }
@@ -224,6 +224,7 @@ footer .marks { flex-basis: 100%; font-size: 12.5px; }
       <li><a href="#open" data-t="nav.open"></a></li>
       <li><a href="#guide" data-later data-t="nav.guide"></a></li>
       <li><a href="#faq" data-later data-t="nav.faq"></a></li>
+      <li><a href="#credits" data-later data-t="foot.credits.short"></a></li>
       <li><a href="#download" data-t="nav.download"></a></li>
     </ul>
     <div class="end">
@@ -357,7 +358,7 @@ const T = {
     'nav.download': 'Download', 'nav.get': 'Get OwneetOS', 'nav.menu': 'Menu',
     'hero.kicker': "Plug it. Play it. It's yours!",
     'hero.title': 'Turn your PC into a game console.',
-    'hero.lede': 'Free and open source. Played with a controller only.',
+    'hero.lede': 'Free and open source. You only need a controller.', 'foot.credits.short': 'Credits',
     'hero.download': 'Download', 'hero.features': 'See what it does',
     'tv.home': 'Home', 'tv.library': 'Library', 'tv.settings': 'Settings', 'tv.continue': 'Continue playing', 'tv.yesterday': 'Yesterday',
     'tv.play': 'Play', 'tv.details': 'Details', 'tv.apps': 'Apps', 'tv.jump': 'Jump back in', 'tv.together': 'Steam and local games, together',
@@ -365,14 +366,13 @@ const T = {
     'app.video': 'Video streaming', 'app.audio': 'Audio streaming', 'app.lvideo': 'Local videos', 'app.laudio': 'Local music', 'app.pics': 'Local pictures', 'app.all': 'All apps',
     'feat.title': 'A console, not a computer.', 'feat.lede': 'Turn it on and play.',
     's.pad.t': 'Just a controller', 's.pad.p': 'Mouse and keyboard optional.',
-    's.games.t': 'One library', 's.games.p': 'Steam and DRM-free games together.',
-    's.steam.t': 'Steam built in', 's.steam.p': 'Windows games included.',
+    's.games.t': 'One library', 's.games.p': 'Supporting Steam and DRM-free games.',
     's.disk.t': 'Games on a disk', 's.disk.p': 'Plug it in and play.',
-    's.media.t': 'Films, series, music', 's.media.p': 'Streaming and your own files.',
+    's.media.t': 'Films, series, music', 's.media.p': 'Stream them or play your own.',
     's.pads.t': 'Your controllers', 's.pads.p': 'Paired from the couch.',
     's.update.t': 'Safe updates', 's.update.p': 'Something wrong? Roll back.',
-    's.look.t': 'Your style', 's.look.p': '21 palettes, English and Italian.',
-    's.light.t': 'Light', 's.light.p': 'Runs on modest PCs.',
+    's.look.t': 'Your style', 's.look.p': '21 palettes, multiple languages supported.',
+    's.light.t': 'Light', 's.light.p': 'Runs on low-end PCs.',
     'req.title': 'Will it run on my PC?', 'req.lede': 'Most PCs from the last ten years.',
     'req.cpu': 'processor', 'req.fw': 'firmware', 'req.ram': 'RAM, 8 GB better', 'req.disk': 'disk', 'req.gpu': 'graphics',
     'req.more': 'Details in the <a href="#guide" data-later>guide</a>.',
@@ -390,7 +390,7 @@ const T = {
     'nav.download': 'Download', 'nav.get': 'Scarica OwneetOS', 'nav.menu': 'Menu',
     'hero.kicker': 'Collegalo. Giocaci. È tuo!',
     'hero.title': 'Trasforma il tuo PC in una console.',
-    'hero.lede': 'Gratuito e open source. Si usa solo con il controller.',
+    'hero.lede': 'Gratuito e open source. Ti basta un controller.', 'foot.credits.short': 'Crediti',
     'hero.download': 'Scarica', 'hero.features': 'Scopri cosa fa',
     'tv.home': 'Home', 'tv.library': 'Libreria', 'tv.settings': 'Impostazioni', 'tv.continue': 'Continua a giocare', 'tv.yesterday': 'Ieri',
     'tv.play': 'Gioca', 'tv.details': 'Dettagli', 'tv.apps': 'App', 'tv.jump': 'Giocati di recente', 'tv.together': 'Giochi Steam e locali, insieme',
@@ -398,14 +398,13 @@ const T = {
     'app.video': 'Streaming video', 'app.audio': 'Streaming audio', 'app.lvideo': 'Video locali', 'app.laudio': 'Musica locale', 'app.pics': 'Immagini locali', 'app.all': 'Tutte le app',
     'feat.title': 'Una console, non un computer.', 'feat.lede': 'Accendi e gioca.',
     's.pad.t': 'Basta il controller', 's.pad.p': 'Mouse e tastiera facoltativi.',
-    's.games.t': 'Una sola libreria', 's.games.p': 'Steam e giochi senza DRM, insieme.',
-    's.steam.t': 'Steam integrato', 's.steam.p': 'Anche i giochi per Windows.',
+    's.games.t': 'Una sola libreria', 's.games.p': 'Supporta Steam e i giochi senza DRM.',
     's.disk.t': 'Giochi su disco', 's.disk.p': 'Collegalo e gioca.',
-    's.media.t': 'Film, serie, musica', 's.media.p': 'In streaming e dai tuoi file.',
+    's.media.t': 'Film, serie, musica', 's.media.p': 'In streaming o dai tuoi file.',
     's.pads.t': 'I tuoi controller', 's.pads.p': 'Si associano dal divano.',
     's.update.t': 'Aggiornamenti sicuri', 's.update.p': 'Qualcosa non va? Torni indietro.',
-    's.look.t': 'Il tuo stile', 's.look.p': '21 palette, italiano e inglese.',
-    's.light.t': 'Leggero', 's.light.p': 'Gira anche su PC modesti.',
+    's.look.t': 'Il tuo stile', 's.look.p': '21 palette, più lingue supportate.',
+    's.light.t': 'Leggero', 's.light.p': 'Gira anche su PC poco potenti.',
     'req.title': 'Funziona sul mio PC?', 'req.lede': 'Quasi tutti i PC degli ultimi dieci anni.',
     'req.cpu': 'processore', 'req.fw': 'firmware', 'req.ram': 'RAM, meglio 8 GB', 'req.disk': 'disco', 'req.gpu': 'grafica',
     'req.more': 'Dettagli nella <a href="#guide" data-later>guida</a>.',
@@ -419,7 +418,7 @@ const T = {
     'prev': 'Precedente', 'next': 'Successiva', 'slide': 'Funzionalità %n di %t',
   },
 };
-const SLIDES = [['pad', 's.pad'], ['library', 's.games'], ['store', 's.steam'], ['disk', 's.disk'], ['play', 's.media'],
+const SLIDES = [['pad', 's.pad'], ['library', 's.games'], ['disk', 's.disk'], ['play', 's.media'],
   ['pads', 's.pads'], ['update', 's.update'], ['palette', 's.look'], ['feather', 's.light']];
 const APPS = [['play', 'app.video'], ['note', 'app.audio'], ['film', 'app.lvideo'], ['disc', 'app.laudio'], ['image', 'app.pics'], ['grid', 'app.all']];
 const GAMES = [['Star Drift', 330], ['Pixel Garden', 165], ['Night Racer', 215], ['Old Keep', 30], ['Moss & Stone', 110], ['Tiny Tanks', 0], ['Deep Blue', 195]];
