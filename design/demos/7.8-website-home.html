@@ -128,11 +128,13 @@ html, body { overflow-x: clip; }
   border: .12em solid var(--muted); font-size: .8em; font-weight: 600; margin-right: .4em; }
 
 /* Carousel */
-.carousel { position: relative; }
+/* The strip spans the whole screen; at rest only the middle card is on screen (the next one is a
+   whole screen away), and while they slide the cards come in and go out at the screen's edges. */
+.carousel { position: relative; margin: 0 calc(50% - 50vw); --card: min(600px, 84vw); }
 .track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none;
-  max-width: 600px; margin: 0 auto; }   /* one card at a time: only the arrows and the dots move it */
+  padding: 8px calc(50vw - var(--card) / 2); gap: calc(50vw - var(--card) / 2); }
 .track::-webkit-scrollbar { display: none; }
-.slide { flex: 0 0 100%; scroll-snap-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: 28px;
+.slide { flex: 0 0 var(--card); scroll-snap-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: 28px;
   padding: 44px 40px; display: grid; justify-items: center; text-align: center; gap: 14px; }
 .slide .icon { width: 84px; height: 84px; border-radius: 24px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
 .slide .icon svg { width: 44px; height: 44px; }
