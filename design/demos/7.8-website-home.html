@@ -4,7 +4,7 @@
      ([[website]]). Owner's feedback of 2026-10-20 on the first demo: each section is one screen
      and the scrolling snaps from one to the next; the address follows the section on screen
      (#features, #requirements, ...) and a link to it scrolls there; less text: the features are
-     a carousel, one at a time, a title and one short line, the cards beside it fading out; the console picture follows the approved
+     a carousel, one at a time, a title and one short line, the cards beside it out of focus (blurred), a short fade only at the screen's edges; the console picture follows the approved
      home screen (demo 3.6) with generic apps (Video streaming, Audio streaming, Local videos,
      Local music, Local pictures, All apps). English and Italian (the real site takes its texts
      from translation files). The links to the other pages (guide, FAQ, credits, privacy,
@@ -131,13 +131,14 @@ html, body { overflow-x: clip; }
 .carousel { position: relative; margin: 0 calc(50% - 50vw); }   /* the whole screen's width: the side cards fade out at its edges */
 .track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; gap: 24px;
   padding: 8px calc(50% - min(300px, 42vw));
-  -webkit-mask-image: linear-gradient(90deg, transparent 4%, #000 30%, #000 70%, transparent 96%);
-  mask-image: linear-gradient(90deg, transparent 4%, #000 30%, #000 70%, transparent 96%); }
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
 .track::-webkit-scrollbar { display: none; }
 .slide { flex: 0 0 min(600px, 84vw); scroll-snap-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: 28px;
-  padding: 44px 40px; display: grid; justify-items: center; text-align: center; gap: 14px; opacity: .45; transform: scale(.94);
-  transition: opacity .3s ease, transform .3s ease; }
-.slide[aria-current="true"] { opacity: 1; transform: none; }
+  padding: 44px 40px; display: grid; justify-items: center; text-align: center; gap: 14px;
+  opacity: .6; transform: scale(.94); filter: blur(4px);   /* the cards beside the current one: out of focus */
+  transition: opacity .35s ease, transform .35s ease, filter .35s ease; }
+.slide[aria-current="true"] { opacity: 1; transform: none; filter: none; }
 .slide .icon { width: 84px; height: 84px; border-radius: 24px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
 .slide .icon svg { width: 44px; height: 44px; }
 .slide h3 { font-family: var(--display); font-variation-settings: "wdth" 85; font-weight: 750; font-size: 30px; margin: 6px 0 0; letter-spacing: -0.01em; }
@@ -208,8 +209,6 @@ footer .marks { flex-basis: 100%; font-size: 12.5px; }
   .wrap { padding: 0 16px; }
   .snap { padding-top: calc(var(--head) + 20px); }
   .slide { padding: 32px 22px; }
-  .track { -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
-    mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); }
   .figs { grid-template-columns: repeat(2, 1fr); }
   .tv .screen { border-width: 6px; }
 }
