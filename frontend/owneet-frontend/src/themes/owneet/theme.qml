@@ -3152,10 +3152,8 @@ FocusScope {
     }
 
     // ---- Steam starting (4.2): until Steam's or the game's window appears, or Steam stops
-    Preparing {
+    Preparing {                           // its texts are Steam's and the games' own (Preparing.qml)
         id: steamPrep
-        title: Tr.tr("steam.prep.title")
-        text: Tr.tr(firstTime ? "steam.prep.first" : "steam.prep.text")
         onVisibleChanged: if (!visible) root.backToPage()
     }
     Connections {
