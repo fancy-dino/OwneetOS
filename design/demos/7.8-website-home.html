@@ -1,0 +1,620 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS — interactive demo for [[step-7.8-website]]: the website's home, a one-page site
+     ([[website]]). Owner's feedback of 2026-10-20 on the first demo: each section is one screen
+     and the scrolling snaps from one to the next; the address follows the section on screen
+     (#features, #requirements, ...) and a link to it scrolls there; less text: the features are
+     a carousel, one at a time, a title and one short line, the cards beside it fading out; the console picture follows the approved
+     home screen (demo 3.6) with generic apps (Video streaming, Audio streaming, Local videos,
+     Local music, Local pictures, All apps). English and Italian (the real site takes its texts
+     from translation files). The links to the other pages (guide, FAQ, credits, privacy,
+     contributing) come with their own demos. The demo panel at the bottom left (not part of the
+     site) switches palette, light / dark and the logo (the 7.6 draft or the current one); start
+     state in the address: #features&lang=it&pal=dusk&logo=current. The console picture is drawn
+     for the demo; the game names are invented. Fonts come from Google Fonts for the demo only:
+     the real site serves its own fonts (no third-party requests, no data collected). Open in a
+     browser; mouse, keyboard (arrows in the carousel) and touch. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS — Website home (demo 7.8)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --bg: #0E1424; --surface: #172036; --raised: #222D4A; --line: #2E3A5C; --fg: #EEF1F8;
+  --muted: #8F9AB5; --accent: #FF8A5B; --on-accent: #1E0E06;
+  --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif;
+  --wrap: 1160px; --head: 68px; }
+* { box-sizing: border-box; }
+html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--text); font-weight: 350; line-height: 1.5; }
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px; width: 100%; }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 750; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+.wm-text { fill: var(--fg); } .wm-accent { fill: var(--accent); }
+
+/* Header */
+header.site { position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: var(--head);
+  background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(10px); }
+.nav { display: flex; align-items: center; gap: 28px; height: 100%; }
+.nav .logo { display: flex; align-items: center; }
+.nav .logo svg { height: 30px; width: auto; display: block; }
+.nav ul { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.nav ul a { text-decoration: none; color: var(--muted); padding: 8px 12px; border-radius: 999px; font-size: 15px; }
+.nav ul a:hover, .nav ul a[aria-current="true"] { color: var(--fg); }
+.nav ul a[aria-current="true"] { background: var(--surface); }
+.nav .end { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.lang { display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.lang button { background: none; border: 0; padding: 4px 10px; border-radius: 999px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--raised); color: var(--fg); }
+.btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; border: 1px solid transparent; cursor: pointer;
+  border-radius: 999px; padding: 12px 24px; font-size: 16px; font-weight: 500; transition: transform .15s ease; background: none; }
+.btn:hover { transform: translateY(-1px); }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+.btn.ghost { border-color: var(--line); color: var(--fg); }
+.btn.small { padding: 8px 16px; font-size: 14px; }
+.menu-btn { display: none; background: none; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 14px; cursor: pointer; }
+
+/* Sections: one screen each, snapped */
+.snap { min-height: 100svh; scroll-snap-align: start; padding: calc(var(--head) + 32px) 0 48px; display: flex; align-items: center; }
+.snap > .wrap { display: grid; gap: 36px; }
+.snap > .wrap > * { min-width: 0; }   /* the carousel's strip must not widen the page */
+html, body { overflow-x: clip; }
+.head { text-align: center; display: grid; gap: 12px; justify-items: center; }
+.head h2 { font-size: clamp(34px, 5vw, 56px); margin: 0; }
+.head p { color: var(--muted); font-size: 18px; margin: 0; max-width: 30em; }
+
+/* Dots: where we are, on the right */
+.dots { position: fixed; right: 20px; top: 50%; transform: translateY(-50%); z-index: 15; display: grid; gap: 12px; }
+.dots a { width: 10px; height: 10px; border-radius: 50%; background: var(--line); display: block; transition: transform .2s ease, background .2s ease; }
+.dots a[aria-current="true"] { background: var(--accent); transform: scale(1.35); }
+
+/* Hero */
+.hero { grid-template-columns: 1fr 1.25fr; align-items: center; }
+.kicker { color: var(--accent); font-weight: 500; font-size: 15px; margin: 0 0 14px; }
+.hero h1 { font-size: clamp(42px, 6vw, 70px); margin: 0 0 18px; }
+.hero p.lede { font-size: 19px; color: var(--muted); margin: 0 0 28px; max-width: 26em; }
+.hero .ctas { display: flex; flex-wrap: wrap; gap: 12px; }
+
+/* The console's home screen (as in demo 3.6, drawn for the site) */
+.tv { container-type: inline-size; }
+.tv .screen { aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: var(--bg);
+  border: 10px solid #05070C; box-shadow: 0 30px 80px -30px rgba(0,0,0,.6), 0 0 0 1px var(--line);
+  font-size: 1.32cqw; padding: 2.2em 2.8em 1.6em; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; gap: 1.3em; }
+.tv .stand { width: 26%; height: 14px; margin: 0 auto; background: #05070C; border-radius: 0 0 10px 10px; }
+.tv .top { display: flex; align-items: center; gap: 2.2em; }
+.tv .top svg { height: 1.7em; width: auto; display: block; }
+.tv .tabs { display: flex; align-items: center; gap: .5em; color: var(--muted); }
+.tv .tabs b { background: var(--fg); color: var(--bg); font-weight: 500; border-radius: 999px; padding: .3em 1.1em; }
+.tv .tabs i { font-style: normal; padding: .3em .8em; }
+.tv .pill { font-size: .7em; font-weight: 600; border: .14em solid var(--muted); border-radius: .5em; padding: .05em .45em; color: var(--muted); }
+.tv .status { margin-left: auto; display: flex; gap: 1.2em; align-items: center; color: var(--muted); }
+.tv .status svg { width: 1.3em; height: 1.3em; display: block; }
+.tv .main { display: grid; grid-template-columns: 1.65fr 1fr; gap: 1.3em; min-height: 0; }
+.tv .card { position: relative; border-radius: 1.1em; overflow: hidden; padding: 1.5em 1.8em; color: #fff; display: flex; flex-direction: column;
+  justify-content: flex-end; gap: .55em; outline: .22em solid var(--accent); outline-offset: .22em;
+  background: radial-gradient(70% 90% at 85% 15%, hsl(330 85% 62% / .85), transparent 60%),
+    radial-gradient(60% 80% at 60% 110%, hsl(10 70% 42%), transparent 70%), linear-gradient(135deg, hsl(330 45% 22%), hsl(0 55% 10%)); }
+.tv .card::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.55), transparent 70%); }
+.tv .card > * { position: relative; }
+.tv .card .k { font-size: .75em; letter-spacing: .12em; text-transform: uppercase; opacity: .85; font-weight: 500; }
+.tv .card .t { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 750; font-size: 2.3em; line-height: 1; }
+.tv .card .meta { display: flex; gap: 1em; font-size: .8em; opacity: .9; }
+.tv .card .meta span:first-child { background: rgba(0,0,0,.35); border-radius: 999px; padding: .1em .7em; }
+.tv .card .acts { display: flex; gap: .8em; margin-top: .3em; }
+.tv .card .acts span { border-radius: 999px; padding: .45em 1.4em; font-weight: 500; background: rgba(255,255,255,.16); }
+.tv .card .acts span:first-child { background: #fff; color: #10131C; }
+.tv .side { display: grid; grid-template-rows: auto 1fr; gap: .7em; min-height: 0; }
+.tv .label { font-size: .75em; color: var(--muted); }
+.tv .apps { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: .7em; }
+.tv .app { border-radius: .9em; background: var(--surface); border: .08em solid var(--line); padding: .6em .7em; display: flex; flex-direction: column;
+  justify-content: space-between; gap: .4em; font-size: .78em; line-height: 1.15; }
+.tv .app .ico { width: 2.1em; height: 2.1em; border-radius: .6em; display: grid; place-items: center; background: var(--raised); color: var(--accent); }
+.tv .app .ico svg { width: 1.3em; height: 1.3em; }
+.tv .rowhead { display: flex; justify-content: space-between; font-size: .75em; color: var(--muted); margin-bottom: .6em; }
+.tv .rowhead b { color: var(--fg); font-weight: 400; }
+.tv .row { display: grid; grid-template-columns: repeat(7, 1fr); gap: .8em; }
+.tv .cover { aspect-ratio: 4 / 5; border-radius: .8em; color: #fff; display: flex; align-items: flex-end; padding: .5em; font-size: .72em; font-weight: 500;
+  background: radial-gradient(120% 80% at 80% 10%, hsl(var(--h) 85% 62% / .95), transparent 60%),
+    radial-gradient(90% 70% at 0% 100%, hsl(calc(var(--h) + 40) 70% 35%), transparent 70%), hsl(var(--h) 40% 18%); }
+.tv .prompts { display: flex; justify-content: space-between; color: var(--muted); font-size: .75em; }
+.tv .prompts > span { display: flex; gap: 1.4em; }
+.tv .prompts i { font-style: normal; display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; border-radius: 50%;
+  border: .12em solid var(--muted); font-size: .8em; font-weight: 600; margin-right: .4em; }
+
+/* Carousel */
+.carousel { position: relative; margin: 0 calc(50% - 50vw); }   /* the whole screen's width: the side cards fade out at its edges */
+.track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; gap: 24px;
+  padding: 8px calc(50% - min(300px, 42vw));
+  -webkit-mask-image: linear-gradient(90deg, transparent 4%, #000 30%, #000 70%, transparent 96%);
+  mask-image: linear-gradient(90deg, transparent 4%, #000 30%, #000 70%, transparent 96%); }
+.track::-webkit-scrollbar { display: none; }
+.slide { flex: 0 0 min(600px, 84vw); scroll-snap-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: 28px;
+  padding: 44px 40px; display: grid; justify-items: center; text-align: center; gap: 14px; opacity: .45; transform: scale(.94);
+  transition: opacity .3s ease, transform .3s ease; }
+.slide[aria-current="true"] { opacity: 1; transform: none; }
+.slide .icon { width: 84px; height: 84px; border-radius: 24px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.slide .icon svg { width: 44px; height: 44px; }
+.slide h3 { font-family: var(--display); font-variation-settings: "wdth" 85; font-weight: 750; font-size: 30px; margin: 6px 0 0; letter-spacing: -0.01em; }
+.slide p { margin: 0; color: var(--muted); font-size: 17px; max-width: 24em; }
+.cnav { display: flex; justify-content: center; align-items: center; gap: 18px; margin-top: 22px; }
+.cnav button.arrow { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); cursor: pointer; display: grid; place-items: center; }
+.cnav button.arrow svg { width: 20px; height: 20px; }
+.cdots { display: flex; gap: 8px; }
+.cdots button { width: 9px; height: 9px; border-radius: 50%; border: 0; padding: 0; background: var(--line); cursor: pointer; }
+.cdots button[aria-current="true"] { background: var(--accent); width: 24px; border-radius: 999px; }
+
+/* Requirements: a few figures */
+.figs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+.fig { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 28px 16px; text-align: center; display: grid; gap: 6px; }
+.fig b { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 750; font-size: clamp(28px, 3.4vw, 40px); line-height: 1; }
+.fig span { color: var(--muted); font-size: 14px; }
+.center { text-align: center; }
+.center a { color: var(--accent); }
+
+/* Free and open: four short lines */
+.facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.fact { display: grid; justify-items: center; text-align: center; gap: 12px; padding: 12px; }
+.fact .icon { width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.fact .icon svg { width: 30px; height: 30px; }
+.fact b { font-weight: 500; font-size: 17px; }
+
+/* Download + footer, the last screen */
+.last { flex-direction: column; justify-content: space-between; padding-bottom: 0; }
+.last .box { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, var(--surface)), var(--surface));
+  border: 1px solid var(--line); border-radius: 28px; padding: 64px 24px; text-align: center; display: grid; gap: 14px; justify-items: center; margin: auto 0; }
+.last .box h2 { font-size: clamp(36px, 5vw, 60px); margin: 0; }
+.last .box p { color: var(--muted); margin: 0 0 12px; font-size: 18px; max-width: 28em; }
+footer { width: 100%; border-top: 1px solid var(--line); padding: 22px 0 26px; font-size: 13.5px; color: var(--muted); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; }
+footer a { text-decoration: none; } footer a:hover { color: var(--fg); text-decoration: underline; }
+footer .marks { flex-basis: 100%; font-size: 12.5px; }
+
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 160%); visibility: hidden; opacity: 0; background: var(--raised); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 18px; font-size: 14px; transition: transform .25s ease, opacity .25s ease, visibility .25s; z-index: 40; max-width: calc(100% - 32px); }
+.toast.on { transform: translate(-50%, 0); visibility: visible; opacity: 1; }
+
+/* Demo panel: not part of the site */
+.demo { position: fixed; left: 12px; bottom: 12px; z-index: 50; font-size: 13px; color: #C9D1E4; }
+.demo > button { background: #05070C; color: #fff; border: 1px solid #2A3348; border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+.demo .panel { display: none; margin-bottom: 8px; background: #05070C; border: 1px solid #2A3348; border-radius: 12px; padding: 10px 12px; gap: 8px; }
+.demo.open .panel { display: grid; }
+.demo .grp { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.demo .grp > span { width: 52px; }
+.demo .panel button, .demo select { background: #161C2A; border: 1px solid #2A3348; color: #C9D1E4; border-radius: 999px; padding: 3px 10px; font-size: 13px; cursor: pointer; }
+.demo .panel button[aria-pressed="true"] { background: #C9D1E4; color: #05070C; }
+
+@media (max-width: 960px) {
+  .hero { grid-template-columns: 1fr; gap: 28px; }
+  .hero .text { text-align: center; } .hero p.lede { margin-left: auto; margin-right: auto; } .hero .ctas { justify-content: center; }
+  .figs { grid-template-columns: repeat(3, 1fr); }
+  .facts { grid-template-columns: repeat(2, 1fr); }
+  .dots { display: none; }
+}
+@media (max-width: 760px) {
+  .menu-btn { display: inline-block; }
+  .nav ul { display: none; position: absolute; top: var(--head); left: 0; right: 0; flex-direction: column; gap: 0;
+    background: var(--bg); border-bottom: 1px solid var(--line); padding: 8px 16px 16px; }
+  .nav ul.open { display: flex; }
+  .nav ul a { display: block; padding: 12px; }
+  .nav .end .btn { display: none; }
+}
+@media (max-width: 600px) {
+  .wrap { padding: 0 16px; }
+  .snap { padding-top: calc(var(--head) + 20px); }
+  .slide { padding: 32px 22px; }
+  .track { -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); }
+  .figs { grid-template-columns: repeat(2, 1fr); }
+  .tv .screen { border-width: 6px; }
+}
+@media (prefers-reduced-motion: reduce) { html, .track { scroll-behavior: auto; } .btn, .toast, .slide { transition: none; } }
+</style>
+</head>
+<body>
+<header class="site">
+  <nav class="wrap nav" aria-label="Main">
+    <a class="logo" href="#home" id="logoTop" aria-label="OwneetOS"></a>
+    <ul id="menu">
+      <li><a href="#features" data-t="nav.features"></a></li>
+      <li><a href="#requirements" data-t="nav.requirements"></a></li>
+      <li><a href="#open" data-t="nav.open"></a></li>
+      <li><a href="#guide" data-later data-t="nav.guide"></a></li>
+      <li><a href="#faq" data-later data-t="nav.faq"></a></li>
+      <li><a href="#download" data-t="nav.download"></a></li>
+    </ul>
+    <div class="end">
+      <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="en">EN</button><button type="button" data-lang="it">IT</button></div>
+      <a class="btn primary small" href="#download" data-t="nav.get"></a>
+      <button class="menu-btn" type="button" id="menuBtn" aria-expanded="false" aria-controls="menu" data-t="nav.menu"></button>
+    </div>
+  </nav>
+</header>
+<nav class="dots" id="dots" aria-label="Sections"></nav>
+
+<main>
+  <section class="snap" id="home" data-name="nav.home">
+    <div class="wrap hero">
+      <div class="text">
+        <p class="kicker" data-t="hero.kicker"></p>
+        <h1 class="disp" data-t="hero.title"></h1>
+        <p class="lede" data-t="hero.lede"></p>
+        <div class="ctas"><a class="btn primary" href="#download" data-t="hero.download"></a><a class="btn ghost" href="#features" data-t="hero.features"></a></div>
+      </div>
+      <div class="tv" aria-hidden="true">
+        <div class="screen">
+          <div class="top">
+            <span id="logoTv"></span>
+            <div class="tabs"><span class="pill">LB</span><b data-t="tv.home"></b><i data-t="tv.library"></i><i data-t="tv.settings"></i><span class="pill">RB</span></div>
+            <div class="status"><span data-icon="padsmall"></span><span>78%</span><span data-icon="wifi"></span><span>21:40</span></div>
+          </div>
+          <div class="main">
+            <div class="card">
+              <span class="k" data-t="tv.continue"></span><span class="t">Star Drift</span>
+              <span class="meta"><span>Steam</span><span data-t="tv.yesterday"></span><span>12 h 40 min</span></span>
+              <span class="acts"><span data-t="tv.play"></span><span data-t="tv.details"></span></span>
+            </div>
+            <div class="side"><span class="label" data-t="tv.apps"></span><div class="apps" id="tvApps"></div></div>
+          </div>
+          <div><div class="rowhead"><b data-t="tv.jump"></b><span data-t="tv.together"></span></div><div class="row" id="tvRow"></div></div>
+          <div class="prompts"><span><span><i>A</i><span data-t="tv.select"></span></span><span><i>X</i><span data-t="tv.options"></span></span></span>
+            <span><span><i>B</i><span data-t="tv.menu"></span></span></span></div>
+        </div>
+        <div class="stand"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="snap" id="features" data-name="nav.features">
+    <div class="wrap">
+      <div class="head"><h2 class="disp" data-t="feat.title"></h2><p data-t="feat.lede"></p></div>
+      <div class="carousel" id="carousel" role="region" aria-roledescription="carousel">
+        <div class="track" id="track" tabindex="0"></div>
+        <div class="cnav">
+          <button class="arrow" type="button" id="prev" data-icon="left"></button>
+          <div class="cdots" id="cdots"></div>
+          <button class="arrow" type="button" id="next" data-icon="right"></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="snap" id="requirements" data-name="nav.requirements">
+    <div class="wrap">
+      <div class="head"><h2 class="disp" data-t="req.title"></h2><p data-t="req.lede"></p></div>
+      <div class="figs">
+        <div class="fig"><b>64-bit</b><span data-t="req.cpu"></span></div>
+        <div class="fig"><b>UEFI</b><span data-t="req.fw"></span></div>
+        <div class="fig"><b>4 GB</b><span data-t="req.ram"></span></div>
+        <div class="fig"><b>32 GB</b><span data-t="req.disk"></span></div>
+        <div class="fig"><b>Vulkan</b><span data-t="req.gpu"></span></div>
+      </div>
+      <p class="center muted" data-t="req.more"></p>
+    </div>
+  </section>
+
+  <section class="snap" id="open" data-name="nav.open">
+    <div class="wrap">
+      <div class="head"><h2 class="disp" data-t="open.title"></h2><p data-t="open.lede"></p></div>
+      <div class="facts">
+        <div class="fact"><div class="icon" data-icon="code"></div><b data-t="open.free"></b></div>
+        <div class="fact"><div class="icon" data-icon="shield"></div><b data-t="open.data"></b></div>
+        <div class="fact"><div class="icon" data-icon="offline"></div><b data-t="open.offline"></b></div>
+        <div class="fact"><div class="icon" data-icon="people"></div><b data-t="open.help"></b></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="snap last" id="download" data-name="nav.download">
+    <div class="wrap">
+      <div class="box">
+        <h2 class="disp" data-t="dl.title"></h2>
+        <p data-t="dl.p"></p>
+        <a class="btn primary" href="#download" aria-disabled="true" id="dlBtn" data-t="dl.btn"></a>
+      </div>
+    </div>
+    <footer><div class="wrap">
+      <span id="logoFoot" style="display:flex"></span>
+      <a href="#guide" data-later data-t="nav.guide"></a><a href="#faq" data-later data-t="nav.faq"></a>
+      <a href="#contribute" data-later data-t="foot.contribute"></a><a href="https://github.com/fancy-dino/OwneetOS" data-t="foot.source"></a>
+      <a href="#credits" data-later data-t="foot.credits"></a><a href="#privacy" data-later data-t="foot.privacy"></a>
+      <span data-t="foot.licence"></span>
+      <span class="marks" data-t="foot.marks"></span>
+    </div></footer>
+  </section>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<div class="demo" id="demo" aria-label="Demo controls (not part of the site)">
+  <div class="panel">
+    <div class="grp"><span>Palette</span><select id="pal"></select></div>
+    <div class="grp" id="themeGrp"><span>Theme</span></div>
+    <div class="grp" id="logoGrp"><span>Logo</span></div>
+  </div>
+  <button type="button" id="demoBtn">Demo 7.8</button>
+</div>
+
+<script>
+// The wordmark's outlines (packages/owneet-branding, Bricolage Grotesque, SIL OFL 1.1)
+const OLD_O = "M234.8 12.3Q177.3 12.3 136.1 -9.5Q94.9 -31.3 69.2 -74.3Q43.4 -117.2 31.5 -180.4Q19.6 -243.6 19.6 -326.3Q19.6 -444.5 42 -520.8Q64.3 -597.2 113 -634.7Q161.6 -672.3 238 -672.3Q296.2 -672.3 337.6 -651.2Q379 -630.2 405.6 -588Q432.1 -545.7 444.8 -481Q457.5 -416.3 457.5 -329.8Q457.5 -245.4 444.7 -181.5Q431.8 -117.5 404.7 -74.6Q377.7 -31.7 335.7 -9.7Q293.7 12.3 234.8 12.3ZM238.2 -103.2Q262.9 -103.2 278.2 -125.6Q293.5 -148 300.5 -197.1Q307.6 -246.2 307.6 -325.9Q307.6 -408.2 300.2 -459Q292.8 -509.7 277.2 -532.9Q261.7 -556.1 237 -556.1Q213.5 -556.1 198.4 -532.8Q183.4 -509.4 176.6 -459Q169.7 -408.5 169.7 -326.9Q169.7 -267 173.5 -224.4Q177.4 -181.7 185.2 -155.1Q193.1 -128.4 206.5 -115.8Q219.9 -103.2 238.2 -103.2Z";
+const WNEET = [
+  "M550.8 0 451.4 -527.7H607.4L643.8 -120.7H648.1L701.4 -527.7H864.6L918.8 -120.7H924L960.6 -527.7H1110.8L1011.8 0H822.6L781.9 -393.8H777.1L736.7 0Z",
+  "M1108.9 0V-312.7L1108.7 -527.7H1235.5L1233.7 -334.5H1241.9Q1243.6 -409.5 1258.9 -454.4Q1274.3 -499.3 1302.3 -519.6Q1330.3 -539.9 1369.8 -539.9Q1435.3 -539.9 1465.8 -488.3Q1496.2 -436.6 1496.2 -326.9V0H1348.2V-292.4Q1348.2 -350.1 1340 -376.4Q1331.9 -402.7 1309.5 -402.7Q1288.1 -402.7 1276.5 -380.1Q1265 -357.5 1260.6 -318.4Q1256.2 -279.2 1256.2 -228.5V0Z",
+  "M1708.7 12.3Q1649.4 12.3 1610 -6.9Q1570.6 -26 1547.4 -61.1Q1524.2 -96.2 1514.4 -144.9Q1504.6 -193.6 1504.6 -252.1Q1504.6 -308.7 1514 -360.1Q1523.3 -411.4 1545.6 -452.2Q1567.8 -493.1 1606.2 -516.5Q1644.5 -539.9 1703.1 -539.9Q1757.9 -539.9 1795.3 -519.2Q1832.7 -498.5 1854.2 -460Q1875.6 -421.5 1881.8 -368.4Q1888 -315.2 1879.1 -250.7L1601.1 -241.9V-314.6L1758.3 -319.5L1742.3 -270.1Q1747.5 -323.2 1745 -357.2Q1742.5 -391.2 1732.4 -407.7Q1722.3 -424.1 1703.1 -424.1Q1682.6 -424.1 1671.2 -405.3Q1659.8 -386.5 1655.3 -352.1Q1650.9 -317.7 1650.9 -270.2Q1650.9 -176.8 1664.8 -137.3Q1678.8 -97.8 1708.9 -97.8Q1723.9 -97.8 1732.9 -106.8Q1741.8 -115.8 1746.2 -131Q1750.5 -146.2 1751.4 -166Q1752.3 -185.8 1750.4 -207.3L1885.5 -195.7Q1891.6 -159.8 1886.7 -123Q1881.9 -86.3 1862.6 -55.5Q1843.3 -24.8 1805.9 -6.3Q1768.5 12.3 1708.7 12.3Z",
+  "M2094.7 12.3Q2035.4 12.3 1996 -6.9Q1956.6 -26 1933.4 -61.1Q1910.2 -96.2 1900.4 -144.9Q1890.6 -193.6 1890.6 -252.1Q1890.6 -308.7 1900 -360.1Q1909.3 -411.4 1931.6 -452.2Q1953.8 -493.1 1992.2 -516.5Q2030.5 -539.9 2089.1 -539.9Q2143.9 -539.9 2181.3 -519.2Q2218.7 -498.5 2240.2 -460Q2261.6 -421.5 2267.8 -368.4Q2274 -315.2 2265.1 -250.7L1987.1 -241.9V-314.6L2144.3 -319.5L2128.3 -270.1Q2133.5 -323.2 2131 -357.2Q2128.5 -391.2 2118.4 -407.7Q2108.3 -424.1 2089.1 -424.1Q2068.6 -424.1 2057.2 -405.3Q2045.8 -386.5 2041.3 -352.1Q2036.9 -317.7 2036.9 -270.2Q2036.9 -176.8 2050.8 -137.3Q2064.8 -97.8 2094.9 -97.8Q2109.9 -97.8 2118.9 -106.8Q2127.8 -115.8 2132.2 -131Q2136.5 -146.2 2137.4 -166Q2138.3 -185.8 2136.4 -207.3L2271.5 -195.7Q2277.6 -159.8 2272.7 -123Q2267.9 -86.3 2248.6 -55.5Q2229.3 -24.8 2191.9 -6.3Q2154.5 12.3 2094.7 12.3Z",
+  "M2461.1 8.6Q2383.4 8.6 2341.4 -36.7Q2299.4 -82 2299.4 -174.8V-413H2263.3V-510.8H2275Q2311.7 -512.3 2325.2 -531.3Q2338.7 -550.2 2342.9 -589L2347.9 -631.3H2443.5V-527.7H2522.7V-410.1H2443.5V-202.5Q2443.5 -165.3 2455.9 -147.4Q2468.4 -129.6 2488.7 -129.6Q2497.8 -129.6 2506.3 -132.7Q2514.9 -135.9 2522.8 -142.2V-0.6Q2506.5 4.4 2491.4 6.5Q2476.3 8.6 2461.1 8.6Z"];
+const OS = [
+  "M2742.8 12.3Q2685.3 12.3 2644.1 -9.5Q2602.9 -31.3 2577.2 -74.3Q2551.4 -117.2 2539.5 -180.4Q2527.6 -243.6 2527.6 -326.3Q2527.6 -444.5 2550 -520.8Q2572.3 -597.2 2621 -634.7Q2669.6 -672.3 2746 -672.3Q2804.2 -672.3 2845.6 -651.2Q2887 -630.2 2913.6 -588Q2940.1 -545.7 2952.8 -481Q2965.5 -416.3 2965.5 -329.8Q2965.5 -245.4 2952.7 -181.5Q2939.8 -117.5 2912.7 -74.6Q2885.7 -31.7 2843.7 -9.7Q2801.7 12.3 2742.8 12.3ZM2746.2 -103.2Q2770.9 -103.2 2786.2 -125.6Q2801.5 -148 2808.5 -197.1Q2815.6 -246.2 2815.6 -325.9Q2815.6 -408.2 2808.2 -459Q2800.8 -509.7 2785.2 -532.9Q2769.7 -556.1 2745 -556.1Q2721.5 -556.1 2706.4 -532.8Q2691.4 -509.4 2684.6 -459Q2677.7 -408.5 2677.7 -326.9Q2677.7 -267 2681.5 -224.4Q2685.4 -181.7 2693.2 -155.1Q2701.1 -128.4 2714.5 -115.8Q2727.9 -103.2 2746.2 -103.2Z",
+  "M3177.1 12.3Q3118.2 12.3 3075.9 -4.9Q3033.7 -22 3008.4 -54.2Q2983.1 -86.4 2975.8 -131.2Q2968.6 -175.9 2980.6 -231L3116.7 -251.6Q3112 -210.6 3116.4 -175.6Q3120.8 -140.7 3136.2 -119.7Q3151.7 -98.7 3180.3 -98.7Q3197.1 -98.7 3209.3 -105.5Q3221.4 -112.3 3228 -125.6Q3234.7 -139 3234.7 -159.4Q3234.7 -195.5 3218.7 -220.3Q3202.7 -245.2 3177.2 -263.4Q3151.8 -281.7 3123.7 -297.4Q3097.4 -312.6 3070.7 -330.2Q3044.1 -347.8 3022.2 -370.8Q3000.3 -393.7 2987.1 -424.5Q2973.8 -455.2 2973.8 -496.4Q2973.8 -549.5 2997.3 -589Q3020.8 -628.5 3065.2 -650.4Q3109.6 -672.3 3171.2 -672.3Q3239.6 -672.3 3285.4 -645.6Q3331.2 -618.9 3351.9 -568.7Q3372.6 -518.5 3364.7 -448.4L3231.2 -430Q3233.8 -455.1 3232 -478.2Q3230.2 -501.2 3223.1 -519.3Q3216.1 -537.4 3202.9 -547.9Q3189.7 -558.4 3170.1 -558.4Q3154.2 -558.4 3142.6 -551.5Q3131 -544.6 3124.8 -532.4Q3118.7 -520.3 3118.7 -503.3Q3118.7 -477.5 3131.9 -459.2Q3145 -440.8 3166.9 -426.9Q3188.7 -413 3213.5 -399.9Q3245.3 -382.3 3275.2 -362.2Q3305 -342.1 3329.1 -316Q3353.2 -289.8 3367.3 -254.6Q3381.4 -219.5 3381.4 -171.8Q3381.4 -117.3 3359.4 -75.6Q3337.5 -33.9 3292.4 -10.8Q3247.4 12.3 3177.1 12.3Z"];
+
+// ---- Texts. The real site takes them from translation files (one per language).
+const T = {
+  en: {
+    'nav.home': 'Home', 'nav.features': 'Features', 'nav.requirements': 'Requirements', 'nav.open': 'Open', 'nav.guide': 'Guide', 'nav.faq': 'FAQ',
+    'nav.download': 'Download', 'nav.get': 'Get OwneetOS', 'nav.menu': 'Menu',
+    'hero.kicker': "Don't worry, it's yours!",
+    'hero.title': 'Turn your PC into a game console.',
+    'hero.lede': 'Free and open source. Played with a controller only.',
+    'hero.download': 'Download', 'hero.features': 'See what it does',
+    'tv.home': 'Home', 'tv.library': 'Library', 'tv.settings': 'Settings', 'tv.continue': 'Continue playing', 'tv.yesterday': 'Yesterday',
+    'tv.play': 'Play', 'tv.details': 'Details', 'tv.apps': 'Apps', 'tv.jump': 'Jump back in', 'tv.together': 'Steam and local games, together',
+    'tv.select': 'Select', 'tv.options': 'Options', 'tv.menu': 'Menu',
+    'app.video': 'Video streaming', 'app.audio': 'Audio streaming', 'app.lvideo': 'Local videos', 'app.laudio': 'Local music', 'app.pics': 'Local pictures', 'app.all': 'All apps',
+    'feat.title': 'A console, not a computer.', 'feat.lede': 'Turn it on and play.',
+    's.pad.t': 'Just a controller', 's.pad.p': 'Mouse and keyboard optional.',
+    's.games.t': 'One library', 's.games.p': 'Steam and DRM-free games together.',
+    's.steam.t': 'Steam built in', 's.steam.p': 'Windows games included.',
+    's.disk.t': 'Games on a disk', 's.disk.p': 'Plug it in and play.',
+    's.media.t': 'Films, series, music', 's.media.p': 'Streaming and your own files.',
+    's.pads.t': 'Your controllers', 's.pads.p': 'Paired from the couch.',
+    's.update.t': 'Safe updates', 's.update.p': 'Something wrong? Roll back.',
+    's.look.t': 'Your style', 's.look.p': '21 palettes, English and Italian.',
+    's.light.t': 'Light', 's.light.p': 'Runs on modest PCs.',
+    'req.title': 'Will it run on my PC?', 'req.lede': 'Most PCs from the last ten years.',
+    'req.cpu': 'processor', 'req.fw': 'firmware', 'req.ram': 'RAM, 8 GB better', 'req.disk': 'disk', 'req.gpu': 'graphics',
+    'req.more': 'Details in the <a href="#guide" data-later>guide</a>.',
+    'open.title': 'Free, open, yours.', 'open.lede': 'It belongs to the people who use it.',
+    'open.free': 'Free and open source', 'open.data': 'No telemetry', 'open.offline': 'DRM-free games offline', 'open.help': 'Made together',
+    'dl.title': 'Coming soon.', 'dl.p': 'Signed, with its source code.', 'dl.btn': 'Download — coming soon',
+    'foot.contribute': 'Contribute and translate', 'foot.source': 'Source code', 'foot.credits': 'Credits and licences', 'foot.privacy': 'Privacy: no data collected',
+    'foot.licence': 'GPL-3.0-or-later · texts CC BY-SA 4.0',
+    'foot.marks': 'Steam is a trademark of Valve Corporation, Xbox of Microsoft Corporation, PlayStation of Sony Interactive Entertainment. They only say what works with OwneetOS, which is not affiliated with or endorsed by them.',
+    'later': 'This page comes with its own demo.', 'soon': 'The download opens with the first release.',
+    'prev': 'Previous', 'next': 'Next', 'slide': 'Feature %n of %t',
+  },
+  it: {
+    'nav.home': 'Home', 'nav.features': 'Funzionalità', 'nav.requirements': 'Requisiti', 'nav.open': 'Aperto', 'nav.guide': 'Guida', 'nav.faq': 'Domande',
+    'nav.download': 'Download', 'nav.get': 'Scarica OwneetOS', 'nav.menu': 'Menu',
+    'hero.kicker': 'Niente paura, è tuo!',
+    'hero.title': 'Trasforma il tuo PC in una console.',
+    'hero.lede': 'Gratuito e open source. Si usa solo con il controller.',
+    'hero.download': 'Scarica', 'hero.features': 'Scopri cosa fa',
+    'tv.home': 'Home', 'tv.library': 'Libreria', 'tv.settings': 'Impostazioni', 'tv.continue': 'Continua a giocare', 'tv.yesterday': 'Ieri',
+    'tv.play': 'Gioca', 'tv.details': 'Dettagli', 'tv.apps': 'App', 'tv.jump': 'Giocati di recente', 'tv.together': 'Giochi Steam e locali, insieme',
+    'tv.select': 'Seleziona', 'tv.options': 'Opzioni', 'tv.menu': 'Menu',
+    'app.video': 'Streaming video', 'app.audio': 'Streaming audio', 'app.lvideo': 'Video locali', 'app.laudio': 'Musica locale', 'app.pics': 'Immagini locali', 'app.all': 'Tutte le app',
+    'feat.title': 'Una console, non un computer.', 'feat.lede': 'Accendi e gioca.',
+    's.pad.t': 'Basta il controller', 's.pad.p': 'Mouse e tastiera facoltativi.',
+    's.games.t': 'Una sola libreria', 's.games.p': 'Steam e giochi senza DRM, insieme.',
+    's.steam.t': 'Steam integrato', 's.steam.p': 'Anche i giochi per Windows.',
+    's.disk.t': 'Giochi su disco', 's.disk.p': 'Collegalo e gioca.',
+    's.media.t': 'Film, serie, musica', 's.media.p': 'In streaming e dai tuoi file.',
+    's.pads.t': 'I tuoi controller', 's.pads.p': 'Si associano dal divano.',
+    's.update.t': 'Aggiornamenti sicuri', 's.update.p': 'Qualcosa non va? Torni indietro.',
+    's.look.t': 'Il tuo stile', 's.look.p': '21 palette, italiano e inglese.',
+    's.light.t': 'Leggero', 's.light.p': 'Gira anche su PC modesti.',
+    'req.title': 'Funziona sul mio PC?', 'req.lede': 'Quasi tutti i PC degli ultimi dieci anni.',
+    'req.cpu': 'processore', 'req.fw': 'firmware', 'req.ram': 'RAM, meglio 8 GB', 'req.disk': 'disco', 'req.gpu': 'grafica',
+    'req.more': 'Dettagli nella <a href="#guide" data-later>guida</a>.',
+    'open.title': 'Libero, aperto, tuo.', 'open.lede': 'Appartiene a chi lo usa.',
+    'open.free': 'Gratuito e open source', 'open.data': 'Nessuna telemetria', 'open.offline': 'Giochi senza DRM offline', 'open.help': 'Fatto insieme',
+    'dl.title': 'In arrivo.', 'dl.p': 'Firmata, con il suo codice sorgente.', 'dl.btn': 'Download — in arrivo',
+    'foot.contribute': 'Contribuisci e traduci', 'foot.source': 'Codice sorgente', 'foot.credits': 'Crediti e licenze', 'foot.privacy': 'Privacy: nessun dato raccolto',
+    'foot.licence': 'GPL-3.0-or-later · testi CC BY-SA 4.0',
+    'foot.marks': 'Steam è un marchio di Valve Corporation, Xbox di Microsoft Corporation, PlayStation di Sony Interactive Entertainment. Indicano solo cosa funziona con OwneetOS, che non è affiliato né approvato da loro.',
+    'later': 'Questa pagina arriverà con una sua demo.', 'soon': 'Il download si apre con la prima versione.',
+    'prev': 'Precedente', 'next': 'Successiva', 'slide': 'Funzionalità %n di %t',
+  },
+};
+const SLIDES = [['pad', 's.pad'], ['library', 's.games'], ['store', 's.steam'], ['disk', 's.disk'], ['play', 's.media'],
+  ['pads', 's.pads'], ['update', 's.update'], ['palette', 's.look'], ['feather', 's.light']];
+const APPS = [['play', 'app.video'], ['note', 'app.audio'], ['film', 'app.lvideo'], ['disc', 'app.laudio'], ['image', 'app.pics'], ['grid', 'app.all']];
+const GAMES = [['Star Drift', 330], ['Pixel Garden', 165], ['Night Racer', 215], ['Old Keep', 30], ['Moss & Stone', 110], ['Tiny Tanks', 0], ['Deep Blue', 195]];
+
+// ---- Icons (drawn for the site, stroke in the current colour)
+const S = 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+const ICONS = {
+  pad: `<svg viewBox="0 0 24 24" ${S}><path d="M7 7h10a5 5 0 0 1 5 5v1.5a3.5 3.5 0 0 1-6.2 2.2L14.5 14h-5l-1.3 1.7A3.5 3.5 0 0 1 2 13.5V12a5 5 0 0 1 5-5z"/><path d="M7 10v4M5 12h4"/><circle cx="16" cy="11" r=".6" fill="currentColor"/><circle cx="18" cy="13" r=".6" fill="currentColor"/></svg>`,
+  padsmall: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z"/></svg>`,
+  wifi: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/></svg>`,
+  library: `<svg viewBox="0 0 24 24" ${S}><rect x="3" y="4" width="5" height="16" rx="1.2"/><rect x="10" y="4" width="5" height="16" rx="1.2"/><path d="M17.5 5.2l3.3 1 -3.6 14.4-3.2-1"/></svg>`,
+  feather: `<svg viewBox="0 0 24 24" ${S}><path d="M20 4C12 4 6 9 6 17v3"/><path d="M20 4c0 8-5 13-12 13"/><path d="M10 13h5"/></svg>`,
+  store: `<svg viewBox="0 0 24 24" ${S}><path d="M4 8h16l-1 11a1.5 1.5 0 0 1-1.5 1.4h-11A1.5 1.5 0 0 1 5 19z"/><path d="M8.5 8V6.5a3.5 3.5 0 0 1 7 0V8"/></svg>`,
+  disk: `<svg viewBox="0 0 24 24" ${S}><rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M7 14h4"/><circle cx="17" cy="14" r=".7" fill="currentColor"/></svg>`,
+  play: `<svg viewBox="0 0 24 24" ${S}><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M10.5 8.5v5l4-2.5z"/><path d="M8 20h8"/></svg>`,
+  note: `<svg viewBox="0 0 24 24" ${S}><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>`,
+  film: `<svg viewBox="0 0 24 24" ${S}><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/></svg>`,
+  disc: `<svg viewBox="0 0 24 24" ${S}><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/></svg>`,
+  image: `<svg viewBox="0 0 24 24" ${S}><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-9 9"/></svg>`,
+  grid: `<svg viewBox="0 0 24 24" ${S}><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>`,
+  pads: `<svg viewBox="0 0 24 24" ${S}><path d="M6.5 6h11a4.5 4.5 0 0 1 4.4 5.5l-.9 4a2.4 2.4 0 0 1-4.2 1L15 14.5H9l-1.8 2a2.4 2.4 0 0 1-4.2-1l-.9-4A4.5 4.5 0 0 1 6.5 6z"/><path d="M12 6V3"/></svg>`,
+  update: `<svg viewBox="0 0 24 24" ${S}><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.5 4.5L20 16"/><path d="M20 20v-4h-4"/></svg>`,
+  palette: `<svg viewBox="0 0 24 24" ${S}><path d="M12 3a9 9 0 0 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-1.2-1-1.6-1-2.6 0-.9.7-1.7 1.8-1.7H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r=".9" fill="currentColor"/><circle cx="10" cy="7" r=".9" fill="currentColor"/><circle cx="15" cy="7.5" r=".9" fill="currentColor"/></svg>`,
+  code: `<svg viewBox="0 0 24 24" ${S}><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>`,
+  shield: `<svg viewBox="0 0 24 24" ${S}><path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>`,
+  offline: `<svg viewBox="0 0 24 24" ${S}><path d="M2 9a15 15 0 0 1 6-3.4M22 9a15 15 0 0 0-9-4M5 12.5a10 10 0 0 1 4-2.2M19 12.5a10 10 0 0 0-3-1.9M8.5 16a5 5 0 0 1 7 0"/><path d="M3 3l18 18"/></svg>`,
+  people: `<svg viewBox="0 0 24 24" ${S}><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2A5 5 0 0 1 21 19"/></svg>`,
+  left: `<svg viewBox="0 0 24 24" ${S}><path d="M15 5l-7 7 7 7"/></svg>`,
+  right: `<svg viewBox="0 0 24 24" ${S}><path d="M9 5l7 7-7 7"/></svg>`,
+};
+
+// ---- Palettes (the console's design tokens): bg, surface, raised, line, fg, muted, accent, on-accent
+const PALETTES = [
+  ['dusk', 'Dusk', 'dark', '#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+  ['tide', 'Tide', 'dark', '#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+  ['bloom', 'Bloom', 'dark', '#1A1020', '#25182D', '#33223D', '#45304F', '#F7EEF6', '#AE93AE', '#FF7AA8', '#2A0614'],
+  ['ember', 'Ember', 'dark', '#1C0F0C', '#2A1713', '#3A201A', '#4E2C24', '#FBEDE9', '#C49C93', '#FF6B47', '#2A0A03'],
+  ['lagoon', 'Lagoon', 'dark', '#0A1426', '#101E38', '#182A4B', '#23395F', '#EAF1FF', '#90A4C9', '#4DA3FF', '#03162E'],
+  ['amethyst', 'Amethyst', 'dark', '#15121F', '#1F1A2E', '#2A2340', '#3A3155', '#F1EDFA', '#A99FC4', '#B69CFF', '#1B0E3A'],
+  ['graphite', 'Graphite', 'dark', '#121212', '#1C1C1C', '#262626', '#383838', '#F2F2F2', '#A6A6A6', '#DADADA', '#121212'],
+  ['daylight', 'Daylight', 'light', '#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+  ['sand', 'Sand', 'light', '#F4EEE3', '#FFFBF4', '#E8DFD0', '#D3C6B1', '#2A2117', '#6A5C49', '#B04A28', '#FFFFFF'],
+  ['sakura', 'Sakura', 'light', '#FBEFF3', '#FFFFFF', '#F3DDE5', '#E3C3CF', '#2A1420', '#76505F', '#C92A62', '#FFFFFF'],
+];
+const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
+// "Auto" follows the visitor's light / dark preference: Dusk when dark, Daylight when light
+const state = { lang: 'en', pal: 'auto', logo: 'draft', slide: 0 };
+
+// ---- The logo: the 7.6 draft (the gamepad "O") or the current wordmark; colours from CSS
+function markData() {
+  const k = 1.2, c = 50, rc = 16;
+  const T2 = (x, y) => [c + (x - c) * k, c + (y - c) * k];
+  const P = (x, y) => T2(x, y).map(v => v.toFixed(2)).join(',');
+  const a = r => (r * k).toFixed(2);
+  const circle = (x, y, r) => { const [u, v] = T2(x, y), R = r * k;
+    return `M${(u - R).toFixed(2)},${v.toFixed(2)}a${a(r)},${a(r)} 0 1,0 ${(2 * R).toFixed(2)},0` +
+      `a${a(r)},${a(r)} 0 1,0 ${(-2 * R).toFixed(2)},0Z`; };
+  const top = 33.5, r = 16, cy = 49.5, d = r * Math.SQRT1_2;
+  const lb = [32 + d, cy + d], rb = [68 - d, cy + d];
+  const body = `M${P(16 + rc, top)}L${P(84 - rc, top)}A${a(rc)},${a(rc)} 0 0,1 ${P(84, top + rc)}L${P(84, cy)}` +
+    `A${a(r)},${a(r)} 0 0,1 ${P(...rb)}Q${P(50, 54.5)} ${P(...lb)}A${a(r)},${a(r)} 0 0,1 ${P(16, cy)}` +
+    `L${P(16, top + rc)}A${a(rc)},${a(rc)} 0 0,1 ${P(16 + rc, top)}Z`;
+  const dx = 32, dy = 48.5, w = 2.6, l = 7.4;
+  const cross = 'M' + [[dx - w, dy - l], [dx + w, dy - l], [dx + w, dy - w], [dx + l, dy - w], [dx + l, dy + w], [dx + w, dy + w],
+    [dx + w, dy + l], [dx - w, dy + l], [dx - w, dy + w], [dx - l, dy + w], [dx - l, dy - w], [dx - w, dy - w]]
+    .map(([x, y]) => P(x, y)).join('L') + 'Z';
+  const fx = 68, fy = 48.5, o = 5.8, br = 2.7;
+  const face = [[fx, fy - o], [fx + o, fy], [fx, fy + o], [fx - o, fy]].map(([x, y]) => circle(x, y, br)).join('');
+  return 'M0,50a50,50 0 1,0 100,0a50,50 0 1,0 -100,0Z' + body + cross + face;
+}
+const MARK = markData();
+const O_X = 19.6, O_CY = -330, O_D = 684 * 1.25, GAP = 30, SHIFT = O_X + O_D - 457.5 + GAP;
+const VB_TOP = Math.min(-752.3, O_CY - O_D / 2 - 60), VB_BOTTOM = Math.max(92.2, O_CY + O_D / 2 + 60);
+function logo() {
+  const old = state.logo === 'current';
+  const w = 3521.8 + (old ? 0 : SHIFT), top = old ? -752.3 : VB_TOP, h = (old ? 92.2 : VB_BOTTOM) - top;
+  const o = old ? `<path class="wm-text" d="${OLD_O}"/>`
+    : `<g transform="translate(${O_X} ${O_CY - O_D / 2}) scale(${O_D / 100})"><path class="wm-accent" fill-rule="evenodd" d="${MARK}"/></g>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-60.4 ${top.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}" role="img" aria-label="OwneetOS">${o}` +
+    `<g transform="translate(${old ? 0 : SHIFT} 0)">${WNEET.map(d => `<path class="wm-text" d="${d}"/>`).join('')}` +
+    `${OS.map(d => `<path class="wm-accent" d="${d}"/>`).join('')}</g></svg>`;
+}
+
+// ---- Rendering
+const $ = s => document.querySelector(s);
+const tr = k => T[state.lang][k];
+const dark = matchMedia('(prefers-color-scheme: dark)');
+const SECTIONS = [...document.querySelectorAll('main > section')];
+let current = SECTIONS[0].id;
+
+function render() {
+  const name = state.pal === 'auto' ? (dark.matches ? 'dusk' : 'daylight') : state.pal;
+  const p = PALETTES.find(q => q[0] === name);
+  TOKENS.forEach((t, i) => document.documentElement.style.setProperty('--' + t, p[i + 3]));
+  document.documentElement.style.colorScheme = p[2];
+  document.documentElement.lang = state.lang;
+  const slideName = i => tr('slide').replace('%n', i + 1).replace('%t', SLIDES.length);
+  $('#tvApps').innerHTML = APPS.map(([ic, t]) => `<div class="app"><span class="ico" data-icon="${ic}"></span><span data-t="${t}"></span></div>`).join('');
+  $('#tvRow').innerHTML = GAMES.map(([n, h]) => `<div class="cover" style="--h:${h}">${n}</div>`).join('');
+  $('#track').innerHTML = SLIDES.map(([ic, t], i) => `<div class="slide" role="group" aria-roledescription="slide" aria-label="${slideName(i)}">` +
+    `<div class="icon" data-icon="${ic}"></div><h3 data-t="${t}.t"></h3><p data-t="${t}.p"></p></div>`).join('');
+  $('#cdots').innerHTML = SLIDES.map((_, i) => `<button type="button" data-go="${i}" aria-label="${slideName(i)}"></button>`).join('');
+  $('#dots').innerHTML = SECTIONS.map(s => `<a href="#${s.id}" aria-label="${tr(s.dataset.name)}" title="${tr(s.dataset.name)}"></a>`).join('');
+  document.querySelectorAll('[data-t]').forEach(el => { el.innerHTML = tr(el.dataset.t); });
+  document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = ICONS[el.dataset.icon]; });
+  document.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === state.lang));
+  for (const id of ['logoTop', 'logoTv', 'logoFoot']) $('#' + id).innerHTML = logo();
+  $('#logoFoot svg').style.height = '22px';
+  $('#prev').setAttribute('aria-label', tr('prev')); $('#next').setAttribute('aria-label', tr('next'));
+  $('#themeGrp').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === state.pal));
+  $('#logoGrp').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === state.logo));
+  $('#pal').value = PALETTES.some(q => q[0] === state.pal) ? state.pal : '';
+  document.querySelectorAll('[data-later]').forEach(a => a.onclick = e => { e.preventDefault(); toast(tr('later')); });
+  showSlide(state.slide, false);
+  markSection(current);
+}
+
+// ---- The carousel: arrows, dots, swipe (horizontal snapping), left / right when it has focus
+function showSlide(i, scroll = true) {
+  state.slide = Math.max(0, Math.min(SLIDES.length - 1, i));
+  const slides = document.querySelectorAll('.slide');
+  slides.forEach((s, n) => s.setAttribute('aria-current', n === state.slide));
+  document.querySelectorAll('#cdots button').forEach((b, n) => b.setAttribute('aria-current', n === state.slide));
+  if (scroll) { const s = slides[state.slide], t = $('#track'); t.scrollTo({ left: s.offsetLeft - (t.clientWidth - s.clientWidth) / 2 }); }
+}
+$('#prev').onclick = () => showSlide(state.slide - 1);
+$('#next').onclick = () => showSlide(state.slide + 1);
+$('#cdots').onclick = e => { const b = e.target.closest('[data-go]'); if (b) showSlide(+b.dataset.go); };
+$('#track').addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') { e.preventDefault(); showSlide(state.slide - 1); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); showSlide(state.slide + 1); }
+});
+// after a swipe, the slide nearest the middle is the current one
+let swipeTimer;
+$('#track').addEventListener('scroll', () => {
+  clearTimeout(swipeTimer);
+  swipeTimer = setTimeout(() => {
+    const t = $('#track'), mid = t.scrollLeft + t.clientWidth / 2;
+    let best = 0, dist = Infinity;
+    document.querySelectorAll('.slide').forEach((s, n) => { const d = Math.abs(s.offsetLeft + s.clientWidth / 2 - mid); if (d < dist) { dist = d; best = n; } });
+    if (best !== state.slide) showSlide(best, false);
+  }, 90);
+});
+
+// ---- Sections: the address, the menu and the dots follow the section on screen
+function markSection(id) {
+  current = id;
+  document.querySelectorAll('#dots a, #menu a').forEach(a => a.setAttribute('aria-current', a.getAttribute('href') === '#' + id));
+}
+const io = new IntersectionObserver(entries => {
+  for (const e of entries) if (e.isIntersecting) {
+    markSection(e.target.id);
+    const extra = (location.hash.match(/&.*/) || [''])[0];
+    if (location.hash.split('&')[0] !== '#' + e.target.id) history.replaceState(null, '', '#' + e.target.id + extra);
+  }
+}, { threshold: 0.55 });
+SECTIONS.forEach(s => io.observe(s));
+
+let toastTimer;
+function toast(text) {
+  $('#toast').textContent = text; $('#toast').classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').classList.remove('on'), 2600);
+}
+
+// ---- Demo panel
+$('#demoBtn').onclick = () => $('#demo').classList.toggle('open');
+$('#pal').innerHTML = '<option value="">—</option>' + PALETTES.map(p => `<option value="${p[0]}">${p[1]}</option>`).join('');
+$('#pal').onchange = e => { state.pal = e.target.value || 'auto'; render(); };
+[['auto', 'Auto'], ['dusk', 'Dark'], ['daylight', 'Light']].forEach(([v, name]) => {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = name; b.dataset.v = v;
+  b.onclick = () => { state.pal = v; render(); }; $('#themeGrp').append(b); });
+[['draft', 'Gamepad O (7.6 draft)'], ['current', 'Current']].forEach(([v, name]) => {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = name; b.dataset.v = v;
+  b.onclick = () => { state.logo = v; render(); }; $('#logoGrp').append(b); });
+dark.addEventListener('change', () => state.pal === 'auto' && render());
+
+// ---- Site
+document.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { state.lang = b.dataset.lang; render(); });
+$('#dlBtn').onclick = e => { e.preventDefault(); toast(tr('soon')); };
+$('#menuBtn').onclick = () => { const open = $('#menu').classList.toggle('open'); $('#menuBtn').setAttribute('aria-expanded', open); };
+$('#menu').addEventListener('click', e => { if (e.target.closest('a')) { $('#menu').classList.remove('open'); $('#menuBtn').setAttribute('aria-expanded', false); } });
+// start state in the address, e.g. #features&lang=it&pal=dusk&logo=current
+const browserLang = (navigator.language || 'en').slice(0, 2);
+state.lang = T[browserLang] ? browserLang : 'en';
+const opt = name => (new RegExp(name + '=([\\w-]+)').exec(location.hash) || [])[1];
+if (T[opt('lang')]) state.lang = opt('lang');
+if (PALETTES.some(q => q[0] === opt('pal'))) state.pal = opt('pal');
+if (['draft', 'current'].includes(opt('logo'))) state.logo = opt('logo');
+// "&only=features" shows that section alone (to take a screenshot of it)
+if (opt('only')) SECTIONS.forEach(sec => { if (sec.id !== opt('only')) sec.style.display = 'none'; });
+render();
+const startAt = location.hash.split('&')[0].slice(1);
+if (startAt && document.getElementById(startAt)) document.getElementById(startAt).scrollIntoView({ behavior: 'instant' });
+</script>
+</body>
+</html>

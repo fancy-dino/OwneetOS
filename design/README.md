@@ -22,6 +22,10 @@ Mockups and design assets.
   - [`3.9-settings.html`](demos/3.9-settings.html): settings (network and Wi-Fi password, controllers
     and pairing, sound with sliders, display with several screens, appearance, language, disks,
     system with power and credits).
+  - [`7.8-website-home.html`](demos/7.8-website-home.html): the website's home
+    ([[step-7.8-website]]), one page whose sections snap, the features in a carousel, the
+    console's home screen drawn; English and Italian; the "Demo 7.8" button switches palette,
+    light / dark and logo. Start state: `#features&lang=it&pal=dusk&logo=current`.
   - [`logo-gamepad-o.html`](demos/logo-gamepad-o.html): a draft of a new logo, outside the
     roadmap (owner, 2026-10-19; nothing in the system uses it, the final logo is
     [[step-7.6-final-logo-and-brand]]): the first "O" as a circle with a gamepad cut out of it,
