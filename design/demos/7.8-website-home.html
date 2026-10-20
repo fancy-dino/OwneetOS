@@ -4,7 +4,10 @@
      ([[website]]). Owner's feedback of 2026-10-20 on the first demo: each section is one screen
      and the scrolling snaps from one to the next; the address follows the section on screen
      (#features, #requirements, ...) and a link to it scrolls there; less text: the features are
-     a carousel, one at a time, a title and one short line, only that card shown, moved by the arrows and the dots (or a swipe); the console picture follows the approved
+     a carousel, a title and one short line, one card on screen, the next half a screen away; it
+     plays by itself every 5 s and loops (a pause button; paused while pointed at or focused, off
+     screen, or when the visitor asked for reduced motion), also moved by the arrows, the dots and
+     a swipe; the console picture follows the approved
      home screen (demo 3.6) with generic apps (Video streaming, Audio streaming, Local videos,
      Local music, Local pictures, All apps). English and Italian (the real site takes its texts
      from translation files). The links to the other pages (guide, FAQ, credits, privacy,
@@ -143,6 +146,8 @@ html, body { overflow-x: clip; }
 .cnav { display: flex; justify-content: center; align-items: center; gap: 18px; margin-top: 22px; }
 .cnav button.arrow { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); cursor: pointer; display: grid; place-items: center; }
 .cnav button.arrow svg { width: 20px; height: 20px; }
+.cnav button.pause { width: 36px; height: 36px; margin-left: 4px; color: var(--muted); }
+.cnav button.pause svg { width: 16px; height: 16px; }
 .cdots { display: flex; gap: 8px; }
 .cdots button { width: 9px; height: 9px; border-radius: 50%; border: 0; padding: 0; background: var(--line); cursor: pointer; }
 .cdots button[aria-current="true"] { background: var(--accent); width: 24px; border-radius: 999px; }
@@ -275,6 +280,7 @@ footer .marks { flex-basis: 100%; font-size: 12.5px; }
           <button class="arrow" type="button" id="prev" data-icon="left"></button>
           <div class="cdots" id="cdots"></div>
           <button class="arrow" type="button" id="next" data-icon="right"></button>
+          <button class="arrow pause" type="button" id="playBtn"></button>
         </div>
       </div>
     </div>
@@ -381,7 +387,7 @@ const T = {
     'foot.licence': 'GPL-3.0-or-later · texts CC BY-SA 4.0',
     'foot.marks': 'Steam is a trademark of Valve Corporation, Xbox of Microsoft Corporation, PlayStation of Sony Interactive Entertainment. They only say what works with OwneetOS, which is not affiliated with or endorsed by them.',
     'later': 'This page comes with its own demo.', 'soon': 'The download opens with the first release.',
-    'prev': 'Previous', 'next': 'Next', 'slide': 'Feature %n of %t',
+    'prev': 'Previous', 'next': 'Next', 'slide': 'Feature %n of %t', 'pause': 'Pause the features', 'play': 'Play the features',
   },
   it: {
     'nav.home': 'Home', 'nav.features': 'Funzionalità', 'nav.requirements': 'Requisiti', 'nav.open': 'Aperto', 'nav.guide': 'Guida', 'nav.faq': 'Domande',
@@ -414,7 +420,7 @@ const T = {
     'foot.licence': 'GPL-3.0-or-later · testi CC BY-SA 4.0',
     'foot.marks': 'Steam è un marchio di Valve Corporation, Xbox di Microsoft Corporation, PlayStation di Sony Interactive Entertainment. Indicano solo cosa funziona con OwneetOS, che non è affiliato né approvato da loro.',
     'later': 'Questa pagina arriverà con una sua demo.', 'soon': 'Il download si apre con la prima versione.',
-    'prev': 'Precedente', 'next': 'Successiva', 'slide': 'Funzionalità %n di %t',
+    'prev': 'Precedente', 'next': 'Successiva', 'slide': 'Funzionalità %n di %t', 'pause': 'Ferma le funzionalità', 'play': 'Riavvia le funzionalità',
   },
 };
 const SLIDES = [['pad', 's.pad'], ['library', 's.games'], ['store', 's.steam'], ['disk', 's.disk'], ['play', 's.media'],
@@ -447,6 +453,8 @@ const ICONS = {
   people: `<svg viewBox="0 0 24 24" ${S}><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2A5 5 0 0 1 21 19"/></svg>`,
   left: `<svg viewBox="0 0 24 24" ${S}><path d="M15 5l-7 7 7 7"/></svg>`,
   right: `<svg viewBox="0 0 24 24" ${S}><path d="M9 5l7 7-7 7"/></svg>`,
+  pause: `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>`,
+  resume: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l12.5-7.5z"/></svg>`,
 };
 
 // ---- Palettes (the console's design tokens): bg, surface, raised, line, fg, muted, accent, on-accent
@@ -517,8 +525,10 @@ function render() {
   const slideName = i => tr('slide').replace('%n', i + 1).replace('%t', SLIDES.length);
   $('#tvApps').innerHTML = APPS.map(([ic, t]) => `<div class="app"><span class="ico" data-icon="${ic}"></span><span data-t="${t}"></span></div>`).join('');
   $('#tvRow').innerHTML = GAMES.map(([n, h]) => `<div class="cover" style="--h:${h}">${n}</div>`).join('');
-  $('#track').innerHTML = SLIDES.map(([ic, t], i) => `<div class="slide" role="group" aria-roledescription="slide" aria-label="${slideName(i)}">` +
-    `<div class="icon" data-icon="${ic}"></div><h3 data-t="${t}.t"></h3><p data-t="${t}.p"></p></div>`).join('');
+  // the strip: a copy of the last card before the first and of the first after the last (the loop)
+  const card = ([ic, t], i, copy) => `<div class="slide${copy ? ' copy' : ''}" ${copy ? 'aria-hidden="true"' : `role="group" aria-roledescription="slide" aria-label="${slideName(i)}"`}>` +
+    `<div class="icon" data-icon="${ic}"></div><h3 data-t="${t}.t"></h3><p data-t="${t}.p"></p></div>`;
+  $('#track').innerHTML = card(SLIDES[SLIDES.length - 1], SLIDES.length - 1, true) + SLIDES.map((sl, i) => card(sl, i)).join('') + card(SLIDES[0], 0, true);
   $('#cdots').innerHTML = SLIDES.map((_, i) => `<button type="button" data-go="${i}" aria-label="${slideName(i)}"></button>`).join('');
   $('#dots').innerHTML = SECTIONS.map(s => `<a href="#${s.id}" aria-label="${tr(s.dataset.name)}" title="${tr(s.dataset.name)}"></a>`).join('');
   document.querySelectorAll('[data-t]').forEach(el => { el.innerHTML = tr(el.dataset.t); });
@@ -532,35 +542,82 @@ function render() {
   $('#pal').value = PALETTES.some(q => q[0] === state.pal) ? state.pal : '';
   document.querySelectorAll('[data-later]').forEach(a => a.onclick = e => { e.preventDefault(); toast(tr('later')); });
   showSlide(state.slide, false);
+  restart();
   markSection(current);
 }
 
-// ---- The carousel: arrows, dots, swipe (horizontal snapping), left / right when it has focus
-function showSlide(i, scroll = true) {
-  state.slide = Math.max(0, Math.min(SLIDES.length - 1, i));
-  const slides = document.querySelectorAll('.slide');
-  slides.forEach((s, n) => s.setAttribute('aria-current', n === state.slide));
-  document.querySelectorAll('#cdots button').forEach((b, n) => b.setAttribute('aria-current', n === state.slide));
-  if (scroll) { const s = slides[state.slide], t = $('#track'); t.scrollTo({ left: s.offsetLeft - (t.clientWidth - s.clientWidth) / 2 }); }
+// ---- The carousel: arrows, dots, swipe (horizontal snapping), left / right when it has focus.
+// It loops: the strip holds a copy of the last card before the first and of the first after the
+// last; once it stops on a copy, it jumps (instantly, unseen) to the card it copies.
+// It plays by itself every AUTOPLAY ms, paused while the pointer is on it or it has focus, while
+// the section or the page is not on screen, and by its pause button (paused from the start when
+// the visitor asked for reduced motion).
+const AUTOPLAY = 5000;
+const cards = () => document.querySelectorAll('#track .slide');      // copy, 0 .. n-1, copy
+const place = pos => { const c = cards()[pos], t = $('#track'); return c.offsetLeft - (t.clientWidth - c.clientWidth) / 2; };
+function jump(pos) {
+  const t = $('#track');
+  t.style.scrollBehavior = 'auto'; t.style.scrollSnapType = 'none';
+  t.scrollLeft = place(pos);
+  t.offsetWidth;   // apply the jump before the smooth scrolling and the snapping come back
+  t.style.scrollBehavior = ''; t.style.scrollSnapType = '';
 }
-$('#prev').onclick = () => showSlide(state.slide - 1);
-$('#next').onclick = () => showSlide(state.slide + 1);
-$('#cdots').onclick = e => { const b = e.target.closest('[data-go]'); if (b) showSlide(+b.dataset.go); };
+function mark() {
+  cards().forEach((c, pos) => c.setAttribute('aria-current', pos === state.slide + 1));
+  document.querySelectorAll('#cdots button').forEach((b, n) => b.setAttribute('aria-current', n === state.slide));
+}
+// i may be -1 (the copy of the last card, before the first) or n (the copy of the first, after the last)
+function showSlide(i, scroll = true) {
+  const n = SLIDES.length;
+  state.slide = (i + n) % n;
+  mark();
+  if (!scroll) { jump(state.slide + 1); return; }
+  $('#track').scrollTo({ left: place(i + 1) });
+  // onto a copy: once the slide has ended, move to the card it copies (also without scroll events)
+  if (i < 0 || i >= n) setTimeout(settle, 900);
+}
+const step = d => { showSlide(state.slide + d); restart(); };
+$('#prev').onclick = () => step(-1);
+$('#next').onclick = () => step(1);
+$('#cdots').onclick = e => { const b = e.target.closest('[data-go]'); if (b) { showSlide(+b.dataset.go); restart(); } };
 $('#track').addEventListener('keydown', e => {
-  if (e.key === 'ArrowLeft') { e.preventDefault(); showSlide(state.slide - 1); }
-  if (e.key === 'ArrowRight') { e.preventDefault(); showSlide(state.slide + 1); }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
 });
-// after a swipe, the slide nearest the middle is the current one
-let swipeTimer;
-$('#track').addEventListener('scroll', () => {
-  clearTimeout(swipeTimer);
-  swipeTimer = setTimeout(() => {
-    const t = $('#track'), mid = t.scrollLeft + t.clientWidth / 2;
-    let best = 0, dist = Infinity;
-    document.querySelectorAll('.slide').forEach((s, n) => { const d = Math.abs(s.offsetLeft + s.clientWidth / 2 - mid); if (d < dist) { dist = d; best = n; } });
-    if (best !== state.slide) showSlide(best, false);
-  }, 90);
-});
+// when the strip stops (after a slide or a swipe): the card nearest the middle is the current one;
+// on a copy, jump to the card it copies
+function settle() {
+  const t = $('#track'), mid = t.scrollLeft + t.clientWidth / 2, n = SLIDES.length;
+  let best = 0, dist = Infinity;
+  cards().forEach((c, pos) => { const d = Math.abs(c.offsetLeft + c.clientWidth / 2 - mid); if (d < dist) { dist = d; best = pos; } });
+  if (dist > 4) return;   // still moving
+  if (best === 0) { state.slide = n - 1; jump(n); }
+  else if (best === n + 1) { state.slide = 0; jump(1); }
+  else state.slide = best - 1;
+  mark();
+}
+let settleTimer;
+$('#track').addEventListener('scroll', () => { clearTimeout(settleTimer); settleTimer = setTimeout(settle, 120); });
+$('#track').addEventListener('scrollend', settle);
+
+// autoplay
+let timer = null, hovered = false, inView = false;
+let userPaused = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const running = () => !userPaused && !hovered && inView && !document.hidden;
+function restart() {
+  clearInterval(timer); timer = null;
+  if (running()) timer = setInterval(() => showSlide(state.slide + 1), AUTOPLAY);
+  $('#playBtn').innerHTML = ICONS[userPaused ? 'resume' : 'pause'];
+  $('#playBtn').setAttribute('aria-label', tr(userPaused ? 'play' : 'pause'));
+}
+$('#playBtn').onclick = () => { userPaused = !userPaused; restart(); };
+$('#carousel').addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { hovered = true; restart(); } });
+$('#carousel').addEventListener('pointerleave', () => { hovered = false; restart(); });
+// focus pauses it only when it comes from the keyboard (a click gives the button focus too)
+$('#carousel').addEventListener('focusin', e => { if (e.target.matches(':focus-visible')) { hovered = true; restart(); } });
+$('#carousel').addEventListener('focusout', e => { if (!$('#carousel').contains(e.relatedTarget)) { hovered = false; restart(); } });
+document.addEventListener('visibilitychange', restart);
+new IntersectionObserver(([e]) => { inView = e.isIntersecting; restart(); }, { threshold: 0.5 }).observe($('#carousel'));
 
 // ---- Sections: the address, the menu and the dots follow the section on screen
 function markSection(id) {
