@@ -28,7 +28,10 @@ var OwneetNetflix = (() => {
     rowPrev: '[data-uia="carousel-hawkins-left-button"]',
     card: ['standard-card', 'episodic-card', 'progress-card', 'ranked-card', 'cloud-game-card']
       .map(n => `[data-uia="${n}"]`).join(', '),
-    top: '[data-uia="navigation+subheader"]',
+    top: '[data-uia="navigation"]',
+    // its items, one by one (on a small screen the links fold into the "Browse" menu)
+    topItems: '[data-uia^="nav-"], [data-uia="browse-menu+trigger"], [data-uia="navigation+actions+search+icon"], '
+      + '[data-uia="navigation+profile-menu+trigger"]',
     banner: '[data-uia="billboard"]',
     bannerPlay: '[data-uia="play-video-button"]',
     search: '[data-uia="navigation+actions+search+icon"]',
@@ -69,7 +72,7 @@ var OwneetNetflix = (() => {
     return labels.length ? (step > 0 ? 0 : labels.length - 1) : -1;
   }
 
-  // env: { document, location, KeyboardEvent, MouseEvent, setTimeout, now } of the page; page: the
+  // env: { document, location, KeyboardEvent, MouseEvent, PointerEvent, setTimeout, now } of the page; page: the
   // ring of input.js { Nav, skip, current(), moveTo(el), click(el), openKeyboard(el) }
   function driver(env, page) {
     const doc = env.document, loc = env.location, Nav = page.Nav;
@@ -98,12 +101,15 @@ var OwneetNetflix = (() => {
     const cardOf = el => el && el.closest(NAMES.card);
     function partOf(el) {          // the part of the browsing page el is in
       if (!el) return null;
-      for (const [kind, sel] of [['row', NAMES.row], ['banner', NAMES.banner], ['top', NAMES.top]]) {
+      for (const [kind, sel] of [['row', NAMES.row], ['banner', NAMES.banner], ['top', NAMES.topItems], ['top', NAMES.top]]) {
         const root = el.closest(sel);
         if (root) return { kind, root };
       }
       return null;
     }
+    // The top menu's items, outermost only, from left to right
+    const topItems = () => qa(NAMES.topItems).filter(el => usable(el) && !el.parentElement.closest(NAMES.topItems))
+      .sort((a, b) => Nav.rectOf(a).left - Nav.rectOf(b).left);
     function rowArea(row) {
       const r = (q(NAMES.rowArea, row) || row).getBoundingClientRect();
       return { left: r.left, right: r.right };
@@ -118,9 +124,13 @@ var OwneetNetflix = (() => {
       return usable(play) ? play : Nav.first(banner, page.skip);
     }
     function toTop() {
-      const top = q(NAMES.top);
-      const el = usable(top) ? Nav.first(top, page.skip) : null;
-      if (el) page.moveTo(el);
+      const items = topItems();
+      if (items.length) page.moveTo(items[0]);
+      return true;
+    }
+    function alongTop(cur, step) {
+      const items = topItems(), next = items[items.indexOf(cur.closest(NAMES.topItems) || cur) + step];
+      if (next) page.moveTo(next);
       return true;
     }
     function within(root, cur, dir) {
@@ -161,8 +171,9 @@ var OwneetNetflix = (() => {
       const list = rows();
       if (!list.length) return false;                // not a browsing page
       const cur = page.current(), at = partOf(cur);
-      if (!at) {                                     // nothing selected yet
-        const start = bannerTarget() || cardsIn(list[0])[0];
+      if (!at) {
+        if (cur) return false;                       // a part this file does not know (e.g. a menu)
+        const start = bannerTarget() || cardsIn(list[0])[0];   // nothing selected yet
         if (start) page.moveTo(start);
         return true;
       }
@@ -185,13 +196,13 @@ var OwneetNetflix = (() => {
         if (dir === 'up') return toTop();
         return within(at.root, cur, dir);
       }
-      // the top bar
+      // the top menu
       if (dir === 'down') {
         const b = bannerTarget();
         if (b) { page.moveTo(b); return true; }
         return toRow(list[0], cur);
       }
-      return within(at.root, cur, dir);
+      return dir === 'up' ? true : alongTop(cur, dir === 'right' ? 1 : -1);
     }
 
     // ---- The title window
@@ -207,15 +218,23 @@ var OwneetNetflix = (() => {
     }
 
     // ---- The player
+    // As a mouse moving over the picture: sent to the innermost element at that point (so that
+    // every element above it hears it), with a position on screen that changes and a movement
+    // (Netflix ignores "movements" that do not move)
     function showControls(pl) {
       const r = pl.getBoundingClientRect();
       wiggle = -wiggle;
-      pl.dispatchEvent(new env.MouseEvent('mousemove', { bubbles: true,
-        clientX: r.left + r.width / 2 + 8 * wiggle, clientY: r.top + r.height / 2 }));
+      const x = Math.round(r.left + r.width / 2 + 12 * wiggle), y = Math.round(r.top + r.height / 2);
+      const target = doc.elementFromPoint(x, y) || pl;
+      const init = { bubbles: true, cancelable: true, composed: true, view: doc.defaultView,
+        clientX: x, clientY: y, screenX: x, screenY: y, movementX: 24 * wiggle, movementY: 0 };
+      target.dispatchEvent(new env.PointerEvent('pointermove', { ...init, pointerType: 'mouse', isPrimary: true }));
+      target.dispatchEvent(new env.MouseEvent('mousemove', init));
       controlsAt = env.now();
     }
     const controlsShown = () => env.now() - controlsAt < CONTROLS_SHOWN_MS;
-    const keysTarget = pl => q(NAMES.playerKeys, pl) || pl;
+    // Netflix's keys go to the player's own focus element, where the probe's keys worked
+    const keysTarget = pl => q(NAMES.playerKeys) || pl;
     function playerMove(pl, dir) {
       const shown = controlsShown(), cur = page.current();
       showControls(pl);

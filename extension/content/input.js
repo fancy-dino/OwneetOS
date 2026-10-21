@@ -324,7 +324,7 @@
 
   // A supported web app with a navigation of its own; each of its methods answers true when it
   // took the button, false to leave it to the generic navigation
-  const env = { document, location, KeyboardEvent, MouseEvent,
+  const env = { document, location, KeyboardEvent, MouseEvent, PointerEvent,
     setTimeout: (f, ms) => setTimeout(f, ms), now: () => performance.now() };
   const site = OwneetTV.matches(location) ? OwneetTV.driver(env)
     : OwneetNetflix.matches(location) ? OwneetNetflix.driver(env, {
