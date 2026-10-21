@@ -249,7 +249,8 @@
   let heldDir = null, repeatAt = 0;
   function pad() {
     const pads = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
-    return pads.find(p => p.mapping === 'standard') || pads[0] || null;
+    // in the standard layout, also a controller Brave does not know (pad.js)
+    return OwneetPad.standard(pads.find(p => p.mapping === 'standard') || pads[0] || null);
   }
   // The direction held on the D-pad or the left stick, or null
   function direction(p, on) {

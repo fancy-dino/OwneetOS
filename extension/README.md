@@ -9,6 +9,8 @@
 
 Files:
 
+- `content/pad.js`: the controller read in the standard layout, also a controller Brave does not
+  know (Xbox-style controllers on the xpad driver are translated; tested by `test/pad.test.js`);
 - `content/spatnav.js`: which elements the D-pad reaches and which one comes next (the geometry is
   tested by `test/spatnav.test.js`, run by `tools/lint`);
 - `content/input.js`: the Gamepad API loop, the ring, A, B, the right stick, text fields;
