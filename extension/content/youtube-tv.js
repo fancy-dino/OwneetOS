@@ -43,9 +43,10 @@ var OwneetTV = (() => {
     // Only the last B of a quick series may ask: two presses on the account page ask once, and
     // two presses that go back two screens never ask
     let presses = 0;
+    // Every button is the TV interface's (true: taken); Y, LT / RT and the right stick do nothing
     return {
-      move: dir => send(dir),
-      press: () => send('enter'),
+      move: dir => { send(dir); return true; },
+      press: () => { send('enter'); return true; },
       // B: YouTube's back; where it has nothing left, onNothingLeft (the console's "Close YouTube?")
       back(onNothingLeft) {
         const href = env.location.href, focus = env.document.activeElement, mine = ++presses;
@@ -53,7 +54,11 @@ var OwneetTV = (() => {
         env.setTimeout(() => {
           if (mine === presses && env.location.href === href && env.document.activeElement === focus) onNothingLeft();
         }, SETTLE_MS);
+        return true;
       },
+      page: () => true,
+      seek: () => true,
+      scroll: () => true,
     };
   }
 

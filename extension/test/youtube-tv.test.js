@@ -38,7 +38,9 @@ test('the D-pad sends arrows and A sends Enter, to the focused element, with the
   const p = page();
   p.env.document.activeElement = p.element('tile');
   const d = TV.driver(p.env);
-  d.move('up'); d.move('down'); d.move('left'); d.move('right'); d.press();
+  // every button is the TV interface's: nothing is left to the generic navigation
+  for (const taken of [d.move('up'), d.move('down'), d.move('left'), d.move('right'), d.press(),
+    d.page(), d.seek(1), d.scroll()]) assert.strictEqual(taken, true);
   const downs = p.events.filter(e => e.type === 'keydown').map(e => [e.key, e.keyCode, e.which, e.to]);
   assert.deepStrictEqual(downs, [['ArrowUp', 38, 38, 'tile'], ['ArrowDown', 40, 40, 'tile'],
     ['ArrowLeft', 37, 37, 'tile'], ['ArrowRight', 39, 39, 'tile'], ['Enter', 13, 13, 'tile']]);

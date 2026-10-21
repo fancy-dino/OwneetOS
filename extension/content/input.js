@@ -5,22 +5,21 @@
 // B leaves full screen / closes the page's dialog / goes back / asks to close the web app, the
 // right stick scrolls. Guide (standard button 16) is owneetd's and is never read. Runs in the top
 // frame only; the console's keyboard and "Close {name}?" go through the background worker and the
-// bridge to owneetd. On YouTube's TV interface the buttons become its keys instead (youtube-tv.js,
-// [[controller-input-map]] "Inside YouTube").
+// bridge to owneetd. A supported web app has a navigation of its own, which takes the buttons it
+// wants ([[extension-design]] "One navigation per supported app"): YouTube's TV interface
+// (youtube-tv.js, "Inside YouTube"), Netflix (netflix.js, "Inside Netflix").
 
 'use strict';
 
 (() => {
   if (window.top !== window) return;
   const Nav = OwneetNav;
-  // YouTube's TV interface draws its own selection and takes keys: no ring there
-  const tv = OwneetTV.matches(location)
-    ? OwneetTV.driver({ document, location, KeyboardEvent, setTimeout: (f, ms) => setTimeout(f, ms) })
-    : null;
 
   // Standard Gamepad API mapping
-  const BTN = { a: 0, b: 1, up: 12, down: 13, left: 14, right: 15 };
+  const BTN = { a: 0, b: 1, y: 3, lt: 6, rt: 7, up: 12, down: 13, left: 14, right: 15 };
   const REPEAT_FIRST = 360, REPEAT_NEXT = 140;     // held directions ([[controller-input-map]])
+  const TRIGGER_FIRST = 720, TRIGGER_NEXT = 360;   // held LT / RT
+  const TRIGGER_ON = 0.5, TRIGGER_OFF = 0.25;      // analog triggers: pressed past half, released under a quarter
   const STICK = 0.5;                               // left stick: a direction past half its travel
   const SCROLL_DEAD = 0.2, SCROLL_SPEED = 22;      // right stick: px per frame at full tilt
   const RING_IDLE_FULLSCREEN = 3000;               // in full screen the ring hides after 3 s idle
@@ -76,7 +75,7 @@
     const idle = document.fullscreenElement && now - lastInput > RING_IDLE_FULLSCREEN;
     // The ring stays around the field while the console's keyboard types into it (drawn over the
     // page in gamescope, as in the approved demo; owner, 2026-10-17)
-    const show = current && Nav.usable(current) && !idle;
+    const show = current && Nav.usable(current) && !idle && !(site && site.hideRing && site.hideRing());
     const r = show ? Nav.rectOf(current) : null;
     const key = r ? `${r.left}|${r.top}|${r.width}|${r.height}` : '';
     if (key === drawn) return;
@@ -163,7 +162,10 @@
     if (!settle()) { moveTo(Nav.first(document, ringHost)); return; }
     const el = current;
     if (isTextField(el)) { el.focus({ preventScroll: true }); Keyboard.open(el); return; }
-    // The events a mouse click fires, at the element's centre
+    clickAt(el);
+  }
+  // The events a mouse click fires, at the element's centre
+  function clickAt(el) {
     const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
     const opts = { bubbles: true, cancelable: true, composed: true, view: window, clientX: x, clientY: y, button: 0 };
     el.dispatchEvent(new PointerEvent('pointerdown', { ...opts, pointerType: 'mouse', isPrimary: true, buttons: 1 }));
@@ -258,6 +260,18 @@
     if (on(BTN.down) || ay > STICK) return 'down';
     return null;
   }
+  // LT / RT as one value: -1 (LT), 1 (RT) or 0, analog triggers with their two thresholds
+  const triggerDown = {};
+  function trigger(p) {
+    const down = i => {
+      const v = p.buttons[i] ? p.buttons[i].value : 0;
+      triggerDown[i] = triggerDown[i] ? v > TRIGGER_OFF : v > TRIGGER_ON;
+      return triggerDown[i];
+    };
+    const l = down(BTN.lt), r = down(BTN.rt);
+    return l === r ? 0 : l ? -1 : 1;
+  }
+  let heldTrigger = 0, triggerAt = 0;
   let active = false;     // the page had the controller in the previous frame
   function frame(now) {
     const p = document.visibilityState === 'visible' && document.hasFocus() ? pad() : null;
@@ -266,34 +280,58 @@
       if (!active) {
         // The controller comes back (the console's keyboard closed, the page in front again):
         // buttons still held from the console count only once released and pressed again (B
-        // that closed the keyboard must not also go back), a held direction waits to repeat
-        for (const i of [BTN.a, BTN.b]) prev[i] = on(i);
+        // that closed the keyboard must not also go back), a held direction or trigger waits to
+        // repeat
+        for (const i of [BTN.a, BTN.b, BTN.y]) prev[i] = on(i);
         heldDir = direction(p, on);
         repeatAt = now + REPEAT_FIRST;
+        heldTrigger = trigger(p);
+        triggerAt = now + TRIGGER_FIRST;
         active = true;
       }
       const edge = i => { const d = on(i), was = prev[i]; prev[i] = d; return d && !was; };
       const rx = p.axes[2] || 0, ry = p.axes[3] || 0;
+      // A supported app's own navigation first; what it leaves goes to the generic one
       const dir = direction(p, on);
       if (dir && (dir !== heldDir || now >= repeatAt)) {
-        if (tv) tv.move(dir); else move(dir);
+        if (!(site && site.move(dir))) move(dir);
         repeatAt = now + (dir === heldDir ? REPEAT_NEXT : REPEAT_FIRST);
         lastInput = now;
       }
       heldDir = dir;
-      if (!tv && (Math.abs(rx) > SCROLL_DEAD || Math.abs(ry) > SCROLL_DEAD)) {
+      if ((Math.abs(rx) > SCROLL_DEAD || Math.abs(ry) > SCROLL_DEAD) && !(site && site.scroll())) {
         const s = current && Nav.usable(current) ? Nav.scroller(current) : document.scrollingElement;
         s.scrollBy({ left: Math.abs(rx) > SCROLL_DEAD ? rx * SCROLL_SPEED : 0, top: Math.abs(ry) > SCROLL_DEAD ? ry * SCROLL_SPEED : 0 });
         lastInput = now;
       }
-      if (edge(BTN.a)) { if (tv) tv.press(); else press(); lastInput = now; }
-      if (edge(BTN.b)) { if (tv) tv.back(() => send({ type: 'ask_close' })); else back(); lastInput = now; }
+      if (edge(BTN.a)) { if (!(site && site.press())) press(); lastInput = now; }
+      if (edge(BTN.b)) { if (!(site && site.back(() => send({ type: 'ask_close' })))) back(); lastInput = now; }
+      // Y and LT / RT: only a supported app gives them a meaning
+      if (edge(BTN.y) && site) { site.page(); lastInput = now; }
+      const t = trigger(p);
+      if (t && (t !== heldTrigger || now >= triggerAt)) {
+        if (site) site.seek(t);
+        triggerAt = now + (t === heldTrigger ? TRIGGER_NEXT : TRIGGER_FIRST);
+        lastInput = now;
+      }
+      heldTrigger = t;
     } else {
       active = false;
     }
     drawRing(now);
     requestAnimationFrame(frame);
   }
+
+  // A supported web app with a navigation of its own; each of its methods answers true when it
+  // took the button, false to leave it to the generic navigation
+  const env = { document, location, KeyboardEvent, MouseEvent,
+    setTimeout: (f, ms) => setTimeout(f, ms), now: () => performance.now() };
+  const site = OwneetTV.matches(location) ? OwneetTV.driver(env)
+    : OwneetNetflix.matches(location) ? OwneetNetflix.driver(env, {
+      Nav, skip: ringHost, current: () => (settle() ? current : null), moveTo, click: clickAt,
+      openKeyboard: el => { moveTo(el); el.focus({ preventScroll: true }); Keyboard.open(el); },
+    })
+    : null;
 
   connect();
   requestAnimationFrame(frame);

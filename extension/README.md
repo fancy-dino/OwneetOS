@@ -14,6 +14,9 @@ Files:
 - `content/input.js`: the Gamepad API loop, the ring, A, B, the right stick, text fields;
 - `content/youtube-tv.js`: on YouTube's TV interface the buttons become its keys (arrows, Enter,
   Escape) and B asks to close where Escape changes nothing (tested by `test/youtube-tv.test.js`);
+- `content/netflix.js`: Netflix's own navigation (rows and tiles, the title window, the player's
+  controls, LT / RT ±10 s, Y search), Netflix's element names in one place; elsewhere the generic
+  navigation (geometry tested by `test/netflix.test.js`);
 - `background.js`: relays the page's messages to `owneet-bridge`, the native-messaging host that
   talks to owneetd (the console's keyboard, "Close {name}?"). Installed as
   `background-<hash of its content>.js`, and the installed `manifest.json` gets that name and
