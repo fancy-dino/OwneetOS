@@ -10,6 +10,7 @@
 //  - Player: any button brings up Netflix's controls (as a mouse movement does) and the D-pad moves
 //    between them; A presses one, and pauses / plays while they are hidden; LT / RT seek by 10 s
 //    (Netflix's ← / →); B closes an open menu, otherwise leaves the player.
+//  - B closes an open dropdown first (the Browse and profile menus, a title's seasons).
 //  - Y opens Netflix's search, with the console's keyboard.
 // Every other page (start, sign-in, the email code, profiles, search results…) keeps the generic
 // navigation: the driver's methods answer false there.
@@ -45,6 +46,9 @@ var OwneetNetflix = (() => {
     playPause: '[data-uia^="control-play-pause"]',
     leave: '[data-uia="control-nav-back"]',
     menu: '[role="dialog"], [role="menu"], [role="listbox"], [data-uia*="selector"], [data-uia*="popup"]',
+    // an open dropdown outside the player (the Browse and profile menus, a title's seasons)
+    dropdownButton: '[aria-haspopup][aria-expanded="true"]',
+    dropdownList: '[role="menu"], [role="listbox"]',
   };
   const CONTROLS_SHOWN_MS = 2800;   // Netflix hides its controls a few seconds after the last movement
   const SLIDE_MS = 450;             // a row sliding on
@@ -205,6 +209,21 @@ var OwneetNetflix = (() => {
       return dir === 'up' ? true : alongTop(cur, dir === 'right' ? 1 : -1);
     }
 
+    // ---- Dropdowns: B closes an open one first (Escape; if it stays open, its button again) and
+    // the selection goes back to its button
+    function closeDropdown() {
+      const button = qa(NAMES.dropdownButton).find(usable);
+      const list = qa(NAMES.dropdownList).find(usable);
+      if (!button && !list) return false;
+      sendKey(doc.activeElement || doc.body, 'Escape', 'Escape', 27);
+      env.setTimeout(() => {
+        if (!button) return;
+        if (button.getAttribute('aria-expanded') === 'true') page.click(button);
+        if (usable(button)) page.moveTo(button);
+      }, 200);
+      return true;
+    }
+
     // ---- The title window
     function enterTitle(t) {
       const play = q(NAMES.titlePlay, t);
@@ -292,6 +311,7 @@ var OwneetNetflix = (() => {
       back() {
         const pl = player();
         if (pl) return playerBack(pl);
+        if (closeDropdown()) return true;
         const t = titleWindow();
         if (!t) return false;                         // the generic B: back a page, or "Close Netflix?"
         const close = q(NAMES.titleClose, t);
