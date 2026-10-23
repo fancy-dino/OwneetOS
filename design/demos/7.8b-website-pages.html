@@ -251,6 +251,7 @@ html.paged { scroll-snap-type: none; }
 .credit-list a:hover { border-color: var(--accent); }
 .credit-list b { font-weight: 500; }
 .credit-list span { color: var(--muted); font-size: 13px; }
+.credit-list.authors { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 560px; }   /* the two authors side by side, at the same level, on every screen */
 .credit-list.authors a { padding: 16px 18px; }
 .credit-list.authors b { font-family: var(--display); font-variation-settings: "wdth" 85; font-weight: 750; font-size: 20px; }
 .blocks { display: grid; gap: 8px; }
