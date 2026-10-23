@@ -4,7 +4,7 @@
      approved home ([[step-7.8-website]], demo 7.8-website-home.html). Asked by the owner on
      2026-10-23: the logo is the gamepad "O" of the 7.6 draft (design/demos/logo-gamepad-o.html),
      and at start the logo's animation plays (the website variant: the logo from transparent over
-     2 s, then "Plug it.", "Play it.", "Own it!" 0.5 s apart, at once, in the page's language);
+     2 s, then "Plug it.", "Play it.", "Own it!" 0.5 s apart, at once; the slogan is never translated);
      only when it ends does the site show. The pages, in English and Italian, at #/guide, #/faq,
      #/credits, #/privacy, #/contribute: reached from the header (Credits), the Info section, the
      requirements and the footer; ordinary scrolling (the home keeps its snapping sections).
@@ -251,6 +251,8 @@ html.paged { scroll-snap-type: none; }
 .credit-list a:hover { border-color: var(--accent); }
 .credit-list b { font-weight: 500; }
 .credit-list span { color: var(--muted); font-size: 13px; }
+.credit-list.authors a { padding: 16px 18px; }
+.credit-list.authors b { font-family: var(--display); font-variation-settings: "wdth" 85; font-weight: 750; font-size: 20px; }
 .blocks { display: grid; gap: 8px; }
 .blocks h2 { margin-top: 18px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
@@ -462,7 +464,7 @@ const T = {
   it: {
     'nav.home': 'Home', 'nav.features': 'Funzionalità', 'nav.requirements': 'Requisiti', 'nav.open': 'Aperto', 'nav.guide': 'Guida', 'nav.faq': 'Domande',
     'nav.download': 'Download', 'nav.get': 'Scarica OwneetOS', 'nav.menu': 'Menu',
-    'hero.kicker': 'Collegalo. Giocaci. Fallo tuo!', 'nav.info': 'Info',
+    'hero.kicker': 'Plug it. Play it. Own it!',   // the slogan: never translated 'nav.info': 'Info',
     'info.title': 'Serve aiuto?', 'info.lede': 'Tutto su come installare e usare OwneetOS.',
     'info.guide': 'Dalla chiavetta USB al primo gioco.', 'info.faq': 'Le risposte alle domande più comuni.',
     'hero.title': 'Trasforma il tuo PC in una console.',
@@ -533,7 +535,7 @@ const PAGES = {
     },
     credits: {
       title: 'Credits', lede: 'OwneetOS is built on the work of many free projects. Thank you.',
-      groups: ['In OwneetOS', 'In this site'], more: 'Every project and its licence: CREDITS.md on GitHub',
+      authors: 'Made by', groups: ['In OwneetOS', 'In this site'], more: 'Every project and its licence: CREDITS.md on GitHub',
     },
     privacy: {
       title: 'Privacy', lede: 'We collect no data. Here is what that means.',
@@ -583,7 +585,7 @@ const PAGES = {
     },
     credits: {
       title: 'Crediti', lede: 'OwneetOS è costruito sul lavoro di tanti progetti liberi. Grazie.',
-      groups: ['In OwneetOS', 'In questo sito'], more: 'Tutti i progetti e le loro licenze: CREDITS.md su GitHub',
+      authors: 'Fatto da', groups: ['In OwneetOS', 'In questo sito'], more: 'Tutti i progetti e le loro licenze: CREDITS.md su GitHub',
     },
     privacy: {
       title: 'Privacy', lede: 'Non raccogliamo dati. Ecco cosa significa.',
@@ -605,6 +607,8 @@ const PAGES = {
     },
   },
 };
+// The authors of OwneetOS, at the top of the credits (owner, 2026-10-24): name, GitHub handle.
+const AUTHORS = [['Marco De Franco', 'fancy-dino'], ['Daniele De Padova', 'Danidepadawan']];
 // The projects credited on the page: a selection of CREDITS.md (the link gives them all), and the site's own.
 const CREDITS = [
   [['Linux', 'https://kernel.org', 'GPL-2.0'], ['Arch Linux', 'https://archlinux.org', 'various'], ['systemd', 'https://systemd.io', 'LGPL-2.1+'],
@@ -860,7 +864,9 @@ function pageHtml(name) {
   if (name === 'credits') {
     const group = (list, i) => `<h2>${P.groups[i]}</h2><div class="credit-list">` +
       list.map(([n, u, l]) => `<a href="${u}"><b>${n}</b><span>${l}</span></a>`).join('') + '</div>';
-    body = '<div class="credits">' + CREDITS.map(group).join('') +
+    const authors = `<h2>${P.authors}</h2><div class="credit-list authors">` +
+      AUTHORS.map(([n, h]) => `<a href="https://github.com/${h}"><b>${n}</b><span>${h}</span></a>`).join('') + '</div>';
+    body = '<div class="credits">' + authors + CREDITS.map(group).join('') +
       `<p><a class="more" href="${REPO}/blob/main/CREDITS.md">${P.more}</a></p></div>`;
   }
   if (name === 'privacy') body = `<div class="blocks">${P.blocks.map(([h, p]) => `<h2>${h}</h2><p>${p}</p>`).join('')}` +
