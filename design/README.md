@@ -26,6 +26,10 @@ Mockups and design assets.
     ([[step-7.8-website]]), one page whose sections snap, the features in a carousel, the
     console's home screen drawn; English and Italian; the "Demo 7.8" button switches palette,
     light / dark and logo. Start state: `#features&lang=it&pal=dusk&logo=current`.
+  - [`7.8b-website-pages.html`](demos/7.8b-website-pages.html): the website's pages
+    ([[step-7.8b-website-pages]]): guide, FAQ, credits, privacy, contributing (`#/guide`, ...),
+    on the approved home with the gamepad "O" logo; the logo's start-up animation (website
+    variant) plays before the site. Start state: `#/faq&lang=it&pal=dusk&intro=off`.
   - [`logo-gamepad-o.html`](demos/logo-gamepad-o.html): a draft of a new logo, outside the
     roadmap (owner, 2026-10-19; nothing in the system uses it, the final logo is
     [[step-7.6-final-logo-and-brand]]): the first "O" as a circle with a gamepad cut out of it,
