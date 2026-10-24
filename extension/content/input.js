@@ -7,7 +7,9 @@
 // frame only; the console's keyboard and "Close {name}?" go through the background worker and the
 // bridge to owneetd. A supported web app has a navigation of its own, which takes the buttons it
 // wants ([[extension-design]] "One navigation per supported app"): YouTube's TV interface
-// (youtube-tv.js, "Inside YouTube"), Netflix (netflix.js, "Inside Netflix").
+// (youtube-tv.js, "Inside YouTube"), Netflix (netflix.js, "Inside Netflix"), Spotify (spotify.js,
+// "Inside Spotify"). X, Y, Menu, LB / RB and LT / RT mean something only where such an app gives
+// them a meaning.
 
 'use strict';
 
@@ -16,9 +18,9 @@
   const Nav = OwneetNav;
 
   // Standard Gamepad API mapping
-  const BTN = { a: 0, b: 1, y: 3, lt: 6, rt: 7, up: 12, down: 13, left: 14, right: 15 };
+  const BTN = { a: 0, b: 1, x: 2, y: 3, lb: 4, rb: 5, lt: 6, rt: 7, menu: 9, up: 12, down: 13, left: 14, right: 15 };
   const REPEAT_FIRST = 360, REPEAT_NEXT = 140;     // held directions ([[controller-input-map]])
-  const TRIGGER_FIRST = 720, TRIGGER_NEXT = 360;   // held LT / RT
+  const TRIGGER_FIRST = 720, TRIGGER_NEXT = 360;   // held LB / RB and LT / RT
   const TRIGGER_ON = 0.5, TRIGGER_OFF = 0.25;      // analog triggers: pressed past half, released under a quarter
   const STICK = 0.5;                               // left stick: a direction past half its travel
   const SCROLL_DEAD = 0.2, SCROLL_SPEED = 22;      // right stick: px per frame at full tilt
@@ -273,6 +275,9 @@
     return l === r ? 0 : l ? -1 : 1;
   }
   let heldTrigger = 0, triggerAt = 0;
+  // LB / RB as one value: -1 (LB), 1 (RB) or 0
+  const shoulder = on => { const l = on(BTN.lb), r = on(BTN.rb); return l === r ? 0 : l ? -1 : 1; };
+  let heldShoulder = 0, shoulderAt = 0;
   let active = false;     // the page had the controller in the previous frame
   function frame(now) {
     const p = document.visibilityState === 'visible' && document.hasFocus() ? pad() : null;
@@ -283,11 +288,13 @@
         // buttons still held from the console count only once released and pressed again (B
         // that closed the keyboard must not also go back), a held direction or trigger waits to
         // repeat
-        for (const i of [BTN.a, BTN.b, BTN.y]) prev[i] = on(i);
+        for (const i of [BTN.a, BTN.b, BTN.x, BTN.y, BTN.menu]) prev[i] = on(i);
         heldDir = direction(p, on);
         repeatAt = now + REPEAT_FIRST;
         heldTrigger = trigger(p);
         triggerAt = now + TRIGGER_FIRST;
+        heldShoulder = shoulder(on);
+        shoulderAt = now + TRIGGER_FIRST;
         active = true;
       }
       const edge = i => { const d = on(i), was = prev[i]; prev[i] = d; return d && !was; };
@@ -300,15 +307,27 @@
         lastInput = now;
       }
       heldDir = dir;
-      if ((Math.abs(rx) > SCROLL_DEAD || Math.abs(ry) > SCROLL_DEAD) && !(site && site.scroll())) {
-        const s = current && Nav.usable(current) ? Nav.scroller(current) : document.scrollingElement;
-        s.scrollBy({ left: Math.abs(rx) > SCROLL_DEAD ? rx * SCROLL_SPEED : 0, top: Math.abs(ry) > SCROLL_DEAD ? ry * SCROLL_SPEED : 0 });
+      if (Math.abs(rx) > SCROLL_DEAD || Math.abs(ry) > SCROLL_DEAD) {
+        const dx = Math.abs(rx) > SCROLL_DEAD ? rx * SCROLL_SPEED : 0, dy = Math.abs(ry) > SCROLL_DEAD ? ry * SCROLL_SPEED : 0;
+        if (!(site && site.scroll(dx, dy))) {
+          const s = current && Nav.usable(current) ? Nav.scroller(current) : document.scrollingElement;
+          s.scrollBy({ left: dx, top: dy });
+        }
         lastInput = now;
       }
       if (edge(BTN.a)) { if (!(site && site.press())) press(); lastInput = now; }
       if (edge(BTN.b)) { if (!(site && site.back(() => send({ type: 'ask_close' })))) back(); lastInput = now; }
-      // Y and LT / RT: only a supported app gives them a meaning
+      // X, Y, Menu, LB / RB and LT / RT: only a supported app gives them a meaning
       if (edge(BTN.y) && site) { site.page(); lastInput = now; }
+      if (edge(BTN.x) && site && site.secondary) { site.secondary(); lastInput = now; }
+      if (edge(BTN.menu) && site && site.options) { site.options(); lastInput = now; }
+      const sh = shoulder(on);
+      if (sh && (sh !== heldShoulder || now >= shoulderAt)) {
+        if (site && site.section) site.section(sh);
+        shoulderAt = now + (sh === heldShoulder ? TRIGGER_NEXT : TRIGGER_FIRST);
+        lastInput = now;
+      }
+      heldShoulder = sh;
       const t = trigger(p);
       if (t && (t !== heldTrigger || now >= triggerAt)) {
         if (site) site.seek(t);
@@ -327,13 +346,16 @@
   // took the button, false to leave it to the generic navigation
   const env = { document, location, KeyboardEvent, MouseEvent, PointerEvent,
     setTimeout: (f, ms) => setTimeout(f, ms), now: () => performance.now() };
+  // The ring, for the apps driven part by part
+  const ringPage = { Nav, skip: ringHost, current: () => (settle() ? current : null), moveTo, click: clickAt,
+    openKeyboard: el => { moveTo(el); el.focus({ preventScroll: true }); Keyboard.open(el); } };
   const site = OwneetTV.matches(location) ? OwneetTV.driver(env)
-    : OwneetNetflix.matches(location) ? OwneetNetflix.driver(env, {
-      Nav, skip: ringHost, current: () => (settle() ? current : null), moveTo, click: clickAt,
-      openKeyboard: el => { moveTo(el); el.focus({ preventScroll: true }); Keyboard.open(el); },
-    })
+    : OwneetNetflix.matches(location) ? OwneetNetflix.driver(env, ringPage)
+    : OwneetSpotify.matches(location) ? OwneetSpotify.driver(env, ringPage)
     : null;
 
   connect();
+  // An app drawn as on a screen layoutWidth px wide (Spotify on a TV): the worker sets Brave's zoom
+  if (site && site.layoutWidth) send({ type: 'zoom', width: site.layoutWidth, innerWidth });
   requestAnimationFrame(frame);
 })();

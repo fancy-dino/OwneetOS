@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.50
+pkgver=0.0.51
 pkgrel=1
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
@@ -48,7 +48,7 @@ sha256sums=('SKIP'
             'c9c68827da07fd5cb18a738e9bb8372c234f8d8a761e1dc23629b537dc34864a'
             '9fc9e8f3f152c33c5c8afd95795e496bd6df0a1464f2f438720d0d37c01c509a'
             '64e0f5f898a6d10d8d005e3244228efefe4c09ca2af8a5ca312a2a52c98ee231'
-            '1f8dcc23da09d8f649ef63f11bd290e0b427e93c53fd129d76b3f071eeeb46ed'
+            'f55d918d3b477845dbd0c453d402a43888fe3ca0224f8de82542fc5f6a6a0b72'
             '7735866ea379018ed106f4dc1b0f964376ddff2d4e7c922af8ea081a08b77131'
             '25fd1c3c58527e17a0b9922fcb1b0966f10712719f372707b9176ddd1af127b1'
             '43b9b5cd50a82ba2aa9dc7cd1adebde87675badeda14c98ee1a3993e3894cce0')
@@ -75,7 +75,8 @@ package() {
   install -Dm644 50-owneet-apps.rules "$pkgdir/usr/share/polkit-1/rules.d/50-owneet-apps.rules"
   # Brave in the OS ([[step-5.1-brave-in-the-os]]): managed policies that lock its settings (no
   # telemetry, no Rewards / Wallet / VPN / AI chat, no sign-in or sync, no downloads or printing,
-  # internal pages blocked); harmless while Brave is not installed. owneetd loads the console's
+  # no password or address saving, whose windows need a mouse: [[step-5.5-spotify]]; internal
+  # pages blocked); harmless while Brave is not installed. owneetd loads the console's
   # extension from /usr/share/owneet/extension when it opens a web app (no store, no update server).
   install -Dm644 brave-policies.json "$pkgdir/etc/brave/policies/managed/owneet.json"
   # A used profile gets a changed worker only with a new version AND a new file name

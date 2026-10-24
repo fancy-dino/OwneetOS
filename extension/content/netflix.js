@@ -17,11 +17,13 @@
 //
 // Netflix's element names (data-uia, read with probes in the test VM on 2026-10-22) live in NAMES:
 // Netflix renames its site from time to time, and what is not found falls back to the generic
-// navigation. The geometry is tested without a browser (test/netflix.test.js).
+// navigation. The rows' geometry is shared with Spotify (shared.js, test/shared.test.js).
 
 'use strict';
 
 var OwneetNetflix = (() => {
+  const { nearestTo, insideAcross, afterSlide, sendKey: keyTo } = typeof OwneetShared !== 'undefined'
+    ? OwneetShared : require('./shared.js');
   const NAMES = {
     row: '[data-uia^="carousel-row-section"]',
     rowArea: '[data-uia="carousel-scroller"]',
@@ -57,25 +59,6 @@ var OwneetNetflix = (() => {
 
   const matches = loc => /(^|\.)netflix\.com$/.test(loc.hostname);
 
-  // The index of the box whose centre is nearest to x across (-1: none)
-  function nearestTo(x, rects) {
-    let best = -1, bestD = Infinity;
-    rects.forEach((r, i) => {
-      const d = Math.abs(r.left + r.width / 2 - x);
-      if (d < bestD) { best = i; bestD = d; }
-    });
-    return best;
-  }
-  // Is the box fully inside the area across (left / right; 2 px of slack)?
-  const insideAcross = (r, area) => r.left >= area.left - 2 && r.right <= area.right + 2;
-  // After a row slid on: the tile to select among the visible ones (rects), given the label of the
-  // tile that was wanted (labels) and the direction (1: right, -1: left)
-  function afterSlide(labels, wanted, step) {
-    const same = wanted ? labels.indexOf(wanted) : -1;
-    if (same >= 0) return same;
-    return labels.length ? (step > 0 ? 0 : labels.length - 1) : -1;
-  }
-
   // env: { document, location, KeyboardEvent, MouseEvent, PointerEvent, setTimeout, now } of the page; page: the
   // ring of input.js { Nav, skip, current(), moveTo(el), click(el), openKeyboard(el) }
   function driver(env, page) {
@@ -89,12 +72,7 @@ var OwneetNetflix = (() => {
     let controlsAt = -Infinity;   // when the player's controls were last brought up
     let wiggle = 1;               // a mouse movement must move to count
 
-    function sendKey(target, key, code, keyCode) {
-      for (const type of ['keydown', 'keyup']) {
-        target.dispatchEvent(new env.KeyboardEvent(type, { key, code, keyCode, which: keyCode,
-          bubbles: true, cancelable: true, composed: true }));
-      }
-    }
+    const sendKey = (target, key, code, keyCode) => keyTo(env, target, key, code, keyCode);
 
     // ---- What is on screen
     const player = () => loc.pathname.startsWith('/watch/') ? q(NAMES.player) : null;
@@ -350,7 +328,7 @@ var OwneetNetflix = (() => {
     };
   }
 
-  return { NAMES, matches, nearestTo, insideAcross, afterSlide, driver };
+  return { NAMES, matches, driver };
 })();
 
 if (typeof module !== 'undefined') module.exports = OwneetNetflix;

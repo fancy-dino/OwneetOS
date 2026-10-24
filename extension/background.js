@@ -39,12 +39,26 @@ function connectBridge() {
   bridge.postMessage({ type: 'hello' });
 }
 
+// A supported web app drawn as on a screen msg.width px wide (Spotify on a TV, [[extension-design]]
+// "Spotify"): Brave's zoom for the page's tab, from what the page measures at the zoom it has now,
+// between 100 % and 300 % in steps of 5 %
+async function zoomTab(page, msg) {
+  const tab = page.sender && page.sender.tab;
+  if (!tab || !(msg.width > 0) || !(msg.innerWidth > 0)) return;
+  try {
+    const now = await chrome.tabs.getZoom(tab.id);
+    const want = Math.min(3, Math.max(1, Math.round(now * msg.innerWidth / msg.width * 20) / 20));
+    if (Math.abs(want - now) >= 0.05) await chrome.tabs.setZoom(tab.id, want);
+  } catch (_) { /* the tab went away */ }
+}
+
 chrome.runtime.onConnect.addListener(page => {
   if (page.name !== 'page') return;
   pages.add(page);
   connectBridge();
   if (look) page.postMessage(look);
   page.onMessage.addListener(msg => {
+    if (msg.type === 'zoom') { zoomTab(page, msg); return; }
     if (msg.type === 'keyboard' && msg.open) {
       if (!bridge) { page.postMessage({ type: 'keyboard_closed' }); return; }
       keyboardPage = page;

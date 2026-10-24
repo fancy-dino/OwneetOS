@@ -16,11 +16,18 @@ Files:
 - `content/input.js`: the Gamepad API loop, the ring, A, B, the right stick, text fields;
 - `content/youtube-tv.js`: on YouTube's TV interface the buttons become its keys (arrows, Enter,
   Escape) and B asks to close where Escape changes nothing (tested by `test/youtube-tv.test.js`);
+- `content/shared.js`: what the supported apps' navigations share (rows of tiles that slide on,
+  keys sent as a keyboard sends them; tested by `test/shared.test.js`);
 - `content/netflix.js`: Netflix's own navigation (rows and tiles, the title window, the player's
   controls, LT / RT ±10 s, Y search), Netflix's element names in one place; elsewhere the generic
-  navigation (geometry tested by `test/netflix.test.js`);
+  navigation (tested by `test/netflix.test.js`);
+- `content/spotify.js`: Spotify's own navigation (shelves and cards, song lists, Your Library, X
+  queue, Y the player bar, Menu its context menu, LT / RT ±5 s, LB / RB Home / Search / Your
+  Library), drawn bigger on a TV and its right panel folded; Spotify's element names in one place
+  (tested by `test/spotify.test.js`);
 - `background.js`: relays the page's messages to `owneet-bridge`, the native-messaging host that
-  talks to owneetd (the console's keyboard, "Close {name}?"). Installed as
+  talks to owneetd (the console's keyboard, "Close {name}?"), and sets Brave's zoom for an app
+  drawn bigger on a TV (Spotify). Installed as
   `background-<hash of its content>.js`, and the installed `manifest.json` gets that name and
   owneet-base's version (`<pkgver>.<pkgrel>`): a used profile picks up a changed worker only when
   both change ([[brave-extension-worker-cached]]). The `version` in this folder is not shipped.
