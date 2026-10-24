@@ -38,6 +38,11 @@ Mockups and design assets.
     browser's tab ([[step-7.8e-website-favicon]]) from the gamepad "O": whole mark, simple mark or
     on a tile; following the device's theme or always one colour; on light and dark tab bars,
     pixel by pixel at 16 and 32 px, on a phone's home screen. Start state: `#shape=b&colour=theme`.
+  - [`7.8f-website-sharing-picture.html`](demos/7.8f-website-sharing-picture.html): the picture
+    shown when a link to the website is shared ([[step-7.8f-website-search-and-sharing]]):
+    A the logo and the slogan (one picture for every language), B the logo and the home's title
+    (one per language); Dusk or Daylight; whole and in two plain link previews. Start state:
+    `#shape=b&pal=dusk&lang=it`.
   - [`logo-gamepad-o.html`](demos/logo-gamepad-o.html): a draft of a new logo, outside the
     roadmap (owner, 2026-10-19; nothing in the system uses it, the final logo is
     [[step-7.6-final-logo-and-brand]]): the first "O" as a circle with a gamepad cut out of it,
