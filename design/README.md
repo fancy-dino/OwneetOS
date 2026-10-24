@@ -30,6 +30,10 @@ Mockups and design assets.
     ([[step-7.8b-website-pages]]): guide, FAQ, credits, privacy, contributing (`#/guide`, ...),
     on the approved home with the gamepad "O" logo; the logo's start-up animation (website
     variant) plays before the site. Start state: `#/faq&lang=it&pal=dusk&intro=off`.
+  - [`7.8d-website-not-found.html`](demos/7.8d-website-not-found.html): the website's not-found
+    page ([[step-7.8d-website-not-found-page]]), on the approved pages: shown for any address
+    that leads nowhere, in Italian when the address starts with `/it/`, with the way home, the
+    guide and the questions. Start state: `#/it/nowhere&pal=dusk&intro=off`.
   - [`logo-gamepad-o.html`](demos/logo-gamepad-o.html): a draft of a new logo, outside the
     roadmap (owner, 2026-10-19; nothing in the system uses it, the final logo is
     [[step-7.6-final-logo-and-brand]]): the first "O" as a circle with a gamepad cut out of it,
