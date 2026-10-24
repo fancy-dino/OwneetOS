@@ -34,6 +34,10 @@ Mockups and design assets.
     page ([[step-7.8d-website-not-found-page]]), on the approved pages: shown for any address
     that leads nowhere, in Italian when the address starts with `/it/`, with the way home, the
     guide and the questions. Start state: `#/it/nowhere&pal=dusk&intro=off`.
+  - [`7.8e-website-favicon.html`](demos/7.8e-website-favicon.html): the website's icon in the
+    browser's tab ([[step-7.8e-website-favicon]]) from the gamepad "O": whole mark, simple mark or
+    on a tile; following the device's theme or always one colour; on light and dark tab bars,
+    pixel by pixel at 16 and 32 px, on a phone's home screen. Start state: `#shape=b&colour=theme`.
   - [`logo-gamepad-o.html`](demos/logo-gamepad-o.html): a draft of a new logo, outside the
     roadmap (owner, 2026-10-19; nothing in the system uses it, the final logo is
     [[step-7.6-final-logo-and-brand]]): the first "O" as a circle with a gamepad cut out of it,
