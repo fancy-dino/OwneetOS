@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
+#
+# pkgver is the version of OwneetOS itself (/usr/share/owneet/version): every release publishes this
+# package with the release's number ([[step-7.2-release-pipeline]]); 0.0.x until the first release.
+pkgname=owneet-updates
+pkgver=0.0.1
+pkgrel=1
+pkgdesc="OwneetOS updates: signed releases, checked by the console, installed when the player asks"
+arch=('any')
+url="https://github.com/fancy-dino/OwneetOS"
+license=('GPL-3.0-or-later')
+depends=('bash' 'coreutils' 'curl' 'pacman' 'systemd' 'polkit' 'owneet-rollback' 'owneet-keyring')
+backup=('etc/owneet/updates.conf')
+install=owneet-updates.install
+source=('owneet-updates' 'owneet-updates-check.service' 'owneet-updates-check.timer' 'owneet-updates-apply.service'
+        'owneet-rollback-now.service' '50-owneet-updates.rules' 'updates.conf' '50-owneet-updates.preset')
+sha256sums=('0a389805bd586484253ad5e6271a4ee43649a5bea8c06fbebaf275ba306fbbde'
+            '79ef05dc359fb50e8ecc78300c3a970e574cc4b1ba955e2e3ac6aee58d370cac'
+            '90c6df377912a7e41292d16cf78e1de4217f990c5edc7be5f77ac2ee72f13daf'
+            '223d733690efed473165626598882ab61c02e3b3ea5a4d76c2183a9e8714feed'
+            'e57d83bfc73c46403dc91a352b6a106d64929a9f8ed48ff79ca394ef60646c2d'
+            '78ebe577ff2b030ce95e75cd2d6ffc275fccd0322c1bda8ca876b7e5013df917'
+            '85b7828335ee4b50051cb03206c057a04fb5fe5e026886783effb514b28354d0'
+            'afc0f2960ae094755b049f8237c2d35e72c52ac4bd1758aab2899beadbf9a357')
+
+package() {
+  install -Dm755 owneet-updates "$pkgdir/usr/lib/owneet/owneet-updates"
+  install -Dm644 owneet-updates-check.service owneet-updates-check.timer owneet-updates-apply.service \
+    owneet-rollback-now.service -t "$pkgdir/usr/lib/systemd/system/"
+  install -Dm644 50-owneet-updates.rules "$pkgdir/usr/share/polkit-1/rules.d/50-owneet-updates.rules"
+  install -Dm644 updates.conf "$pkgdir/etc/owneet/updates.conf"
+  install -Dm644 50-owneet-updates.preset "$pkgdir/usr/lib/systemd/system-preset/50-owneet-updates.preset"
+  install -dm755 "$pkgdir/usr/share/owneet"
+  echo "$pkgver" > "$pkgdir/usr/share/owneet/version"
+}

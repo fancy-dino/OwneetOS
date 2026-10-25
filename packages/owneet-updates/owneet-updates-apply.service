@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Installs the newest OwneetOS release when the player asks (owneet-updates apply,
+# [[step-7.1-updates]]); started by owneetd from Settings → System (polkit rule
+# 50-owneet-updates.rules).
+[Unit]
+Description=OwneetOS: install the update
+ConditionPathExists=/etc/owneet/installed
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/owneet/owneet-updates apply
+TimeoutStartSec=2h

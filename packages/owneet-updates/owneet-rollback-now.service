@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Settings → System → "Go back to the previous version": the spare copy becomes the system at the
+# next start-up (owneet-rollback now, [[step-6.3-installer-backend]]); owneetd restarts the console
+# afterwards. Started through polkit rule 50-owneet-updates.rules.
+[Unit]
+Description=OwneetOS: go back to the previous version at the next start-up
+ConditionPathExists=/etc/owneet/installed
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/owneet/owneet-rollback now

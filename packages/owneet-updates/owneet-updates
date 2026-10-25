@@ -1,0 +1,162 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Updates of an installed OwneetOS ([[step-7.1-updates]], [[distribution-and-updates]]): signed
+# releases published as GitHub Releases, checked by the console by itself and installed only when
+# the player asks, around the rollback of owneet-rollback. Runs as root, through systemd only
+# (owneet-updates-check.service / .timer, owneet-updates-apply.service; a polkit rule lets the
+# console user start them). Updates from the testers' USB stick are owneet-update, not this.
+#
+#   owneet-updates check    the signed list of releases; whether a newer one exists, what it
+#                           changes and its download size
+#   owneet-updates apply    installs the newest release: owneet-rollback prepare, the release's
+#                           pacman.conf, download, install, owneet-rollback arm
+#
+# The list (URL/releases.json, signed: releases.json.sig) has one release per line, newest first:
+#   {"version": "0.4.0", "date": "2026-11-01", "archive": "2026/10/28", "notes": {"en": "…", "it": "…"}},
+# "archive" is the Arch Linux Archive date of the release. Each release's OwneetOS packages are the
+# GitHub release vVERSION (URL/vVERSION/owneet.db, signed). The verified list is copied to
+# /run/owneet/releases.json for owneetd (it shows the notes in the player's language).
+#
+# State for owneetd in /run/owneet/system-update.json: {"state", "current", "version", "date",
+# "size", "packages": [{"name", "from", "to"}], "percent", "error", "time"}. States: none (up to
+# date), available, downloading, installing, ready (restart to finish), failed; errors: offline,
+# not_signed, not_installed, on_previous, download_failed, install_failed. The packages are shown
+# only in the optional "Details" section.
+
+set -uo pipefail
+
+MODE="${1:-check}"
+CONF=/etc/owneet/updates.conf
+URL=https://github.com/fancy-dino/OwneetOS/releases/download
+# shellcheck source=/dev/null
+[[ -f "$CONF" ]] && source <(grep -E '^URL=[A-Za-z0-9:/._%-]+$' "$CONF")
+VERSION_FILE=/usr/share/owneet/version
+TEMPLATE=/usr/share/owneet/pacman.conf
+STATE=/run/owneet/system-update.json
+LIST=/run/owneet/releases.json
+WORK=/run/owneet-updates
+ROLLBACK=/usr/lib/owneet/owneet-rollback
+mkdir -p /run/owneet "$WORK"
+
+CURRENT="$(cat "$VERSION_FILE" 2>/dev/null || echo 0.0.0)"
+
+json_string() { printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')"; }
+
+# write_state STATE [ERROR] [PERCENT]; the release found and its packages come from $WORK
+write_state() {
+    local packages="[]" version="" date="" size=0
+    [[ -f "$WORK/release" ]] && read -r version date _ < "$WORK/release"
+    [[ -f "$WORK/size" ]] && size="$(cat "$WORK/size")"
+    if [[ -s "$WORK/packages" ]]; then
+        packages="[$(awk '{ printf "%s{\"name\":\"%s\",\"from\":\"%s\",\"to\":\"%s\"}", sep, $1, $2, $3; sep = "," }' "$WORK/packages")]"
+    fi
+    printf '{"state":"%s","current":"%s","version":"%s","date":"%s","size":%s,"packages":%s,"percent":%s,"error":%s,"time":"%s"}\n' \
+        "$1" "$CURRENT" "$version" "$date" "${size:-0}" "$packages" "${3:-0}" "$(json_string "${2:-}")" \
+        "$(date -u +%FT%TZ)" > "$STATE.tmp"
+    mv "$STATE.tmp" "$STATE"
+}
+fail() { echo "owneet-updates: $2" >&2; write_state failed "$1"; exit 1; }
+
+# Only systems installed by owneet-install have the rollback the updates rely on
+[[ -f /etc/owneet/installed ]] || fail not_installed "not installed by owneet-install"
+
+# The release's pacman.conf: the system's own, its Arch Linux Archive date moved to the release's,
+# and the release's OwneetOS packages first (signatures required)
+release_conf() {
+    local version="$1" archive="$2"
+    awk -v server="$URL/v$version" '
+        /^\[core\]/ && !done { print "[owneet]"; print "SigLevel = Required DatabaseRequired"; print "Server = " server; print ""; done = 1 }
+        { print }
+    ' "$TEMPLATE" | sed -E "s#/repos/[0-9]{4}/[0-9]{2}/[0-9]{2}/#/repos/$archive/#"
+}
+
+# The newest release in the verified list: "VERSION DATE ARCHIVE"
+newest() {
+    sed -nE 's/^[[:space:]]*\{"version": *"([0-9][0-9.]*)", *"date": *"([0-9-]+)", *"archive": *"([0-9]{4}\/[0-9]{2}\/[0-9]{2})".*/\1 \2 \3/p' "$LIST" | head -1
+}
+
+case "$MODE" in
+check)
+    booted=false; grep -qw owneet.previous /proc/cmdline && booted=true
+    rm -f "$WORK/release" "$WORK/packages" "$WORK/size"
+    for f in releases.json releases.json.sig; do
+        code="$(curl -sSL --retry 2 --max-time 60 -o "$WORK/$f" -w '%{http_code}' "$URL/updates/$f" 2>/dev/null)"
+        # no list published yet (before the first release): nothing to install
+        if [[ "$code" == 404 ]]; then write_state none; exit 0; fi
+        [[ "$code" == 200 ]] || fail offline "cannot download the list of releases (HTTP ${code:-none})"
+    done
+    pacman-key --verify "$WORK/releases.json.sig" "$WORK/releases.json" >/dev/null 2>&1 \
+        || fail not_signed "the list of releases is not signed by OwneetOS"
+    cp "$WORK/releases.json" "$LIST"
+    read -r version date archive < <(newest)
+    if [[ -z "${version:-}" || "$(vercmp "$version" "$CURRENT")" -le 0 ]]; then
+        write_state none
+        exit 0
+    fi
+    echo "$version $date $archive" > "$WORK/release"
+    # What it changes, in a database of its own (the system's sync databases stay untouched)
+    db="$WORK/db"
+    rm -rf "$db"; mkdir -p "$db"; ln -s /var/lib/pacman/local "$db/local"
+    release_conf "$version" "$archive" > "$WORK/pacman.conf"
+    if pacman --config "$WORK/pacman.conf" --dbpath "$db" -Sy >/dev/null 2>&1; then
+        pacman --config "$WORK/pacman.conf" --dbpath "$db" -Sup --print-format '%n %v %s' 2>/dev/null \
+            | while read -r name to bytes; do
+                from="$(pacman -Q "$name" 2>/dev/null | cut -d' ' -f2)"
+                echo "$name ${from:--} $to $bytes"
+            done > "$WORK/changes"
+        awk '{ print $1, $2, $3 }' "$WORK/changes" > "$WORK/packages"
+        awk '{ s += $4 } END { print s + 0 }' "$WORK/changes" > "$WORK/size"
+    fi
+    write_state available
+    $booted && echo "owneet-updates: started from the spare copy: keep it before updating" >&2
+    ;;
+
+apply)
+    grep -qw owneet.previous /proc/cmdline && fail on_previous "started from the spare copy"
+    [[ -f "$WORK/release" ]] || "$0" check >/dev/null || exit 1
+    [[ -f "$WORK/release" ]] || { write_state none; exit 0; }
+    read -r version date archive < "$WORK/release"
+    total="$(cat "$WORK/size" 2>/dev/null || echo 0)"
+    write_state downloading "" 0
+
+    # The running system becomes the spare copy (if it has worked), then the release's packages
+    "$ROLLBACK" prepare || fail install_failed "the spare copy could not be made"
+    cp /etc/pacman.conf "$WORK/pacman.conf.before"
+    release_conf "$version" "$archive" > /etc/pacman.conf
+
+    # Download (the progress follows the bytes in pacman's cache)
+    cache=/var/cache/pacman/pkg
+    start="$(du -sb "$cache" | cut -f1)"
+    pacman -Syuw --noconfirm --noprogressbar > "$WORK/download.log" 2>&1 &
+    pid=$!
+    while kill -0 "$pid" 2>/dev/null; do
+        sleep 2
+        now="$(du -sb "$cache" | cut -f1)"
+        (( total > 0 )) && write_state downloading "" $(( (now - start) * 100 / total > 100 ? 100 : (now - start) * 100 / total ))
+    done
+    if ! wait "$pid"; then
+        # nothing installed: the system stays as it was
+        cp "$WORK/pacman.conf.before" /etc/pacman.conf
+        fail download_failed "the download failed (see $WORK/download.log)"
+    fi
+
+    # Install; from here a broken system goes back by itself (3 tries)
+    write_state installing "" 0
+    pacman -Su --noconfirm --noprogressbar 2>&1 | tee "$WORK/install.log" | while read -r line; do
+        if [[ "$line" =~ ^\(\ *([0-9]+)/\ *([0-9]+)\)\ (upgrading|installing|reinstalling|downgrading) ]]; then
+            write_state installing "" $(( BASH_REMATCH[1] * 100 / BASH_REMATCH[2] ))
+        fi
+    done
+    status="${PIPESTATUS[0]}"
+    "$ROLLBACK" arm
+    (( status == 0 )) || fail install_failed "the installation failed (see $WORK/install.log)"
+    rm -f "$WORK/packages" "$WORK/size"
+    write_state ready
+    ;;
+
+*)
+    echo "usage: owneet-updates check|apply" >&2
+    exit 2
+    ;;
+esac

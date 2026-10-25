@@ -29,6 +29,7 @@ first if it is missing.
 | [`owneet-session`](owneet-session/) | Console user `owneet`, autologin on tty1, `owneet-session` (gamescope or cage, restarts, fallback) and the fullscreen placeholder shown until the real UI exists. |
 | [`owneet-installer`](owneet-installer/) | The installer's backend: `owneet-install disks` (the internal disks as JSON, with Windows and BitLocker found) and `owneet-install install` (offline, the stick's own image on a whole disk; started by the console through `owneet-install.service`, its progress in `/run/owneet/install.json`). Runs only on the live stick. |
 | [`owneet-rollback`](owneet-rollback/) | Rollback of an installed system: one spare copy (btrfs snapshot) of the last version that worked, `owneet-rollback prepare`/`arm` around an update, systemd-boot's boot counting (3 tries), `owneet-boot-check.service` that counts a version as working, `now` (back by hand) and `keep`. |
+| [`owneet-updates`](owneet-updates/) | Updates of an installed system: `owneet-updates check` (the signed list of releases, what a newer one changes and its size; by itself through a daily timer) and `apply` (rollback `prepare`, the release's `pacman.conf`, download, install, `arm`), started by the console through polkit; `owneet-rollback-now.service` for "Go back to the previous version". Its `pkgver` is OwneetOS's version (`/usr/share/owneet/version`). |
 
 ## Rules
 
