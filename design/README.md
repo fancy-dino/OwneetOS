@@ -22,6 +22,12 @@ Mockups and design assets.
   - [`3.9-settings.html`](demos/3.9-settings.html): settings (network and Wi-Fi password, controllers
     and pairing, sound with sliders, display with several screens, appearance, language, disks,
     system with power and credits).
+  - [`7.1-updates.html`](demos/7.1-updates.html): the updates in Settings → System
+    ([[step-7.1-updates]], [[step-7.1b-going-back-to-any-version]]), on the approved settings demo:
+    the automatic check's notice, "What's new" with a closed "Details" list of packages, download
+    and install, "Restart now" / "Later", going back to the previous version or to any version
+    (with its warning), the notice after a failed update. Start state:
+    `#section=system&upd=available&lang=it` (upd: uptodate, available, ready, fellback).
   - [`7.8-website-home.html`](demos/7.8-website-home.html): the website's home
     ([[step-7.8-website]]), one page whose sections snap, the features in a carousel, the
     console's home screen drawn; English and Italian; the "Demo 7.8" button switches palette,
