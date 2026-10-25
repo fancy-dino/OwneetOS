@@ -19,8 +19,10 @@
 # read here key by key and never run: the console user writes it, this runs as root):
 # OWNEET_INSTALL_DISK, OWNEET_INSTALL_SIZE and OWNEET_INSTALL_SERIAL as the
 # disks list gave them (the disk is checked again: it must be the same one, still usable),
-# OWNEET_INSTALL_NAME (the console's name, default "OwneetOS"), and OWNEET_INSTALL_ERASE_WINDOWS=yes
-# when the disk has Windows or BitLocker on it (the specific warning was shown and confirmed). Its
+# OWNEET_INSTALL_NAME (the console's name, default "OwneetOS"), OWNEET_INSTALL_ERASE set to the
+# same disk path (always: the player confirmed that this disk will be erased; nothing is ever
+# formatted without it, owner 2026-10-25), and OWNEET_INSTALL_ERASE_WINDOWS=yes when the disk has
+# Windows or BitLocker on it (the specific warning was shown and confirmed too). Its
 # progress is written to /run/owneet/install.json for the console: {"state", "percent", "error",
 # "time"}. States: preparing, partitioning, copying, setting_up, boot, done, failed; on failure
 # "error" is one of the codes below (the console shows them in the user's language). Its log:
@@ -119,7 +121,7 @@ progress() {
     echo "==> $1 $2%${3:+ ($3)}"
 }
 # fail ERROR-CODE MESSAGE: codes not_live, not_uefi, no_disk, disk_changed, not_usable,
-# windows_not_confirmed, partition_failed, format_failed, no_image, copy_failed, setup_failed,
+# erase_not_confirmed, windows_not_confirmed, partition_failed, format_failed, no_image, copy_failed, setup_failed,
 # boot_failed
 fail() {
     echo "!! $2"
@@ -136,12 +138,12 @@ progress preparing 0
 # The request: only the OWNEET_INSTALL_* keys, taken as plain text (a regular file, not a link)
 [[ -f "$REQUEST" && ! -L "$REQUEST" ]] || fail no_disk "No request."
 OWNEET_INSTALL_DISK="" OWNEET_INSTALL_SIZE="" OWNEET_INSTALL_SERIAL="" OWNEET_INSTALL_NAME=""
-OWNEET_INSTALL_ERASE_WINDOWS=""
+OWNEET_INSTALL_ERASE="" OWNEET_INSTALL_ERASE_WINDOWS=""
 while IFS= read -r line || [[ -n "$line" ]]; do
     key="${line%%=*}" value="${line#*=}"
     [[ "$line" == *=* ]] || continue
     case "$key" in
-        OWNEET_INSTALL_DISK|OWNEET_INSTALL_SIZE|OWNEET_INSTALL_SERIAL|OWNEET_INSTALL_NAME|OWNEET_INSTALL_ERASE_WINDOWS)
+        OWNEET_INSTALL_DISK|OWNEET_INSTALL_SIZE|OWNEET_INSTALL_SERIAL|OWNEET_INSTALL_NAME|OWNEET_INSTALL_ERASE|OWNEET_INSTALL_ERASE_WINDOWS)
             printf -v "$key" '%s' "$value" ;;
     esac
 done < <(head -c 4096 "$REQUEST")
@@ -154,6 +156,8 @@ disk_info "$disk"
 [[ "$size" == "${OWNEET_INSTALL_SIZE:-}" && "$serial" == "${OWNEET_INSTALL_SERIAL:-}" ]] \
     || fail disk_changed "$disk is not the disk that was chosen (size or serial differ)."
 [[ "$usable" == true ]] || fail not_usable "$disk cannot be used: $reason."
+# never formatted without the player's confirmation for this very disk
+[[ "${OWNEET_INSTALL_ERASE:-}" == "$disk" ]] || fail erase_not_confirmed "Erasing $disk was not confirmed."
 if [[ "$windows" == true || "$bitlocker" == true ]] && [[ "${OWNEET_INSTALL_ERASE_WINDOWS:-}" != yes ]]; then
     fail windows_not_confirmed "$disk has Windows or BitLocker on it and erasing it was not confirmed."
 fi

@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-installer
-pkgver=0.0.1
+pkgver=0.0.2
 pkgrel=1
 pkgdesc="OwneetOS installer backend: installs the live USB stick's system on a whole internal disk"
 arch=('any')
@@ -12,7 +12,7 @@ license=('GPL-3.0-or-later')
 depends=('bash' 'coreutils' 'util-linux' 'btrfs-progs' 'dosfstools' 'systemd' 'polkit' 'mkinitcpio'
          'owneet-session')
 source=('owneet-install' 'owneet-install.service' '50-owneet-install.rules' 'owneet-installer.tmpfiles')
-sha256sums=('97e598fb4f37200568974de1b2c4e409b8fd3566c6874ec60f5ca4e02a421ee2'
+sha256sums=('da201b66100908b7779912ba2431898421b7b17ce251eb5c477929a26b60de70'
             '0d1337a1d9624c9a6a9aa9db7d38f0882116a46ce42e901ea9ab93acf3a5da34'
             '2b0bbb5e0c56e332fdc75d3711888ebb18a9ac3d441ebb06683e2e0c5d2681c4'
             'a9cc8cba0cc8f3e25274df35f621ad3a661f4941dfd39abb2e07554aa0262da0')
