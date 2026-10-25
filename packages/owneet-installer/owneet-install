@@ -1,0 +1,304 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The OwneetOS installer's backend ([[step-6.3-installer-backend]]): installs OwneetOS from the live
+# USB stick onto a whole internal disk, without the internet (the stick's own system image). Its
+# screens, drawn with the controller, are [[step-6.4-installer-ui]]; the decisions are
+# [[installer-and-firmware]].
+#
+#   owneet-install disks     the internal disks, as JSON on stdout (any user may run it)
+#   owneet-install install   installs on the disk of the request (root, owneet-install.service)
+#
+# disks: {"disks": [{"path", "serial", "size", "model", "usable", "reason", "windows",
+#   "bitlocker", "linux", "partitions": [{"path", "size", "fstype", "label"}]}]}. Only internal
+#   disks: never the USB stick it runs from, never other USB disks (external disks: Wave 2).
+#   "reason" says why a disk is not usable ("too_small"). "windows" and "bitlocker" say what the
+#   installer must warn about before erasing ([[user-data]]).
+#
+# install reads the request written by the console (/run/owneet-install/request, KEY=VALUE lines,
+# read here key by key and never run: the console user writes it, this runs as root):
+# OWNEET_INSTALL_DISK, OWNEET_INSTALL_SIZE and OWNEET_INSTALL_SERIAL as the
+# disks list gave them (the disk is checked again: it must be the same one, still usable),
+# OWNEET_INSTALL_NAME (the console's name, default "OwneetOS"), and OWNEET_INSTALL_ERASE_WINDOWS=yes
+# when the disk has Windows or BitLocker on it (the specific warning was shown and confirmed). Its
+# progress is written to /run/owneet/install.json for the console: {"state", "percent", "error",
+# "time"}. States: preparing, partitioning, copying, setting_up, boot, done, failed; on failure
+# "error" is one of the codes below (the console shows them in the user's language). Its log:
+# /run/owneet-install.log, copied to the installed system's /var/log.
+#
+# What it makes: GPT with an EFI system partition (1 GiB, FAT32) and btrfs for the rest, with the
+# subvolumes @ (the system, the only one a rollback takes back), @home (the console user's games,
+# saves, profiles and settings), @log and @pkg (owneet-rollback adds @previous, the spare copy of
+# the last version that worked, at the first update); the stick's image copied as it is (the
+# files that were tested), then made an installed system: fstab, the initramfs without the live
+# hooks, systemd-boot, pacman pinned to the stick's Arch Linux Archive snapshot, the console's name.
+
+set -uo pipefail
+
+MODE="${1:-}"
+STATE=/run/owneet/install.json
+REQUEST=/run/owneet-install/request
+LOG=/run/owneet-install.log
+TARGET=/mnt/owneet-target
+SOURCE=/mnt/owneet-source
+BOOTMNT=/run/archiso/bootmnt
+MIN_BYTES=$((30 * 1000 * 1000 * 1000))   # the 32 GB minimum ([[system-requirements]]), with margin
+OPTS="compress=zstd:1,noatime"
+
+# Microsoft's GPT partition types: basic data, reserved, recovery
+WINDOWS_TYPES="ebd0a0a2-b9e5-4433-87c0-68b6b72699c7 e3c9e316-0b5c-4db8-817d-f92df00215ae de94bba4-06d1-4d40-a16a-bfd50179d6ac"
+
+json_string() { printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/ /g')"; }
+
+# ---- The disks
+
+# The disk the live system started from (its USB stick): never offered.
+boot_disk() {
+    local src
+    src="$(findmnt -no SOURCE "$BOOTMNT" 2>/dev/null)" || return 0
+    [[ -n "$src" ]] && lsblk -no PKNAME "$src" 2>/dev/null | head -1
+}
+
+# disk_info PATH: sets size, serial, model, usable, reason, windows, bitlocker, linux, parts_json
+disk_info() {
+    local disk="$1" line name ptype fstype label psize
+    local pairs='^NAME="([^"]*)" PARTTYPE="([^"]*)" FSTYPE="([^"]*)" LABEL="([^"]*)" SIZE="([0-9]*)"$'
+    size="$(lsblk -dnbo SIZE "$disk")"
+    serial="$(lsblk -dno SERIAL "$disk" | xargs)"
+    model="$(lsblk -dno MODEL "$disk" | xargs)"
+    windows=false bitlocker=false linux=false parts_json=""
+    # key="value" pairs (lsblk -P writes a quote inside a value as \x22): labels may hold spaces
+    while read -r line; do
+        [[ "$line" =~ $pairs ]] || continue
+        name="${BASH_REMATCH[1]}" ptype="${BASH_REMATCH[2]}" fstype="${BASH_REMATCH[3]}"
+        label="${BASH_REMATCH[4]}" psize="${BASH_REMATCH[5]:-0}"
+        [[ "$name" == "$disk" ]] && continue
+        [[ " $WINDOWS_TYPES " == *" ${ptype,,} "* || "$fstype" == ntfs ]] && windows=true
+        [[ "$fstype" == BitLocker ]] && bitlocker=true
+        [[ "$fstype" =~ ^(ext[234]|btrfs|xfs|f2fs)$ ]] && linux=true
+        parts_json+="${parts_json:+,}{\"path\":$(json_string "$name"),\"size\":$psize,\"fstype\":$(json_string "$fstype"),\"label\":$(json_string "$label")}"
+    done < <(lsblk -npbP -o NAME,PARTTYPE,FSTYPE,LABEL,SIZE "$disk" 2>/dev/null)
+    usable=true reason=""
+    if (( size < MIN_BYTES )); then usable=false reason=too_small; fi
+}
+
+# The internal disks: not removable, not USB, not the boot stick, not zram or loop devices.
+internal_disks() {
+    local boot
+    boot="$(boot_disk)"
+    lsblk -dnpo NAME,TYPE,RM,TRAN | awk -v boot="/dev/$boot" \
+        '$2 == "disk" && $3 == "0" && $4 != "usb" && $1 != boot && $1 !~ /zram|loop/ { print $1 }'
+}
+
+list_disks() {
+    local disk out=""
+    while read -r disk; do
+        [[ -n "$disk" ]] || continue
+        disk_info "$disk"
+        out+="${out:+,}{\"path\":$(json_string "$disk"),\"serial\":$(json_string "$serial"),\"size\":$size,\"model\":$(json_string "$model"),\"usable\":$usable,\"reason\":$(json_string "$reason"),\"windows\":$windows,\"bitlocker\":$bitlocker,\"linux\":$linux,\"partitions\":[$parts_json]}"
+    done < <(internal_disks)
+    printf '{"disks":[%s]}\n' "$out"
+}
+
+if [[ "$MODE" == disks ]]; then
+    list_disks
+    exit 0
+fi
+[[ "$MODE" == install ]] || { echo "usage: owneet-install disks|install" >&2; exit 2; }
+
+# ---- Installing (root, started through owneet-install.service)
+
+mkdir -p /run/owneet
+exec > >(tee -a "$LOG") 2>&1
+
+# progress STATE PERCENT [ERROR]
+progress() {
+    printf '{"state":"%s","percent":%d,"error":%s,"time":"%s"}\n' "$1" "$2" "$(json_string "${3:-}")" \
+        "$(date -u +%FT%TZ)" > "$STATE.tmp"
+    mv "$STATE.tmp" "$STATE"
+    echo "==> $1 $2%${3:+ ($3)}"
+}
+# fail ERROR-CODE MESSAGE: codes not_live, not_uefi, no_disk, disk_changed, not_usable,
+# windows_not_confirmed, partition_failed, format_failed, no_image, copy_failed, setup_failed,
+# boot_failed
+fail() {
+    echo "!! $2"
+    umount -R "$TARGET" 2>/dev/null
+    umount "$SOURCE" 2>/dev/null
+    progress failed 0 "$1"
+    exit 1
+}
+
+progress preparing 0
+[[ -d "$BOOTMNT" ]] || fail not_live "Not started from the OwneetOS USB stick."
+[[ -d /sys/firmware/efi ]] || fail not_uefi "The PC did not start in UEFI mode."
+
+# The request: only the OWNEET_INSTALL_* keys, taken as plain text (a regular file, not a link)
+[[ -f "$REQUEST" && ! -L "$REQUEST" ]] || fail no_disk "No request."
+OWNEET_INSTALL_DISK="" OWNEET_INSTALL_SIZE="" OWNEET_INSTALL_SERIAL="" OWNEET_INSTALL_NAME=""
+OWNEET_INSTALL_ERASE_WINDOWS=""
+while IFS= read -r line || [[ -n "$line" ]]; do
+    key="${line%%=*}" value="${line#*=}"
+    [[ "$line" == *=* ]] || continue
+    case "$key" in
+        OWNEET_INSTALL_DISK|OWNEET_INSTALL_SIZE|OWNEET_INSTALL_SERIAL|OWNEET_INSTALL_NAME|OWNEET_INSTALL_ERASE_WINDOWS)
+            printf -v "$key" '%s' "$value" ;;
+    esac
+done < <(head -c 4096 "$REQUEST")
+
+# The same disk as listed, still usable; Windows or BitLocker only when confirmed
+disk="${OWNEET_INSTALL_DISK:-}"
+[[ -n "$disk" ]] || fail no_disk "No disk in the request."
+internal_disks | grep -qxF "$disk" || fail disk_changed "$disk is not one of the internal disks."
+disk_info "$disk"
+[[ "$size" == "${OWNEET_INSTALL_SIZE:-}" && "$serial" == "${OWNEET_INSTALL_SERIAL:-}" ]] \
+    || fail disk_changed "$disk is not the disk that was chosen (size or serial differ)."
+[[ "$usable" == true ]] || fail not_usable "$disk cannot be used: $reason."
+if [[ "$windows" == true || "$bitlocker" == true ]] && [[ "${OWNEET_INSTALL_ERASE_WINDOWS:-}" != yes ]]; then
+    fail windows_not_confirmed "$disk has Windows or BitLocker on it and erasing it was not confirmed."
+fi
+
+# The console's name: shown as it is (pretty name, Bluetooth), and as a host name on the network
+name="${OWNEET_INSTALL_NAME:-OwneetOS}"
+name="$(printf '%s' "$name" | tr -d '\000-\037\177' | cut -c1-40 | xargs)"
+[[ -n "$name" ]] || name=OwneetOS
+hostname="$(printf '%s' "$name" | iconv -f utf-8 -t ascii//TRANSLIT 2>/dev/null | tr '[:upper:]' '[:lower:]' \
+    | tr -c 'a-z0-9-' '-' | tr -s '-' | sed 's/^-*//; s/-*$//' | cut -c1-63)"
+[[ -n "$hostname" ]] || hostname=owneetos
+echo "Installing on $disk ($size bytes, ${model:-unknown model}, serial ${serial:-none}) as \"$name\" ($hostname)"
+
+# ---- Partitions and file systems
+progress partitioning 2
+umount -R "$TARGET" 2>/dev/null
+while read -r part; do
+    umount "$part" 2>/dev/null
+done < <(lsblk -nlpo NAME "$disk" | tail -n +2)
+swapoff -a 2>/dev/null
+wipefs -af "$disk" >/dev/null || fail partition_failed "Cannot clear $disk."
+sfdisk --quiet --wipe always --wipe-partitions always "$disk" <<'EOF' || fail partition_failed "Cannot partition $disk."
+label: gpt
+size=1GiB, type=uefi, name="OwneetOS boot"
+type=linux, name="OwneetOS"
+EOF
+udevadm settle
+part() { lsblk -nlpo NAME "$disk" | sed -n "$(( $1 + 1 ))p"; }
+esp="$(part 1)"; root="$(part 2)"
+[[ -b "$esp" && -b "$root" ]] || fail partition_failed "The new partitions were not found."
+
+mkfs.fat -F 32 -n OWNEETBOOT "$esp" >/dev/null || fail format_failed "Cannot format the boot partition."
+mkfs.btrfs -f -L OwneetOS "$root" >/dev/null || fail format_failed "Cannot format the system partition."
+mkdir -p "$TARGET"
+mount "$root" "$TARGET" || fail format_failed "Cannot mount the system partition."
+for sv in @ @home @log @pkg; do
+    btrfs subvolume create "$TARGET/$sv" >/dev/null || fail format_failed "Cannot create the subvolume $sv."
+done
+umount "$TARGET"
+mount -o "subvol=@,$OPTS" "$root" "$TARGET" || fail format_failed "Cannot mount the system."
+mkdir -p "$TARGET"/{home,var/log,var/cache/pacman/pkg,boot}
+mount -o "subvol=@home,$OPTS" "$root" "$TARGET/home"
+mount -o "subvol=@log,$OPTS" "$root" "$TARGET/var/log"
+mount -o "subvol=@pkg,$OPTS" "$root" "$TARGET/var/cache/pacman/pkg"
+mount -o umask=0077 "$esp" "$TARGET/boot" || fail format_failed "Cannot mount the boot partition."
+
+# ---- The system: the stick's own image, unchanged (5 % to 85 %)
+progress copying 5
+image="$(find "$BOOTMNT" -maxdepth 3 \( -name 'airootfs.erofs' -o -name 'airootfs.sfs' \) | head -1)"
+[[ -n "$image" ]] || fail no_image "The system image was not found on the stick."
+mkdir -p "$SOURCE"
+mount -o ro,loop "$image" "$SOURCE" || fail no_image "Cannot open the system image."
+total="$(du -sxb "$SOURCE" | cut -f1)"
+cp -a --preserve=all "$SOURCE/." "$TARGET/" &
+copy=$!
+# the progress follows the bytes already written (counted every 5 s, at low priority)
+while kill -0 "$copy" 2>/dev/null; do
+    sleep 5
+    done_bytes="$(nice -n 19 ionice -c 3 du -sxb "$TARGET" 2>/dev/null | cut -f1)"
+    if [[ -n "$done_bytes" && "$total" -gt 0 ]]; then
+        percent=$(( 5 + 80 * done_bytes / total ))
+        (( percent > 85 )) && percent=85
+        progress copying "$percent"
+    fi
+done
+wait "$copy" || fail copy_failed "Copying the system failed (is the disk full?)."
+umount "$SOURCE"
+
+# ---- From live system to installed system
+progress setting_up 86
+uuid_root="$(blkid -s UUID -o value "$root")"
+uuid_esp="$(blkid -s UUID -o value "$esp")"
+# The root's subvolume comes from the boot entry (rootflags), never from fstab: a rollback starts
+# another subvolume as the system ([[distribution-and-updates]]).
+cat > "$TARGET/etc/fstab" <<EOF
+# OwneetOS (installed by owneet-install). The system's subvolume is chosen by the boot entry.
+UUID=$uuid_root  /                       btrfs  $OPTS                    0 0
+UUID=$uuid_root  /home                   btrfs  subvol=@home,$OPTS       0 0
+UUID=$uuid_root  /var/log                btrfs  subvol=@log,$OPTS        0 0
+UUID=$uuid_root  /var/cache/pacman/pkg   btrfs  subvol=@pkg,$OPTS        0 0
+UUID=$uuid_esp   /boot                   vfat   umask=0077               0 2
+EOF
+
+# no live hooks in the initramfs (the HOOKS of the stick plus a file system check)
+rm -f "$TARGET/etc/mkinitcpio.conf.d/archiso.conf"
+cat > "$TARGET/etc/mkinitcpio.conf.d/owneet.conf" <<'EOF'
+# OwneetOS installed system: no kms hook (owneet-gpu-select chooses the NVIDIA driver at boot)
+HOOKS=(base udev microcode plymouth modconf block filesystems fsck)
+EOF
+# pacman pinned to the same Arch Linux Archive snapshot as the stick (written by tools/build-iso)
+if [[ -f "$TARGET/usr/share/owneet/pacman.conf" ]]; then
+    cp "$TARGET/usr/share/owneet/pacman.conf" "$TARGET/etc/pacman.conf"
+fi
+# the console's name
+printf '%s\n' "$hostname" > "$TARGET/etc/hostname"
+printf 'PRETTY_HOSTNAME=%s\n' "$(printf '%s' "$name" | sed 's/[\\"$`]/\\&/g; s/.*/"&"/')" > "$TARGET/etc/machine-info"
+mkdir -p "$TARGET/etc/owneet"
+echo "Installed with owneet-install on $(date -u '+%F %T') UTC" > "$TARGET/etc/owneet/installed"
+rm -f "$TARGET/etc/machine-id"
+
+for d in proc sys dev run; do mount --rbind "/$d" "$TARGET/$d"; mount --make-rslave "$TARGET/$d"; done
+in_target() { chroot "$TARGET" "$@"; }
+in_target systemd-machine-id-setup >/dev/null || fail setup_failed "Cannot create the machine ID."
+kernel="$(find "$TARGET/usr/lib/modules" -mindepth 2 -maxdepth 2 -name vmlinuz | head -1)"
+[[ -n "$kernel" ]] || fail setup_failed "The kernel was not found in the system image."
+install -m644 "$kernel" "$TARGET/boot/vmlinuz-linux"
+progress setting_up 88
+in_target mkinitcpio -p linux || fail setup_failed "Building the initramfs failed."
+in_target pacman-key --init >/dev/null 2>&1
+in_target pacman-key --populate archlinux owneet >/dev/null 2>&1
+
+# ---- The boot manager
+progress boot 96
+bootctl --esp-path="$TARGET/boot" install >/dev/null || fail boot_failed "Installing systemd-boot failed."
+# bootctl also registers "Fallback Linux Boot Manager", whose file it writes only when it updates
+# systemd-boot: some firmware (Acer Predator G3-710) offers only that entry in its settings
+cp "$TARGET/boot/EFI/systemd/systemd-bootx64.efi" "$TARGET/boot/EFI/systemd/systemd-boot-fallbackx64.efi" \
+    || fail boot_failed "Installing systemd-boot failed."
+quiet="quiet splash plymouth.ignore-serial-consoles loglevel=3 rd.udev.log_level=3 systemd.show_status=false rd.systemd.show_status=false vt.global_cursor_default=0"
+mkdir -p "$TARGET/boot/loader/entries"
+# The sort keys keep the system first, then the spare copy owneet-rollback adds
+# (owneetos-previous.conf, owneetos-2), then the fallback image. The default is a pattern: while a
+# new version is on trial its entry is renamed (owneetos+3.conf), and once out of tries
+# systemd-boot moves it to the end, so the spare copy starts ([[distribution-and-updates]]).
+cat > "$TARGET/boot/loader/loader.conf" <<'EOF'
+timeout 0
+default owneetos*
+EOF
+cat > "$TARGET/boot/loader/entries/owneetos.conf" <<EOF
+title    OwneetOS
+sort-key owneetos-1
+linux    /vmlinuz-linux
+initrd   /initramfs-linux.img
+options  root=UUID=$uuid_root rootflags=subvol=@ rw $quiet
+EOF
+cat > "$TARGET/boot/loader/entries/owneetos-fallback.conf" <<EOF
+title    OwneetOS (fallback start-up image)
+sort-key owneetos-3
+linux    /vmlinuz-linux
+initrd   /initramfs-linux-fallback.img
+options  root=UUID=$uuid_root rootflags=subvol=@ rw
+EOF
+
+progress "done" 100
+cp "$LOG" "$TARGET/var/log/owneet-install.log" 2>/dev/null
+sync
+umount -R "$TARGET" 2>/dev/null || umount -lR "$TARGET"
+echo "OwneetOS is installed on $disk."

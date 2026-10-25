@@ -1,0 +1,222 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Rollback of an installed OwneetOS ([[distribution-and-updates]], option C of
+# [[step-6.3-installer-backend]]): one spare copy of the system, always the last version that
+# worked, booted back with the controller (Settings) or by itself when a new version does not work.
+# No snapper: btrfs's own snapshots. Runs as root.
+#
+#   owneet-rollback status    JSON for the console: {"spare", "spare_date", "previous", "good",
+#                             "fell_back"}
+#   owneet-rollback prepare   before an update: if the running system has worked, it becomes the
+#                             spare copy (with its kernel and a boot entry "previous version");
+#                             otherwise the spare copy stays the last version that worked
+#   owneet-rollback arm       after an update: the new version gets 3 tries (systemd-boot's boot
+#                             counting); 3 boots that never reach the console start the spare copy
+#   owneet-rollback check     at every start-up (owneet-boot-check.service, before
+#                             boot-complete.target): waits for the console; once it has run for a
+#                             minute the version counts as working. On the spare copy started
+#                             because the new version failed, it keeps the spare copy as the system
+#   owneet-rollback now       Settings → "Go back to before the last update": the spare copy becomes
+#                             the system at the next start-up (the caller restarts)
+#   owneet-rollback keep      the spare copy, started now, stays the system
+#
+# The disk (made by owneet-install): btrfs subvolumes @ (the system), @previous (the spare copy),
+# @home (the console user's games, saves, profiles and settings: never rolled back), @log, @pkg.
+# The boot partition holds the system's kernel at / and the spare copy's at /previous/. The boot
+# entries: owneetos.conf (or owneetos+TRIES.conf while counting), owneetos-previous.conf and
+# owneetos-fallback.conf; their sort keys keep that order, and systemd-boot moves an entry out of
+# tries to the end, so the spare copy starts instead.
+#
+# "Working" (for now): the console's interface (owneet-frontend) and owneetd running together for a
+# minute without a restart. The flag lives inside the system it describes: /etc/owneet/system-good.
+
+set -uo pipefail
+
+MODE="${1:-status}"
+ESP=/boot
+ENTRIES="$ESP/loader/entries"
+GOOD=/etc/owneet/system-good
+NOTICE=/var/lib/owneet/rolled-back
+TOP=/run/owneet-top
+TRIES=3
+CONSOLE_USER=owneet
+STEADY=60
+
+log() { echo "owneet-rollback: $*"; }
+die() { log "$*" >&2; exit 1; }
+
+# The current entry's file: owneetos.conf, or owneetos+LEFT[-DONE].conf while counting
+current_entry() {
+    local f
+    for f in "$ENTRIES"/owneetos.conf "$ENTRIES"/owneetos+*.conf; do
+        [[ -f "$f" ]] && { echo "$f"; return; }
+    done
+}
+booted_previous() { grep -qw owneet.previous /proc/cmdline; }
+# the new version used all its tries: systemd-boot started the spare copy instead
+fell_back() { [[ "$(current_entry)" =~ /owneetos\+0(-[0-9]+)?\.conf$ ]]; }
+
+# The btrfs top level, where the subvolumes are renamed
+mount_top() {
+    mountpoint -q "$TOP" && return
+    local dev
+    dev="$(findmnt -no SOURCE /home | sed 's/\[.*\]$//')"
+    [[ -b "$dev" ]] || die "the system disk was not found"
+    mkdir -p "$TOP"
+    mount -o subvolid=5 "$dev" "$TOP" || die "cannot open the system disk"
+}
+umount_top() { umount "$TOP" 2>/dev/null; rmdir "$TOP" 2>/dev/null; true; }
+
+# root= and the other options of the current entry, without the subvolume
+entry_options() {
+    sed -n 's/^options[[:space:]]*//p' "$(current_entry)" | sed 's/rootflags=subvol=[^ ]*//; s/  */ /g'
+}
+
+write_previous_entry() {
+    cat > "$ENTRIES/owneetos-previous.conf" <<EOF
+title    OwneetOS (previous version)
+sort-key owneetos-2
+linux    /previous/vmlinuz-linux
+initrd   /previous/initramfs-linux.img
+options  rootflags=subvol=@previous $(entry_options) owneet.previous
+EOF
+}
+
+# The spare copy takes the system's name, the system becomes @undone (a mounted system keeps
+# running until the restart); half done, the system gets its name back
+swap_systems() {
+    btrfs subvolume delete "$TOP/@undone" >/dev/null 2>&1
+    if ! mv "$TOP/@" "$TOP/@undone"; then
+        die "cannot swap the systems"
+    fi
+    if ! mv "$TOP/@previous" "$TOP/@"; then
+        mv "$TOP/@undone" "$TOP/@"
+        die "cannot swap the systems"
+    fi
+}
+
+# The spare copy's kernel becomes the system's, its boot entry goes
+restore_kernel() {
+    local f
+    for f in vmlinuz-linux initramfs-linux.img; do
+        mv "$ESP/previous/$f" "$ESP/$f" || die "cannot put the previous kernel back"
+    done
+    rm -f "$ENTRIES/owneetos-previous.conf"
+    rmdir "$ESP/previous" 2>/dev/null
+    uncount
+}
+
+# The current entry back to no counting (a working version, or the spare copy made the system)
+uncount() {
+    local f
+    f="$(current_entry)"
+    [[ -n "$f" && "$f" != "$ENTRIES/owneetos.conf" ]] && mv "$f" "$ENTRIES/owneetos.conf"
+    true
+}
+
+case "$MODE" in
+status)
+    spare=false spare_date=""
+    if [[ -f "$ENTRIES/owneetos-previous.conf" && -f "$ESP/previous/vmlinuz-linux" ]]; then
+        spare=true
+        spare_date="$(date -u -r "$ESP/previous/vmlinuz-linux" +%FT%TZ)"
+    fi
+    previous=false; booted_previous && previous=true
+    good=false; [[ -f "$GOOD" ]] && good=true
+    fallen=false; fell_back && fallen=true
+    printf '{"spare":%s,"spare_date":"%s","previous":%s,"good":%s,"fell_back":%s}\n' \
+        "$spare" "$spare_date" "$previous" "$good" "$fallen"
+    ;;
+
+prepare)
+    booted_previous && die "started from the spare copy: keep it first (owneet-rollback keep)"
+    if [[ -f "$GOOD" ]]; then
+        log "the running system has worked: it becomes the spare copy"
+        mount_top
+        if [[ -d "$TOP/@previous" ]]; then
+            btrfs subvolume delete "$TOP/@previous" >/dev/null || die "cannot remove the old spare copy"
+        fi
+        btrfs subvolume snapshot "$TOP/@" "$TOP/@previous" >/dev/null || die "cannot make the spare copy"
+        umount_top
+        mkdir -p "$ESP/previous"
+        cp "$ESP/vmlinuz-linux" "$ESP/initramfs-linux.img" "$ESP/previous/" || die "cannot copy the kernel"
+        write_previous_entry
+        sync
+    else
+        log "the running system has not worked yet: the spare copy stays the last version that did"
+    fi
+    # the version installed next has to work before it counts as working
+    rm -f "$GOOD"
+    ;;
+
+arm)
+    [[ -f "$ENTRIES/owneetos-previous.conf" ]] || { log "no spare copy: no counting"; exit 0; }
+    f="$(current_entry)"
+    [[ -n "$f" ]] || die "the boot entry was not found"
+    mv "$f" "$ENTRIES/owneetos+$TRIES.conf"
+    log "the new version has $TRIES tries"
+    ;;
+
+check)
+    # wait (5 minutes at most) for the console, then for a minute of it running unchanged
+    for _ in $(seq 1 60); do
+        pid="$(pgrep -u "$CONSOLE_USER" -x owneet-frontend | head -1)"
+        [[ -n "$pid" ]] && break
+        sleep 5
+    done
+    [[ -n "${pid:-}" ]] || die "the console did not start"
+    sleep "$STEADY"
+    kill -0 "$pid" 2>/dev/null || die "the console restarted"
+    systemctl --machine="$CONSOLE_USER@" --user is-active --quiet owneetd.service || die "owneetd is not running"
+    if booted_previous; then
+        if fell_back; then
+            log "the new version did not work: the spare copy stays the system"
+            exec "$0" keep
+        fi
+        log "the spare copy works (started by hand)"
+        exit 0
+    fi
+    # systemd-bless-boot (after boot-complete.target) takes the counting off the entry
+    touch "$GOOD"
+    log "this version works"
+    # the version left by "now" is not needed any more
+    mount_top
+    if [[ -d "$TOP/@undone" ]]; then
+        btrfs subvolume delete "$TOP/@undone" >/dev/null && log "the version given up was removed"
+    fi
+    umount_top
+    ;;
+
+now)
+    booted_previous && die "already started from the spare copy"
+    [[ -f "$ENTRIES/owneetos-previous.conf" ]] || die "there is no spare copy"
+    mount_top
+    [[ -d "$TOP/@previous" ]] || die "the spare copy was not found on the disk"
+    swap_systems
+    umount_top
+    restore_kernel
+    sync
+    log "the previous version starts at the next start-up"
+    ;;
+
+keep)
+    booted_previous || die "not started from the spare copy"
+    mount_top
+    swap_systems
+    # the version that did not work is not kept (the spare copy is the last one that worked)
+    btrfs subvolume delete "$TOP/@undone" >/dev/null 2>&1
+    umount_top
+    restore_kernel
+    touch "$GOOD"
+    mkdir -p "$(dirname "$NOTICE")"
+    date -u +%FT%TZ > "$NOTICE"
+    sync
+    log "the spare copy is the system again"
+    ;;
+
+*)
+    echo "usage: owneet-rollback status|prepare|arm|check|now|keep" >&2
+    exit 2
+    ;;
+esac
