@@ -79,6 +79,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
 .brand-card.lit { border-color: var(--accent); background: var(--raised); }
 .brand-card .who { font-weight: 600; }
 .note { color: var(--muted); }
+.row .wifi { width: calc(22px * var(--ts)); height: calc(22px * var(--ts)); color: var(--fg); }
 .clock { font-variant-numeric: tabular-nums; }
 .prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
 .prompts .set { display: flex; gap: 24px; } .prompt { display: inline-flex; align-items: center; gap: 8px; }
@@ -258,7 +259,11 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
         <div class="buttons">${btn('home', tr('ready.home'), true)}</div></div>`;
     },
   };
-  const bars = s => `<span class="t-s">${s > 70 ? '▂▄▆█' : s > 45 ? '▂▄▆' : s > 25 ? '▂▄' : '▂'}</span>`;
+  // the signal: the settings demo's Wi-Fi icon, its arcs lit by strength (3.9)
+  const wifiIcon = level => `<svg class="wifi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+    <path d="M2 9a15 15 0 0 1 20 0" opacity="${level >= 3 ? 1 : .3}"/><path d="M5 12.5a10 10 0 0 1 14 0" opacity="${level >= 2 ? 1 : .3}"/>
+    <path d="M8.5 16a5 5 0 0 1 7 0" opacity="${level >= 1 ? 1 : .3}"/><circle cx="12" cy="19.5" r="1.2" fill="currentColor" stroke="none"/></svg>`;
+  const bars = s => wifiIcon(s > 60 ? 3 : s > 30 ? 2 : 1);
 
   function render(keepK) {
     const cur = STEP_OF[st.screen], names = ['controller', 'language', 'network', 'time', 'ready'];
