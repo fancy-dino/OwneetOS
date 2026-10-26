@@ -22,6 +22,10 @@ Mockups and design assets.
   - [`3.9-settings.html`](demos/3.9-settings.html): settings (network and Wi-Fi password, controllers
     and pairing, sound with sliders, display with several screens, appearance, language, disks,
     system with power and credits).
+  - [`6.4-installer.html`](demos/6.4-installer.html): the installer ([[step-6.4-installer-ui]]):
+    welcome, the internal disks with what is on them, the console's name, the warning (a switch to
+    turn on for a disk with Windows or BitLocker), the final confirmation held for three seconds,
+    the progress, the end and an error. Start state: `#lang=it&screen=disk`.
   - [`7.8-website-home.html`](demos/7.8-website-home.html): the website's home
     ([[step-7.8-website]]), one page whose sections snap, the features in a carousel, the
     console's home screen drawn; English and Italian; the "Demo 7.8" button switches palette,

@@ -1,0 +1,432 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS - interactive demo for [[step-6.4-installer-ui]]: the installer's screens, with the
+     controller, in the console's look (the settings demo 3.9: fonts, palettes, focus, prompts,
+     sounds). It drives the backend of [[step-6.3-installer-backend]]: the internal disks with what
+     is on them (never the USB stick, never USB disks), the console's name, a specific warning for a
+     disk with Windows or BitLocker that must be switched on, a final confirmation held for three
+     seconds (nothing is ever erased by one press, [[user-data]]), the progress in the backend's
+     steps, the end and the errors in the player's words. Where it starts from (live mode only) is
+     [[step-6.2-live-vs-installed-mode]]. Open in a browser; gamepad or keyboard (Enter = A, held
+     on the last screen; Esc = B). Demo keys: L language, P palette, E make the copy fail,
+     N sounds. Disks and sizes are invented. Fonts come from Google Fonts for the demo only. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS - Installer (demo 6.4)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1; --motion: 1; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+.frame { position: relative; flex: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+
+/* ---------- 1280 × 720 grid, 5% horizontal safe area (as the settings demo 3.9) ---------- */
+.stage { width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px; display: grid; grid-template-rows: auto 1fr auto; gap: 20px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350; }
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); } .t-xl { font-size: calc(40px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+.label { text-transform: uppercase; letter-spacing: .09em; font-weight: 500; color: var(--muted); }
+[data-f] { outline: none; position: relative; transition: transform calc(.16s * var(--motion)) ease, box-shadow calc(.16s * var(--motion)) ease; }
+[data-f].focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); transform: scale(calc(1 + .02 * var(--motion))); z-index: 2; }
+
+.top { display: flex; align-items: center; justify-content: space-between; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.steps { display: flex; gap: 8px; color: var(--muted); }
+.steps span { padding: 5px 14px; border-radius: 999px; }
+.steps span[aria-current="step"] { background: var(--surface); color: var(--fg); font-weight: 500; }
+
+main { min-height: 0; display: grid; align-content: center; justify-items: center; }
+.screen { width: 860px; display: grid; gap: 18px; justify-items: start; }
+.screen.center { justify-items: center; text-align: center; }
+.screen h1 { margin: 0; }
+.screen p { margin: 0; max-width: 760px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line); width: 100%; min-height: 64px; text-align: left; }
+.row .left { display: grid; gap: 3px; }
+.row .right { display: flex; align-items: center; gap: 10px; color: var(--muted); flex: none; }
+.row[disabled] { opacity: .5; }
+.disks { display: grid; gap: 12px; width: 100%; }
+.tag { padding: 2px 10px; border-radius: 999px; background: var(--raised); color: var(--fg); }
+.tag.warn { background: var(--accent); color: var(--on-accent); }
+.buttons { display: flex; gap: 16px; margin-top: 6px; }
+.btn { padding: 12px 28px; border-radius: 999px; font-weight: 500; background: var(--raised); color: var(--fg); }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+.field { width: 100%; padding: 14px 18px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); display: grid; gap: 4px; text-align: left; }
+.alert { width: 100%; display: grid; gap: 6px; padding: 16px 18px; border-radius: 14px; border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--bg)); }
+.switch { width: 44px; height: 24px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); position: relative; flex: none; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--muted); transition: left .16s ease; }
+[aria-checked="true"] .switch { background: var(--accent); border-color: var(--accent); }
+[aria-checked="true"] .switch::after { left: 23px; background: var(--on-accent); }
+
+/* the final confirmation: a ring that fills while A is held */
+.hold { display: grid; justify-items: center; gap: 14px; }
+.hold-btn { width: 132px; height: 132px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--line); }
+.hold-btn svg.ring { position: absolute; inset: -6px; width: 144px; height: 144px; transform: rotate(-90deg); }
+.hold-btn .ring circle { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 427; stroke-dashoffset: 427; }
+.hold-btn .g { height: 46px; }
+
+.progress { width: 760px; display: grid; gap: 16px; }
+.bar { width: 100%; height: 10px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); transition: width .3s ease; }
+.phases { display: grid; gap: 8px; color: var(--muted); }
+.phases .now { color: var(--fg); font-weight: 500; }
+.phases .done::before { content: "✓ "; color: var(--accent); }
+.spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite; display: inline-block; vertical-align: -2px; margin-right: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 24px; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+.overlay { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 85%, transparent); display: none; z-index: 10; }
+.overlay.open { display: grid; place-items: center; }
+.sheet { width: 640px; text-align: center; background: var(--bg); border: 1px solid var(--line); border-radius: 18px; padding: 22px 26px; display: grid; gap: 14px; justify-items: center; }
+.sheet input { width: 100%; font: inherit; font-size: 20px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); }
+.toast { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); padding: 9px 18px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; white-space: nowrap; }
+.toast.show { opacity: 1; }
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <header class="top"><span class="mark">Owneet<i>OS</i></span><div class="steps t-s" id="steps"></div></header>
+  <main id="main"></main>
+  <footer class="prompts t-s" id="prompts"></footer>
+  <div class="toast t-s" id="toast"></div>
+  <div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
+</div></div>
+<p class="help"><b>Gamepad:</b> D-pad / stick move, A select (held on the last screen), B back. <b>Keyboard:</b> arrows, Enter = A, Esc = B.<br>
+<b>Demo only:</b> L language, P palette, E make the copy fail (<span id="fail-state">off</span>), N sounds (<span id="snd-state">on</span>). Address: <code>#lang=it&amp;screen=disk</code></p>
+
+<script src="sounds.js"></script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 70) / 720);
+    stage.style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+
+  /* ---------- Texts (the console takes them from its message files) ---------- */
+  const EN = {
+    'step.disk': 'Disk', 'step.name': 'Name', 'step.confirm': 'Confirm', 'step.install': 'Install',
+    'welcome.title': 'Install OwneetOS on this PC', 'welcome.text': 'OwneetOS takes a whole disk of this PC. It works without the internet and takes a few minutes. Until then, nothing is saved: you are using OwneetOS from the USB stick.',
+    'start': 'Start', 'notnow': 'Not now', 'continue': 'Continue', 'back': 'Back', 'cancel': 'Cancel', 'ok': 'OK',
+    'disk.title': 'Choose the disk', 'disk.text': 'Only this PC\'s internal disks are listed: never the USB stick, never other USB disks.',
+    'disk.empty': 'Empty', 'disk.windows': 'Windows', 'disk.bitlocker': 'Encrypted (BitLocker)', 'disk.linux': 'Another system', 'disk.data': 'Files',
+    'disk.small': 'Too small: at least 32 GB',
+    'name.title': 'Name this console', 'name.text': 'It is how your other devices see it, for example over Bluetooth. You can keep "OwneetOS".',
+    'name.label': 'Console name', 'name.change': 'Change the name', 'name.typing': 'Type the name with the console\'s keyboard (demo 3.10); here, with your keyboard. Enter to keep it.',
+    'warn.title': 'Everything on this disk will be erased', 'warn.text': '{disk}, {size}: every file and every system on it will be deleted. Other disks are not touched.',
+    'warn.windows': 'Windows is on this disk', 'warn.windows.text': 'Windows, its programs and your files on this disk will be lost for good, encrypted files too. Copy what you want to keep to another disk first.',
+    'warn.understand': 'I understand: Windows and its files will be lost',
+    'confirm.title': 'Last step', 'confirm.text': 'Hold A for three seconds to erase {disk} and install OwneetOS.',
+    'confirm.hold': 'Hold to erase and install',
+    'install.title': 'Installing OwneetOS', 'install.text': 'Do not turn the PC off and do not remove the USB stick.',
+    'phase.partitioning': 'Erasing the disk', 'phase.copying': 'Copying OwneetOS', 'phase.setting_up': 'Setting it up', 'phase.boot': 'Making it start',
+    'done.title': 'OwneetOS is installed', 'done.text': 'Remove the USB stick, then restart: the console starts from its disk, and the first set-up begins.', 'done.restart': 'Restart now',
+    'err.title': 'The installation stopped', 'err.copy_failed': 'Copying OwneetOS failed: the disk may be faulty or full.', 'err.again': 'Try again', 'err.note': 'Only the chosen disk was changed.',
+    'p.select': 'Select', 'p.back': 'Back', 'p.hold': 'Hold: erase and install', 'p.toggle': 'Switch', 'p.home': 'Home',
+    'demo.restart': '(demo) The console would restart now', 'demo.notnow': '(demo) Back to the console from the USB stick',
+  };
+  const IT = {
+    'step.disk': 'Disco', 'step.name': 'Nome', 'step.confirm': 'Conferma', 'step.install': 'Installazione',
+    'welcome.title': 'Installa OwneetOS su questo PC', 'welcome.text': 'OwneetOS occupa un intero disco di questo PC. Funziona senza internet e richiede qualche minuto. Fino ad allora non viene salvato nulla: stai usando OwneetOS dalla chiavetta USB.',
+    'start': 'Inizia', 'notnow': 'Non ora', 'continue': 'Continua', 'back': 'Indietro', 'cancel': 'Annulla', 'ok': 'OK',
+    'disk.title': 'Scegli il disco', 'disk.text': 'Sono elencati solo i dischi interni di questo PC: mai la chiavetta USB, mai altri dischi USB.',
+    'disk.empty': 'Vuoto', 'disk.windows': 'Windows', 'disk.bitlocker': 'Cifrato (BitLocker)', 'disk.linux': 'Un altro sistema', 'disk.data': 'File',
+    'disk.small': 'Troppo piccolo: almeno 32 GB',
+    'name.title': 'Dai un nome alla console', 'name.text': 'È il nome con cui la vedono gli altri dispositivi, per esempio via Bluetooth. Puoi tenere "OwneetOS".',
+    'name.label': 'Nome della console', 'name.change': 'Cambia il nome', 'name.typing': 'Scrivi il nome con la tastiera della console (demo 3.10); qui, con la tua tastiera. Invio per tenerlo.',
+    'warn.title': 'Tutto ciò che c\'è su questo disco verrà cancellato', 'warn.text': '{disk}, {size}: ogni file e ogni sistema che contiene verranno eliminati. Gli altri dischi non vengono toccati.',
+    'warn.windows': 'Su questo disco c\'è Windows', 'warn.windows.text': 'Windows, i suoi programmi e i tuoi file su questo disco andranno persi per sempre, anche quelli cifrati. Prima copia su un altro disco ciò che vuoi tenere.',
+    'warn.understand': 'Ho capito: Windows e i suoi file andranno persi',
+    'confirm.title': 'Ultimo passo', 'confirm.text': 'Tieni premuto A per tre secondi per cancellare {disk} e installare OwneetOS.',
+    'confirm.hold': 'Tieni premuto per cancellare e installare',
+    'install.title': 'Installazione di OwneetOS', 'install.text': 'Non spegnere il PC e non togliere la chiavetta USB.',
+    'phase.partitioning': 'Cancellazione del disco', 'phase.copying': 'Copia di OwneetOS', 'phase.setting_up': 'Configurazione', 'phase.boot': 'Preparazione dell\'avvio',
+    'done.title': 'OwneetOS è installato', 'done.text': 'Togli la chiavetta USB, poi riavvia: la console parte dal suo disco e comincia la prima configurazione.', 'done.restart': 'Riavvia ora',
+    'err.title': 'L\'installazione si è fermata', 'err.copy_failed': 'La copia di OwneetOS non è riuscita: il disco potrebbe essere guasto o pieno.', 'err.again': 'Riprova', 'err.note': 'È stato modificato solo il disco scelto.',
+    'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.hold': 'Tieni premuto: cancella e installa', 'p.toggle': 'Attiva', 'p.home': 'Home',
+    'demo.restart': '(demo) Ora la console si riavvierebbe', 'demo.notnow': '(demo) Si torna alla console dalla chiavetta USB',
+  };
+  let lang = 'en';
+  const tr = (k, a = {}) => ((lang === 'it' ? IT[k] : null) || EN[k] || k).replace(/\{(\w+)\}/g, (_, x) => a[x] ?? '');
+
+  /* ---------- Glyphs (as the settings demo) ---------- */
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const G = { a: letter('A'), b: letter('B'), guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`) };
+  const P = (b, l) => `<span class="prompt">${b.map(x => G[x]).join('')}<span>${tr(l)}</span></span>`;
+
+  /* ---------- Sounds ---------- */
+  let soundOn = true, ctx = null;
+  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', notify: 'notify', error: 'error' };
+  const buffers = {};
+  function startAudio() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    if (!window.OWNEET_SOUNDS) return;
+    ctx = new AudioContext();
+    for (const [k, f] of Object.entries(SOUNDS)) {
+      const url = window.OWNEET_SOUNDS[f]; if (!url) continue;
+      const bytes = Uint8Array.from(atob(url.split(',')[1]), c => c.charCodeAt(0));
+      ctx.decodeAudioData(bytes.buffer).then(b => { buffers[k] = b; });
+    }
+  }
+  addEventListener('keydown', startAudio, true); addEventListener('pointerdown', startAudio, true);
+  function feedback(k) {
+    if (!soundOn || !ctx || !buffers[k]) return;
+    const src = ctx.createBufferSource(), g = ctx.createGain(); g.gain.value = .7;
+    src.buffer = buffers[k]; src.connect(g); g.connect(ctx.destination); src.start();
+  }
+
+  /* ---------- Palettes ---------- */
+  const PALETTES = [
+    ['dusk', '#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+    ['daylight', '#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+    ['tide', '#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+    ['contrast', '#000000', '#000000', '#161616', '#FFFFFF', '#FFFFFF', '#E0E0E0', '#FFE14D', '#000000'],
+  ];
+  const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
+  let palI = 0;
+  const applyPalette = () => TOKENS.forEach((t, i) => stage.style.setProperty('--' + t, PALETTES[palI][1 + i]));
+
+  /* ---------- State: the backend's disks list (owneet-install disks), invented ---------- */
+  const DISKS = [
+    { path: '/dev/nvme0n1', model: 'Samsung SSD 980', size: 500, windows: true, bitlocker: true, usable: true },
+    { path: '/dev/sda', model: 'Crucial MX500', size: 1000, usable: true },
+    { path: '/dev/sdb', model: 'Kingston SSD', size: 16, usable: false, reason: 'small', data: true },
+  ];
+  const st = { screen: 'welcome', disk: null, name: 'OwneetOS', understood: false, fail: false };
+  const STEPS = { disk: 'disk', name: 'name', warn: 'confirm', confirm: 'confirm', progress: 'install', done: 'install', error: 'install' };
+
+  /* ---------- Screens ---------- */
+  const btn = (k, label, primary, extra = '') => `<button class="btn${primary ? ' primary' : ''}" data-f data-k="${k}" ${extra}>${label}</button>`;
+  // sizes as the backend gives them in bytes, shown in GB or TB
+  const size = d => d.size >= 1000 ? `${+(d.size / 1000).toFixed(1)} TB` : `${d.size} GB`;
+  const contents = d => {
+    const t = [];
+    if (d.windows) t.push(`<span class="tag warn">${tr('disk.windows')}</span>`);
+    if (d.bitlocker) t.push(`<span class="tag warn">${tr('disk.bitlocker')}</span>`);
+    if (d.linux) t.push(`<span class="tag">${tr('disk.linux')}</span>`);
+    if (d.data) t.push(`<span class="tag">${tr('disk.data')}</span>`);
+    if (!t.length) t.push(`<span class="tag">${tr('disk.empty')}</span>`);
+    return t.join('');
+  };
+  let phase = 0, percent = 0, timer = null, holdStart = 0, holdRaf = 0;
+  const PHASES = ['partitioning', 'copying', 'setting_up', 'boot'];
+  const SCREENS = {
+    welcome: () => `<div class="screen center"><h1 class="disp t-xl">${tr('welcome.title')}</h1><p class="t-m muted">${tr('welcome.text')}</p>
+      <div class="buttons">${btn('start', tr('start'), true)}${btn('notnow', tr('notnow'))}</div></div>`,
+    disk: () => `<div class="screen"><h1 class="disp t-l">${tr('disk.title')}</h1><p class="t-m muted">${tr('disk.text')}</p><div class="disks">${DISKS.map((d, i) =>
+      `<button class="row" data-f data-k="disk" data-i="${i}"${d.usable ? '' : ' disabled'}><span class="left"><span class="t-m" style="font-weight:500">${d.model}</span>
+        <span class="t-s muted">${d.usable ? size(d) : size(d) + ' · ' + tr('disk.small')}</span></span><span class="right">${contents(d)}</span></button>`).join('')}</div></div>`,
+    name: () => `<div class="screen"><h1 class="disp t-l">${tr('name.title')}</h1><p class="t-m muted">${tr('name.text')}</p>
+      <button class="field" data-f data-k="rename"><span class="t-s muted">${tr('name.label')}</span><span class="t-l">${esc(st.name)}</span></button>
+      <div class="buttons">${btn('next', tr('continue'), true)}${btn('back', tr('back'))}</div></div>`,
+    warn: () => {
+      const d = DISKS[st.disk];
+      const win = d.windows || d.bitlocker;
+      return `<div class="screen"><h1 class="disp t-l">${tr('warn.title')}</h1><p class="t-m">${tr('warn.text', { disk: d.model, size: size(d) })}</p>
+        ${win ? `<div class="alert"><span class="t-m" style="font-weight:600">${tr('warn.windows')}</span><span class="t-s">${tr('warn.windows.text')}</span></div>
+        <button class="row" data-f data-k="understand" role="switch" aria-checked="${st.understood}"><span class="t-m">${tr('warn.understand')}</span><span class="switch"></span></button>` : ''}
+        <div class="buttons">${btn('next', tr('continue'), true, win && !st.understood ? 'disabled style="opacity:.45"' : '')}${btn('back', tr('back'))}</div></div>`;
+    },
+    confirm: () => `<div class="screen center"><h1 class="disp t-l">${tr('confirm.title')}</h1><p class="t-m">${tr('confirm.text', { disk: DISKS[st.disk].model })}</p>
+      <div class="hold"><button class="hold-btn" data-f data-k="hold">${G.a}<svg class="ring" viewBox="0 0 144 144"><circle cx="72" cy="72" r="68" id="ring"/></svg></button>
+      <span class="t-s muted">${tr('confirm.hold')}</span></div><div class="buttons">${btn('back', tr('back'))}</div></div>`,
+    progress: () => `<div class="screen center"><h1 class="disp t-l">${tr('install.title')}</h1><p class="t-m muted">${tr('install.text')}</p>
+      <div class="progress"><div class="bar"><i style="width:${percent}%"></i></div><div class="phases t-m">${PHASES.map((p, i) =>
+        `<span class="${i < phase ? 'done' : i === phase ? 'now' : ''}">${i === phase ? '<span class="spinner"></span>' : ''}${tr('phase.' + p)}</span>`).join('')}</div></div></div>`,
+    done: () => `<div class="screen center"><h1 class="disp t-xl">${tr('done.title')}</h1><p class="t-m muted">${tr('done.text')}</p>
+      <div class="buttons">${btn('restart', tr('done.restart'), true)}</div></div>`,
+    error: () => `<div class="screen center"><h1 class="disp t-l">${tr('err.title')}</h1><p class="t-m">${tr('err.copy_failed')}</p><p class="t-s muted">${tr('err.note')}</p>
+      <div class="buttons">${btn('again', tr('err.again'), true)}${btn('back', tr('back'))}</div></div>`,
+  };
+  const esc = t => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function render(keepK) {
+    const cur = STEPS[st.screen];
+    $('#steps').innerHTML = st.screen === 'welcome' ? '' : ['disk', 'name', 'confirm', 'install'].map(s => `<span${s === cur ? ' aria-current="step"' : ''}>${tr('step.' + s)}</span>`).join('');
+    $('#main').innerHTML = SCREENS[st.screen]();
+    const items = $$('#main [data-f]:not([disabled])');
+    focus((keepK && $(`#main [data-k="${keepK}"]`)) || items[0] || null, true);
+  }
+  function renderPrompts() {
+    let left = [];
+    if (sheetOpen) left = [P(['a'], 'p.select'), P(['b'], 'p.back')];
+    else if (st.screen === 'progress') left = [];
+    else if (focused && focused.dataset.k === 'hold') left = [P(['a'], 'p.hold'), P(['b'], 'p.back')];
+    else if (focused && focused.getAttribute('role') === 'switch') left = [P(['a'], 'p.toggle'), P(['b'], 'p.back')];
+    else if (focused) left = [P(['a'], 'p.select'), ...(st.screen === 'welcome' || st.screen === 'done' ? [] : [P(['b'], 'p.back')])];
+    $('#prompts').innerHTML = `<div class="set">${left.join('')}</div><div class="set"></div>`;
+  }
+
+  /* ---------- Focus and navigation (nearest item in the pressed direction) ---------- */
+  let focused = null;
+  function focus(el, silent) {
+    if (focused) focused.classList.remove('focus');
+    focused = el || null;
+    if (el) { el.classList.add('focus'); if (!silent) feedback('move'); }
+    renderPrompts();
+  }
+  function move(dir) {
+    if (sheetOpen || !focused) { feedback('edge'); return; }
+    const a = focused.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    let pick = null, score = Infinity;
+    for (const el of $$('#main [data-f]:not([disabled])')) {
+      if (el === focused) continue;
+      const b = el.getBoundingClientRect(), dx = b.left + b.width / 2 - ax, dy = b.top + b.height / 2 - ay;
+      if (!(dir === 'left' ? dx < -4 : dir === 'right' ? dx > 4 : dir === 'up' ? dy < -4 : dy > 4)) continue;
+      const h = dir === 'left' || dir === 'right';
+      const s = h ? Math.abs(dx) + 2.5 * Math.abs(dy) : Math.abs(dy) + 2.5 * Math.abs(dx);
+      if (s < score) { score = s; pick = el; }
+    }
+    pick ? focus(pick) : feedback('edge');
+  }
+  function go(screen) { st.screen = screen; feedback('confirm'); render(); }
+
+  /* ---------- A, B ---------- */
+  function accept() {
+    if (sheetOpen) { closeSheet(true); return; }
+    if (!focused) return;
+    const k = focused.dataset.k;
+    if (k === 'hold') return;   // held: holdDown / holdUp
+    if (k === 'start') go('disk');
+    else if (k === 'notnow') toast(tr('demo.notnow'));
+    else if (k === 'disk') { st.disk = +focused.dataset.i; st.understood = false; go('name'); }
+    else if (k === 'rename') renameSheet();
+    else if (k === 'next') go(st.screen === 'name' ? 'warn' : 'confirm');
+    else if (k === 'understand') { st.understood = !st.understood; feedback('confirm'); render('understand'); }
+    else if (k === 'back') back();
+    else if (k === 'restart') toast(tr('demo.restart'));
+    else if (k === 'again') go('confirm');
+  }
+  function back() {
+    if (sheetOpen) { closeSheet(false); return; }
+    const prev = { disk: 'welcome', name: 'disk', warn: 'name', confirm: 'warn', error: 'confirm' }[st.screen];
+    if (prev) { feedback('confirm'); st.screen = prev; render(); } else feedback('edge');
+  }
+
+  /* ---------- The final confirmation: A held for three seconds ---------- */
+  const HOLD_MS = 3000;
+  function holdDown() {
+    if (sheetOpen || !focused || focused.dataset.k !== 'hold' || holdStart) return;
+    holdStart = performance.now();
+    const ring = $('#ring');
+    const tick = now => {
+      if (!holdStart) return;
+      const f = Math.min(1, (now - holdStart) / HOLD_MS);
+      ring.style.strokeDashoffset = 427 * (1 - f);
+      if (f >= 1) { holdStart = 0; startInstall(); return; }
+      holdRaf = requestAnimationFrame(tick);
+    };
+    holdRaf = requestAnimationFrame(tick);
+  }
+  function holdUp() {
+    if (!holdStart) return;
+    holdStart = 0; cancelAnimationFrame(holdRaf);
+    const ring = $('#ring'); if (ring) { ring.style.transition = 'stroke-dashoffset .25s ease'; ring.style.strokeDashoffset = 427; setTimeout(() => { ring.style.transition = ''; }, 260); }
+    feedback('edge');
+  }
+  function startInstall() {
+    st.screen = 'progress'; phase = 0; percent = 0; feedback('confirm'); render();
+    clearInterval(timer);
+    timer = setInterval(() => {
+      percent += phase === 1 ? 2 : 4;
+      phase = percent < 5 ? 0 : percent < 85 ? 1 : percent < 96 ? 2 : 3;
+      if (st.fail && phase === 1 && percent > 40) { clearInterval(timer); feedback('error'); st.screen = 'error'; render(); return; }
+      if (percent >= 100) { clearInterval(timer); feedback('notify'); st.screen = 'done'; render(); return; }
+      $('#main').innerHTML = SCREENS.progress();
+    }, 120);
+  }
+
+  /* ---------- The name (the console's keyboard in the real installer) ---------- */
+  let sheetOpen = false;
+  function renameSheet() {
+    sheetOpen = true; feedback('sheet-open');
+    $('#sheet').innerHTML = `<span class="disp t-l">${tr('name.change')}</span><span class="t-s muted">${tr('name.typing')}</span><input id="nameIn" maxlength="40" value="${esc(st.name)}">`;
+    $('#overlay').classList.add('open'); renderPrompts();
+    setTimeout(() => { $('#nameIn').focus(); $('#nameIn').select(); }, 30);
+  }
+  function closeSheet(keep) {
+    if (keep) { const v = $('#nameIn').value.trim(); st.name = v || 'OwneetOS'; }
+    sheetOpen = false; feedback('sheet-close'); $('#overlay').classList.remove('open'); render('rename');
+  }
+
+  let toastTimer;
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 1800); }
+
+  /* ---------- Keyboard (Enter = A, Esc = B) and demo keys ---------- */
+  const DEMO = {
+    l: () => { lang = lang === 'en' ? 'it' : 'en'; render(focused && focused.dataset.k); },
+    p: () => { palI = (palI + 1) % PALETTES.length; applyPalette(); },
+    e: () => { st.fail = !st.fail; $('#fail-state').textContent = st.fail ? 'on' : 'off'; toast(st.fail ? 'the copy will fail' : 'the copy will work'); },
+    n: () => { soundOn = !soundOn; $('#snd-state').textContent = soundOn ? 'on' : 'off'; },
+  };
+  document.addEventListener('keydown', e => {
+    if (sheetOpen) {
+      if (e.key === 'Enter') { e.preventDefault(); closeSheet(true); } else if (e.key === 'Escape') { e.preventDefault(); closeSheet(false); }
+      return;
+    }
+    const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    if (dirs[e.key]) { e.preventDefault(); move(dirs[e.key]); return; }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.repeat) return; if (focused && focused.dataset.k === 'hold') holdDown(); else accept(); return; }
+    if (e.key === 'Escape') { e.preventDefault(); back(); return; }
+    const k = e.key.toLowerCase(); if (DEMO[k]) { e.preventDefault(); DEMO[k](); }
+  });
+  document.addEventListener('keyup', e => { if (e.key === 'Enter' || e.key === ' ') holdUp(); });
+  document.addEventListener('pointerdown', e => {
+    const el = e.target.closest('[data-f]'); if (!el || el.disabled || sheetOpen) return;
+    focus(el, true); if (el.dataset.k === 'hold') holdDown(); else accept();
+  });
+  document.addEventListener('pointerup', holdUp);
+
+  /* ---------- Gamepad ---------- */
+  const prev = {}; let repeatAt = 0, lastDir = null;
+  function poll(ts) {
+    const pad = (navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [])[0];
+    if (pad) {
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+      const a = on(0);
+      if (a && !prev.a) { startAudio(); if (focused && focused.dataset.k === 'hold') holdDown(); else accept(); }
+      if (!a && prev.a) holdUp();
+      if (on(1) && !prev.b) back();
+      prev.a = a; prev.b = on(1);
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+
+  /* ---------- Start state ---------- */
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get('lang') === 'it') lang = 'it';
+  if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
+  if (SCREENS[q.get('screen')] && !['warn', 'confirm', 'progress', 'done', 'error'].includes(q.get('screen'))) st.screen = q.get('screen');
+  if (q.get('disk') !== null && DISKS[+q.get('disk')]) { st.disk = +q.get('disk'); if (['warn', 'confirm', 'done', 'error'].includes(q.get('screen'))) st.screen = q.get('screen'); }
+  applyPalette();
+  render();
+})();
+</script>
+</body>
+</html>
