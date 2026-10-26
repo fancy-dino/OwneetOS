@@ -37,7 +37,7 @@ Mockups and design assets.
     switch "Remove the original after the copy is checked", then the steps ticked one by one (copy
     with Cancel, check, the original removed); Steam's games moved by Steam; a USB disk with games
     asks "Play from here / Copy to the console", then which disk. Start state:
-    `#open=move|confirm|copying|steam|plug|plugwhere`.
+    `#open=move|confirm|copying|steam|plug|plugwhere|plugrun`.
   - [`7.8-website-home.html`](demos/7.8-website-home.html): the website's home
     ([[step-7.8-website]]), one page whose sections snap, the features in a carousel, the
     console's home screen drawn; English and Italian; the "Demo 7.8" button switches palette,

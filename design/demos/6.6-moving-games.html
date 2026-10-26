@@ -757,8 +757,10 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   function run(list, to, remove, done) {
     let i = 0, p = 0, phase = 'copy';
     const g = () => list[i];
+    // where each game was before: the steps name it even after the game has moved
+    const origin = list.map(x => x.disk);
     const draw = () => {
-      const from = diskOf(g().disk);
+      const from = diskOf(origin[i]);
       const steps = [['copy', tr('step.copy', { disk: diskName(to) })], ['check', tr('step.check')],
         ['remove', remove ? tr('step.remove', { disk: diskName(from) }) : tr('step.keep', { disk: diskName(from) })]];
       const order = ['copy', 'check', 'remove', 'end'];
@@ -771,11 +773,11 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       focus($('#sheet [data-cancel]'), true);
       $('#sheet-prompts').innerHTML = phase === 'copy' ? `<div class="set">${P(['a'], tr('p.cancel'))}</div>` : '<div class="set"></div>';
     };
-    // Cancel: the partial copy is removed, nothing else changes
-    sheetAccept = el => {
-      if (!el || !el.hasAttribute('data-cancel')) return;
-      clearInterval(runTimer); closeSheet(); toast(tr('move.cancelled', { title: g().title, disk: diskName(diskOf(g().disk)) }));
-    };
+    // Cancel (the button or B) during the copy: the partial copy is removed, nothing else changes;
+    // the check and the removal are never stopped half way
+    const cancel = () => { clearInterval(runTimer); sheetBack = null; closeSheet(); toast(tr('move.cancelled', { title: g().title, disk: diskName(diskOf(origin[i])) })); };
+    sheetAccept = el => { if (el && el.hasAttribute('data-cancel') && phase === 'copy') cancel(); };
+    sheetBack = () => { if (phase === 'copy') cancel(); else feedback('edge'); };
     draw();
     clearInterval(runTimer);
     let wait = 0;
@@ -784,12 +786,13 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       else if (phase === 'check') { if (++wait > 8) { phase = remove ? 'remove' : 'end'; wait = 0; } }
       else if (phase === 'remove') { if (++wait > 6) phase = 'end'; }
       if (phase === 'end') {
-        const from = diskOf(g().disk);
+        const from = diskOf(origin[i]);
         to.free = Math.round((to.free - g().size) * 10) / 10;
         if (remove) from.free = Math.round((from.free + g().size) * 10) / 10;
         g().disk = to.key;
-        if (++i >= list.length) { clearInterval(runTimer); draw(); setTimeout(done, 700); return; }
-        p = 0; phase = 'copy';
+        // the last game: every step ticked, then done (the list is never read past its end)
+        if (i + 1 >= list.length) { clearInterval(runTimer); draw(); sheetBack = null; setTimeout(done, 700); return; }
+        i++; p = 0; phase = 'copy';
       }
       draw();
     }, 160);
@@ -975,6 +978,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     else if (open === 'steam') steamMoveSheet(GAMES.find(g => g.src === 'Steam'));
     else if (open === 'plug') plugSheet();
     else if (open === 'plugwhere') { plugSheet(); plugWhereSheet(GAMES.filter(g => g.disk === 'ssd')); }
+    else if (open === 'plugrun') { plugSheet(); plugWhereSheet(GAMES.filter(g => g.disk === 'ssd')); setTimeout(() => press.a(), 400); }
     else if (open === 'details') detailsSheet(lk);
     else if (open === 'add') { focus($('#grid [data-add]'), true); addSheet(); }
   }, 300);
