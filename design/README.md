@@ -22,6 +22,10 @@ Mockups and design assets.
   - [`3.9-settings.html`](demos/3.9-settings.html): settings (network and Wi-Fi password, controllers
     and pairing, sound with sliders, display with several screens, appearance, language, disks,
     system with power and credits).
+  - [`6.1-first-start.html`](demos/6.1-first-start.html): the first start
+    ([[step-6.1-first-boot-flow]]): the mockup's pairing screen, the language, the network (or
+    later), the time zone (suggested, or a list of cities), the Xbox adapter's firmware with
+    consent (only with an adapter and the internet), ready. Start state: `#screen=time&lang=en`.
   - [`6.4-installer.html`](demos/6.4-installer.html): the installer ([[step-6.4-installer-ui]]):
     welcome, the internal disks with what is on them, the console's name, the warning (a switch to
     turn on for a disk with Windows or BitLocker), the final confirmation held for three seconds,
