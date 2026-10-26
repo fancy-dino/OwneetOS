@@ -31,10 +31,13 @@ Mockups and design assets.
     turn on for a disk with Windows or BitLocker), the final confirmation held for three seconds,
     the progress, the end and an error. Start state: `#lang=it&screen=disk`.
   - [`6.6-moving-games.html`](demos/6.6-moving-games.html): moving games between disks
-    ([[step-6.6-moving-games-and-media-between-disks]]) on the games-on-disk demo: Menu → "Move to
-    another disk" (disks without room or read only are off and say why), the copy with Cancel, the
-    check, the original removed only after; Steam's games moved by Steam; a USB disk with games asks
-    "Play from here / Copy to the console". Start state: `#open=move|movebig|steam|plug|copying`.
+    ([[step-6.6-moving-games-and-media-between-disks]]) on the games-on-disk demo, with two internal
+    disks (a 96 GB SSD and a 2 TB HDD, as the FrankenPC): each cover says its disk; Menu → "Move to
+    another disk" (disks without room or read only are off and say why), a confirmation with the
+    switch "Remove the original after the copy is checked", then the steps ticked one by one (copy
+    with Cancel, check, the original removed); Steam's games moved by Steam; a USB disk with games
+    asks "Play from here / Copy to the console", then which disk. Start state:
+    `#open=move|confirm|copying|steam|plug|plugwhere`.
   - [`7.8-website-home.html`](demos/7.8-website-home.html): the website's home
     ([[step-7.8-website]]), one page whose sections snap, the features in a carousel, the
     console's home screen drawn; English and Italian; the "Demo 7.8" button switches palette,

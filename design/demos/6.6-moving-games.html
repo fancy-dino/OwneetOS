@@ -1,15 +1,19 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!-- OwneetOS - interactive demo for [[step-6.6-moving-games-and-media-between-disks]], on the approved
-     games-on-disk demo (4.3-games-on-disk.html; [[disks]]). Menu on a game → "Move to another disk":
-     the disks with their free space (one without room, or read only, is off and says why); the
-     copy with its progress and Cancel; the copy checked; only then the original deleted, never
-     before ([[user-data]]). Steam's games are moved by Steam: the option opens Steam's storage
-     settings. A USB stick or disk with games plugged in asks "Play from here / Copy to the
-     console" (a copy keeps the originals on the stick). Disks are mounted for writing from
-     [[step-6.5-automatic-disk-mounting]]; a Windows disk left dirty stays read only. Open in a
-     browser; gamepad or keyboard. Demo keys: U plug in / unplug the USB disk (asks again), the
-     others as in 4.3. Game names, sizes and disks are invented. -->
+     games-on-disk demo (4.3-games-on-disk.html; [[disks]]). The console here has two internal
+     disks, as the owner's FrankenPC: a small SSD (96 GB) and a large HDD (2 TB); each game says on
+     its cover which disk it is on. Menu on a game → "Move to another disk": the disks with their
+     free space (one without room, or read only, is off and says why); then the confirmation, with
+     the switch "Remove the original after the copy is checked" (off: a copy); then the steps in a
+     list, each ticked when done: the copy (with Cancel), the check of the copy, and only then the
+     original removed, never before ([[user-data]]). Steam's games are moved by Steam: the option
+     opens Steam's storage settings. A USB disk with games plugged in asks "Play from here / Copy
+     to the console"; copying asks which disk (the one with the most room first) and keeps the
+     originals. Disks are mounted for writing from [[step-6.5-automatic-disk-mounting]]; a
+     Windows disk left dirty stays read only. Open in a browser; gamepad or keyboard. Demo keys: U
+     plug in / unplug the USB disk (asks again), the others as in 4.3. Game names, sizes and disks
+     are invented. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -67,13 +71,26 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .disk-row .name { display: flex; justify-content: space-between; gap: 16px; }
 .disk-row .bar { height: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
 .disk-row .bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
-.move-list { display: grid; gap: 12px; width: 600px; text-align: left; }
+.move-list { display: grid; gap: 12px; width: 620px; text-align: left; }
 .move-list .disk-row[disabled] { opacity: .5; }
 .move-list .why { color: var(--muted); }
-.copy { display: grid; gap: 12px; width: 600px; justify-items: center; }
-.copy .bar { width: 100%; height: 10px; border-radius: 999px; background: var(--raised); overflow: hidden; }
-.copy .bar i { display: block; height: 100%; background: var(--accent); transition: width .2s ease; }
-.copy .stage-line { color: var(--muted); }
+.steps-list { display: grid; gap: 10px; width: 620px; text-align: left; }
+.steps-list .st { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center; color: var(--muted); }
+.steps-list .st.now { color: var(--fg); font-weight: 500; }
+.steps-list .st.done { color: var(--fg); }
+.steps-list .mark { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: 13px; }
+.steps-list .st.done .mark { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.steps-list .st.now .mark { border-color: var(--accent); border-top-color: transparent; animation: spin 1s linear infinite; }
+.steps-list .bar { grid-column: 2 / 4; height: 8px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.steps-list .bar i { display: block; height: 100%; background: var(--accent); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.opt-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 620px; padding: 12px 16px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line); text-align: left; }
+.switch { width: 44px; height: 24px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); position: relative; flex: none; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--muted); transition: left .16s ease; }
+[aria-checked="true"] .switch { background: var(--accent); border-color: var(--accent); }
+[aria-checked="true"] .switch::after { left: 23px; background: var(--on-accent); }
+.cover .where { opacity: .85; text-shadow: 0 1px 6px rgba(0,0,0,.5); margin-top: 2px; }
 .disk-row .note { color: var(--muted); display: flex; gap: 8px; align-items: flex-start; }
 .disk-row .note::before { content: "!"; flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
 .disk { display: grid; gap: 5px; min-width: 150px; }
@@ -215,7 +232,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 <p class="help"><b>New in 4.3:</b> a disk with a “Games” folder: its games in the Library (title = the folder's name, cover from <code>cover.jpg</code> or drawn); <b>Lantern Keep</b> has several files to start: A asks once, then remembers; Menu → <b>Choose the file to start</b> changes it; X shows the disk. Windows games and installers are not shown yet (4.5, 4.6).<br>
 <b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A play, B menu (back in windows), X details, Y sort, Menu options, LT/RT filters, LB/RB sections.
 <b>Keyboard:</b> arrows, Page Up/Down = right stick, Enter = A, Esc = B, X, Y, M = Menu, Z/C = LT/RT, Q/E = LB/RB.<br>
-<b>New in 6.6:</b> Menu on a game → <b>Move to another disk</b> (a Steam game: Steam moves it); plugging in the USB disk asks <b>Play from here / Copy to the console</b>.<br><b>Demo only:</b> U plug in / unplug the disk (<span id="disk-state">plugged in</span>), F forget the choice of Lantern Keep, P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#disk=0&amp;filter=local&amp;pal=ember&amp;lang=it&amp;open=choose|options|details</code></p>
+<b>New in 6.6:</b> each cover says its disk; Menu on a game → <b>Move to another disk</b> (a Steam game: Steam moves it); plugging in the USB disk asks <b>Play from here / Copy to the console</b>, then which disk.<br><b>Demo only:</b> U plug in / unplug the disk (<span id="disk-state">plugged in</span>), F forget the choice of Lantern Keep, P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#disk=0&amp;filter=local&amp;pal=ember&amp;lang=it&amp;open=choose|options|details</code></p>
 
 <script src="sounds.js"></script>
 <script>
@@ -265,15 +282,19 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   const EN = {
     'opt.move': 'Move to another disk',
     'move.title': 'Move {title}', 'move.where': '{size} · now on {disk}', 'move.free': '{free} free', 'move.nospace': 'Not enough space: needs {size}',
-    'move.readonly': 'Read only: Windows was not shut down completely', 'move.copying': 'Copying to {disk}… {p}%', 'move.checking': 'Checking the copy…',
-    'move.removing': 'Removing the original from {disk}…', 'move.done': '{title} is now on {disk}', 'move.done.text': 'Checked, and the original removed.',
-    'move.cancelled': 'Move cancelled: {title} stays on {disk}', 'move.keep': 'The game works during the move only after it ends.',
-    'copy.done': '{title} copied to {disk}', 'copy.done.text': 'The original stays on the USB disk.',
+    'move.readonly': 'Read only: Windows was not shut down completely',
+    'move.confirm': 'Move {title} to {disk}', 'move.confirm.text': '{size}. The game can be played again when it is done.',
+    'move.remove': 'Remove the original after the copy is checked', 'move.remove.on': 'The game will be on {to} only.', 'move.remove.off': 'A copy: the game stays on {from} too.',
+    'move.start': 'Start', 'move.back': 'Back',
+    'step.copy': 'Copy to {disk}', 'step.check': 'Check the copy', 'step.remove': 'Remove the original from {disk}', 'step.keep': 'Keep the original on {disk}',
+    'move.done': '{title} is now on {disk}', 'move.done.text': 'Copy checked, original removed.', 'copy.done': '{title} copied to {disk}', 'copy.done.text': 'Copy checked, original kept.',
+    'move.cancelled': 'Cancelled: {title} stays on {disk}, as it was.',
     'steam.move.title': 'Steam moves its own games', 'steam.move.text': 'Steam\'s storage settings move {title} safely, with its updates and saves. They open now; Guide brings you back.',
     'steam.move.open': 'Open Steam\'s storage', 'steam.move.demo': '(demo) Steam\'s storage settings open, in Steam\'s console mode',
     'plug.title': 'USB disk connected: {n} games', 'plug.text': 'Play them from the USB disk, or copy them to the console to play without it.',
-    'plug.here': 'Play from here', 'plug.copy': 'Copy to the console', 'plug.copying': 'Copying {title} ({i} of {n})… {p}%', 'plug.done': '{n} games copied to the console',
-    'p.cancel': 'Cancel',
+    'plug.here': 'Play from here', 'plug.copy': 'Copy to the console', 'plug.where': 'Copy {n} games ({size}) to which disk?', 'plug.where.text': 'The originals stay on the USB disk.',
+    'plug.copying': 'Copying {title} ({i} of {n})', 'plug.done': '{n} games copied to {disk}',
+    'p.cancel': 'Cancel', 'p.toggle': 'Switch',
     'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings',
     'later.home': 'The home screen was approved in demo 3.6.', 'later.settings': 'Settings have their own demo (step 3.9).',
     'count': '{n} games', 'count.one': '1 game',
@@ -283,7 +304,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'choose.title': 'Which file starts {title}?', 'choose.text': 'The console found several. It remembers your choice; Options can change it.',
     'opt.choose': 'Choose the file to start', 'toast.chosen': '{title} will start with {file}', 'file.top': 'in the game’s folder', 'file.in': 'in {folder}',
     'sort.recent': 'Recently played', 'sort.name': 'Name', 'sort.time': 'Most played', 'sort.title': 'Sort by',
-    'disk.internal': 'Internal disk', 'disk.usb': 'USB disk', 'disk.free': '{n} free',
+    'disk.internal': 'Internal SSD', 'disk.hdd': 'Internal HDD', 'disk.usb': 'USB disk', 'disk.free': '{n} free',
     'disk.windows': 'Windows disk', 'disk.games': 'Games SSD', 'disk.of': '{free} free of {total}',
     'disks.title': 'Disks', 'disks.summary': '{n} disks · {free} free', 'p.disks': 'Disks', 'p.close': 'Close',
     'disk.note.readonly': 'Read only: Windows was not shut down completely. Shut it down from Windows (or turn off Fast Startup) to add games here.',
@@ -318,15 +339,19 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   const IT = {
     'opt.move': 'Sposta su un altro disco',
     'move.title': 'Sposta {title}', 'move.where': '{size} · ora su {disk}', 'move.free': '{free} liberi', 'move.nospace': 'Spazio insufficiente: servono {size}',
-    'move.readonly': 'Sola lettura: Windows non è stato spento del tutto', 'move.copying': 'Copia su {disk}… {p}%', 'move.checking': 'Controllo della copia…',
-    'move.removing': 'Eliminazione dell\'originale da {disk}…', 'move.done': '{title} ora è su {disk}', 'move.done.text': 'Copia controllata e originale eliminato.',
-    'move.cancelled': 'Spostamento annullato: {title} resta su {disk}', 'move.keep': 'Il gioco torna giocabile al termine dello spostamento.',
-    'copy.done': '{title} copiato su {disk}', 'copy.done.text': 'L\'originale resta sul disco USB.',
+    'move.readonly': 'Sola lettura: Windows non è stato spento del tutto',
+    'move.confirm': 'Sposta {title} su {disk}', 'move.confirm.text': '{size}. Il gioco torna giocabile quando ha finito.',
+    'move.remove': 'Elimina l\'originale dopo aver controllato la copia', 'move.remove.on': 'Il gioco sarà solo su {to}.', 'move.remove.off': 'Una copia: il gioco resta anche su {from}.',
+    'move.start': 'Inizia', 'move.back': 'Indietro',
+    'step.copy': 'Copia su {disk}', 'step.check': 'Controllo della copia', 'step.remove': 'Eliminazione dell\'originale da {disk}', 'step.keep': 'L\'originale resta su {disk}',
+    'move.done': '{title} ora è su {disk}', 'move.done.text': 'Copia controllata, originale eliminato.', 'copy.done': '{title} copiato su {disk}', 'copy.done.text': 'Copia controllata, originale tenuto.',
+    'move.cancelled': 'Annullato: {title} resta su {disk}, com\'era.',
     'steam.move.title': 'I giochi di Steam li sposta Steam', 'steam.move.text': 'Le impostazioni di archiviazione di Steam spostano {title} in sicurezza, con aggiornamenti e salvataggi. Si aprono ora; Guide ti riporta qui.',
     'steam.move.open': 'Apri l\'archiviazione di Steam', 'steam.move.demo': '(demo) Si aprono le impostazioni di archiviazione di Steam, nella sua modalità console',
     'plug.title': 'Disco USB collegato: {n} giochi', 'plug.text': 'Giocali dal disco USB, oppure copiali sulla console per giocarci anche senza.',
-    'plug.here': 'Gioca da qui', 'plug.copy': 'Copia sulla console', 'plug.copying': 'Copia di {title} ({i} di {n})… {p}%', 'plug.done': '{n} giochi copiati sulla console',
-    'p.cancel': 'Annulla',
+    'plug.here': 'Gioca da qui', 'plug.copy': 'Copia sulla console', 'plug.where': 'Su quale disco copiare {n} giochi ({size})?', 'plug.where.text': 'Gli originali restano sul disco USB.',
+    'plug.copying': 'Copia di {title} ({i} di {n})', 'plug.done': '{n} giochi copiati su {disk}',
+    'p.cancel': 'Annulla', 'p.toggle': 'Attiva',
     'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni',
     'later.home': 'La schermata Home è stata approvata nella demo 3.6.', 'later.settings': 'Le impostazioni hanno la loro demo (step 3.9).',
     'count': '{n} giochi', 'count.one': '1 gioco',
@@ -336,7 +361,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'choose.title': 'Quale file avvia {title}?', 'choose.text': 'La console ne ha trovati diversi. Ricorda la tua scelta; puoi cambiarla dalle Opzioni.',
     'opt.choose': 'Scegli il file da avviare', 'toast.chosen': '{title} partirà con {file}', 'file.top': 'nella cartella del gioco', 'file.in': 'in {folder}',
     'sort.recent': 'Giocati di recente', 'sort.name': 'Nome', 'sort.time': 'Più giocati', 'sort.title': 'Ordina per',
-    'disk.internal': 'Disco interno', 'disk.usb': 'Disco USB', 'disk.free': '{n} liberi',
+    'disk.internal': 'SSD interno', 'disk.hdd': 'HDD interno', 'disk.usb': 'Disco USB', 'disk.free': '{n} liberi',
     'disk.windows': 'Disco di Windows', 'disk.games': 'SSD giochi', 'disk.of': '{free} liberi su {total}',
     'disks.title': 'Dischi', 'disks.summary': '{n} dischi · {free} liberi', 'p.disks': 'Dischi', 'p.close': 'Chiudi',
     'disk.note.readonly': 'Sola lettura: Windows non è stato spento del tutto. Spegnilo da Windows (o disattiva l’avvio rapido) per aggiungere giochi qui.',
@@ -441,12 +466,13 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     const local = ['SuperTuxKart', '0 A.D.', 'Pixel Quest', 'Lumen', 'Wildflower', 'Glass Canyon', 'Night Market'].includes(title);
     const played = i % 3 !== 2;
     return { id: 'g' + i, title, h: hue(title), src: local ? 'local' : 'Steam', fav: i % 7 === 0,
-             last: played ? (i % 11) : -1, total: played ? (i * 97) % 2400 : 0, disk: 'internal', size: 2 + (i * 7) % 60 };
+             last: played ? (i % 11) : -1, total: played ? (i * 97) % 2400 : 0, disk: i % 3 === 0 ? 'internal' : 'hdd', size: 2 + (i * 7) % 60 };
   }).concat(ON_DISK.map((d, i) => ({ id: 'd' + i, title: d.title, h: hue(d.title), src: 'local', fav: false, cover: !!d.cover,
     last: i === 0 ? 1 : -1, total: i === 0 ? 42 : 0, disk: 'ssd', size: [0.15, 3.9, 1.2, 0.8][i], files: d.files, choice: null })));
   // Disks found by the system: the console's own disk, and the USB disk while it is plugged in
   const ALL_DISKS = [
-    { key: 'internal', free: 212, total: 512 },
+    { key: 'internal', free: 18, total: 96 },
+    { key: 'hdd', free: 1420, total: 2000 },
     { key: 'ssd', name: 'SSD-256GB-D', free: 229, total: 256 },
     { key: 'stick', name: 'USB-STICK-16GB', free: 3, total: 16 },
     { key: 'windows', free: 310, total: 1000, ro: true, notes: ['disk.note.readonly'] },
@@ -496,7 +522,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     const add = filter === 'favorites' ? '' : `<button class="cover add" data-f data-add><span class="plus">${ICON('plus')}</span><span class="t-m">${tr('add.tile')}</span></button>`;
     $('#grid').innerHTML = list.length || add ? list.map(g => `<button class="cover${g.cover ? ' photo' : ''}" data-f data-game="${g.id}" style="--h:${g.h}">
         <span class="src t-xs">${srcName(g)}</span>${g.fav ? `<span class="fav">${HEART}</span>` : ''}
-        <span class="ttl t-m">${g.title}</span></button>`).join('') + add
+        <span class="ttl t-m">${g.title}</span>${disks().length > 1 ? `<span class="where t-xs">${diskName(ALL_DISKS.find(d => d.key === g.disk))}</span>` : ''}</button>`).join('') + add
       : `<div class="empty" style="grid-column: 1 / -1; padding-top: 120px"><span class="disp t-l">${tr('empty.favorites')}</span><span class="t-m">${tr('empty.favorites.hint')}</span></div>`;
     if (focused && focused.hasAttribute('data-disks')) return;   // the selection stays on the disks
     const keep = keepId && $(`#grid [data-game="${keepId}"]`);
@@ -687,80 +713,112 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
         if (thenStart) start(g); else toast(tr('toast.chosen', { title: g.title, file: g.files[g.choice][0] }));
       }, g.choice !== null ? `#sheet [data-file="${g.choice}"]` : null);
   }
-  /* ---------- Moving a game (6.6) ---------- */
-  const sizeOf = g => g.size.toLocaleString(lang, { maximumFractionDigits: 2 }) + ' GB';
+  /* ---------- Moving and copying games (6.6) ---------- */
+  const sizeOf = n => n.toLocaleString(lang, { maximumFractionDigits: 2 }) + ' GB';
   const diskOf = key => ALL_DISKS.find(d => d.key === key);
-  function moveSheet(g) {
-    const from = diskOf(g.disk);
-    const rows = disks().filter(d => d.key !== g.disk).map(d => {
-      const why = d.ro ? tr('move.readonly') : d.free < g.size ? tr('move.nospace', { size: sizeOf(g) }) : '';
+  // the disks a game (or games) of `size` can go to, off with the reason when they cannot
+  function diskRows(size, exclude) {
+    return disks().filter(d => d.key !== exclude).map(d => {
+      const why = d.ro ? tr('move.readonly') : d.free < size ? tr('move.nospace', { size: sizeOf(size) }) : '';
       return `<button class="disk-row" data-f data-to="${d.key}"${why ? ' disabled' : ''}><div class="name t-m"><span>${diskName(d)}</span>
         <span class="muted t-s">${tr('move.free', { free: gb(d.free) })}</span></div><span class="bar"><i style="width:${Math.round(100 - d.free / d.total * 100)}%"></i></span>
         ${why ? `<span class="why t-xs">${why}</span>` : ''}</button>`;
     }).join('');
-    openSheet(`<span class="disp t-l">${tr('move.title', { title: g.title })}</span><span class="t-m muted">${tr('move.where', { size: sizeOf(g), disk: diskName(from) })}</span>
-      <div class="move-list">${rows}</div>`,
+  }
+  // the usable disk with the most room comes first
+  const roomiest = (size, exclude) => disks().filter(d => d.key !== exclude && !d.ro && d.free >= size).sort((a, b) => b.free - a.free)[0];
+  function moveSheet(g) {
+    const best = roomiest(g.size, g.disk);
+    openSheet(`<span class="disp t-l">${tr('move.title', { title: g.title })}</span><span class="t-m muted">${tr('move.where', { size: sizeOf(g.size), disk: diskName(diskOf(g.disk)) })}</span>
+      <div class="move-list">${diskRows(g.size, g.disk)}</div>`,
       [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
         if (!el.dataset.to || el.disabled) { feedback('edge'); return; }
-        copy(g, diskOf(el.dataset.to), true);
-      }, '#sheet [data-to]:not([disabled])');
+        confirmSheet(g, diskOf(el.dataset.to), true);
+      }, best ? `#sheet [data-to="${best.key}"]` : null);
   }
-  // copy, check, then (moving) remove the original; Cancel removes the partial copy and changes nothing
-  let copyTimer = null;
-  function copy(g, to, moving, done) {
+  // the last word before anything is written: the original removed after the check, or kept
+  function confirmSheet(g, to, remove) {
     const from = diskOf(g.disk);
-    let p = 0, phase = 'copy';
+    openSheet(`<span class="disp t-l">${tr('move.confirm', { title: g.title, disk: diskName(to) })}</span><span class="t-m muted">${tr('move.confirm.text', { size: sizeOf(g.size) })}</span>
+      <button class="opt-row" data-f data-k="remove" role="switch" aria-checked="${remove}"><span class="t-m">${tr('move.remove')}</span><span class="switch"></span></button>
+      <span class="t-s muted">${remove ? tr('move.remove.on', { to: diskName(to) }) : tr('move.remove.off', { from: diskName(from) })}</span>
+      <div class="list t-m"><button class="item primary" data-f data-k="start">${tr('move.start')}</button><button class="item" data-f data-k="back">${tr('move.back')}</button></div>`,
+      [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
+        if (el.dataset.k === 'remove') { confirmSheet(g, to, !remove); focus($('#sheet [data-k="remove"]'), true); return; }
+        if (el.dataset.k === 'back') { moveSheet(g); return; }
+        run([g], to, remove, () => {
+          closeSheet(false); renderHead(); renderGrid(g.id);
+          banner(tr(remove ? 'move.done' : 'copy.done', { title: g.title, disk: diskName(to) }), tr(remove ? 'move.done.text' : 'copy.done.text'));
+        });
+      }, '#sheet [data-k="start"]', null, true);
+  }
+  // the steps, one after the other, each ticked when done: copy (Cancel), check, remove the original
+  let runTimer = null;
+  function run(list, to, remove, done) {
+    let i = 0, p = 0, phase = 'copy';
+    const g = () => list[i];
     const draw = () => {
-      const line = phase === 'copy' ? tr('move.copying', { disk: diskName(to), p }) : phase === 'check' ? tr('move.checking') : tr('move.removing', { disk: diskName(from) });
-      $('#sheet').innerHTML = `<span class="disp t-l">${tr(moving ? 'move.title' : 'plug.copy', { title: g.title })}</span><div class="copy">
-        <span class="bar"><i style="width:${phase === 'copy' ? p : 100}%"></i></span><span class="stage-line t-m">${line}</span><span class="t-xs muted">${tr('move.keep')}</span></div>
+      const from = diskOf(g().disk);
+      const steps = [['copy', tr('step.copy', { disk: diskName(to) })], ['check', tr('step.check')],
+        ['remove', remove ? tr('step.remove', { disk: diskName(from) }) : tr('step.keep', { disk: diskName(from) })]];
+      const order = ['copy', 'check', 'remove', 'end'];
+      const state = k => order.indexOf(k) < order.indexOf(phase) ? 'done' : k === phase ? 'now' : '';
+      const title = list.length > 1 ? tr('plug.copying', { title: g().title, i: i + 1, n: list.length }) : tr('move.title', { title: g().title });
+      $('#sheet').innerHTML = `<span class="disp t-l">${title}</span><div class="steps-list t-m">${steps.map(([k, l]) =>
+        `<div class="st ${state(k)}"><span class="mark">${state(k) === 'done' ? '✓' : ''}</span><span>${l}</span><span class="t-s">${k === 'copy' && phase === 'copy' ? p + '%' : ''}</span>
+          ${k === 'copy' && phase === 'copy' ? `<span class="bar"><i style="width:${p}%"></i></span>` : ''}</div>`).join('')}</div>
         ${phase === 'copy' ? `<div class="list t-m"><button class="item" data-f data-cancel>${tr('p.cancel')}</button></div>` : ''}`;
       focus($('#sheet [data-cancel]'), true);
       $('#sheet-prompts').innerHTML = phase === 'copy' ? `<div class="set">${P(['a'], tr('p.cancel'))}</div>` : '<div class="set"></div>';
     };
+    // Cancel: the partial copy is removed, nothing else changes
     sheetAccept = el => {
       if (!el || !el.hasAttribute('data-cancel')) return;
-      clearInterval(copyTimer); closeSheet(); toast(tr('move.cancelled', { title: g.title, disk: diskName(from) }));
+      clearInterval(runTimer); closeSheet(); toast(tr('move.cancelled', { title: g().title, disk: diskName(diskOf(g().disk)) }));
     };
     draw();
-    clearInterval(copyTimer);
-    copyTimer = setInterval(() => {
-      if (phase === 'copy') { p = Math.min(100, p + 6); if (p >= 100) phase = 'check'; }
-      else if (phase === 'check') phase = moving ? 'remove' : 'end';
-      else phase = 'end';
+    clearInterval(runTimer);
+    let wait = 0;
+    runTimer = setInterval(() => {
+      if (phase === 'copy') { p = Math.min(100, p + 4); if (p >= 100) { phase = 'check'; wait = 0; } }
+      else if (phase === 'check') { if (++wait > 8) { phase = remove ? 'remove' : 'end'; wait = 0; } }
+      else if (phase === 'remove') { if (++wait > 6) phase = 'end'; }
       if (phase === 'end') {
-        clearInterval(copyTimer);
-        to.free = Math.round((to.free - g.size) * 10) / 10;
-        if (moving) from.free = Math.round((from.free + g.size) * 10) / 10;
-        g.disk = to.key;
-        if (done) { done(); return; }
-        closeSheet(false); renderHead(); renderGrid(g.id);
-        banner(tr('move.done', { title: g.title, disk: diskName(to) }), tr('move.done.text'));
-        return;
+        const from = diskOf(g().disk);
+        to.free = Math.round((to.free - g().size) * 10) / 10;
+        if (remove) from.free = Math.round((from.free + g().size) * 10) / 10;
+        g().disk = to.key;
+        if (++i >= list.length) { clearInterval(runTimer); draw(); setTimeout(done, 700); return; }
+        p = 0; phase = 'copy';
       }
       draw();
-    }, 220);
+    }, 160);
   }
   function steamMoveSheet(g) {
     openSheet(`<span class="disp t-l">${tr('steam.move.title')}</span><span class="t-m muted" style="max-width:640px">${tr('steam.move.text', { title: g.title })}</span>
       <div class="list t-m"><button class="item primary" data-f data-k="open">${tr('steam.move.open')}</button><button class="item" data-f data-k="cancel">${tr('p.cancel')}</button></div>`,
       [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => { closeSheet(); if (el.dataset.k === 'open') toast(tr('steam.move.demo')); });
   }
-  // a USB disk with games plugged in: play from it, or copy its games to the console (one after another)
+  // a USB disk with games plugged in: play from it, or copy its games to the disk the player chooses
   function plugSheet() {
     const list = GAMES.filter(g => g.disk === 'ssd');
     openSheet(`<span class="disp t-l">${tr('plug.title', { n: list.length })}</span><span class="t-m muted" style="max-width:640px">${tr('plug.text')}</span>
       <div class="list t-m"><button class="item primary" data-f data-k="here">${tr('plug.here')}</button><button class="item" data-f data-k="copy">${tr('plug.copy')}</button></div>`,
       [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
         if (el.dataset.k === 'here') { closeSheet(); return; }
-        let i = 0;
-        const next = () => {
-          if (i >= list.length) { closeSheet(false); renderHead(); renderGrid(); banner(tr('plug.done', { n: list.length }), tr('copy.done.text')); return; }
-          const g = list[i++];
-          copy(g, diskOf('internal'), false, next);
-        };
-        next();
+        plugWhereSheet(list);
       });
+  }
+  function plugWhereSheet(list) {
+    const size = Math.round(list.reduce((a, g) => a + g.size, 0) * 100) / 100;
+    const best = roomiest(size, 'ssd');
+    openSheet(`<span class="disp t-l">${tr('plug.where', { n: list.length, size: sizeOf(size) })}</span><span class="t-m muted">${tr('plug.where.text')}</span>
+      <div class="move-list">${diskRows(size, 'ssd')}</div>`,
+      [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
+        if (!el.dataset.to || el.disabled) { feedback('edge'); return; }
+        const to = diskOf(el.dataset.to);
+        run(list, to, false, () => { closeSheet(false); renderHead(); renderGrid(); banner(tr('plug.done', { n: list.length, disk: diskName(to) }), tr('plug.where.text')); });
+      }, best ? `#sheet [data-to="${best.key}"]` : null);
   }
 
   // the notices of demo 3.11: top right, for a few seconds
@@ -912,9 +970,11 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     else if (open === 'options') optionsSheet(lk);
     else if (open === 'move') moveSheet(GAMES.find(g => g.title === 'SuperTuxKart'));
     else if (open === 'movebig') moveSheet(GAMES.find(g => g.src === 'local' && g.size > 20) || lk);
+    else if (open === 'confirm') { const g = GAMES.find(x => x.title === 'SuperTuxKart'); moveSheet(g); confirmSheet(g, roomiest(g.size, g.disk), true); }
+    else if (open === 'copying') { const g = GAMES.find(x => x.title === 'SuperTuxKart'); moveSheet(g); run([g], roomiest(g.size, g.disk), true, () => { closeSheet(false); renderGrid(g.id); }); }
     else if (open === 'steam') steamMoveSheet(GAMES.find(g => g.src === 'Steam'));
     else if (open === 'plug') plugSheet();
-    else if (open === 'copying') { const g = GAMES.find(x => x.title === 'SuperTuxKart'); moveSheet(g); copy(g, diskOf('ssd'), true); }
+    else if (open === 'plugwhere') { plugSheet(); plugWhereSheet(GAMES.filter(g => g.disk === 'ssd')); }
     else if (open === 'details') detailsSheet(lk);
     else if (open === 'add') { focus($('#grid [data-add]'), true); addSheet(); }
   }, 300);
