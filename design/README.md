@@ -43,6 +43,10 @@ Mockups and design assets.
     A the logo and the slogan (one picture for every language), B the logo and the home's title
     (one per language); Dusk or Daylight; whole and in two plain link previews. Start state:
     `#shape=b&pal=dusk&lang=it`.
+  - [`7.8m-website-header.html`](demos/7.8m-website-header.html): the website's header
+    ([[step-7.8m-website-header]]) on the approved pages demo: the languages in a drop-down menu
+    and a light / dark switch remembered in the browser. Start state:
+    `#home&intro=off&pal=daylight&lang=it&langs=open`.
   - [`logo-gamepad-o.html`](demos/logo-gamepad-o.html): a draft of a new logo, outside the
     roadmap (owner, 2026-10-19; nothing in the system uses it, the final logo is
     [[step-7.6-final-logo-and-brand]]): the first "O" as a circle with a gamepad cut out of it,

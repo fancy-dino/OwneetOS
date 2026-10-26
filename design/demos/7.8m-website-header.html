@@ -1,0 +1,1002 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS - interactive demo for [[step-7.8m-website-header]]: the website's header on the approved
+     pages demo (7.8b-website-pages.html). The five languages in a drop-down menu (a globe and the
+     current language; each language in its own name, the current one ticked; closed with Escape or
+     a click elsewhere), and a sun / moon button that switches between the light (Daylight) and dark
+     (Dusk) palettes, starting from the device's theme and remembered in the browser only. On a
+     phone the menu keeps only its globe. In the demo only English and Italian have texts: German,
+     French and Spanish say what the real site would open. The rest is the 7.8b demo unchanged.
+     The icons are Lucide's (ISC License; some derived from Feather, MIT License; CREDITS.md). Fonts
+     come from Google Fonts for the demo only. Open in a browser. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS - Website header (demo 7.8m)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --bg: #0E1424; --surface: #172036; --raised: #222D4A; --line: #2E3A5C; --fg: #EEF1F8;
+  --muted: #8F9AB5; --accent: #FF8A5B; --on-accent: #1E0E06;
+  --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif;
+  --wrap: 1160px; --head: 68px; }
+* { box-sizing: border-box; }
+html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--text); font-weight: 350; line-height: 1.5; }
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px; width: 100%; }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 750; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+.wm-text { fill: var(--fg); } .wm-accent { fill: var(--accent); }
+
+/* Header */
+header.site { position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: var(--head);
+  background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(10px); }
+.nav { display: flex; align-items: center; gap: 28px; height: 100%; }
+.nav .logo { display: flex; align-items: center; }
+.nav .logo svg { height: 30px; width: auto; display: block; }
+.nav ul { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.nav ul a { text-decoration: none; color: var(--muted); padding: 8px 12px; border-radius: 999px; font-size: 15px; }
+.nav ul a:hover, .nav ul a[aria-current="true"] { color: var(--fg); }
+.nav ul a[aria-current="true"] { background: var(--surface); }
+.nav .end { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.langmenu { position: relative; }
+.hdr-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line);
+  background: none; color: var(--fg); font: inherit; font-size: 14px; cursor: pointer; }
+.hdr-btn:hover { background: var(--surface); }
+.hdr-btn .ic { width: 18px; height: 18px; display: inline-flex; }
+.hdr-btn .ic svg, .lang-list .ic svg { width: 100%; height: 100%; }
+.hdr-btn .chev { width: 14px; height: 14px; color: var(--muted); transition: transform .15s ease; }
+.hdr-btn[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.theme-btn { width: 36px; padding: 0; justify-content: center; }
+.nav .langmenu ul.lang-list { display: block; position: absolute; right: 0; top: calc(100% + 8px); min-width: 190px; list-style: none; margin: 0; padding: 6px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 32px rgb(0 0 0 / .25); z-index: 30; }
+.nav .langmenu ul.lang-list[hidden] { display: none; }
+.nav .langmenu .lang-list a { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-radius: 10px;
+  color: var(--fg); text-decoration: none; font-size: 15px; }
+.nav .langmenu .lang-list a:hover, .nav .langmenu .lang-list a:focus-visible { background: var(--raised); color: var(--fg); }
+.lang-list .ic { width: 16px; height: 16px; color: var(--accent); display: inline-flex; }
+@media (max-width: 600px) { #langCur { display: none; } }
+.btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; border: 1px solid transparent; cursor: pointer;
+  border-radius: 999px; padding: 12px 24px; font-size: 16px; font-weight: 500; transition: transform .15s ease; background: none; white-space: nowrap; }
+.btn:hover { transform: translateY(-1px); }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+.btn.ghost { border-color: var(--line); color: var(--fg); }
+.btn.small { padding: 8px 16px; font-size: 14px; }
+.menu-btn { display: none; background: none; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 14px; cursor: pointer; }
+
+/* Sections: one screen each, snapped */
+.snap { min-height: 100svh; scroll-snap-align: start; padding: calc(var(--head) + 32px) 0 48px; display: flex; align-items: center; }
+.snap > .wrap { display: grid; gap: 36px; }
+.snap > .wrap > * { min-width: 0; }   /* the carousel's strip must not widen the page */
+html, body { overflow-x: clip; }
+.head { text-align: center; display: grid; gap: 12px; justify-items: center; }
+.head h2 { font-size: clamp(34px, 5vw, 56px); margin: 0; }
+.head p { color: var(--muted); font-size: 18px; margin: 0; max-width: 30em; }
+
+/* Dots: where we are, on the right */
+.dots { position: fixed; right: 20px; top: 50%; transform: translateY(-50%); z-index: 15; display: grid; gap: 12px; }
+.dots a { width: 10px; height: 10px; border-radius: 50%; background: var(--line); display: block; transition: transform .2s ease, background .2s ease; }
+.dots a[aria-current="true"] { background: var(--accent); transform: scale(1.35); }
+
+/* Hero */
+.hero { grid-template-columns: 1fr 1.25fr; align-items: center; }
+.kicker { color: var(--accent); font-weight: 500; font-size: 15px; margin: 0 0 14px; }
+.hero h1 { font-size: clamp(42px, 6vw, 70px); margin: 0 0 18px; }
+.hero p.lede { font-size: 19px; color: var(--muted); margin: 0 0 28px; max-width: 26em; }
+.hero .ctas { display: flex; flex-wrap: wrap; gap: 12px; }
+
+/* The console's home screen (as in demo 3.6, drawn for the site) */
+.tv { container-type: inline-size; }
+.tv .screen { aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: var(--bg);
+  border: 10px solid #05070C; box-shadow: 0 30px 80px -30px rgba(0,0,0,.6), 0 0 0 1px var(--line);
+  font-size: 1.32cqw; padding: 2.2em 2.8em 1.6em; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; gap: 1.3em; }
+.tv .stand { width: 26%; height: 14px; margin: 0 auto; background: #05070C; border-radius: 0 0 10px 10px; }
+.tv .top { display: flex; align-items: center; gap: 2.2em; }
+.tv .top svg { height: 1.7em; width: auto; display: block; }
+.tv .tabs { display: flex; align-items: center; gap: .5em; color: var(--muted); }
+.tv .tabs b { background: var(--fg); color: var(--bg); font-weight: 500; border-radius: 999px; padding: .3em 1.1em; }
+.tv .tabs i { font-style: normal; padding: .3em .8em; }
+.tv .pill { font-size: .7em; font-weight: 600; border: .14em solid var(--muted); border-radius: .5em; padding: .05em .45em; color: var(--muted); }
+.tv .status { margin-left: auto; display: flex; gap: 1.2em; align-items: center; color: var(--muted); }
+.tv .status svg { width: 1.3em; height: 1.3em; display: block; }
+.tv .main { display: grid; grid-template-columns: 1.65fr 1fr; gap: 1.3em; min-height: 0; }
+.tv .card { position: relative; border-radius: 1.1em; overflow: hidden; padding: 1.5em 1.8em; color: #fff; display: flex; flex-direction: column;
+  justify-content: flex-end; gap: .55em; outline: .22em solid var(--accent); outline-offset: .22em;
+  background: radial-gradient(70% 90% at 85% 15%, hsl(330 85% 62% / .85), transparent 60%),
+    radial-gradient(60% 80% at 60% 110%, hsl(10 70% 42%), transparent 70%), linear-gradient(135deg, hsl(330 45% 22%), hsl(0 55% 10%)); }
+.tv .card::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.55), transparent 70%); }
+.tv .card > * { position: relative; }
+.tv .card .k { font-size: .75em; letter-spacing: .12em; text-transform: uppercase; opacity: .85; font-weight: 500; }
+.tv .card .t { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 750; font-size: 2.3em; line-height: 1; }
+.tv .card .meta { display: flex; gap: 1em; font-size: .8em; opacity: .9; }
+.tv .card .meta span:first-child { background: rgba(0,0,0,.35); border-radius: 999px; padding: .1em .7em; }
+.tv .card .acts { display: flex; gap: .8em; margin-top: .3em; }
+.tv .card .acts span { border-radius: 999px; padding: .45em 1.4em; font-weight: 500; background: rgba(255,255,255,.16); }
+.tv .card .acts span:first-child { background: #fff; color: #10131C; }
+.tv .side { display: grid; grid-template-rows: auto 1fr; gap: .7em; min-height: 0; }
+.tv .label { font-size: .75em; color: var(--muted); }
+.tv .apps { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; gap: .7em; }
+.tv .app { border-radius: .9em; background: var(--surface); border: .08em solid var(--line); padding: .6em .7em; display: flex; flex-direction: column;
+  justify-content: space-between; gap: .4em; font-size: .78em; line-height: 1.15; }
+.tv .app .ico { width: 2.1em; height: 2.1em; border-radius: .6em; display: grid; place-items: center; background: var(--raised); color: var(--accent); }
+.tv .app .ico svg { width: 1.3em; height: 1.3em; }
+.tv .rowhead { display: flex; justify-content: space-between; font-size: .75em; color: var(--muted); margin-bottom: .6em; }
+.tv .rowhead b { color: var(--fg); font-weight: 400; }
+.tv .row { display: grid; grid-template-columns: repeat(7, 1fr); gap: .8em; }
+.tv .cover { aspect-ratio: 4 / 5; border-radius: .8em; color: #fff; display: flex; align-items: flex-end; padding: .5em; font-size: .72em; font-weight: 500;
+  background: radial-gradient(120% 80% at 80% 10%, hsl(var(--h) 85% 62% / .95), transparent 60%),
+    radial-gradient(90% 70% at 0% 100%, hsl(calc(var(--h) + 40) 70% 35%), transparent 70%), hsl(var(--h) 40% 18%); }
+.tv .prompts { display: flex; justify-content: space-between; color: var(--muted); font-size: .75em; }
+.tv .prompts > span { display: flex; gap: 1.4em; }
+.tv .prompts i { font-style: normal; display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; border-radius: 50%;
+  border: .12em solid var(--muted); font-size: .8em; font-weight: 600; margin-right: .4em; }
+
+/* Carousel */
+/* The strip spans the whole screen; at rest only the middle card is on screen (the next one is a
+   whole screen away), and while they slide the cards come in and go out at the screen's edges. */
+.carousel { position: relative; margin: 0 calc(50% - 50vw); --card: min(600px, 84vw); }
+.track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none;
+  padding: 8px calc(50vw - var(--card) / 2); gap: calc(50vw - var(--card) / 2); }
+.track::-webkit-scrollbar { display: none; }
+.slide { flex: 0 0 var(--card); scroll-snap-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: 28px;
+  padding: 44px 40px; display: grid; justify-items: center; text-align: center; gap: 14px; }
+.slide .icon { width: 84px; height: 84px; border-radius: 24px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.slide .icon svg { width: 44px; height: 44px; }
+.slide h3 { font-family: var(--display); font-variation-settings: "wdth" 85; font-weight: 750; font-size: 30px; margin: 6px 0 0; letter-spacing: -0.01em; }
+.slide p { margin: 0; color: var(--muted); font-size: 17px; max-width: 24em; }
+.cnav { display: flex; justify-content: center; align-items: center; gap: 18px; margin-top: 22px; }
+.cnav button.arrow { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); cursor: pointer; display: grid; place-items: center; }
+.cnav button.arrow svg { width: 20px; height: 20px; }.cdots { display: flex; gap: 8px; }
+.cdots button { width: 9px; height: 9px; border-radius: 50%; border: 0; padding: 0; background: var(--line); cursor: pointer; }
+.cdots button[aria-current="true"] { background: var(--accent); width: 24px; border-radius: 999px; }
+
+/* Requirements: a few figures */
+.figs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+.fig { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 28px 16px; text-align: center; display: grid; gap: 6px; }
+.fig b { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 750; font-size: clamp(28px, 3.4vw, 40px); line-height: 1; }
+.fig span { color: var(--muted); font-size: 14px; }
+.center { text-align: center; }
+.center a { color: var(--accent); }
+
+/* Free and open: four short lines */
+.facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+/* Info: the guide and the FAQ, two cards leading to their pages */
+.infos { display: grid; grid-template-columns: repeat(2, minmax(0, 340px)); gap: 20px; justify-content: center; }
+.info { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 32px 24px; text-decoration: none;
+  display: grid; justify-items: center; text-align: center; gap: 10px; transition: transform .15s ease, border-color .15s ease; }
+.info:hover { transform: translateY(-2px); border-color: var(--accent); }
+.info .icon { width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.info .icon svg { width: 30px; height: 30px; }
+.info b { font-family: var(--display); font-variation-settings: "wdth" 85; font-weight: 750; font-size: 24px; }
+.info span { color: var(--muted); font-size: 15.5px; }
+.fact { display: grid; justify-items: center; text-align: center; gap: 12px; padding: 12px; }
+.fact .icon { width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.fact .icon svg { width: 30px; height: 30px; }
+.fact b { font-weight: 500; font-size: 17px; }
+
+/* Download + footer, the last screen */
+.last { flex-direction: column; justify-content: space-between; padding-bottom: 0; }
+.last .box { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, var(--surface)), var(--surface));
+  border: 1px solid var(--line); border-radius: 28px; padding: 64px 24px; text-align: center; display: grid; gap: 14px; justify-items: center; margin: auto 0; }
+.last .box h2 { font-size: clamp(36px, 5vw, 60px); margin: 0; }
+.last .box p { color: var(--muted); margin: 0 0 12px; font-size: 18px; max-width: 28em; }
+footer { width: 100%; border-top: 1px solid var(--line); padding: 22px 0 26px; font-size: 13.5px; color: var(--muted); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; }
+footer a { text-decoration: none; } footer a:hover { color: var(--fg); text-decoration: underline; }
+footer .marks { flex-basis: 100%; font-size: 12.5px; }
+
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 160%); visibility: hidden; opacity: 0; background: var(--raised); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 18px; font-size: 14px; transition: transform .25s ease, opacity .25s ease, visibility .25s; z-index: 40; max-width: calc(100% - 32px); }
+.toast.on { transform: translate(-50%, 0); visibility: visible; opacity: 1; }
+
+/* Demo panel: not part of the site */
+.demo { position: fixed; left: 12px; bottom: 12px; z-index: 50; font-size: 13px; color: #C9D1E4; }
+.demo > button { background: #05070C; color: #fff; border: 1px solid #2A3348; border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+.demo .panel { display: none; margin-bottom: 8px; background: #05070C; border: 1px solid #2A3348; border-radius: 12px; padding: 10px 12px; gap: 8px; }
+.demo.open .panel { display: grid; }
+.demo .grp { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.demo .grp > span { width: 52px; }
+.demo .panel button, .demo select { background: #161C2A; border: 1px solid #2A3348; color: #C9D1E4; border-radius: 999px; padding: 3px 10px; font-size: 13px; cursor: pointer; }
+.demo .panel button[aria-pressed="true"] { background: #C9D1E4; color: #05070C; }
+
+@media (max-width: 960px) {
+  .hero { grid-template-columns: 1fr; gap: 28px; }
+  .hero .text { text-align: center; } .hero p.lede { margin-left: auto; margin-right: auto; } .hero .ctas { justify-content: center; }
+  .figs { grid-template-columns: repeat(3, 1fr); }
+  .facts { grid-template-columns: repeat(2, 1fr); }
+  .infos { grid-template-columns: minmax(0, 420px); }
+  .dots { display: none; }
+}
+@media (max-width: 1100px) {   /* below this the header's links no longer fit: the Menu button */
+  .menu-btn { display: inline-block; }
+  .nav ul { display: none; position: absolute; top: var(--head); left: 0; right: 0; flex-direction: column; gap: 0;
+    background: var(--bg); border-bottom: 1px solid var(--line); padding: 8px 16px 16px; }
+  .nav ul.open { display: flex; }
+  .nav ul a { display: block; padding: 12px; }
+  .nav .end .btn { display: none; }
+}
+@media (max-width: 600px) {
+  .wrap { padding: 0 16px; }
+  .snap { padding-top: calc(var(--head) + 20px); }
+  .slide { padding: 32px 22px; }
+  .figs { grid-template-columns: repeat(2, 1fr); }
+  .tv .screen { border-width: 6px; }
+}
+@media (prefers-reduced-motion: reduce) { html, .track { scroll-behavior: auto; } .btn, .toast { transition: none; } }
+
+[hidden] { display: none !important; }   /* also for the elements below that set their own display */
+/* The pages: ordinary scrolling (the home's snapping is off while a page is shown) */
+html.paged { scroll-snap-type: none; }
+#page { padding: calc(var(--head) + 40px) 0 0; min-height: 100svh; display: flex; flex-direction: column; }
+#page .wrap.narrow { max-width: 820px; flex: 1; }
+.back { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; font-size: 14px; margin-bottom: 18px; }
+.back:hover { color: var(--fg); }
+.back .ic { width: 16px; height: 16px; display: inline-flex; }
+.back .ic svg { width: 100%; height: 100%; }
+#page h1 { font-size: clamp(36px, 5vw, 56px); margin: 0 0 12px; }
+#page .lede { color: var(--muted); font-size: 18px; margin: 0 0 36px; max-width: 34em; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; counter-reset: step; }
+.steps li { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 20px 22px 20px 74px; position: relative; counter-increment: step; }
+.steps li::before { content: counter(step); position: absolute; left: 22px; top: 20px; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 500; }
+.steps h3, .cards h3 { font-family: var(--display); font-variation-settings: "wdth" 85; font-weight: 750; font-size: 21px; margin: 4px 0 6px; }
+.steps p, .cards p, .blocks p { margin: 0; color: var(--muted); }
+.note { margin-top: 18px; border-left: 3px solid var(--accent); padding: 4px 0 4px 16px; color: var(--muted); }
+.faq { display: grid; gap: 10px; }
+.faq details { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 4px 20px; }
+.faq summary { cursor: pointer; padding: 14px 0; font-weight: 500; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; color: var(--accent); font-size: 22px; line-height: 1; }
+.faq details[open] summary::after { content: "–"; }
+.faq details p { margin: 0 0 16px; color: var(--muted); }
+.credits h2, .blocks h2 { font-size: 13px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 28px 0 12px; }
+.credit-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.credit-list a { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; text-decoration: none; display: grid; gap: 2px; }
+.credit-list a:hover { border-color: var(--accent); }
+.credit-list b { font-weight: 500; }
+.credit-list span { color: var(--muted); font-size: 13px; }
+.credit-list.authors { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 560px; }   /* the two authors side by side, at the same level, on every screen */
+.credit-list.authors a { padding: 16px 18px; }
+.credit-list.authors b { font-family: var(--display); font-variation-settings: "wdth" 85; font-weight: 750; font-size: 20px; }
+.blocks { display: grid; gap: 8px; }
+.blocks h2 { margin-top: 18px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.cards > div { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 22px; display: grid; gap: 8px; align-content: start; }
+.cards .icon { width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.cards .icon svg { width: 26px; height: 26px; }
+#page a.more, .cards a { color: var(--accent); }
+.page-foot { margin-top: 56px; }
+
+/* The start-up animation: the logo from transparent over INTRO.fade ms, then the three words, one
+   by one, at once; then the site shows. The words are laid out at once (hidden), so the line
+   never moves. Sizes follow the logo's width, as in the logo demo (900 of 1600). */
+.intro { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: grid; place-items: center; transition: opacity .4s ease; }
+.intro.done { opacity: 0; pointer-events: none; }
+.intro-in { --w: min(76vw, 720px); display: grid; justify-items: center; }
+.intro-logo { width: var(--w); opacity: 0; }
+.intro-logo svg { width: 100%; height: auto; display: block; }
+.intro-logo.on { opacity: 1; transition: opacity var(--fade, 2000ms) cubic-bezier(.33, 1, .68, 1); }
+.intro-sub { margin: calc(var(--w) * .01) 0 0; font-size: calc(var(--w) * .044); color: var(--muted); font-weight: 350; }
+.intro-sub span { visibility: hidden; }
+.intro-sub span.on { visibility: visible; }
+html.intro-on body { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .intro, .intro-logo.on { transition: none; } }
+</style>
+</head>
+<body>
+<header class="site">
+  <nav class="wrap nav" aria-label="Main">
+    <a class="logo" href="#home" id="logoTop" aria-label="OwneetOS"></a>
+    <ul id="menu">
+      <li><a href="#features" data-t="nav.features"></a></li>
+      <li><a href="#requirements" data-t="nav.requirements"></a></li>
+      <li><a href="#open" data-t="nav.open"></a></li>
+      <li><a href="#info" data-t="nav.info"></a></li>
+      <li><a href="#/credits" data-t="foot.credits.short"></a></li>
+      <li><a href="#download" data-t="nav.download"></a></li>
+    </ul>
+    <div class="end">
+      <div class="langmenu">
+        <button class="hdr-btn" type="button" id="langBtn" aria-haspopup="true" aria-expanded="false" aria-controls="langList">
+          <span class="ic" data-icon="globe"></span><span id="langCur">EN</span><span class="ic chev" data-icon="chevronDown"></span></button>
+        <ul class="lang-list" id="langList" hidden></ul>
+      </div>
+      <button class="hdr-btn theme-btn" type="button" id="themeBtn"><span class="ic" id="themeIc"></span></button>
+      <a class="btn primary small" href="#download" data-t="nav.get"></a>
+      <button class="menu-btn" type="button" id="menuBtn" aria-expanded="false" aria-controls="menu" data-t="nav.menu"></button>
+    </div>
+  </nav>
+</header>
+<nav class="dots" id="dots" aria-label="Sections"></nav>
+
+<main>
+  <section class="snap" id="home" data-name="nav.home">
+    <div class="wrap hero">
+      <div class="text">
+        <p class="kicker" data-t="hero.kicker"></p>
+        <h1 class="disp" data-t="hero.title"></h1>
+        <p class="lede" data-t="hero.lede"></p>
+        <div class="ctas"><a class="btn primary" href="#download" data-t="hero.download"></a><a class="btn ghost" href="#features" data-t="hero.features"></a></div>
+      </div>
+      <div class="tv" aria-hidden="true">
+        <div class="screen">
+          <div class="top">
+            <span id="logoTv"></span>
+            <div class="tabs"><span class="pill">LB</span><b data-t="tv.home"></b><i data-t="tv.library"></i><i data-t="tv.settings"></i><span class="pill">RB</span></div>
+            <div class="status"><span data-icon="padsmall"></span><span>78%</span><span data-icon="wifi"></span><span>21:40</span></div>
+          </div>
+          <div class="main">
+            <div class="card">
+              <span class="k" data-t="tv.continue"></span><span class="t">Star Drift</span>
+              <span class="meta"><span>Steam</span><span data-t="tv.yesterday"></span><span>12 h 40 min</span></span>
+              <span class="acts"><span data-t="tv.play"></span><span data-t="tv.details"></span></span>
+            </div>
+            <div class="side"><span class="label" data-t="tv.apps"></span><div class="apps" id="tvApps"></div></div>
+          </div>
+          <div><div class="rowhead"><b data-t="tv.jump"></b><span data-t="tv.together"></span></div><div class="row" id="tvRow"></div></div>
+          <div class="prompts"><span><span><i>A</i><span data-t="tv.select"></span></span><span><i>X</i><span data-t="tv.options"></span></span></span>
+            <span><span><i>B</i><span data-t="tv.menu"></span></span></span></div>
+        </div>
+        <div class="stand"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="snap" id="features" data-name="nav.features">
+    <div class="wrap">
+      <div class="head"><h2 class="disp" data-t="feat.title"></h2><p data-t="feat.lede"></p></div>
+      <div class="carousel" id="carousel" role="region" aria-roledescription="carousel">
+        <div class="track" id="track" tabindex="0"></div>
+        <div class="cnav">
+          <button class="arrow" type="button" id="prev" data-icon="left"></button>
+          <div class="cdots" id="cdots"></div>
+          <button class="arrow" type="button" id="next" data-icon="right"></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="snap" id="requirements" data-name="nav.requirements">
+    <div class="wrap">
+      <div class="head"><h2 class="disp" data-t="req.title"></h2><p data-t="req.lede"></p></div>
+      <div class="figs">
+        <div class="fig"><b>64-bit</b><span data-t="req.cpu"></span></div>
+        <div class="fig"><b>UEFI</b><span data-t="req.fw"></span></div>
+        <div class="fig"><b>4 GB</b><span data-t="req.ram"></span></div>
+        <div class="fig"><b>32 GB</b><span data-t="req.disk"></span></div>
+        <div class="fig"><b>Vulkan</b><span data-t="req.gpu"></span></div>
+      </div>
+      <p class="center muted" data-t="req.more"></p>
+    </div>
+  </section>
+
+  <section class="snap" id="open" data-name="nav.open">
+    <div class="wrap">
+      <div class="head"><h2 class="disp" data-t="open.title"></h2><p data-t="open.lede"></p></div>
+      <div class="facts">
+        <div class="fact"><div class="icon" data-icon="code"></div><b data-t="open.free"></b></div>
+        <div class="fact"><div class="icon" data-icon="shield"></div><b data-t="open.data"></b></div>
+        <div class="fact"><div class="icon" data-icon="offline"></div><b data-t="open.offline"></b></div>
+        <div class="fact"><div class="icon" data-icon="people"></div><b data-t="open.help"></b></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="snap" id="info" data-name="nav.info">
+    <div class="wrap">
+      <div class="head"><h2 class="disp" data-t="info.title"></h2><p data-t="info.lede"></p></div>
+      <div class="infos">
+        <a class="info" href="#/guide"><div class="icon" data-icon="book"></div><b data-t="nav.guide"></b><span data-t="info.guide"></span></a>
+        <a class="info" href="#/faq"><div class="icon" data-icon="question"></div><b data-t="nav.faq"></b><span data-t="info.faq"></span></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="snap last" id="download" data-name="nav.download">
+    <div class="wrap">
+      <div class="box">
+        <h2 class="disp" data-t="dl.title"></h2>
+        <a class="btn primary" href="#download" aria-disabled="true" id="dlBtn" data-t="dl.btn"></a>
+      </div>
+    </div>
+    <footer><div class="wrap">
+      <span id="logoFoot" style="display:flex"></span>
+      <a href="#/guide" data-t="nav.guide"></a><a href="#/faq" data-t="nav.faq"></a>
+      <a href="#/contribute" data-t="foot.contribute"></a><a href="https://github.com/fancy-dino/OwneetOS" data-t="foot.source"></a>
+      <a href="#/credits" data-t="foot.credits"></a><a href="#/privacy" data-t="foot.privacy"></a>
+      <span data-t="foot.licence"></span>
+      <span class="marks" data-t="foot.marks"></span>
+    </div></footer>
+  </section>
+</main>
+<div id="page" hidden></div>
+<div class="intro" id="intro" aria-hidden="true"><div class="intro-in"><span class="intro-logo" id="introLogo"></span><p class="intro-sub" id="introSub"></p></div></div>
+<div class="toast" id="toast" role="status"></div>
+
+<div class="demo" id="demo" aria-label="Demo controls (not part of the site)">
+  <div class="panel">
+    <div class="grp"><span>Palette</span><select id="pal"></select></div>
+    <div class="grp" id="themeGrp"><span>Theme</span></div>
+    <div class="grp"><span>Start</span><button type="button" id="replayIntro">Play the start-up again</button></div>
+  </div>
+  <button type="button" id="demoBtn">Demo 7.8m</button>
+</div>
+
+<script>
+// The wordmark's outlines (packages/owneet-branding, Bricolage Grotesque, SIL OFL 1.1)
+const OLD_O = "M234.8 12.3Q177.3 12.3 136.1 -9.5Q94.9 -31.3 69.2 -74.3Q43.4 -117.2 31.5 -180.4Q19.6 -243.6 19.6 -326.3Q19.6 -444.5 42 -520.8Q64.3 -597.2 113 -634.7Q161.6 -672.3 238 -672.3Q296.2 -672.3 337.6 -651.2Q379 -630.2 405.6 -588Q432.1 -545.7 444.8 -481Q457.5 -416.3 457.5 -329.8Q457.5 -245.4 444.7 -181.5Q431.8 -117.5 404.7 -74.6Q377.7 -31.7 335.7 -9.7Q293.7 12.3 234.8 12.3ZM238.2 -103.2Q262.9 -103.2 278.2 -125.6Q293.5 -148 300.5 -197.1Q307.6 -246.2 307.6 -325.9Q307.6 -408.2 300.2 -459Q292.8 -509.7 277.2 -532.9Q261.7 -556.1 237 -556.1Q213.5 -556.1 198.4 -532.8Q183.4 -509.4 176.6 -459Q169.7 -408.5 169.7 -326.9Q169.7 -267 173.5 -224.4Q177.4 -181.7 185.2 -155.1Q193.1 -128.4 206.5 -115.8Q219.9 -103.2 238.2 -103.2Z";
+const WNEET = [
+  "M550.8 0 451.4 -527.7H607.4L643.8 -120.7H648.1L701.4 -527.7H864.6L918.8 -120.7H924L960.6 -527.7H1110.8L1011.8 0H822.6L781.9 -393.8H777.1L736.7 0Z",
+  "M1108.9 0V-312.7L1108.7 -527.7H1235.5L1233.7 -334.5H1241.9Q1243.6 -409.5 1258.9 -454.4Q1274.3 -499.3 1302.3 -519.6Q1330.3 -539.9 1369.8 -539.9Q1435.3 -539.9 1465.8 -488.3Q1496.2 -436.6 1496.2 -326.9V0H1348.2V-292.4Q1348.2 -350.1 1340 -376.4Q1331.9 -402.7 1309.5 -402.7Q1288.1 -402.7 1276.5 -380.1Q1265 -357.5 1260.6 -318.4Q1256.2 -279.2 1256.2 -228.5V0Z",
+  "M1708.7 12.3Q1649.4 12.3 1610 -6.9Q1570.6 -26 1547.4 -61.1Q1524.2 -96.2 1514.4 -144.9Q1504.6 -193.6 1504.6 -252.1Q1504.6 -308.7 1514 -360.1Q1523.3 -411.4 1545.6 -452.2Q1567.8 -493.1 1606.2 -516.5Q1644.5 -539.9 1703.1 -539.9Q1757.9 -539.9 1795.3 -519.2Q1832.7 -498.5 1854.2 -460Q1875.6 -421.5 1881.8 -368.4Q1888 -315.2 1879.1 -250.7L1601.1 -241.9V-314.6L1758.3 -319.5L1742.3 -270.1Q1747.5 -323.2 1745 -357.2Q1742.5 -391.2 1732.4 -407.7Q1722.3 -424.1 1703.1 -424.1Q1682.6 -424.1 1671.2 -405.3Q1659.8 -386.5 1655.3 -352.1Q1650.9 -317.7 1650.9 -270.2Q1650.9 -176.8 1664.8 -137.3Q1678.8 -97.8 1708.9 -97.8Q1723.9 -97.8 1732.9 -106.8Q1741.8 -115.8 1746.2 -131Q1750.5 -146.2 1751.4 -166Q1752.3 -185.8 1750.4 -207.3L1885.5 -195.7Q1891.6 -159.8 1886.7 -123Q1881.9 -86.3 1862.6 -55.5Q1843.3 -24.8 1805.9 -6.3Q1768.5 12.3 1708.7 12.3Z",
+  "M2094.7 12.3Q2035.4 12.3 1996 -6.9Q1956.6 -26 1933.4 -61.1Q1910.2 -96.2 1900.4 -144.9Q1890.6 -193.6 1890.6 -252.1Q1890.6 -308.7 1900 -360.1Q1909.3 -411.4 1931.6 -452.2Q1953.8 -493.1 1992.2 -516.5Q2030.5 -539.9 2089.1 -539.9Q2143.9 -539.9 2181.3 -519.2Q2218.7 -498.5 2240.2 -460Q2261.6 -421.5 2267.8 -368.4Q2274 -315.2 2265.1 -250.7L1987.1 -241.9V-314.6L2144.3 -319.5L2128.3 -270.1Q2133.5 -323.2 2131 -357.2Q2128.5 -391.2 2118.4 -407.7Q2108.3 -424.1 2089.1 -424.1Q2068.6 -424.1 2057.2 -405.3Q2045.8 -386.5 2041.3 -352.1Q2036.9 -317.7 2036.9 -270.2Q2036.9 -176.8 2050.8 -137.3Q2064.8 -97.8 2094.9 -97.8Q2109.9 -97.8 2118.9 -106.8Q2127.8 -115.8 2132.2 -131Q2136.5 -146.2 2137.4 -166Q2138.3 -185.8 2136.4 -207.3L2271.5 -195.7Q2277.6 -159.8 2272.7 -123Q2267.9 -86.3 2248.6 -55.5Q2229.3 -24.8 2191.9 -6.3Q2154.5 12.3 2094.7 12.3Z",
+  "M2461.1 8.6Q2383.4 8.6 2341.4 -36.7Q2299.4 -82 2299.4 -174.8V-413H2263.3V-510.8H2275Q2311.7 -512.3 2325.2 -531.3Q2338.7 -550.2 2342.9 -589L2347.9 -631.3H2443.5V-527.7H2522.7V-410.1H2443.5V-202.5Q2443.5 -165.3 2455.9 -147.4Q2468.4 -129.6 2488.7 -129.6Q2497.8 -129.6 2506.3 -132.7Q2514.9 -135.9 2522.8 -142.2V-0.6Q2506.5 4.4 2491.4 6.5Q2476.3 8.6 2461.1 8.6Z"];
+const OS = [
+  "M2742.8 12.3Q2685.3 12.3 2644.1 -9.5Q2602.9 -31.3 2577.2 -74.3Q2551.4 -117.2 2539.5 -180.4Q2527.6 -243.6 2527.6 -326.3Q2527.6 -444.5 2550 -520.8Q2572.3 -597.2 2621 -634.7Q2669.6 -672.3 2746 -672.3Q2804.2 -672.3 2845.6 -651.2Q2887 -630.2 2913.6 -588Q2940.1 -545.7 2952.8 -481Q2965.5 -416.3 2965.5 -329.8Q2965.5 -245.4 2952.7 -181.5Q2939.8 -117.5 2912.7 -74.6Q2885.7 -31.7 2843.7 -9.7Q2801.7 12.3 2742.8 12.3ZM2746.2 -103.2Q2770.9 -103.2 2786.2 -125.6Q2801.5 -148 2808.5 -197.1Q2815.6 -246.2 2815.6 -325.9Q2815.6 -408.2 2808.2 -459Q2800.8 -509.7 2785.2 -532.9Q2769.7 -556.1 2745 -556.1Q2721.5 -556.1 2706.4 -532.8Q2691.4 -509.4 2684.6 -459Q2677.7 -408.5 2677.7 -326.9Q2677.7 -267 2681.5 -224.4Q2685.4 -181.7 2693.2 -155.1Q2701.1 -128.4 2714.5 -115.8Q2727.9 -103.2 2746.2 -103.2Z",
+  "M3177.1 12.3Q3118.2 12.3 3075.9 -4.9Q3033.7 -22 3008.4 -54.2Q2983.1 -86.4 2975.8 -131.2Q2968.6 -175.9 2980.6 -231L3116.7 -251.6Q3112 -210.6 3116.4 -175.6Q3120.8 -140.7 3136.2 -119.7Q3151.7 -98.7 3180.3 -98.7Q3197.1 -98.7 3209.3 -105.5Q3221.4 -112.3 3228 -125.6Q3234.7 -139 3234.7 -159.4Q3234.7 -195.5 3218.7 -220.3Q3202.7 -245.2 3177.2 -263.4Q3151.8 -281.7 3123.7 -297.4Q3097.4 -312.6 3070.7 -330.2Q3044.1 -347.8 3022.2 -370.8Q3000.3 -393.7 2987.1 -424.5Q2973.8 -455.2 2973.8 -496.4Q2973.8 -549.5 2997.3 -589Q3020.8 -628.5 3065.2 -650.4Q3109.6 -672.3 3171.2 -672.3Q3239.6 -672.3 3285.4 -645.6Q3331.2 -618.9 3351.9 -568.7Q3372.6 -518.5 3364.7 -448.4L3231.2 -430Q3233.8 -455.1 3232 -478.2Q3230.2 -501.2 3223.1 -519.3Q3216.1 -537.4 3202.9 -547.9Q3189.7 -558.4 3170.1 -558.4Q3154.2 -558.4 3142.6 -551.5Q3131 -544.6 3124.8 -532.4Q3118.7 -520.3 3118.7 -503.3Q3118.7 -477.5 3131.9 -459.2Q3145 -440.8 3166.9 -426.9Q3188.7 -413 3213.5 -399.9Q3245.3 -382.3 3275.2 -362.2Q3305 -342.1 3329.1 -316Q3353.2 -289.8 3367.3 -254.6Q3381.4 -219.5 3381.4 -171.8Q3381.4 -117.3 3359.4 -75.6Q3337.5 -33.9 3292.4 -10.8Q3247.4 12.3 3177.1 12.3Z"];
+
+// ---- Texts. The real site takes them from translation files (one per language).
+const T = {
+  en: {
+    'nav.home': 'Home', 'nav.features': 'Features', 'nav.requirements': 'Requirements', 'nav.open': 'Open', 'nav.guide': 'Guide', 'nav.faq': 'FAQ',
+    'nav.download': 'Download', 'nav.get': 'Get OwneetOS', 'nav.menu': 'Menu',
+    'hero.kicker': 'Plug it. Play it. Own it!', 'nav.info': 'Info',
+    'info.title': 'Need help?', 'info.lede': 'Everything about installing and using OwneetOS.',
+    'info.guide': 'From the USB stick to your first game.', 'info.faq': 'Answers to the common questions.',
+    'hero.title': 'Turn your PC into a game console.',
+    'hero.lede': 'Free and open source. You only need a controller.', 'foot.credits.short': 'Credits',
+    'hero.download': 'Download', 'hero.features': 'See what it does',
+    'tv.home': 'Home', 'tv.library': 'Library', 'tv.settings': 'Settings', 'tv.continue': 'Continue playing', 'tv.yesterday': 'Yesterday',
+    'tv.play': 'Play', 'tv.details': 'Details', 'tv.apps': 'Apps', 'tv.jump': 'Jump back in', 'tv.together': 'Steam and local games, together',
+    'tv.select': 'Select', 'tv.options': 'Options', 'tv.menu': 'Menu',
+    'app.video': 'Video streaming', 'app.audio': 'Audio streaming', 'app.lvideo': 'Local videos', 'app.laudio': 'Local music', 'app.pics': 'Local pictures', 'app.all': 'All apps',
+    'feat.title': 'A console, not a computer.', 'feat.lede': 'Turn it on and play.',
+    's.pad.t': 'Just a controller', 's.pad.p': 'Mouse and keyboard optional.',
+    's.games.t': 'One library', 's.games.p': 'Supporting Steam and DRM-free games.',
+    's.disk.t': 'Games on a disk', 's.disk.p': 'Plug it in and play.',
+    's.media.t': 'Films, series, music', 's.media.p': 'Stream them or play your own.',
+    's.pads.t': 'Your controllers', 's.pads.p': 'Paired from the couch.',
+    's.update.t': 'Safe updates', 's.update.p': 'Something wrong? Roll back.',
+    's.look.t': 'Your style', 's.look.p': '21 palettes, multiple languages supported.',
+    's.light.t': 'Light', 's.light.p': 'Runs on low-end PCs.',
+    'req.title': 'Will it run on my PC?', 'req.lede': 'Most PCs from the last ten years.',
+    'req.cpu': 'processor', 'req.fw': 'firmware', 'req.ram': 'RAM, 8 GB better', 'req.disk': 'disk', 'req.gpu': 'graphics',
+    'req.more': 'Details in the <a href="#/guide">guide</a>.',
+    'open.title': 'Free, open, yours.', 'open.lede': 'It belongs to the people who use it.',
+    'open.free': 'Free and open source', 'open.data': 'No telemetry', 'open.offline': 'DRM-free games offline', 'open.help': 'Made together',
+    'dl.title': 'Coming soon.', 'dl.p': 'Signed, with its source code.', 'dl.btn': 'Download — coming soon',
+    'foot.contribute': 'Contribute and translate', 'foot.source': 'Source code', 'foot.credits': 'Credits and licences', 'foot.privacy': 'Privacy: no data collected',
+    'foot.licence': 'GPL-3.0-or-later · texts CC BY-SA 4.0',
+    'foot.marks': 'Steam is a trademark of Valve Corporation, Xbox of Microsoft Corporation, PlayStation of Sony Interactive Entertainment. They only say what works with OwneetOS, which is not affiliated with or endorsed by them.',
+    'later': 'This page comes with its own demo.', 'soon': 'The download opens with the first release.',
+    'prev': 'Previous', 'next': 'Next', 'slide': 'Feature %n of %t', 'back': 'Home',
+  },
+  it: {
+    'nav.home': 'Home', 'nav.features': 'Funzionalità', 'nav.requirements': 'Requisiti', 'nav.open': 'Aperto', 'nav.guide': 'Guida', 'nav.faq': 'Domande',
+    'nav.download': 'Download', 'nav.get': 'Scarica OwneetOS', 'nav.menu': 'Menu',
+    // the slogan is never translated
+    'hero.kicker': 'Plug it. Play it. Own it!', 'nav.info': 'Info',
+    'info.title': 'Serve aiuto?', 'info.lede': 'Tutto su come installare e usare OwneetOS.',
+    'info.guide': 'Dalla chiavetta USB al primo gioco.', 'info.faq': 'Le risposte alle domande più comuni.',
+    'hero.title': 'Trasforma il tuo PC in una console.',
+    'hero.lede': 'Gratuito e open source. Ti basta un controller.', 'foot.credits.short': 'Crediti',
+    'hero.download': 'Scarica', 'hero.features': 'Scopri cosa fa',
+    'tv.home': 'Home', 'tv.library': 'Libreria', 'tv.settings': 'Impostazioni', 'tv.continue': 'Continua a giocare', 'tv.yesterday': 'Ieri',
+    'tv.play': 'Gioca', 'tv.details': 'Dettagli', 'tv.apps': 'App', 'tv.jump': 'Giocati di recente', 'tv.together': 'Giochi Steam e locali, insieme',
+    'tv.select': 'Seleziona', 'tv.options': 'Opzioni', 'tv.menu': 'Menu',
+    'app.video': 'Streaming video', 'app.audio': 'Streaming audio', 'app.lvideo': 'Video locali', 'app.laudio': 'Musica locale', 'app.pics': 'Immagini locali', 'app.all': 'Tutte le app',
+    'feat.title': 'Una console, non un computer.', 'feat.lede': 'Accendi e gioca.',
+    's.pad.t': 'Basta il controller', 's.pad.p': 'Mouse e tastiera facoltativi.',
+    's.games.t': 'Una sola libreria', 's.games.p': 'Supporta Steam e i giochi senza DRM.',
+    's.disk.t': 'Giochi su disco', 's.disk.p': 'Collegalo e gioca.',
+    's.media.t': 'Film, serie, musica', 's.media.p': 'In streaming o dai tuoi file.',
+    's.pads.t': 'I tuoi controller', 's.pads.p': 'Si associano dal divano.',
+    's.update.t': 'Aggiornamenti sicuri', 's.update.p': 'Qualcosa non va? Torni indietro.',
+    's.look.t': 'Il tuo stile', 's.look.p': '21 palette, più lingue supportate.',
+    's.light.t': 'Leggero', 's.light.p': 'Gira anche su PC poco potenti.',
+    'req.title': 'Funziona sul mio PC?', 'req.lede': 'Quasi tutti i PC degli ultimi dieci anni.',
+    'req.cpu': 'processore', 'req.fw': 'firmware', 'req.ram': 'RAM, meglio 8 GB', 'req.disk': 'disco', 'req.gpu': 'grafica',
+    'req.more': 'Dettagli nella <a href="#/guide">guida</a>.',
+    'open.title': 'Libero, aperto, tuo.', 'open.lede': 'Appartiene a chi lo usa.',
+    'open.free': 'Gratuito e open source', 'open.data': 'Nessuna telemetria', 'open.offline': 'Giochi senza DRM offline', 'open.help': 'Fatto insieme',
+    'dl.title': 'In arrivo.', 'dl.p': 'Firmata, con il suo codice sorgente.', 'dl.btn': 'Download — in arrivo',
+    'foot.contribute': 'Contribuisci e traduci', 'foot.source': 'Codice sorgente', 'foot.credits': 'Crediti e licenze', 'foot.privacy': 'Privacy: nessun dato raccolto',
+    'foot.licence': 'GPL-3.0-or-later · testi CC BY-SA 4.0',
+    'foot.marks': 'Steam è un marchio di Valve Corporation, Xbox di Microsoft Corporation, PlayStation di Sony Interactive Entertainment. Indicano solo cosa funziona con OwneetOS, che non è affiliato né approvato da loro.',
+    'later': 'Questa pagina arriverà con una sua demo.', 'soon': 'Il download si apre con la prima versione.',
+    'prev': 'Precedente', 'next': 'Successiva', 'slide': 'Funzionalità %n di %t', 'back': 'Home',
+  },
+};
+const SLIDES = [['pad', 's.pad'], ['library', 's.games'], ['disk', 's.disk'], ['play', 's.media'],
+  ['pads', 's.pads'], ['update', 's.update'], ['palette', 's.look'], ['feather', 's.light']];
+const APPS = [['play', 'app.video'], ['note', 'app.audio'], ['film', 'app.lvideo'], ['disc', 'app.laudio'], ['image', 'app.pics'], ['grid', 'app.all']];
+const GAMES = [['Star Drift', 330], ['Pixel Garden', 165], ['Night Racer', 215], ['Old Keep', 30], ['Moss & Stone', 110], ['Tiny Tanks', 0], ['Deep Blue', 195]];
+
+// ---- The pages' texts (the real site takes them from its translation files). They follow the
+// knowledge base: installer-and-firmware (whole disk, Secure Boot off, anti-cheat warning),
+// controllers-and-pairing, legal-compliance (no data, crash reports only with consent), CREDITS.md.
+const REPO = 'https://github.com/fancy-dino/OwneetOS';
+const PAGES = {
+  en: {
+    guide: {
+      title: 'Install OwneetOS', lede: 'A USB stick of 4 GB or more and a controller are all you need.',
+      steps: [
+        ['Check your PC', 'A 64-bit processor, UEFI firmware, 4 GB of RAM and 32 GB of disk: most PCs from the last ten years. Graphics with Vulkan get the full experience.'],
+        ['Download OwneetOS', 'One file, the ISO. Coming with the first release.'],
+        ['Write it to a USB stick', 'With balenaEtcher or Ventoy, from Windows, macOS or Linux. Everything on the stick is erased.'],
+        ['Start the PC from the stick', 'Turn the PC on and open its boot menu (often F12, F11, F8 or Esc), then choose the USB stick. If the PC is set to “Legacy” or “CSM”, switch it to UEFI, and turn Secure Boot off, in its firmware settings.'],
+        ['Install with the controller', 'Choose “Use the whole disk”: everything on that disk is erased, Windows included. Installing next to Windows comes later.'],
+        ['Play', 'At the first start the controller pairs by itself; choose the language, the network and the time zone, and you are home.'],
+      ],
+      note: 'Some Windows games with anti-cheat (e.g. Battlefield 6, Valorant) need Secure Boot: they do not run on OwneetOS.',
+    },
+    faq: {
+      title: 'Questions', lede: 'The short answers.',
+      items: [
+        ['Is OwneetOS free?', 'Yes: free to use, share and change, under the GPL.'],
+        ['Do I need a mouse or a keyboard?', 'No. Everything works with a controller, from installing it to playing. A mouse and a keyboard still work if you like.'],
+        ['Which controllers work?', 'Xbox, PlayStation, Switch and most others, wired or wireless. The first one pairs by itself.'],
+        ['Will my Steam games run?', 'Most of them, Windows games too. Games whose anti-cheat needs Secure Boot do not.'],
+        ['Can I keep Windows?', 'Not yet: OwneetOS uses the whole disk. Installing next to Windows comes later.'],
+        ['Can I watch films and listen to music?', 'Yes: your streaming services and your own files, with the controller.'],
+        ['What if an update goes wrong?', 'You can go back to how it was before.'],
+        ['Does OwneetOS collect my data?', 'No. No account, no telemetry. Crash reports are sent only if you agree.'],
+        ['How do I report a problem?', `Open an issue on <a href="${REPO}/issues">GitHub</a>: tell us your PC and what happened.`],
+      ],
+    },
+    credits: {
+      title: 'Credits', lede: 'OwneetOS is built on the work of many free projects. Thank you.',
+      authors: 'Made by', groups: ['In OwneetOS', 'In this site'], more: 'Every project and its licence: CREDITS.md on GitHub',
+    },
+    privacy: {
+      title: 'Privacy', lede: 'We collect no data. Here is what that means.',
+      blocks: [
+        ['This site', 'No cookies, no analytics, no forms, no account. Its fonts and icons come from the site itself: your browser asks nothing of anyone else.'],
+        ['Hosting', 'The site is published on GitHub Pages. GitHub may record your address to keep its service safe, as its privacy statement explains.'],
+        ['OwneetOS', 'No account and no telemetry. A crash report is sent only if you agree.'],
+        ['Questions', `Ask on <a href="${REPO}/issues">GitHub</a>.`],
+      ],
+      statement: 'GitHub’s privacy statement',
+    },
+    contribute: {
+      title: 'Make it with us', lede: 'Everyone can help, no code needed.',
+      cards: [
+        ['languages', 'Translate', 'One file per language: bring OwneetOS to yours.', 'How to translate', `${REPO}/blob/main/docs/translating.md`],
+        ['bug', 'Test and report', 'Try it on your PC and tell us what works and what does not.', 'Open an issue', `${REPO}/issues`],
+        ['code', 'Code and design', 'The code is on GitHub; pull requests are reviewed by the team.', 'Source code', REPO],
+      ],
+    },
+  },
+  it: {
+    guide: {
+      title: 'Installa OwneetOS', lede: 'Ti servono solo una chiavetta USB da 4 GB o più e un controller.',
+      steps: [
+        ['Controlla il tuo PC', 'Processore a 64 bit, firmware UEFI, 4 GB di RAM e 32 GB di disco: quasi tutti i PC degli ultimi dieci anni. Con una grafica Vulkan hai l’esperienza completa.'],
+        ['Scarica OwneetOS', 'Un solo file, l’ISO. In arrivo con la prima versione.'],
+        ['Scrivilo su una chiavetta USB', 'Con balenaEtcher o Ventoy, da Windows, macOS o Linux. Tutto quello che c’è sulla chiavetta viene cancellato.'],
+        ['Avvia il PC dalla chiavetta', 'Accendi il PC e apri il menu di avvio (spesso F12, F11, F8 o Esc), poi scegli la chiavetta. Se il PC è impostato su “Legacy” o “CSM”, passa a UEFI e disattiva Secure Boot, nelle impostazioni del firmware.'],
+        ['Installa con il controller', 'Scegli “Usa tutto il disco”: tutto quello che c’è su quel disco viene cancellato, Windows compreso. L’installazione accanto a Windows arriverà più avanti.'],
+        ['Gioca', 'Al primo avvio il controller si associa da solo; scegli lingua, rete e fuso orario, e sei a casa.'],
+      ],
+      note: 'Alcuni giochi per Windows con anti-cheat (per esempio Battlefield 6, Valorant) richiedono Secure Boot: su OwneetOS non funzionano.',
+    },
+    faq: {
+      title: 'Domande', lede: 'Le risposte brevi.',
+      items: [
+        ['OwneetOS è gratuito?', 'Sì: libero da usare, condividere e modificare, sotto licenza GPL.'],
+        ['Servono mouse o tastiera?', 'No. Tutto funziona con il controller, dall’installazione al gioco. Mouse e tastiera funzionano comunque, se vuoi.'],
+        ['Quali controller funzionano?', 'Xbox, PlayStation, Switch e la maggior parte degli altri, con il cavo o senza fili. Il primo si associa da solo.'],
+        ['I miei giochi Steam funzionano?', 'Quasi tutti, anche quelli per Windows. Non funzionano i giochi il cui anti-cheat richiede Secure Boot.'],
+        ['Posso tenere Windows?', 'Non ancora: OwneetOS usa tutto il disco. L’installazione accanto a Windows arriverà più avanti.'],
+        ['Posso guardare film e ascoltare musica?', 'Sì: i tuoi servizi di streaming e i tuoi file, con il controller.'],
+        ['E se un aggiornamento va storto?', 'Puoi tornare a com’era prima.'],
+        ['OwneetOS raccoglie i miei dati?', 'No. Nessun account, nessuna telemetria. I rapporti sugli arresti anomali partono solo se lo accetti.'],
+        ['Come segnalo un problema?', `Apri una segnalazione su <a href="${REPO}/issues">GitHub</a>: raccontaci il tuo PC e cosa è successo.`],
+      ],
+    },
+    credits: {
+      title: 'Crediti', lede: 'OwneetOS è costruito sul lavoro di tanti progetti liberi. Grazie.',
+      authors: 'Fatto da', groups: ['In OwneetOS', 'In questo sito'], more: 'Tutti i progetti e le loro licenze: CREDITS.md su GitHub',
+    },
+    privacy: {
+      title: 'Privacy', lede: 'Non raccogliamo dati. Ecco cosa significa.',
+      blocks: [
+        ['Questo sito', 'Niente cookie, niente statistiche, niente moduli, nessun account. Font e icone arrivano dal sito stesso: il tuo browser non chiede niente a nessun altro.'],
+        ['Hosting', 'Il sito è pubblicato su GitHub Pages. GitHub può registrare il tuo indirizzo per la sicurezza del suo servizio, come spiega la sua informativa sulla privacy.'],
+        ['OwneetOS', 'Nessun account e nessuna telemetria. Un rapporto su un arresto anomalo parte solo se lo accetti.'],
+        ['Domande', `Chiedi su <a href="${REPO}/issues">GitHub</a>.`],
+      ],
+      statement: 'L’informativa sulla privacy di GitHub',
+    },
+    contribute: {
+      title: 'Fallo con noi', lede: 'Chiunque può dare una mano, anche senza scrivere codice.',
+      cards: [
+        ['languages', 'Traduci', 'Un file per lingua: porta OwneetOS nella tua.', 'Come tradurre', `${REPO}/blob/main/docs/translating.md`],
+        ['bug', 'Prova e segnala', 'Provalo sul tuo PC e raccontaci cosa funziona e cosa no.', 'Apri una segnalazione', `${REPO}/issues`],
+        ['code', 'Codice e design', 'Il codice è su GitHub; le pull request vengono riviste dal team.', 'Codice sorgente', REPO],
+      ],
+    },
+  },
+};
+// The authors of OwneetOS, at the top of the credits (owner, 2026-10-24): name, GitHub handle.
+const AUTHORS = [['Marco De Franco', 'fancy-dino'], ['Daniele De Padova', 'Danidepadawan']];
+// The projects credited on the page: a selection of CREDITS.md (the link gives them all), and the site's own.
+const CREDITS = [
+  [['Linux', 'https://kernel.org', 'GPL-2.0'], ['Arch Linux', 'https://archlinux.org', 'various'], ['systemd', 'https://systemd.io', 'LGPL-2.1+'],
+   ['gamescope', 'https://github.com/ValveSoftware/gamescope', 'BSD'], ['Mesa', 'https://www.mesa3d.org', 'MIT'],
+   ['Pegasus Frontend', 'https://pegasus-frontend.org', 'GPL-3.0+'], ['Qt', 'https://www.qt.io', 'LGPL-3.0'],
+   ['Wine', 'https://www.winehq.org', 'LGPL-2.1+'], ['DXVK', 'https://github.com/doitsujin/dxvk', 'Zlib'],
+   ['DOSBox Staging', 'https://www.dosbox-staging.org', 'GPL-2.0+'], ['PipeWire', 'https://pipewire.org', 'MIT'],
+   ['NetworkManager', 'https://networkmanager.dev', 'GPL-2.0+'], ['BlueZ', 'http://www.bluez.org', 'GPL-2.0+'],
+   ['SDL', 'https://www.libsdl.org', 'Zlib'], ['mpv', 'https://mpv.io', 'GPL-2.0+'], ['Go', 'https://go.dev', 'BSD-3-Clause']],
+  [['Angular', 'https://angular.dev', 'MIT'], ['Lucide', 'https://lucide.dev', 'ISC'],
+   ['Bricolage Grotesque', 'https://github.com/ateliertriay/bricolage', 'OFL-1.1'], ['Lexend', 'https://www.lexend.com', 'OFL-1.1']],
+];
+
+// ---- Icons: Lucide 1.52.0 (ISC License; some icons derived from Feather, MIT License),
+// https://lucide.dev, drawn in the current colour
+const L = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+const ICONS = {
+  globe: `<svg viewBox="0 0 24 24" ${L}><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>`,   // globe
+  chevronDown: `<svg viewBox="0 0 24 24" ${L}><path d="m6 9 6 6 6-6"/></svg>`,   // chevron-down
+  check: `<svg viewBox="0 0 24 24" ${L}><path d="M20 6 9 17l-5-5"/></svg>`,   // check
+  sun: `<svg viewBox="0 0 24 24" ${L}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`,   // sun
+  moon: `<svg viewBox="0 0 24 24" ${L}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,   // moon
+  languages: `<svg viewBox="0 0 24 24" ${L}><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>`,   // languages
+  bug: `<svg viewBox="0 0 24 24" ${L}><path d="M12 20v-9"/><path d="M14 7a4 4 0 0 1 4 4v3a6 6 0 0 1-12 0v-3a4 4 0 0 1 4-4z"/><path d="M14.12 3.88 16 2"/><path d="M21 21a4 4 0 0 0-3.81-4"/><path d="M21 5a4 4 0 0 1-3.55 3.97"/><path d="M22 13h-4"/><path d="M3 21a4 4 0 0 1 3.81-4"/><path d="M3 5a4 4 0 0 0 3.55 3.97"/><path d="M6 13H2"/><path d="m8 2 1.88 1.88"/><path d="M9 7.13V6a3 3 0 1 1 6 0v1.13"/></svg>`,   // bug
+  arrowLeft: `<svg viewBox="0 0 24 24" ${L}><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`,   // arrow-left
+  pad: `<svg viewBox="0 0 24 24" ${L}><line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/></svg>`,   // gamepad-2
+  padsmall: `<svg viewBox="0 0 24 24" ${L}><line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/></svg>`,   // gamepad-2
+  wifi: `<svg viewBox="0 0 24 24" ${L}><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/></svg>`,   // wifi
+  library: `<svg viewBox="0 0 24 24" ${L}><rect width="8" height="18" x="3" y="3" rx="1"/><path d="M7 3v18"/><path d="M20.4 18.9c.2.5-.1 1.1-.6 1.3l-1.9.7c-.5.2-1.1-.1-1.3-.6L11.1 5.1c-.2-.5.1-1.1.6-1.3l1.9-.7c.5-.2 1.1.1 1.3.6Z"/></svg>`,   // library-big
+  feather: `<svg viewBox="0 0 24 24" ${L}><path d="M14.086 18.412A2 2 0 0112.67 19H5v-7.672a2 2 0 01.586-1.414L11.75 3.75a6 6 0 118.49 8.49z"/><path d="M16 8 2 22"/><path d="M17.488 15H9"/></svg>`,   // feather
+  disk: `<svg viewBox="0 0 24 24" ${L}><path d="M10 16h.01"/><path d="M2.212 11.577a2 2 0 0 0-.212.896V18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5.527a2 2 0 0 0-.212-.896L18.55 5.11A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><path d="M21.946 12.013H2.054"/><path d="M6 16h.01"/></svg>`,   // hard-drive
+  play: `<svg viewBox="0 0 24 24" ${L}><path d="M15.033 9.44a.647.647 0 0 1 0 1.12l-4.065 2.352a.645.645 0 0 1-.968-.56V7.648a.645.645 0 0 1 .967-.56z"/><path d="M12 17v4"/><path d="M8 21h8"/><rect x="2" y="3" width="20" height="14" rx="2"/></svg>`,   // monitor-play
+  note: `<svg viewBox="0 0 24 24" ${L}><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,   // music
+  film: `<svg viewBox="0 0 24 24" ${L}><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/></svg>`,   // film
+  disc: `<svg viewBox="0 0 24 24" ${L}><circle cx="12" cy="12" r="10"/><path d="M6 12c0-1.7.7-3.2 1.8-4.2"/><circle cx="12" cy="12" r="2"/><path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/></svg>`,   // disc-3
+  image: `<svg viewBox="0 0 24 24" ${L}><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`,   // image
+  grid: `<svg viewBox="0 0 24 24" ${L}><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>`,   // layout-grid
+  pads: `<svg viewBox="0 0 24 24" ${L}><line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/><rect width="20" height="12" x="2" y="6" rx="2"/></svg>`,   // gamepad
+  update: `<svg viewBox="0 0 24 24" ${L}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>`,   // history
+  palette: `<svg viewBox="0 0 24 24" ${L}><path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/></svg>`,   // palette
+  code: `<svg viewBox="0 0 24 24" ${L}><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>`,   // code-xml
+  shield: `<svg viewBox="0 0 24 24" ${L}><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>`,   // shield-check
+  offline: `<svg viewBox="0 0 24 24" ${L}><path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/></svg>`,   // wifi-off
+  people: `<svg viewBox="0 0 24 24" ${L}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></svg>`,   // users
+  book: `<svg viewBox="0 0 24 24" ${L}><path d="M12 5v16"/><path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"/></svg>`,   // book-open
+  question: `<svg viewBox="0 0 24 24" ${L}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>`,   // circle-help
+  left: `<svg viewBox="0 0 24 24" ${L}><path d="m15 18-6-6 6-6"/></svg>`,   // chevron-left
+  right: `<svg viewBox="0 0 24 24" ${L}><path d="m9 18 6-6-6-6"/></svg>`,   // chevron-right
+};
+
+// ---- Palettes (the console's design tokens): bg, surface, raised, line, fg, muted, accent, on-accent
+const PALETTES = [
+  ['dusk', 'Dusk', 'dark', '#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+  ['tide', 'Tide', 'dark', '#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+  ['bloom', 'Bloom', 'dark', '#1A1020', '#25182D', '#33223D', '#45304F', '#F7EEF6', '#AE93AE', '#FF7AA8', '#2A0614'],
+  ['ember', 'Ember', 'dark', '#1C0F0C', '#2A1713', '#3A201A', '#4E2C24', '#FBEDE9', '#C49C93', '#FF6B47', '#2A0A03'],
+  ['lagoon', 'Lagoon', 'dark', '#0A1426', '#101E38', '#182A4B', '#23395F', '#EAF1FF', '#90A4C9', '#4DA3FF', '#03162E'],
+  ['amethyst', 'Amethyst', 'dark', '#15121F', '#1F1A2E', '#2A2340', '#3A3155', '#F1EDFA', '#A99FC4', '#B69CFF', '#1B0E3A'],
+  ['graphite', 'Graphite', 'dark', '#121212', '#1C1C1C', '#262626', '#383838', '#F2F2F2', '#A6A6A6', '#DADADA', '#121212'],
+  ['daylight', 'Daylight', 'light', '#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+  ['sand', 'Sand', 'light', '#F4EEE3', '#FFFBF4', '#E8DFD0', '#D3C6B1', '#2A2117', '#6A5C49', '#B04A28', '#FFFFFF'],
+  ['sakura', 'Sakura', 'light', '#FBEFF3', '#FFFFFF', '#F3DDE5', '#E3C3CF', '#2A1420', '#76505F', '#C92A62', '#FFFFFF'],
+];
+const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
+// "Auto" follows the visitor's light / dark preference: Dusk when dark, Daylight when light
+const state = { lang: 'en', pal: 'auto', logo: 'draft', slide: 0 };   // the gamepad "O" (owner, 2026-10-23)
+
+// ---- The logo: the 7.6 draft (the gamepad "O") or the current wordmark; colours from CSS
+function markData() {
+  const k = 1.2, c = 50, rc = 16;
+  const T2 = (x, y) => [c + (x - c) * k, c + (y - c) * k];
+  const P = (x, y) => T2(x, y).map(v => v.toFixed(2)).join(',');
+  const a = r => (r * k).toFixed(2);
+  const circle = (x, y, r) => { const [u, v] = T2(x, y), R = r * k;
+    return `M${(u - R).toFixed(2)},${v.toFixed(2)}a${a(r)},${a(r)} 0 1,0 ${(2 * R).toFixed(2)},0` +
+      `a${a(r)},${a(r)} 0 1,0 ${(-2 * R).toFixed(2)},0Z`; };
+  const top = 33.5, r = 16, cy = 49.5, d = r * Math.SQRT1_2;
+  const lb = [32 + d, cy + d], rb = [68 - d, cy + d];
+  const body = `M${P(16 + rc, top)}L${P(84 - rc, top)}A${a(rc)},${a(rc)} 0 0,1 ${P(84, top + rc)}L${P(84, cy)}` +
+    `A${a(r)},${a(r)} 0 0,1 ${P(...rb)}Q${P(50, 54.5)} ${P(...lb)}A${a(r)},${a(r)} 0 0,1 ${P(16, cy)}` +
+    `L${P(16, top + rc)}A${a(rc)},${a(rc)} 0 0,1 ${P(16 + rc, top)}Z`;
+  const dx = 32, dy = 48.5, w = 2.6, l = 7.4;
+  const cross = 'M' + [[dx - w, dy - l], [dx + w, dy - l], [dx + w, dy - w], [dx + l, dy - w], [dx + l, dy + w], [dx + w, dy + w],
+    [dx + w, dy + l], [dx - w, dy + l], [dx - w, dy + w], [dx - l, dy + w], [dx - l, dy - w], [dx - w, dy - w]]
+    .map(([x, y]) => P(x, y)).join('L') + 'Z';
+  const fx = 68, fy = 48.5, o = 5.8, br = 2.7;
+  const face = [[fx, fy - o], [fx + o, fy], [fx, fy + o], [fx - o, fy]].map(([x, y]) => circle(x, y, br)).join('');
+  return 'M0,50a50,50 0 1,0 100,0a50,50 0 1,0 -100,0Z' + body + cross + face;
+}
+const MARK = markData();
+const O_X = 19.6, O_CY = -330, O_D = 684 * 1.25, GAP = 30, SHIFT = O_X + O_D - 457.5 + GAP;
+const VB_TOP = Math.min(-752.3, O_CY - O_D / 2 - 60), VB_BOTTOM = Math.max(92.2, O_CY + O_D / 2 + 60);
+function logo() {
+  const old = state.logo === 'current';
+  const w = 3521.8 + (old ? 0 : SHIFT), top = old ? -752.3 : VB_TOP, h = (old ? 92.2 : VB_BOTTOM) - top;
+  const o = old ? `<path class="wm-text" d="${OLD_O}"/>`
+    : `<g transform="translate(${O_X} ${O_CY - O_D / 2}) scale(${O_D / 100})"><path class="wm-accent" fill-rule="evenodd" d="${MARK}"/></g>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-60.4 ${top.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}" role="img" aria-label="OwneetOS">${o}` +
+    `<g transform="translate(${old ? 0 : SHIFT} 0)">${WNEET.map(d => `<path class="wm-text" d="${d}"/>`).join('')}` +
+    `${OS.map(d => `<path class="wm-accent" d="${d}"/>`).join('')}</g></svg>`;
+}
+
+// ---- Rendering
+const $ = s => document.querySelector(s);
+const tr = k => T[state.lang][k];
+const HDR = {
+  en: { lang: 'Language', toLight: 'Switch to the light theme', toDark: 'Switch to the dark theme', other: '(demo) The real site opens {name} at /{code}' },
+  it: { lang: 'Lingua', toLight: 'Passa al tema chiaro', toDark: 'Passa al tema scuro', other: '(demo) Il sito vero apre {name} su /{code}' },
+};
+// each language in its own name (the real site: one more JSON file per language)
+const LANGS = [['en', 'English'], ['it', 'Italiano'], ['de', 'Deutsch'], ['fr', 'Français'], ['es', 'Español']];
+const dark = matchMedia('(prefers-color-scheme: dark)');
+const SECTIONS = [...document.querySelectorAll('main > section')];
+let current = SECTIONS[0].id;
+
+function render() {
+  const name = state.pal === 'auto' ? (dark.matches ? 'dusk' : 'daylight') : state.pal;
+  const p = PALETTES.find(q => q[0] === name);
+  TOKENS.forEach((t, i) => document.documentElement.style.setProperty('--' + t, p[i + 3]));
+  document.documentElement.style.colorScheme = p[2];
+  document.documentElement.lang = state.lang;
+  const slideName = i => tr('slide').replace('%n', i + 1).replace('%t', SLIDES.length);
+  $('#tvApps').innerHTML = APPS.map(([ic, t]) => `<div class="app"><span class="ico" data-icon="${ic}"></span><span data-t="${t}"></span></div>`).join('');
+  $('#tvRow').innerHTML = GAMES.map(([n, h]) => `<div class="cover" style="--h:${h}">${n}</div>`).join('');
+  // the strip: a copy of the last card before the first and of the first after the last (the loop)
+  const card = ([ic, t], i, copy) => `<div class="slide${copy ? ' copy' : ''}" ${copy ? 'aria-hidden="true"' : `role="group" aria-roledescription="slide" aria-label="${slideName(i)}"`}>` +
+    `<div class="icon" data-icon="${ic}"></div><h3 data-t="${t}.t"></h3><p data-t="${t}.p"></p></div>`;
+  $('#track').innerHTML = card(SLIDES[SLIDES.length - 1], SLIDES.length - 1, true) + SLIDES.map((sl, i) => card(sl, i)).join('') + card(SLIDES[0], 0, true);
+  $('#cdots').innerHTML = SLIDES.map((_, i) => `<button type="button" data-go="${i}" aria-label="${slideName(i)}"></button>`).join('');
+  $('#dots').innerHTML = SECTIONS.map(s => `<a href="#${s.id}" aria-label="${tr(s.dataset.name)}" title="${tr(s.dataset.name)}"></a>`).join('');
+  document.querySelectorAll('[data-t]').forEach(el => { el.innerHTML = tr(el.dataset.t); });
+  document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = ICONS[el.dataset.icon]; });
+  $('#langCur').textContent = state.lang.toUpperCase();
+  $('#langBtn').setAttribute('aria-label', HDR[state.lang].lang);
+  $('#langList').innerHTML = LANGS.map(([c, n]) => `<li><a href="#" data-lang="${c}" lang="${c}" hreflang="${c}"${c === state.lang ? ' aria-current="true"' : ''}>${n}${c === state.lang ? `<span class="ic">${ICONS.check}</span>` : ''}</a></li>`).join('');
+  $('#langList').querySelectorAll('[data-lang]').forEach(a => a.onclick = e => {
+    e.preventDefault(); closeLangs();
+    if (T[a.dataset.lang]) { state.lang = a.dataset.lang; render(); }
+    else toast(HDR[state.lang].other.replace('{name}', a.textContent).replace('{code}', a.dataset.lang));
+  });
+  const isDark = PALETTES.find(q => q[0] === name)[2] === 'dark';
+  $('#themeIc').innerHTML = isDark ? ICONS.sun : ICONS.moon;
+  $('#themeBtn').setAttribute('aria-label', isDark ? HDR[state.lang].toLight : HDR[state.lang].toDark);
+  $('#themeBtn').title = $('#themeBtn').getAttribute('aria-label');
+  for (const id of ['logoTop', 'logoTv', 'logoFoot']) $('#' + id).innerHTML = logo();
+  $('#logoFoot svg').style.height = '22px';
+  $('#prev').setAttribute('aria-label', tr('prev')); $('#next').setAttribute('aria-label', tr('next'));
+  $('#themeGrp').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === state.pal));
+  $('#pal').value = PALETTES.some(q => q[0] === state.pal) ? state.pal : '';
+  showSlide(state.slide, false);
+  restart();
+  markSection(current);
+  if (shownPage) showPage(shownPage, false);
+}
+
+// ---- The carousel: arrows, dots, swipe (horizontal snapping), left / right when it has focus.
+// It loops: the strip holds a copy of the last card before the first and of the first after the
+// last; once it stops on a copy, it jumps (instantly, unseen) to the card it copies.
+// It plays by itself every AUTOPLAY ms, paused only while the pointer is on it or it has focus
+// from the keyboard, and while the section or the page is not on screen.
+const AUTOPLAY = 5000;
+const cards = () => document.querySelectorAll('#track .slide');      // copy, 0 .. n-1, copy
+const place = pos => { const c = cards()[pos], t = $('#track'); return c.offsetLeft - (t.clientWidth - c.clientWidth) / 2; };
+function jump(pos) {
+  const t = $('#track');
+  t.style.scrollBehavior = 'auto'; t.style.scrollSnapType = 'none';
+  t.scrollLeft = place(pos);
+  t.offsetWidth;   // apply the jump before the smooth scrolling and the snapping come back
+  t.style.scrollBehavior = ''; t.style.scrollSnapType = '';
+}
+function mark() {
+  cards().forEach((c, pos) => c.setAttribute('aria-current', pos === state.slide + 1));
+  document.querySelectorAll('#cdots button').forEach((b, n) => b.setAttribute('aria-current', n === state.slide));
+}
+// i may be -1 (the copy of the last card, before the first) or n (the copy of the first, after the last)
+function showSlide(i, scroll = true) {
+  const n = SLIDES.length;
+  state.slide = (i + n) % n;
+  mark();
+  if (!scroll) { jump(state.slide + 1); return; }
+  $('#track').scrollTo({ left: place(i + 1) });
+  // onto a copy: once the slide has ended, move to the card it copies (also without scroll events)
+  if (i < 0 || i >= n) setTimeout(settle, 900);
+}
+const step = d => { showSlide(state.slide + d); restart(); };
+$('#prev').onclick = () => step(-1);
+$('#next').onclick = () => step(1);
+$('#cdots').onclick = e => { const b = e.target.closest('[data-go]'); if (b) { showSlide(+b.dataset.go); restart(); } };
+$('#track').addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+});
+// when the strip stops (after a slide or a swipe): the card nearest the middle is the current one;
+// on a copy, jump to the card it copies
+function settle() {
+  const t = $('#track'), mid = t.scrollLeft + t.clientWidth / 2, n = SLIDES.length;
+  let best = 0, dist = Infinity;
+  cards().forEach((c, pos) => { const d = Math.abs(c.offsetLeft + c.clientWidth / 2 - mid); if (d < dist) { dist = d; best = pos; } });
+  if (dist > 4) return;   // still moving
+  if (best === 0) { state.slide = n - 1; jump(n); }
+  else if (best === n + 1) { state.slide = 0; jump(1); }
+  else state.slide = best - 1;
+  mark();
+}
+let settleTimer;
+$('#track').addEventListener('scroll', () => { clearTimeout(settleTimer); settleTimer = setTimeout(settle, 120); });
+$('#track').addEventListener('scrollend', settle);
+
+// autoplay
+let timer = null, hovered = false, inView = false;
+const running = () => !hovered && inView && !document.hidden;
+function restart() {
+  clearInterval(timer); timer = null;
+  if (running()) timer = setInterval(() => showSlide(state.slide + 1), AUTOPLAY);
+}
+$('#carousel').addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { hovered = true; restart(); } });
+$('#carousel').addEventListener('pointerleave', () => { hovered = false; restart(); });
+// focus pauses it only when it comes from the keyboard (a click gives the button focus too)
+$('#carousel').addEventListener('focusin', e => { if (e.target.matches(':focus-visible')) { hovered = true; restart(); } });
+$('#carousel').addEventListener('focusout', e => { if (!$('#carousel').contains(e.relatedTarget)) { hovered = false; restart(); } });
+document.addEventListener('visibilitychange', restart);
+new IntersectionObserver(([e]) => { inView = e.isIntersecting; restart(); }, { threshold: 0.5 }).observe($('#carousel'));
+
+// ---- Sections: the address, the menu and the dots follow the section on screen
+function markSection(id) {
+  current = id;
+  document.querySelectorAll('#dots a, #menu a').forEach(a => a.setAttribute('aria-current', a.getAttribute('href') === '#' + id));
+}
+const io = new IntersectionObserver(entries => {
+  for (const e of entries) if (e.isIntersecting) {
+    markSection(e.target.id);
+    const extra = (location.hash.match(/&.*/) || [''])[0];
+    if (location.hash.split('&')[0] !== '#' + e.target.id) history.replaceState(null, '', '#' + e.target.id + extra);
+  }
+}, { threshold: 0.55 });
+SECTIONS.forEach(s => io.observe(s));
+
+let toastTimer;
+function toast(text) {
+  $('#toast').textContent = text; $('#toast').classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').classList.remove('on'), 2600);
+}
+
+// ---- Demo panel
+$('#demoBtn').onclick = () => $('#demo').classList.toggle('open');
+$('#pal').innerHTML = '<option value="">—</option>' + PALETTES.map(p => `<option value="${p[0]}">${p[1]}</option>`).join('');
+$('#pal').onchange = e => { state.pal = e.target.value || 'auto'; render(); };
+[['auto', 'Auto'], ['dusk', 'Dark'], ['daylight', 'Light']].forEach(([v, name]) => {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = name; b.dataset.v = v;
+  b.onclick = () => { state.pal = v; render(); }; $('#themeGrp').append(b); });
+dark.addEventListener('change', () => state.pal === 'auto' && render());
+
+// ---- Site
+function closeLangs() { $('#langList').hidden = true; $('#langBtn').setAttribute('aria-expanded', false); }
+$('#langBtn').onclick = e => {
+  e.stopPropagation();
+  const open = $('#langList').hidden;
+  $('#langList').hidden = !open; $('#langBtn').setAttribute('aria-expanded', open);
+  if (open) $('#langList [aria-current]').focus();
+};
+document.addEventListener('click', e => { if (!e.target.closest('.langmenu')) closeLangs(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#langList').hidden) { closeLangs(); $('#langBtn').focus(); } });
+// the theme: from the device until the visitor picks one, then remembered in this browser only
+$('#themeBtn').onclick = () => {
+  const name = state.pal === 'auto' ? (dark.matches ? 'dusk' : 'daylight') : state.pal;
+  state.pal = PALETTES.find(q => q[0] === name)[2] === 'dark' ? 'daylight' : 'dusk';
+  try { localStorage.setItem('owneet-theme', state.pal); } catch (_) { /* private mode: not remembered */ }
+  render();
+};
+try { const kept = localStorage.getItem('owneet-theme'); if (kept === 'daylight' || kept === 'dusk') state.pal = kept; } catch (_) { /* nothing kept */ }
+$('#dlBtn').onclick = e => { e.preventDefault(); toast(tr('soon')); };
+$('#menuBtn').onclick = () => { const open = $('#menu').classList.toggle('open'); $('#menuBtn').setAttribute('aria-expanded', open); };
+$('#menu').addEventListener('click', e => { if (e.target.closest('a')) { $('#menu').classList.remove('open'); $('#menuBtn').setAttribute('aria-expanded', false); } });
+// start state in the address, e.g. #features&lang=it&pal=dusk&logo=current
+const browserLang = (navigator.language || 'en').slice(0, 2);
+state.lang = T[browserLang] ? browserLang : 'en';
+const opt = name => (new RegExp(name + '=([\\w-]+)').exec(location.hash) || [])[1];
+if (T[opt('lang')]) state.lang = opt('lang');
+if (PALETTES.some(q => q[0] === opt('pal'))) state.pal = opt('pal');
+// "&only=features" shows that section alone (to take a screenshot of it)
+if (opt('only')) SECTIONS.forEach(sec => { if (sec.id !== opt('only')) sec.style.display = 'none'; });
+// ---- Pages: #/guide, #/faq, #/credits, #/privacy, #/contribute (the home's sections stay #features, ...).
+// A page replaces the home under the same header; its scrolling is ordinary (no snapping).
+const PAGE_NAMES = ['guide', 'faq', 'credits', 'privacy', 'contribute'];
+let shownPage = null;
+function pageHtml(name) {
+  const P = PAGES[state.lang][name];
+  let body = '';
+  if (name === 'guide') body = `<ol class="steps">${P.steps.map(([h, p]) => `<li><h3>${h}</h3><p>${p}</p></li>`).join('')}</ol><p class="note">${P.note}</p>`;
+  if (name === 'faq') body = `<div class="faq">${P.items.map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join('')}</div>`;
+  if (name === 'credits') {
+    const group = (list, i) => `<h2>${P.groups[i]}</h2><div class="credit-list">` +
+      list.map(([n, u, l]) => `<a href="${u}"><b>${n}</b><span>${l}</span></a>`).join('') + '</div>';
+    const authors = `<h2>${P.authors}</h2><div class="credit-list authors">` +
+      AUTHORS.map(([n, h]) => `<a href="https://github.com/${h}"><b>${n}</b><span>${h}</span></a>`).join('') + '</div>';
+    body = '<div class="credits">' + authors + CREDITS.map(group).join('') +
+      `<p><a class="more" href="${REPO}/blob/main/CREDITS.md">${P.more}</a></p></div>`;
+  }
+  if (name === 'privacy') body = `<div class="blocks">${P.blocks.map(([h, p]) => `<h2>${h}</h2><p>${p}</p>`).join('')}` +
+    `<p><a class="more" href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement">${P.statement}</a></p></div>`;
+  if (name === 'contribute') body = `<div class="cards">${P.cards.map(([ic, h, p, l, u]) => `<div><span class="icon">${ICONS[ic]}</span><h3>${h}</h3><p>${p}</p><a href="${u}">${l}</a></div>`).join('')}</div>`;
+  return `<div class="wrap narrow"><a class="back" href="#home"><span class="ic">${ICONS.arrowLeft}</span>${tr('back')}</a>` +
+    `<h1 class="disp">${P.title}</h1><p class="lede">${P.lede}</p>${body}</div>` +
+    `<footer class="page-foot">${$('main footer').innerHTML.replace('id="logoFoot"', '')}</footer>`;
+}
+function showPage(name, toTop = true) {
+  shownPage = name;
+  document.documentElement.classList.toggle('paged', !!name);
+  $('main').hidden = !!name;
+  $('#dots').hidden = !!name;
+  $('#page').hidden = !name;
+  if (!name) return;
+  $('#page').innerHTML = pageHtml(name);
+  if (toTop) window.scrollTo(0, 0);
+  markSection('/' + name);
+}
+function route() {
+  const where = location.hash.split('&')[0];
+  const m = /^#\/(\w+)$/.exec(where);
+  if (m && PAGE_NAMES.includes(m[1])) return showPage(m[1]);
+  if (shownPage) showPage(null);
+  const section = document.getElementById(where.slice(1));
+  if (section && section.closest('main')) section.scrollIntoView({ behavior: 'instant' });
+}
+addEventListener('hashchange', route);
+if (opt('langs') === 'open') setTimeout(() => $('#langBtn').click(), 50);
+
+// ---- The start-up animation: the website variant of the logo demo (design/demos/logo-gamepad-o.html).
+// The logo from transparent over INTRO.fade ms; then the words of the opening line, INTRO.beat ms
+// apart, each at once; INTRO.hold ms after the last one the animation fades away and the site shows.
+// "&t=2500" in the address stops it at that time (to look at one frame); "&intro=off" skips it.
+const INTRO = { fade: 2000, beat: 500, hold: 800 };
+let introTimers = [];
+function intro() {
+  introTimers.forEach(clearTimeout);
+  introTimers = [];
+  const words = tr('hero.kicker').match(/[^.!?]+[.!?]/g).map(w => w.trim());
+  $('#introLogo').innerHTML = logo();
+  $('#introSub').innerHTML = words.map(w => `<span>${w}</span>`).join(' ');
+  const box = $('#intro'), logoEl = $('#introLogo'), spans = [...$('#introSub').children];
+  const end = INTRO.fade + (spans.length - 1) * INTRO.beat + INTRO.hold;
+  box.hidden = false;
+  box.classList.remove('done');
+  document.documentElement.classList.add('intro-on');
+  const frozen = opt('t');
+  if (frozen !== undefined) {
+    const t = +frozen, x = Math.min(1, t / INTRO.fade);
+    logoEl.style.opacity = (1 - Math.pow(1 - x, 3)).toFixed(3);
+    spans.forEach((s, i) => s.classList.toggle('on', t >= INTRO.fade + i * INTRO.beat));
+    if (t >= end) { box.hidden = true; document.documentElement.classList.remove('intro-on'); }
+    return;
+  }
+  logoEl.style.opacity = '';
+  logoEl.classList.remove('on');
+  logoEl.style.setProperty('--fade', INTRO.fade + 'ms');
+  void logoEl.offsetWidth;   // start the fade from transparent
+  logoEl.classList.add('on');
+  spans.forEach((s, i) => introTimers.push(setTimeout(() => s.classList.add('on'), INTRO.fade + i * INTRO.beat)));
+  introTimers.push(setTimeout(() => finish(box), end));
+}
+function finish(box) {
+  box.classList.add('done');
+  document.documentElement.classList.remove('intro-on');
+  introTimers.push(setTimeout(() => { box.hidden = true; }, 450));
+}
+$('#replayIntro').onclick = () => { $('#demo').classList.remove('open'); intro(); };
+
+render();
+route();
+if (opt('intro') === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches) $('#intro').hidden = true;
+else intro();
+
+</script>
+</body>
+</html>
