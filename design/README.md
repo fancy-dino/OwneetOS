@@ -30,6 +30,11 @@ Mockups and design assets.
     welcome, the internal disks with what is on them, the console's name, the warning (a switch to
     turn on for a disk with Windows or BitLocker), the final confirmation held for three seconds,
     the progress, the end and an error. Start state: `#lang=it&screen=disk`.
+  - [`6.6-moving-games.html`](demos/6.6-moving-games.html): moving games between disks
+    ([[step-6.6-moving-games-and-media-between-disks]]) on the games-on-disk demo: Menu → "Move to
+    another disk" (disks without room or read only are off and say why), the copy with Cancel, the
+    check, the original removed only after; Steam's games moved by Steam; a USB disk with games asks
+    "Play from here / Copy to the console". Start state: `#open=move|movebig|steam|plug|copying`.
   - [`7.8-website-home.html`](demos/7.8-website-home.html): the website's home
     ([[step-7.8-website]]), one page whose sections snap, the features in a carousel, the
     console's home screen drawn; English and Italian; the "Demo 7.8" button switches palette,
