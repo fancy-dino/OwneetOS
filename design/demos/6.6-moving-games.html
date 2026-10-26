@@ -295,6 +295,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'plug.here': 'Play from here', 'plug.copy': 'Copy to the console', 'plug.where': 'Copy {n} games ({size}) to which disk?', 'plug.where.text': 'The originals stay on the USB disk.',
     'plug.copying': 'Copying {title} ({i} of {n})', 'plug.done': '{n} games copied to {disk}',
     'p.cancel': 'Cancel', 'p.toggle': 'Switch',
+    'cancel.ask': 'Stop?', 'cancel.text': 'The partial copy is removed and {title} stays on {disk}, as it was.', 'cancel.keep': 'Keep going', 'cancel.stop': 'Stop',
     'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings',
     'later.home': 'The home screen was approved in demo 3.6.', 'later.settings': 'Settings have their own demo (step 3.9).',
     'count': '{n} games', 'count.one': '1 game',
@@ -352,6 +353,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'plug.here': 'Gioca da qui', 'plug.copy': 'Copia sulla console', 'plug.where': 'Su quale disco copiare {n} giochi ({size})?', 'plug.where.text': 'Gli originali restano sul disco USB.',
     'plug.copying': 'Copia di {title} ({i} di {n})', 'plug.done': '{n} giochi copiati su {disk}',
     'p.cancel': 'Annulla', 'p.toggle': 'Attiva',
+    'cancel.ask': 'Interrompere?', 'cancel.text': 'La copia parziale viene eliminata e {title} resta su {disk}, com\'era.', 'cancel.keep': 'Continua', 'cancel.stop': 'Interrompi',
     'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni',
     'later.home': 'La schermata Home è stata approvata nella demo 3.6.', 'later.settings': 'Le impostazioni hanno la loro demo (step 3.9).',
     'count': '{n} giochi', 'count.one': '1 gioco',
@@ -759,8 +761,17 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     const g = () => list[i];
     // where each game was before: the steps name it even after the game has moved
     const origin = list.map(x => x.disk);
+    // Cancel asks first: the copy waits while the question is open; "Keep going" is the default
+    let asking = false;
     const draw = () => {
       const from = diskOf(origin[i]);
+      if (asking) {
+        $('#sheet').innerHTML = `<span class="disp t-l">${tr('cancel.ask')}</span><span class="t-m muted" style="max-width:600px">${tr('cancel.text', { title: g().title, disk: diskName(from) })}</span>
+          <div class="list t-m"><button class="item primary" data-f data-keep>${tr('cancel.keep')}</button><button class="item" data-f data-stop>${tr('cancel.stop')}</button></div>`;
+        focus($('#sheet [data-keep]'), true);
+        $('#sheet-prompts').innerHTML = `<div class="set">${P(['a'], tr('p.select'))}${P(['b'], tr('cancel.keep'))}</div>`;
+        return;
+      }
       const steps = [['copy', tr('step.copy', { disk: diskName(to) })], ['check', tr('step.check')],
         ['remove', remove ? tr('step.remove', { disk: diskName(from) }) : tr('step.keep', { disk: diskName(from) })]];
       const order = ['copy', 'check', 'remove', 'end'];
@@ -776,12 +787,20 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     // Cancel (the button or B) during the copy: the partial copy is removed, nothing else changes;
     // the check and the removal are never stopped half way
     const cancel = () => { clearInterval(runTimer); sheetBack = null; closeSheet(); toast(tr('move.cancelled', { title: g().title, disk: diskName(diskOf(origin[i])) })); };
-    sheetAccept = el => { if (el && el.hasAttribute('data-cancel') && phase === 'copy') cancel(); };
-    sheetBack = () => { if (phase === 'copy') cancel(); else feedback('edge'); };
+    const ask = () => { asking = true; feedback('sheet-open'); draw(); };
+    const resume = () => { asking = false; feedback('sheet-close'); draw(); };
+    sheetAccept = el => {
+      if (!el) return;
+      if (asking) { if (el.hasAttribute('data-stop')) cancel(); else resume(); return; }
+      if (el.hasAttribute('data-cancel') && phase === 'copy') ask();
+    };
+    // B: during the copy it asks; on the question it keeps going; the check and the removal go on
+    sheetBack = () => { if (asking) resume(); else if (phase === 'copy') ask(); else feedback('edge'); };
     draw();
     clearInterval(runTimer);
     let wait = 0;
     runTimer = setInterval(() => {
+      if (asking) return;
       if (phase === 'copy') { p = Math.min(100, p + 4); if (p >= 100) { phase = 'check'; wait = 0; } }
       else if (phase === 'check') { if (++wait > 8) { phase = remove ? 'remove' : 'end'; wait = 0; } }
       else if (phase === 'remove') { if (++wait > 6) phase = 'end'; }
@@ -978,6 +997,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     else if (open === 'steam') steamMoveSheet(GAMES.find(g => g.src === 'Steam'));
     else if (open === 'plug') plugSheet();
     else if (open === 'plugwhere') { plugSheet(); plugWhereSheet(GAMES.filter(g => g.disk === 'ssd')); }
+    else if (open === 'cancelask') { const g = GAMES.find(x => x.title === 'SuperTuxKart'); moveSheet(g); run([g], roomiest(g.size, g.disk), true, () => { closeSheet(false); renderGrid(g.id); }); setTimeout(() => press.b(), 800); }
     else if (open === 'plugrun') { plugSheet(); plugWhereSheet(GAMES.filter(g => g.disk === 'ssd')); setTimeout(() => press.a(), 400); }
     else if (open === 'details') detailsSheet(lk);
     else if (open === 'add') { focus($('#grid [data-add]'), true); addSheet(); }
