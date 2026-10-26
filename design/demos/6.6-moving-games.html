@@ -11,8 +11,11 @@
      opens Steam's storage settings. A USB disk with games plugged in asks "Play from here / Copy
      to the console"; copying asks which disk (the one with the most room first) and keeps the
      originals. Disks are mounted for writing from [[step-6.5-automatic-disk-mounting]]; a
-     Windows disk left dirty stays read only. Open in a browser; gamepad or keyboard. Demo keys: U
-     plug in / unplug the USB disk (asks again), the others as in 4.3. Game names, sizes and disks
+     Windows disk left dirty stays read only. A copy that fails its check is removed and the
+     original stays untouched: "The copy did not work" with Close (selected) and Try again; with
+     several games the others go on and a summary comes at the end. Open in a browser; gamepad or
+     keyboard. Demo keys: U plug in / unplug the USB disk (asks again), K the next check fails, the
+     others as in 4.3. Game names, sizes and disks
      are invented. -->
 <html lang="en">
 <head>
@@ -80,6 +83,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .steps-list .st.done { color: var(--fg); }
 .steps-list .mark { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: 13px; }
 .steps-list .st.done .mark { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.steps-list .st.bad { color: var(--fg); font-weight: 500; }
+.steps-list .st.bad .mark { background: var(--fg); border-color: var(--fg); color: var(--bg); }
 .steps-list .st.now .mark { border-color: var(--accent); border-top-color: transparent; animation: spin 1s linear infinite; }
 .steps-list .bar { grid-column: 2 / 4; height: 8px; border-radius: 999px; background: var(--raised); overflow: hidden; }
 .steps-list .bar i { display: block; height: 100%; background: var(--accent); }
@@ -232,7 +237,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 <p class="help"><b>New in 4.3:</b> a disk with a “Games” folder: its games in the Library (title = the folder's name, cover from <code>cover.jpg</code> or drawn); <b>Lantern Keep</b> has several files to start: A asks once, then remembers; Menu → <b>Choose the file to start</b> changes it; X shows the disk. Windows games and installers are not shown yet (4.5, 4.6).<br>
 <b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A play, B menu (back in windows), X details, Y sort, Menu options, LT/RT filters, LB/RB sections.
 <b>Keyboard:</b> arrows, Page Up/Down = right stick, Enter = A, Esc = B, X, Y, M = Menu, Z/C = LT/RT, Q/E = LB/RB.<br>
-<b>New in 6.6:</b> each cover says its disk; Menu on a game → <b>Move to another disk</b> (a Steam game: Steam moves it); plugging in the USB disk asks <b>Play from here / Copy to the console</b>, then which disk.<br><b>Demo only:</b> U plug in / unplug the disk (<span id="disk-state">plugged in</span>), F forget the choice of Lantern Keep, P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#disk=0&amp;filter=local&amp;pal=ember&amp;lang=it&amp;open=choose|options|details</code></p>
+<b>New in 6.6:</b> each cover says its disk; Menu on a game → <b>Move to another disk</b> (a Steam game: Steam moves it); plugging in the USB disk asks <b>Play from here / Copy to the console</b>, then which disk.<br><b>Demo only:</b> K the next check fails, U plug in / unplug the disk (<span id="disk-state">plugged in</span>), F forget the choice of Lantern Keep, P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#disk=0&amp;filter=local&amp;pal=ember&amp;lang=it&amp;open=choose|options|details</code></p>
 
 <script src="sounds.js"></script>
 <script>
@@ -281,7 +286,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   /* ---------- i18n ---------- */
   const EN = {
     'opt.move': 'Move to another disk',
-    'move.title': 'Move {title}', 'move.where': '{size} · now on {disk}', 'move.free': '{free} free', 'move.nospace': 'Not enough space: needs {size}',
+    'move.title': 'Move {title}', 'copy.title': 'Copy {title}', 'move.where': '{size} · now on {disk}', 'move.free': '{free} free', 'move.nospace': 'Not enough space: needs {size}',
     'move.readonly': 'Read only: Windows was not shut down completely',
     'move.confirm': 'Move {title} to {disk}', 'move.confirm.text': '{size}. The game can be played again when it is done.',
     'move.remove': 'Remove the original after the copy is checked', 'move.remove.on': 'The game will be on {to} only.', 'move.remove.off': 'A copy: the game stays on {from} too.',
@@ -296,6 +301,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'plug.copying': 'Copying {title} ({i} of {n})', 'plug.done': '{n} games copied to {disk}',
     'p.cancel': 'Cancel', 'p.toggle': 'Switch',
     'cancel.ask': 'Stop?', 'cancel.text': 'The partial copy is removed and {title} stays on {disk}, as it was.', 'cancel.keep': 'Keep going', 'cancel.stop': 'Stop',
+    'fail.title': 'The copy of {title} did not work', 'fail.text': 'The original is still on {from}, untouched. {to} may have a problem.',
+    'fail.some': '{ok} of {n} games copied to {to}', 'fail.some.text': '{titles}: the copy did not work.', 'fail.many.text': 'The originals are still on {from}, untouched. {to} may have a problem.',
+    'fail.close': 'Close', 'fail.retry': 'Try again', 'fail.demo': '(demo) The next check fails',
     'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings',
     'later.home': 'The home screen was approved in demo 3.6.', 'later.settings': 'Settings have their own demo (step 3.9).',
     'count': '{n} games', 'count.one': '1 game',
@@ -339,7 +347,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   };
   const IT = {
     'opt.move': 'Sposta su un altro disco',
-    'move.title': 'Sposta {title}', 'move.where': '{size} · ora su {disk}', 'move.free': '{free} liberi', 'move.nospace': 'Spazio insufficiente: servono {size}',
+    'move.title': 'Sposta {title}', 'copy.title': 'Copia {title}', 'move.where': '{size} · ora su {disk}', 'move.free': '{free} liberi', 'move.nospace': 'Spazio insufficiente: servono {size}',
     'move.readonly': 'Sola lettura: Windows non è stato spento del tutto',
     'move.confirm': 'Sposta {title} su {disk}', 'move.confirm.text': '{size}. Il gioco torna giocabile quando ha finito.',
     'move.remove': 'Elimina l\'originale dopo aver controllato la copia', 'move.remove.on': 'Il gioco sarà solo su {to}.', 'move.remove.off': 'Una copia: il gioco resta anche su {from}.',
@@ -354,6 +362,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'plug.copying': 'Copia di {title} ({i} di {n})', 'plug.done': '{n} giochi copiati su {disk}',
     'p.cancel': 'Annulla', 'p.toggle': 'Attiva',
     'cancel.ask': 'Interrompere?', 'cancel.text': 'La copia parziale viene eliminata e {title} resta su {disk}, com\'era.', 'cancel.keep': 'Continua', 'cancel.stop': 'Interrompi',
+    'fail.title': 'La copia di {title} non è riuscita', 'fail.text': 'L\'originale è ancora su {from}, intatto. {to} potrebbe avere un problema.',
+    'fail.some': '{ok} giochi su {n} copiati su {to}', 'fail.some.text': '{titles}: la copia non è riuscita.', 'fail.many.text': 'Gli originali sono ancora su {from}, intatti. {to} potrebbe avere un problema.',
+    'fail.close': 'Chiudi', 'fail.retry': 'Riprova', 'fail.demo': '(demo) Il prossimo controllo fallisce',
     'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni',
     'later.home': 'La schermata Home è stata approvata nella demo 3.6.', 'later.settings': 'Le impostazioni hanno la loro demo (step 3.9).',
     'count': '{n} giochi', 'count.one': '1 gioco',
@@ -425,7 +436,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   /* ---------- Sounds (Web Audio, one per press) ---------- */
   let soundOn = true, ctx = null;
   const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', back: 'nav-confirm', section: 'nav-section',
-    tab: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', launch: 'game-launch', notify: 'notify' };
+    tab: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', launch: 'game-launch', notify: 'notify', error: 'notify-error' };
   const buffers = {};
   function startAudio() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
@@ -748,16 +759,19 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
         if (el.dataset.k === 'remove') { confirmSheet(g, to, !remove); focus($('#sheet [data-k="remove"]'), true); return; }
         if (el.dataset.k === 'back') { moveSheet(g); return; }
-        run([g], to, remove, () => {
+        run([g], to, remove, failed => {
           closeSheet(false); renderHead(); renderGrid(g.id);
-          banner(tr(remove ? 'move.done' : 'copy.done', { title: g.title, disk: diskName(to) }), tr(remove ? 'move.done.text' : 'copy.done.text'));
+          if (!failed.length) banner(tr(remove ? 'move.done' : 'copy.done', { title: g.title, disk: diskName(to) }), tr(remove ? 'move.done.text' : 'copy.done.text'));
         });
       }, '#sheet [data-k="start"]', null, true);
   }
-  // the steps, one after the other, each ticked when done: copy (Cancel), check, remove the original
-  let runTimer = null;
+  // the steps, one after the other, each ticked when done: copy (Cancel), check, remove the original.
+  // A check that fails: the copy is removed, the original never touched; the other games go on,
+  // then "The copy did not work" (one game) or a summary, with Close (selected) and Try again.
+  let runTimer = null, failNext = false;
   function run(list, to, remove, done) {
     let i = 0, p = 0, phase = 'copy';
+    const failed = [];
     const g = () => list[i];
     // where each game was before: the steps name it even after the game has moved
     const origin = list.map(x => x.disk);
@@ -772,11 +786,25 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
         $('#sheet-prompts').innerHTML = `<div class="set">${P(['a'], tr('p.select'))}${P(['b'], tr('cancel.keep'))}</div>`;
         return;
       }
+      if (phase === 'failed') {
+        const ok = list.length - failed.length;
+        const head = list.length > 1 ? tr('fail.some', { ok, n: list.length, to: diskName(to) }) : tr('fail.title', { title: failed[0].title });
+        const where = { from: diskName(diskOf(failed[0].disk)), to: diskName(to) };
+        const text = (list.length > 1 ? tr('fail.some.text', { titles: failed.map(x => x.title).join(', ') }) + ' ' : '')
+          + tr(failed.length > 1 ? 'fail.many.text' : 'fail.text', where);
+        const steps = list.length > 1 ? '' : `<div class="steps-list t-m"><div class="st done"><span class="mark">✓</span><span>${tr('step.copy', { disk: diskName(to) })}</span><span></span></div>
+          <div class="st bad"><span class="mark">✕</span><span>${tr('step.check')}</span><span></span></div></div>`;
+        $('#sheet').innerHTML = `<span class="disp t-l">${head}</span>${steps}<span class="t-m muted" style="max-width:620px">${text}</span>
+          <div class="list t-m"><button class="item primary" data-f data-close>${tr('fail.close')}</button><button class="item" data-f data-retry>${tr('fail.retry')}</button></div>`;
+        focus($('#sheet [data-close]'), true);
+        $('#sheet-prompts').innerHTML = `<div class="set">${P(['a'], tr('p.select'))}${P(['b'], tr('fail.close'))}</div>`;
+        return;
+      }
       const steps = [['copy', tr('step.copy', { disk: diskName(to) })], ['check', tr('step.check')],
         ['remove', remove ? tr('step.remove', { disk: diskName(from) }) : tr('step.keep', { disk: diskName(from) })]];
       const order = ['copy', 'check', 'remove', 'end'];
       const state = k => order.indexOf(k) < order.indexOf(phase) ? 'done' : k === phase ? 'now' : '';
-      const title = list.length > 1 ? tr('plug.copying', { title: g().title, i: i + 1, n: list.length }) : tr('move.title', { title: g().title });
+      const title = list.length > 1 ? tr('plug.copying', { title: g().title, i: i + 1, n: list.length }) : tr(remove ? 'move.title' : 'copy.title', { title: g().title });
       $('#sheet').innerHTML = `<span class="disp t-l">${title}</span><div class="steps-list t-m">${steps.map(([k, l]) =>
         `<div class="st ${state(k)}"><span class="mark">${state(k) === 'done' ? '✓' : ''}</span><span>${l}</span><span class="t-s">${k === 'copy' && phase === 'copy' ? p + '%' : ''}</span>
           ${k === 'copy' && phase === 'copy' ? `<span class="bar"><i style="width:${p}%"></i></span>` : ''}</div>`).join('')}</div>
@@ -791,31 +819,47 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     const resume = () => { asking = false; feedback('sheet-close'); draw(); };
     sheetAccept = el => {
       if (!el) return;
+      if (phase === 'failed') { if (el.hasAttribute('data-retry')) { feedback('confirm'); run(failed, to, remove, done); } else { feedback('sheet-close'); done(failed); } return; }
       if (asking) { if (el.hasAttribute('data-stop')) cancel(); else resume(); return; }
       if (el.hasAttribute('data-cancel') && phase === 'copy') ask();
     };
     // B: during the copy it asks; on the question it keeps going; the check and the removal go on
-    sheetBack = () => { if (asking) resume(); else if (phase === 'copy') ask(); else feedback('edge'); };
+    sheetBack = () => { if (phase === 'failed') { feedback('sheet-close'); done(failed); } else if (asking) resume(); else if (phase === 'copy') ask(); else feedback('edge'); };
     draw();
     clearInterval(runTimer);
     let wait = 0;
     runTimer = setInterval(() => {
       if (asking) return;
       if (phase === 'copy') { p = Math.min(100, p + 4); if (p >= 100) { phase = 'check'; wait = 0; } }
-      else if (phase === 'check') { if (++wait > 8) { phase = remove ? 'remove' : 'end'; wait = 0; } }
+      else if (phase === 'check') {
+        if (++wait > 8) {
+          wait = 0;
+          // the copy is not the same as the original: it is removed, the original stays as it was
+          if (failNext) { failNext = false; failed.push(g()); phase = 'skip'; }
+          else phase = remove ? 'remove' : 'end';
+        }
+      }
       else if (phase === 'remove') { if (++wait > 6) phase = 'end'; }
-      if (phase === 'end') {
-        const from = diskOf(origin[i]);
-        to.free = Math.round((to.free - g().size) * 10) / 10;
-        if (remove) from.free = Math.round((from.free + g().size) * 10) / 10;
-        g().disk = to.key;
-        // the last game: every step ticked, then done (the list is never read past its end)
-        if (i + 1 >= list.length) { clearInterval(runTimer); draw(); sheetBack = null; setTimeout(done, 700); return; }
+      if (phase === 'end' || phase === 'skip') {
+        if (phase === 'end') {
+          const from = diskOf(origin[i]);
+          to.free = Math.round((to.free - g().size) * 10) / 10;
+          if (remove) from.free = Math.round((from.free + g().size) * 10) / 10;
+          g().disk = to.key;
+        }
+        // the last game: every step ticked, then done or what did not work (never read past the end)
+        if (i + 1 >= list.length) {
+          clearInterval(runTimer);
+          if (failed.length) { phase = 'failed'; feedback('error'); draw(); return; }
+          phase = 'end'; draw(); sheetBack = null; setTimeout(() => done(failed), 700); return;
+        }
         i++; p = 0; phase = 'copy';
       }
       draw();
     }, 160);
   }
+  // (demo) K: the next check fails
+  const failDemo = () => { failNext = true; toast(tr('fail.demo')); };
   function steamMoveSheet(g) {
     openSheet(`<span class="disp t-l">${tr('steam.move.title')}</span><span class="t-m muted" style="max-width:640px">${tr('steam.move.text', { title: g.title })}</span>
       <div class="list t-m"><button class="item primary" data-f data-k="open">${tr('steam.move.open')}</button><button class="item" data-f data-k="cancel">${tr('p.cancel')}</button></div>`,
@@ -839,7 +883,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
         if (!el.dataset.to || el.disabled) { feedback('edge'); return; }
         const to = diskOf(el.dataset.to);
-        run(list, to, false, () => { closeSheet(false); renderHead(); renderGrid(); banner(tr('plug.done', { n: list.length, disk: diskName(to) }), tr('plug.where.text')); });
+        run(list, to, false, failed => { closeSheet(false); renderHead(); renderGrid(); if (!failed.length) banner(tr('plug.done', { n: list.length, disk: diskName(to) }), tr('plug.where.text')); });
       }, best ? `#sheet [data-to="${best.key}"]` : null);
   }
 
@@ -896,6 +940,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   };
   const DEMO = {
     u: () => plug(!diskOn),
+    k: () => failDemo(),
     f: () => { GAMES.find(g => g.title === 'Lantern Keep').choice = null; toast('(demo) Lantern Keep asks again'); },
     p: () => { setPalette(palIndex + 1); toast(PALETTES[palIndex][0]); },
     t: () => { const sizes = [0.9, 1, 1.2, 1.4]; const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts')) || 1;
@@ -998,6 +1043,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     else if (open === 'plug') plugSheet();
     else if (open === 'plugwhere') { plugSheet(); plugWhereSheet(GAMES.filter(g => g.disk === 'ssd')); }
     else if (open === 'cancelask') { const g = GAMES.find(x => x.title === 'SuperTuxKart'); moveSheet(g); run([g], roomiest(g.size, g.disk), true, () => { closeSheet(false); renderGrid(g.id); }); setTimeout(() => press.b(), 800); }
+    else if (open === 'fail') { const g = GAMES.find(x => x.title === 'SuperTuxKart'); failNext = true; moveSheet(g); run([g], roomiest(g.size, g.disk), true, failed => { closeSheet(false); renderGrid(g.id); }); }
+    else if (open === 'plugfail') { failNext = true; plugSheet(); plugWhereSheet(GAMES.filter(g => g.disk === 'ssd')); setTimeout(() => press.a(), 400); }
     else if (open === 'plugrun') { plugSheet(); plugWhereSheet(GAMES.filter(g => g.disk === 'ssd')); setTimeout(() => press.a(), 400); }
     else if (open === 'details') detailsSheet(lk);
     else if (open === 'add') { focus($('#grid [data-add]'), true); addSheet(); }
