@@ -754,10 +754,16 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     const from = diskOf(g.disk);
     openSheet(`<span class="disp t-l">${tr('move.confirm', { title: g.title, disk: diskName(to) })}</span><span class="t-m muted">${tr('move.confirm.text', { size: sizeOf(g.size) })}</span>
       <button class="opt-row" data-f data-k="remove" role="switch" aria-checked="${remove}"><span class="t-m">${tr('move.remove')}</span><span class="switch"></span></button>
-      <span class="t-s muted">${remove ? tr('move.remove.on', { to: diskName(to) }) : tr('move.remove.off', { from: diskName(from) })}</span>
+      <span class="t-s muted" data-note>${remove ? tr('move.remove.on', { to: diskName(to) }) : tr('move.remove.off', { from: diskName(from) })}</span>
       <div class="list t-m"><button class="item primary" data-f data-k="start">${tr('move.start')}</button><button class="item" data-f data-k="back">${tr('move.back')}</button></div>`,
       [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
-        if (el.dataset.k === 'remove') { confirmSheet(g, to, !remove); focus($('#sheet [data-k="remove"]'), true); return; }
+        // the switch changes in place: the sheet is not drawn again, so the focus never leaves it
+        if (el.dataset.k === 'remove') {
+          remove = !remove;
+          el.setAttribute('aria-checked', remove);
+          $('#sheet [data-note]').textContent = remove ? tr('move.remove.on', { to: diskName(to) }) : tr('move.remove.off', { from: diskName(from) });
+          return;
+        }
         if (el.dataset.k === 'back') { moveSheet(g); return; }
         run([g], to, remove, failed => {
           closeSheet(false); renderHead(); renderGrid(g.id);
