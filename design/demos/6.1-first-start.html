@@ -9,7 +9,8 @@
      cities when the language has several zones; never geolocated), the Xbox wireless adapter's
      firmware (only when an adapter is plugged in and the console is online: downloaded from
      Microsoft with consent, [[xbox-wireless-dongle]]), ready. The console's name was chosen in the
-     installer. Open in a browser; gamepad or keyboard (Enter = A, Esc = B). Demo keys: C a
+     installer. The five languages of Wave 1 are listed (English, Italian, German, French,
+     Spanish); in the demo only English and Italian have their texts (step 7.9). Open in a browser; gamepad or keyboard (Enter = A, Esc = B). Demo keys: C a
      controller pairs, K network cable, D Xbox adapter plugged in, L language, P palette, N sounds.
      Networks and controllers are invented. Fonts come from Google Fonts for the demo only. -->
 <html lang="en">
@@ -138,7 +139,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
     'ready.title': 'You are all set', 'ready.text': 'Your console is ready. Settings has everything you chose here.', 'ready.home': 'Go to the home screen',
     'ready.lang': 'Language', 'ready.net': 'Network', 'ready.time': 'Time zone', 'ready.offline': 'Not connected',
     'continue': 'Continue', 'p.select': 'Select', 'p.back': 'Back', 'p.scroll': 'Scroll',
-    'demo.home': '(demo) The home screen opens', 'demo.terms': '(demo) Microsoft\'s terms open here, readable with the controller',
+    'demo.home': '(demo) The home screen opens', 'demo.texts': '(demo) This language\'s texts come with step 7.9: here in English', 'demo.terms': '(demo) Microsoft\'s terms open here, readable with the controller',
   };
   const IT = {
     'step.controller': 'Controller', 'step.language': 'Lingua', 'step.network': 'Rete', 'step.time': 'Fuso orario', 'step.ready': 'Pronto',
@@ -159,7 +160,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
     'ready.title': 'Tutto pronto', 'ready.text': 'La tua console è pronta. Nelle Impostazioni trovi tutto quello che hai scelto qui.', 'ready.home': 'Vai alla Home',
     'ready.lang': 'Lingua', 'ready.net': 'Rete', 'ready.time': 'Fuso orario', 'ready.offline': 'Non collegata',
     'continue': 'Continua', 'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.scroll': 'Scorri',
-    'demo.home': '(demo) Si apre la Home', 'demo.terms': '(demo) Qui si aprono i termini di Microsoft, da leggere con il controller',
+    'demo.home': '(demo) Si apre la Home', 'demo.texts': '(demo) I testi di questa lingua arrivano con lo step 7.9: qui in inglese', 'demo.terms': '(demo) Qui si aprono i termini di Microsoft, da leggere con il controller',
   };
   let lang = 'en';
   const tr = (k, a = {}) => ((lang === 'it' ? IT[k] : null) || EN[k] || k).replace(/\{(\w+)\}/g, (_, x) => a[x] ?? '');
@@ -205,11 +206,15 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
   // time zones: one suggested per language when it has one; else the cities of the language's zones
   const ZONES = {
     it: [['Europe/Rome', 'Roma', 1]],
+    de: [['Europe/Berlin', 'Berlin', 1]],
+    fr: [['Europe/Paris', 'Paris', 1], ['Europe/Brussels', 'Bruxelles', 1], ['Europe/Zurich', 'Genève', 1], ['America/Toronto', 'Montréal', -5]],
+    es: [['Europe/Madrid', 'Madrid', 1], ['America/Mexico_City', 'Ciudad de México', -6], ['America/Bogota', 'Bogotá', -5],
+      ['America/Lima', 'Lima', -5], ['America/Argentina/Buenos_Aires', 'Buenos Aires', -3], ['America/Santiago', 'Santiago', -3]],
     en: [['Europe/London', 'London', 0], ['Europe/Dublin', 'Dublin', 0], ['America/New_York', 'New York', -5], ['America/Toronto', 'Toronto', -5],
       ['America/Chicago', 'Chicago', -6], ['America/Denver', 'Denver', -7], ['America/Los_Angeles', 'Los Angeles', -8], ['America/Vancouver', 'Vancouver', -8],
       ['Australia/Sydney', 'Sydney', 11], ['Pacific/Auckland', 'Auckland', 13], ['Africa/Johannesburg', 'Johannesburg', 2], ['Asia/Singapore', 'Singapore', 8]],
   };
-  const ALL_ZONES = [...ZONES.en, ...ZONES.it].sort((a, b) => a[2] - b[2] || a[1].localeCompare(b[1]));
+  const ALL_ZONES = Object.values(ZONES).flat().filter((z, i, a) => a.findIndex(y => y[0] === z[0]) === i).sort((a, b) => a[2] - b[2] || a[1].localeCompare(b[1]));
   const st = { screen: 'pair', cable: false, dongle: false, net: null, zone: null, choosing: false };
   const ORDER = ['pair', 'language', 'network', 'time', 'dongle', 'ready'];
   const STEP_OF = { pair: 'controller', language: 'language', network: 'network', time: 'time', dongle: 'network', ready: 'ready' };
@@ -230,7 +235,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
         `<div class="brand-card" data-b="${i}"><span class="who">${w}</span><span class="muted">${tr(k)}</span></div>`).join('')}</div>
       <span class="note t-s">${tr('pair.note')}</span></div></div>`,
     language: () => `<div class="screen"><h1 class="disp t-l">${tr('lang.title')}</h1><p class="t-m muted">${tr('lang.text')}</p>
-      <div class="list">${[['en', 'English'], ['it', 'Italiano']].map(([c, n]) => `<button class="row" data-f data-k="lang" data-v="${c}"><span class="t-m">${n}</span>${c === lang ? '<span class="tag ok">✓</span>' : ''}</button>`).join('')}</div></div>`,
+      <div class="list">${LANGS.map(([c, n]) => `<button class="row" data-f data-k="lang" data-v="${c}"><span class="t-m">${n}</span>${c === lang ? '<span class="tag ok">✓</span>' : ''}</button>`).join('')}</div></div>`,
     network: () => `<div class="screen"><h1 class="disp t-l">${tr('net.title')}</h1><p class="t-m muted">${tr('net.text')}</p>
       ${st.cable ? `<div class="row"><span class="t-m">${tr('net.cable')}</span><span class="tag ok">${tr('net.connected')}</span></div><div class="buttons">${btn('next', tr('continue'), true)}</div>`
       : `<div class="list">${NETWORKS.map((n, i) => `<button class="row" data-f data-k="net" data-i="${i}"><span class="left"><span class="t-m">${n.ssid}</span><span class="t-s muted">${n.secured ? tr('net.secured') : tr('net.open')}</span></span>
@@ -253,7 +258,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
       <div class="buttons">${btn('download', tr('dongle.download'), true)}${btn('terms', tr('dongle.terms'))}${btn('dlater', tr('dongle.later'))}</div></div>`,
     ready: () => {
       const z = st.zone || (ZONES[lang] || ZONES.en)[0];
-      const rows = [[tr('ready.lang'), lang === 'it' ? 'Italiano' : 'English'], [tr('ready.net'), st.cable ? tr('net.cable') : st.net ? st.net.ssid : tr('ready.offline')], [tr('ready.time'), `${z[1]} · ${utc(z[2])}`]];
+      const rows = [[tr('ready.lang'), LANGS.find(([c]) => c === lang)[1]], [tr('ready.net'), st.cable ? tr('net.cable') : st.net ? st.net.ssid : tr('ready.offline')], [tr('ready.time'), `${z[1]} · ${utc(z[2])}`]];
       return `<div class="screen center"><h1 class="disp t-xl">${tr('ready.title')}</h1><p class="t-m muted">${tr('ready.text')}</p>
         <div class="list" style="width:560px">${rows.map(([a, b]) => `<div class="row"><span class="muted">${a}</span><span>${b}</span></div>`).join('')}</div>
         <div class="buttons">${btn('home', tr('ready.home'), true)}</div></div>`;
@@ -263,6 +268,9 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
   const wifiIcon = level => `<svg class="wifi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
     <path d="M2 9a15 15 0 0 1 20 0" opacity="${level >= 3 ? 1 : .3}"/><path d="M5 12.5a10 10 0 0 1 14 0" opacity="${level >= 2 ? 1 : .3}"/>
     <path d="M8.5 16a5 5 0 0 1 7 0" opacity="${level >= 1 ? 1 : .3}"/><circle cx="12" cy="19.5" r="1.2" fill="currentColor" stroke="none"/></svg>`;
+  // the five languages of Wave 1, each in its own name ([[languages]]); in this demo only English
+  // and Italian have their texts (the others come with step 7.9)
+  const LANGS = [['en', 'English'], ['it', 'Italiano'], ['de', 'Deutsch'], ['fr', 'Français'], ['es', 'Español']];
   const bars = s => wifiIcon(s > 60 ? 3 : s > 30 ? 2 : 1);
 
   function render(keepK) {
@@ -329,7 +337,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
     if (st.screen === 'pair') { paired('Xbox Wireless Controller'); return; }
     if (!focused) return;
     const k = focused.dataset.k;
-    if (k === 'lang') { lang = focused.dataset.v; next(); }
+    if (k === 'lang') { lang = focused.dataset.v; if (!['en', 'it'].includes(lang)) toast(tr('demo.texts')); next(); }
     else if (k === 'net') { const nw = NETWORKS[+focused.dataset.i]; if (st.net === nw) return; nw.secured ? passwordSheet(nw) : join(nw); }
     else if (k === 'next') next();
     else if (k === 'later') { st.net = null; next(); }
@@ -410,7 +418,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
 
   /* ---------- Start state ---------- */
   const q = new URLSearchParams(location.hash.slice(1));
-  if (q.get('lang') === 'it') lang = 'it';
+  if (LANGS.some(([c]) => c === q.get('lang'))) lang = q.get('lang');
   if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
   if (q.get('cable') === '1') { st.cable = true; $('#cable-state').textContent = 'on'; }
   if (q.get('dongle') === '1') { st.dongle = true; $('#dongle-state').textContent = 'on'; }
