@@ -250,4 +250,10 @@ func TestShippedCatalog(t *testing.T) {
 	if yt, ok := find(cat, "youtube", KindWebApp); !ok || !strings.HasSuffix(yt.URL, "/tv") || yt.UserAgent == "" {
 		t.Errorf("youtube %+v: want the TV interface with a user agent", yt)
 	}
+	// Spotify's player for an Android TV: another agent gets a page that plays nothing
+	// ([[step-5.5-spotify]]); brand-neutral, as YouTube's
+	if sp, ok := find(cat, "spotify", KindWebApp); !ok || !strings.Contains(sp.UserAgent, "Android") ||
+		!strings.Contains(sp.UserAgent, "Chrome/") || strings.Contains(sp.UserAgent, "Build/") {
+		t.Errorf("spotify %+v: want a brand-neutral Android TV user agent", sp)
+	}
 }

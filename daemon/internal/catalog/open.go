@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
@@ -143,12 +144,17 @@ func (m *Manager) braveCommand(e Entry, profile string, sess apps.Session) []str
 		"--hide-crash-restore-bubble",
 		"--ozone-platform=" + platform,
 	}
+	// Brave's performance alert ("Fix the tabs slowing your browser") is a window that needs a
+	// mouse ([[step-5.5-spotify]])
+	disabled := []string{"PerformanceInterventionUI"}
 	if st, err := os.Stat(m.ExtensionDir); err == nil && st.IsDir() {
 		// The console's extension ([[step-5.2-extension-core]]), loaded from the system's files:
 		// no store and no update server
-		argv = append(argv, "--load-extension="+m.ExtensionDir,
-			"--disable-features=DisableLoadExtensionCommandLineSwitch")
+		argv = append(argv, "--load-extension="+m.ExtensionDir)
+		disabled = append(disabled, "DisableLoadExtensionCommandLineSwitch")
 	}
+	// One switch for all of them: Brave reads only the last --disable-features
+	argv = append(argv, "--disable-features="+strings.Join(disabled, ","))
 	if e.UserAgent != "" {
 		// One argument, spaces included: the command is run without a shell
 		argv = append(argv, "--user-agent="+e.UserAgent)

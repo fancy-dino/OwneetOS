@@ -21,10 +21,10 @@ Files:
 - `content/netflix.js`: Netflix's own navigation (rows and tiles, the title window, the player's
   controls, LT / RT ±10 s, Y search), Netflix's element names in one place; elsewhere the generic
   navigation (tested by `test/netflix.test.js`);
-- `content/spotify.js`: Spotify's own navigation (shelves and cards, song lists, Your Library, X
-  queue, Y the player bar, Menu its context menu, LT / RT ±5 s, LB / RB Home / Search / Your
-  Library), drawn bigger on a TV and its right panel folded; Spotify's element names in one place
-  (tested by `test/spotify.test.js`);
+- `content/spotify.js`: Spotify's own navigation in the player it serves an Android TV user agent
+  (shelves and cards, songs, X queue, Y the full player, Menu an item's "More", LT / RT ±5 s on
+  the full player's bar, LB / RB its tabs Home / Search / Your Library), drawn bigger on a TV;
+  Spotify's element names in one place (tested by `test/spotify.test.js`);
 - `background.js`: relays the page's messages to `owneet-bridge`, the native-messaging host that
   talks to owneetd (the console's keyboard, "Close {name}?"), and sets Brave's zoom for an app
   drawn bigger on a TV (Spotify). Installed as

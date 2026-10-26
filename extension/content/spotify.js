@@ -1,74 +1,77 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Spotify's own navigation ([[step-5.5-spotify]]; [[extension-design]] "Spotify"; bindings:
-// [[controller-input-map]] "Inside Spotify"). Spotify has no TV interface on the web (a TV user
-// agent gets its page for phones, which plays nothing): its desktop web player, driven part by part
-// with the ring of input.js. Spotify's own arrow keys move only inside a song list, a menu or one
-// shelf, never between them, so the D-pad is the extension's:
-//  - The targets are the top bar's, the left sidebar's (Your Library) and the main view's; a card, a
-//    song and a Your Library row are one target each (their own buttons and links are not). In a
-//    shelf left / right go from card to card, sliding the shelf with Spotify's own arrows at the
-//    edge of what is visible (right at its end: its "Show all"); up / down from a card go to the
-//    next shelf's cards, about the same column. Elsewhere the nearest target in the direction.
-//  - A clicks (a scripted Enter does nothing on Spotify); on a song it presses the song's play
-//    button. B closes an open menu or Spotify window first (the selection stays inside them while
-//    they are open), then the generic B: back a page, or "Close Spotify?".
-//  - X: the selected item's context menu, then its "Add to queue" (found by its label: the menu's
-//    items have no names of their own; in another language the menu stays open). Menu: the menu.
-//  - Y: the selection to the player bar and back. LT / RT: Spotify's Shift+← / → (5 s).
-//  - LB / RB: Home → Search → Your Library, going round.
-//  - On a TV: drawn as on a screen about 1280 px wide (layoutWidth: the worker sets Brave's zoom
-//    for the tab), and Spotify's right panel folded away once when the page opens.
-// "Install App", "Open in Desktop app" and "Open Miniplayer" are never reached: they open windows
-// or programs the console cannot show.
+// [[controller-input-map]] "Inside Spotify"). owneetd opens Spotify with an Android TV user agent:
+// Spotify then serves its player for phones and TVs (one column with horizontal shelves, a mini
+// player and tabs fixed at the bottom, a full player over the page), driven part by part with the
+// ring of input.js. That view has no keyboard shortcuts: the extension clicks.
+//  - The targets are the page's (never the footer, links to other sites, "Get App" / "Open App",
+//    nor the fixed bottom bars); a card and a song are one target each. In a shelf left / right go
+//    from card to card (the shelf scrolls); up / down from a card go to the next shelf's cards,
+//    about the same column. Elsewhere the nearest target in the direction. The page scrolls so that
+//    the selection is never under the fixed bars.
+//  - A clicks: a card through its own link, a song's row (Spotify plays it). B closes an open menu
+//    or Spotify window first, then the full player, then the generic B: back a page, or "Close
+//    Spotify?".
+//  - X: the selected item's "More" menu, then its "Add to queue" (found by its label: the menu's
+//    items have no names of their own; in another language the menu stays open). Menu: that menu.
+//  - Y: the full player (a click on the mini player), the selection on its play / pause; Y or B
+//    closes it. LT / RT, with the full player open: its progress bar clicked 5 s back / forward.
+//  - LB / RB: the tabs Home → Search → Your Library, going round.
+//  - On a TV: drawn as on a screen about 1280 px wide (layoutWidth: the worker sets Brave's zoom).
 //
-// Spotify's names (data-testid, read with probes in the test VM on 2026-10-24) live in NAMES; what
+// Spotify's names (data-testid, read with probes in the test VM on 2026-10-26) live in NAMES; what
 // is not found falls back to the generic navigation. Tests: test/spotify.test.js; the pages
 // themselves are checked in the test VM.
 
 'use strict';
 
 var OwneetSpotify = (() => {
-  const { nearestTo, insideAcross, afterSlide, sendKey } = typeof OwneetShared !== 'undefined'
+  const { nearestTo, insideAcross, sendKey } = typeof OwneetShared !== 'undefined'
     ? OwneetShared : require('./shared.js');
 
   const NAMES = {
-    top: '[data-testid="global-nav-bar"]',
-    searchInput: '[data-testid="search-input"]',
-    main: 'main',
-    sidebar: 'nav',
-    libraryRow: '[role="row"]',
-    bar: '[data-testid="now-playing-bar"]',
-    playPause: '[data-testid="control-button-playpause"]',
-    shelf: '[data-testid="component-shelf"]',
-    shelfArea: '[data-testid="carousel-scroller"]',
-    shelfNext: '[data-testid="carousel-next-button"]',
-    shelfPrev: '[data-testid="carousel-previous-button"]',
-    showAll: '[data-testid="see-all-link"]',
-    card: '[data-encore-id="card"]',
-    cardTitle: '[data-encore-id="cardTitle"]',
-    song: '[data-testid="tracklist-row"]',
-    menu: '#context-menu, [data-testid="context-menu"]',
-    menuItem: '[role="menuitem"]',
-    window: '[role="dialog"], [aria-modal="true"]',
-    // never reached: "Open Miniplayer" (a window of its own) and "Install App" (a download)
-    never: '[data-testid="pip-toggle-button"], a[href*="/download"]',
+    shelf: '[data-testid="carousel-mwp"]',
+    card: '[data-testid="home-card"], [data-testid="card-mwp"]',
+    song: '[data-testid="track-row"]',
+    more: '[data-testid="context-menu-action-button"]',
+    topBar: '[data-testid="entity-view-top-bar"]',
+    miniPlayer: '[data-testid="floating-now-playing-bar"]',
+    tabs: '[data-testid="bottom-tab-navigation"]',
+    // the full player, over the page
+    playerPlay: '[data-testid="npv-play-button"]',
+    playerMore: '[data-testid="npv-context-menu"]',
+    progress: '[data-testid="progress-bar"]',
+    times: '[data-testid="npv-progress-bar-time-labels"]',
+    footer: 'footer, [data-testid="footer-div"], [data-testid="masthead-footer"]',
+    searchInput: 'input[type="search"], input[role="searchbox"], [data-testid="search-input"]',
+    window: '[role="menu"], [role="dialog"], [aria-modal="true"]',
+    // never reached: links Spotify keeps for a mouse, the language chooser, a download
+    never: '[data-testid="mouse-only-link"], [data-testid="language-selection-button"], a[href*="/download"]',
   };
   // The labels Spotify gives the items found by their label, in the console's languages
   const QUEUE = [/^add to queue$/i, /^aggiungi (in|alla) coda$/i];
-  const NEVER = [/desktop app$/i, /app desktop$/i, /^install(a)? (l'|the )?app$/i, /miniplayer/i];
-  const SECTIONS = ['home', 'search', 'library'];
+  const NEVER = [/^(open|get) (the )?app$/i, /^(apri|scarica|ottieni) (l'|la )?app$/i, /desktop app$/i, /app desktop$/i];
+  const CLOSE = /^(close|cancel|chiudi|annulla)$/i;
+  const TABS = ['home', 'search', 'library'];
   const LAYOUT_WIDTH = 1280;     // on a TV Spotify lays out as on a screen this wide (owner, 2026-10-24)
-  const SLIDE_MS = 450;          // a shelf sliding on
-  const MENU_MS = 350;           // a context menu appearing
-  const SECTION_MS = 700;        // a section's page appearing
-  const PANEL_GAP = 120;         // the main view ends this far from the right edge: the right panel is open
+  const SEEK_S = 5;              // LT / RT (owner, 2026-10-26)
+  const SEEK_ADD_MS = 1500;      // presses this close add up (Spotify's time labels lag behind)
+  const MENU_MS = 400;           // a menu appearing
+  const PLAYER_MS = 600;         // the full player opening and closing
+  const TAB_MS = 700;            // a tab's page appearing
+  const EDGE = 16;               // px kept between the selection and the fixed bars
 
   const matches = loc => loc.hostname === 'open.spotify.com';
   const isQueue = label => QUEUE.some(r => r.test(label));
   const isNeverLabel = label => NEVER.some(r => r.test(label));
-  // LB / RB: the section after now (step 1) or before it (-1), going round
-  const sectionAfter = (now, step) => SECTIONS[(SECTIONS.indexOf(now) + step + SECTIONS.length) % SECTIONS.length];
+  const isClose = label => CLOSE.test(label);
+  // LB / RB: the tab after now (step 1) or before it (-1), going round
+  const tabAfter = (now, step) => TABS[(TABS.indexOf(now) + step + TABS.length) % TABS.length];
+  // "1:05" or "1:02:03" in seconds (NaN when it is not a time)
+  const seconds = s => /^\d+(:\d{2}){1,2}$/.test(s) ? s.split(':').reduce((t, x) => t * 60 + Number(x), 0) : NaN;
+  // Where on the progress bar (0…1) a seek of step seconds from pos lands, in a song of dur seconds
+  const seekFraction = (pos, dur, step) => (dur > 0 ? Math.min(dur, Math.max(0, pos + step)) / dur : NaN);
 
   // env: { document, location, KeyboardEvent, MouseEvent, PointerEvent, setTimeout, now } of the
   // page; page: the ring of input.js { Nav, skip, current(), moveTo(el), click(el), openKeyboard(el) }
@@ -79,135 +82,114 @@ var OwneetSpotify = (() => {
     const usable = el => !!el && Nav.usable(el);
     const label = el => (el.innerText || el.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ');
     const centreX = el => { const r = Nav.rectOf(el); return r.left + r.width / 2; };
-    // Spotify's own keys go to its main element, where the probe's keys worked
-    const keyTarget = () => doc.getElementById('main') || doc.body;
     let column = null;      // the x kept while moving up / down between shelves
-    let barFrom = null;     // where the selection was before Y took it to the player bar
-    let menuFrom = null;    // ... before a context menu or a Spotify window opened
+    let playerFrom = null;  // where the selection was before Y opened the full player
+    let menuFrom = null;    // ... before a menu or a Spotify window opened
+    let seekTo = null;      // { at, pos }: the last seek, which later presses add to
 
     // ---- The parts
-    const main = () => q(NAMES.main);
-    const top = () => q(NAMES.top);
-    const bar = () => q(NAMES.bar);
-    const sidebar = () => qa(NAMES.sidebar).find(n => usable(n) && !n.closest(NAMES.main) && !n.closest(NAMES.top)) || null;
+    // The full player, once open (its play button is there)
+    function player() {
+      const pp = q(NAMES.playerPlay);
+      return usable(pp) ? (pp.closest('aside') || pp.parentElement) : null;
+    }
     // Spotify keeps closed windows in the page: an open one is on screen
     function onScreen(el) {
       const r = el.getBoundingClientRect(), view = doc.defaultView;
       return r.bottom > 0 && r.right > 0 && r.top < view.innerHeight && r.left < view.innerWidth;
     }
-    const openMenu = () => qa(NAMES.menu).filter(m => usable(m) && onScreen(m)).pop() || null;
-    const openWindow = () => qa(NAMES.window)
-      .filter(w => usable(w) && onScreen(w) && !w.closest(NAMES.menu) && !q(NAMES.menu, w)).pop() || null;
-    // The unit el belongs to (a card, a song, a Your Library row), or null; side: the sidebar
-    function unitOf(el, side = sidebar()) {
-      if (!el || !el.closest) return null;
-      const u = el.closest(`${NAMES.card}, ${NAMES.song}`);
-      if (u) return u;
-      return side && side.contains(el) ? el.closest(NAMES.libraryRow) : null;
+    const openWindow = () => qa(NAMES.window).filter(w => usable(w) && onScreen(w)).pop() || null;
+    // Spotify's player view: its shelves, songs, mini player or tabs are there
+    const playerView = () => !!q(`${NAMES.tabs}, ${NAMES.miniPlayer}, ${NAMES.shelf}, ${NAMES.song}`);
+    const fixedBottom = () => [q(NAMES.miniPlayer), q(NAMES.tabs)].filter(usable);
+    const unitOf = el => (el && el.closest ? el.closest(`${NAMES.card}, ${NAMES.song}`) : null);
+    const toUnit = el => unitOf(el) || el;
+    function external(el) {
+      if (!el.matches('a[href]')) return false;
+      try { return new URL(el.href, loc.href).hostname !== loc.hostname; } catch (_) { return true; }
     }
-    // The element of a unit that the ring selects
-    const focusOf = u => u.matches(NAMES.song) ? u : (q('[role="button"]', u) || u);
-    const toUnit = (el, side) => { const u = unitOf(el, side); return u ? focusOf(u) : el; };
-    // a unit is never one of these (side: the sidebar)
-    function isNever(el, side) {
-      if (el.closest(NAMES.never)) return true;
-      return !unitOf(el, side) && el.matches('a, button, [role="menuitem"]') && isNeverLabel(label(el));
+    function isNever(el) {
+      if (el.closest(NAMES.never) || external(el)) return true;
+      return !unitOf(el) && el.matches('a, button, [role="button"]') && isNeverLabel(label(el));
     }
 
-    // The D-pad's targets: the top bar's, the sidebar's and the main view's (not the player bar's,
-    // reached with Y, nor the right panel's); a unit counts once
-    function targets(roots) {
+    // The D-pad's targets in the page: not in the footer, the fixed bottom bars or the full
+    // player; a card or a song counts once
+    function targets() {
+      const skip = [...fixedBottom(), ...qa(NAMES.footer)];
+      const pl = player();
+      if (pl) skip.push(pl);
       const seen = new Set(), out = [];
-      for (const root of [roots.top, roots.side, roots.main]) {
-        if (!usable(root)) continue;
-        for (const el of Nav.targets(root, page.skip, true)) {
-          const t = toUnit(el, roots.side);
-          if (seen.has(t) || !usable(t) || isNever(t, roots.side)) continue;
-          seen.add(t);
-          out.push(t);
-        }
+      for (const el of Nav.targets(doc, page.skip, true)) {
+        if (skip.some(s => s.contains(el)) || isNever(el)) continue;
+        const t = toUnit(el);
+        if (seen.has(t) || !usable(t)) continue;
+        seen.add(t);
+        out.push(t);
       }
       return out;
     }
-    const regionOf = (roots, el) => roots.top && roots.top.contains(el) ? 'top'
-      : roots.side && roots.side.contains(el) ? 'side' : roots.main && roots.main.contains(el) ? 'main' : null;
-    // The nearest target in dir, staying in the current part when one fits as well (leaving
-    // without: the parts nearby); outside: an element whose targets are not candidates
-    function nearest(roots, cur, dir, list, outside) {
-      const here = regionOf(roots, cur), els = [], cands = [];
+    // The nearest target in dir; outside: an element whose targets are not candidates
+    function nearest(cur, dir, list, outside) {
+      const els = [], cands = [];
       for (const el of list) {
         if (el === cur || el.contains(cur) || cur.contains(el) || (outside && outside.contains(el))) continue;
         els.push(el);
-        cands.push({ rect: Nav.rectOf(el), level: regionOf(roots, el) === here ? 0 : 1, sameRow: true });
+        cands.push({ rect: Nav.rectOf(el), level: 0, sameRow: true });
       }
       const i = Nav.pick(Nav.rectOf(cur), cands, dir, null);
       return i < 0 ? null : els[i];
     }
-
-    // ---- Shelves
-    const shelfOf = el => (el && el.closest && el.closest(NAMES.shelf)) || null;
-    const cardsIn = shelf => qa(NAMES.card, shelf).filter(usable).map(focusOf);
-    const cardLabel = el => { const t = q(NAMES.cardTitle, unitOf(el) || el); return (t || el).textContent.trim(); };
-    function shelfArea(shelf) {
-      const r = (q(NAMES.shelfArea, shelf) || shelf).getBoundingClientRect();
-      return { left: r.left, right: r.right };
+    // The selection, with the page scrolled so that it is not under the fixed bars
+    function select(el) {
+      const r = el.getBoundingClientRect();
+      const bar = q(NAMES.topBar), top = usable(bar) ? bar.getBoundingClientRect().bottom : 0;
+      const bottom = Math.min(doc.defaultView.innerHeight, ...fixedBottom().map(b => b.getBoundingClientRect().top));
+      let dy = 0;
+      if (r.bottom > bottom - EDGE) dy = r.bottom - (bottom - EDGE);
+      if (r.top - dy < top + EDGE) dy = r.top - (top + EDGE);
+      if (dy) doc.scrollingElement.scrollBy({ top: dy });
+      page.moveTo(el);
     }
-    const visibleIn = (shelf, cards) => { const area = shelfArea(shelf); return cards.filter(c => insideAcross(Nav.rectOf(c), area)); };
+
+    // ---- Shelves (they scroll sideways by themselves)
+    const shelfOf = el => (el && el.closest && el.closest(NAMES.shelf)) || null;
+    const cardsIn = shelf => qa(NAMES.card, shelf).filter(usable);
     function toShelf(shelf, cur) {
       if (column === null) column = centreX(cur);
-      const cards = cardsIn(shelf), shown = visibleIn(shelf, cards), pool = shown.length ? shown : cards;
+      const area = shelf.getBoundingClientRect(), cards = cardsIn(shelf);
+      const shown = cards.filter(c => insideAcross(Nav.rectOf(c), area)), pool = shown.length ? shown : cards;
       const j = nearestTo(column, pool.map(c => Nav.rectOf(c)));
-      if (j >= 0) page.moveTo(pool[j]);
+      if (j >= 0) select(pool[j]);
       return j >= 0;
-    }
-    // Left / right in a shelf; false: nothing more there (left at its start: the general move)
-    function slide(shelf, cur, step) {
-      const cards = cardsIn(shelf), next = cards[cards.indexOf(cur) + step];
-      if (next && insideAcross(Nav.rectOf(next), shelfArea(shelf))) { page.moveTo(next); return true; }
-      const arrow = q(step > 0 ? NAMES.shelfNext : NAMES.shelfPrev, shelf);
-      if (next && usable(arrow)) {
-        // the edge of what is visible: Spotify's arrow slides the shelf on, then the next card
-        const wanted = cardLabel(next);
-        page.click(arrow);
-        env.setTimeout(() => {
-          const shown = visibleIn(shelf, cardsIn(shelf));
-          const i = afterSlide(shown.map(cardLabel), wanted, step);
-          if (i >= 0) page.moveTo(shown[i]);
-        }, SLIDE_MS);
-        return true;
-      }
-      if (next) { page.moveTo(next); return true; }     // the page scrolls it into view
-      if (step > 0) {
-        const all = q(NAMES.showAll, shelf);
-        if (usable(all)) page.moveTo(all);
-        return true;
-      }
-      return false;
     }
 
     // ---- Moving in the page
     function browse(dir, again) {
-      const roots = { top: top(), side: sidebar(), main: main() };
-      if (!usable(roots.main)) return false;           // not the player's page
-      const list = targets(roots);
+      if (!playerView()) return false;                  // not Spotify's player: the generic navigation
+      const list = targets();
       const cur = toUnit(page.current());
-      if (!cur) {
-        const first = toUnit(Nav.first(roots.main, page.skip));
-        if (first) page.moveTo(first);
+      if (!cur || !list.includes(cur)) {
+        const first = list.find(el => onScreen(el)) || list[0];
+        if (first) select(first);
         return true;
       }
-      if (!regionOf(roots, cur)) return false;         // a part this file does not know
       const sideways = dir === 'left' || dir === 'right';
-      const unit = unitOf(cur), shelf = unit && unit.matches(NAMES.card) ? shelfOf(cur) : null;
-      if (sideways) column = null;
-      if (shelf && sideways && slide(shelf, cur, dir === 'right' ? 1 : -1)) return true;
-      // up / down from a card skip its own shelf's title and "Show all"
-      const el = nearest(roots, cur, dir, list, shelf && !sideways ? shelf : null);
+      const shelf = cur.matches(NAMES.card) ? shelfOf(cur) : null;
+      if (sideways) {
+        column = null;
+        if (shelf) {
+          const cards = cardsIn(shelf), next = cards[cards.indexOf(cur) + (dir === 'right' ? 1 : -1)];
+          if (next) { select(next); return true; }
+          return true;                                  // the shelf's end
+        }
+      }
+      // up / down from a card skip the rest of its shelf
+      const el = nearest(cur, dir, list, shelf && !sideways ? shelf : null);
       if (!el) {
-        // nothing more: the page scrolls (Spotify draws long song lists as they come), then once more
+        // nothing more: the page scrolls (Spotify draws long lists as they come), then once more
         if (!sideways && !again) {
-          const s = verticalScroller(cur);
-          s.scrollBy({ top: (dir === 'down' ? 0.4 : -0.4) * s.clientHeight });
+          doc.scrollingElement.scrollBy({ top: (dir === 'down' ? 0.4 : -0.4) * doc.defaultView.innerHeight });
           env.setTimeout(() => browse(dir, true), 300);
         }
         return true;
@@ -215,20 +197,12 @@ var OwneetSpotify = (() => {
       const other = shelfOf(el);
       if (!sideways && other && other !== shelf && toShelf(other, cur)) return true;
       column = null;
-      page.moveTo(el);
+      select(el);
       return true;
     }
-    function verticalScroller(el) {
-      const view = doc.defaultView;
-      for (let p = el && el.parentElement; p && p !== doc.body; p = p.parentElement) {
-        const s = view.getComputedStyle(p);
-        if (/(auto|scroll)/.test(s.overflowY) && p.scrollHeight > p.clientHeight) return p;
-      }
-      return doc.scrollingElement;
-    }
 
-    // ---- Menus, Spotify's windows, the player bar: the selection stays inside while they are open
-    // remember: B brings the selection back where it was (a menu, a window)
+    // ---- Menus, Spotify's windows and the full player: the selection stays inside while open
+    // remember: B brings the selection back where it was
     function inside(root, dir, remember) {
       const cur = page.current();
       if (!cur || !root.contains(cur)) {
@@ -241,165 +215,181 @@ var OwneetSpotify = (() => {
       if (el) page.moveTo(el);
       return true;
     }
-    function enter(root) {
-      const first = Nav.targets(root, page.skip).find(el => !isNever(el));
-      if (first) page.moveTo(first);
-    }
-    // The selected item's context menu (as a right click), then `then` once it is open
-    function openMenuFor(el, then) {
-      menuFrom = el;
-      const r = el.getBoundingClientRect();
-      el.dispatchEvent(new env.MouseEvent('contextmenu', { bubbles: true, cancelable: true, composed: true,
-        view: doc.defaultView, button: 2, buttons: 2, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }));
-      env.setTimeout(() => { const m = openMenu(); if (m) then(m); }, MENU_MS);
+    function enter(root, first) {
+      const el = usable(first) ? first : Nav.targets(root, page.skip).find(t => !isNever(t));
+      if (el) page.moveTo(el);
     }
     // The selection back where it was before a menu or a window
     function backFrom(ms) {
       const from = menuFrom;
       menuFrom = null;
-      env.setTimeout(() => { if (usable(from)) page.moveTo(from); }, ms);
+      env.setTimeout(() => { if (usable(from)) select(from); }, ms);
     }
-    function leaveBar() {
-      const from = barFrom;
-      barFrom = null;
-      if (usable(from)) { page.moveTo(from); return; }
-      const m = main(), first = usable(m) ? toUnit(Nav.first(m, page.skip)) : null;
-      if (first) page.moveTo(first);
-    }
-    const inBar = cur => { const b = bar(); return !!(cur && b && b.contains(cur)); };
-
-    // ---- On a TV: Spotify's right panel folded away once when the page opens (its own Alt+Shift+R)
-    function foldPanel(tries) {
-      const m = main();
-      if (!usable(m)) { if (tries > 0) env.setTimeout(() => foldPanel(tries - 1), 500); return; }
-      if (m.getBoundingClientRect().right < doc.defaultView.innerWidth - PANEL_GAP) {
-        sendKey(env, keyTarget(), 'R', 'KeyR', 82, { alt: true, shift: true });
+    // An item's "More" menu (its own button, else as a right click), then `then` once it is open
+    function openMenuFor(el, then) {
+      menuFrom = el;
+      const more = unitOf(el) ? q(NAMES.more, unitOf(el)) : null;
+      if (usable(more)) page.click(more);
+      else {
+        const r = el.getBoundingClientRect();
+        el.dispatchEvent(new env.MouseEvent('contextmenu', { bubbles: true, cancelable: true, composed: true,
+          view: doc.defaultView, button: 2, buttons: 2, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }));
       }
+      env.setTimeout(() => { const m = openWindow(); if (m) then(m); }, MENU_MS);
     }
-    env.setTimeout(() => foldPanel(20), 1000);
+    function closeWindow(w) {
+      sendKey(env, doc.activeElement || w, 'Escape', 'Escape', 27);
+      env.setTimeout(() => {
+        if (!usable(w) || !onScreen(w)) return;
+        const close = qa('button, [role="button"]', w).find(b => usable(b) && isClose(label(b)));
+        if (close) page.click(close);
+      }, 250);
+      backFrom(350);
+    }
+    function openPlayer() {
+      const mini = q(NAMES.miniPlayer);
+      if (!usable(mini)) return;                        // nothing playing
+      playerFrom = page.current();
+      page.click(mini);
+      env.setTimeout(() => { const pl = player(); if (pl) enter(pl, q(NAMES.playerPlay)); }, PLAYER_MS);
+    }
+    function closePlayer(pl) {
+      // its Close button: by its label, else the first one (top left)
+      const buttons = qa('button, [role="button"]', pl).filter(usable);
+      const close = buttons.find(b => isClose(label(b))) || buttons[0];
+      if (close) page.click(close);
+      const from = playerFrom;
+      playerFrom = null;
+      env.setTimeout(() => { if (usable(from)) select(from); }, PLAYER_MS);
+    }
+    // LT / RT in the full player: a click on its progress bar, step seconds from where it is
+    function seek(pl, step) {
+      const bar = q(NAMES.progress, pl), labels = q(NAMES.times, pl);
+      if (!usable(bar) || !labels) return;
+      const [pos, dur] = labels.innerText.split(/\s+/).map(seconds).filter(n => !Number.isNaN(n));
+      if (!(dur > 0)) return;
+      const from = seekTo && env.now() - seekTo.at < SEEK_ADD_MS ? seekTo.pos : pos;
+      const f = seekFraction(from, dur, step * SEEK_S);
+      seekTo = { at: env.now(), pos: f * dur };
+      const r = bar.getBoundingClientRect(), x = r.left + f * r.width, y = r.top + r.height / 2;
+      const target = doc.elementFromPoint(x, y) || bar;
+      const init = { bubbles: true, cancelable: true, composed: true, view: doc.defaultView,
+        clientX: x, clientY: y, screenX: x, screenY: y, button: 0 };
+      target.dispatchEvent(new env.PointerEvent('pointerdown', { ...init, pointerType: 'mouse', isPrimary: true, buttons: 1 }));
+      target.dispatchEvent(new env.MouseEvent('mousedown', { ...init, buttons: 1 }));
+      target.dispatchEvent(new env.PointerEvent('pointerup', { ...init, pointerType: 'mouse', isPrimary: true }));
+      target.dispatchEvent(new env.MouseEvent('mouseup', init));
+      target.dispatchEvent(new env.MouseEvent('click', init));
+    }
+    // The tabs' own links (not "Get App"), in their order: Home, Search, Your Library
+    const tabLinks = () => { const t = q(NAMES.tabs); return t ? qa('a[href]', t).filter(a => usable(a) && !isNever(a)) : []; };
 
     return {
       layoutWidth: LAYOUT_WIDTH,
       move(dir) {
-        const m = openMenu();
-        if (m) return inside(m, dir, true);
         const w = openWindow();
         if (w) return inside(w, dir, true);
         menuFrom = null;                               // closed by itself (e.g. one of its items went to a page)
-        const cur = page.current();
-        if (inBar(cur)) return inside(bar(), dir, false);
+        const pl = player(), cur = page.current();
+        if (pl && !(cur && pl.contains(cur))) { enter(pl, q(NAMES.playerPlay)); return true; }
+        if (pl) return inside(pl, dir, false);
         return browse(dir, false);
       },
       press() {
-        const m = openMenu() || openWindow(), cur = page.current();
-        if (m && !(cur && m.contains(cur))) {
-          if (!menuFrom) menuFrom = cur;
-          enter(m);
+        const w = openWindow() || player(), cur = page.current();
+        if (w && !(cur && w.contains(cur))) {
+          if (!menuFrom && w !== player()) menuFrom = cur;
+          enter(w, w === player() ? q(NAMES.playerPlay) : null);
           return true;
         }
         const unit = unitOf(cur);
-        if (unit && unit.matches(NAMES.song)) {
-          // a song plays with its own play button (a click on the row only selects it)
-          const play = q('button', unit);
-          if (usable(play)) page.click(play);
-          else {
-            const r = unit.getBoundingClientRect();
-            unit.dispatchEvent(new env.MouseEvent('dblclick', { bubbles: true, cancelable: true, composed: true,
-              view: doc.defaultView, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }));
-          }
+        if (unit && unit.matches(NAMES.card)) {
+          // a card opens through its own link
+          const link = qa('a[href]', unit).find(usable);
+          page.click(link || unit);
           return true;
         }
-        return false;                                  // the generic A clicks it (a text field: the keyboard)
+        return false;                                  // the generic A clicks it (a song's row plays it)
       },
       back() {
-        if (doc.fullscreenElement) return false;       // the generic B leaves Spotify's full screen
-        const m = openMenu();
-        if (m) {
-          sendKey(env, doc.activeElement || m, 'Escape', 'Escape', 27);
-          backFrom(200);
-          return true;
-        }
+        if (doc.fullscreenElement) return false;       // the generic B leaves full screen
         const w = openWindow();
-        if (w) {
-          sendKey(env, doc.activeElement || w, 'Escape', 'Escape', 27);
-          backFrom(300);
-          return true;
-        }
-        if (barFrom || inBar(page.current())) { leaveBar(); return true; }
+        if (w) { closeWindow(w); return true; }
+        const pl = player();
+        if (pl) { closePlayer(pl); return true; }
         return false;                                  // the generic B: back a page, or "Close Spotify?"
       },
-      // X: the selected item into the queue (its context menu's "Add to queue")
+      // X: the selected item into the queue (its "More" menu's "Add to queue")
       secondary() {
-        const cur = page.current(), unit = unitOf(cur);
-        if (!unit || openMenu() || openWindow()) return true;
-        openMenuFor(focusOf(unit), m => {
-          const item = qa(NAMES.menuItem, m).find(it => usable(it) && isQueue(label(it)));
+        const unit = unitOf(page.current());
+        if (!unit || openWindow() || player()) return true;
+        openMenuFor(unit, m => {
+          const item = qa('[role="menuitem"], button, [role="button"], li', m).find(it => usable(it) && isQueue(label(it)));
           if (!item) { enter(m); return; }             // another language: the menu stays open
           page.click(item);
-          backFrom(300);
+          backFrom(350);
         });
         return true;
       },
-      // Menu: the selected item's context menu, the selection inside it
+      // Menu: the selected item's "More" menu (in the full player, the player's), the selection inside
       options() {
-        const cur = page.current();
-        if (!cur || openMenu() || openWindow()) return true;
-        openMenuFor(toUnit(cur), enter);
-        return true;
-      },
-      // Y: the selection to the player bar and back
-      page() {
-        if (openMenu() || openWindow()) return true;
-        const b = bar(), cur = page.current();
-        if (!usable(b)) return true;
-        if (inBar(cur)) { leaveBar(); return true; }
-        barFrom = cur;
-        const pp = q(NAMES.playPause, b);
-        if (usable(pp)) page.moveTo(pp);
-        else enter(b);
-        return true;
-      },
-      // LT / RT: back / forward 5 s, Spotify's Shift+← / →
-      seek(step) {
-        sendKey(env, keyTarget(), step > 0 ? 'ArrowRight' : 'ArrowLeft', step > 0 ? 'ArrowRight' : 'ArrowLeft',
-          step > 0 ? 39 : 37, { shift: true });
-        return true;
-      },
-      // LB / RB: Home → Search → Your Library, going round
-      section(step) {
-        if (openMenu() || openWindow()) return true;
-        const side = sidebar(), cur = page.current();
-        const now = cur && side && side.contains(cur) ? 'library' : loc.pathname.startsWith('/search') ? 'search' : 'home';
-        const next = sectionAfter(now, step);
-        barFrom = null;
-        column = null;
-        if (next === 'library') {
-          const row = side ? qa(NAMES.libraryRow, side).filter(usable).map(focusOf)[0] : null;
-          if (row) page.moveTo(row);
+        if (openWindow()) return true;
+        const pl = player(), cur = page.current();
+        if (pl) {
+          const more = q(NAMES.playerMore, pl);
+          if (!usable(more)) return true;
+          menuFrom = cur;
+          page.click(more);
+          env.setTimeout(() => { const m = openWindow(); if (m) enter(m); }, MENU_MS);
           return true;
         }
-        if (next === 'home') sendKey(env, keyTarget(), 'H', 'KeyH', 72, { alt: true, shift: true });
-        else sendKey(env, keyTarget(), 'L', 'KeyL', 76, { ctrl: true, shift: true });
-        env.setTimeout(() => {
-          const input = next === 'search' ? q(NAMES.searchInput) : null;
-          const m = main(), el = usable(input) ? input : usable(m) ? toUnit(Nav.first(m, page.skip)) : null;
-          if (el) page.moveTo(el);
-        }, SECTION_MS);
+        if (cur) openMenuFor(toUnit(cur), m => enter(m));
         return true;
       },
-      // the right stick: up / down scroll the main view or the sidebar (not a shelf), sideways a shelf
+      // Y: the full player and back
+      page() {
+        if (openWindow()) return true;
+        const pl = player();
+        if (pl) closePlayer(pl);
+        else openPlayer();
+        return true;
+      },
+      // LT / RT: back / forward 5 s with the full player open, nothing elsewhere
+      seek(step) {
+        const pl = player();
+        if (pl && !openWindow()) seek(pl, step);
+        return true;
+      },
+      // LB / RB: the tabs Home → Search → Your Library, going round
+      section(step) {
+        if (openWindow() || player()) return true;
+        const links = tabLinks();
+        if (links.length < TABS.length) return true;
+        const at = links.findIndex(a => new URL(a.href, loc.href).pathname === loc.pathname);
+        const now = at >= 0 ? TABS[at] : loc.pathname.startsWith('/search') ? 'search' : 'home';
+        const next = tabAfter(now, step);
+        column = null;
+        page.click(links[TABS.indexOf(next)]);
+        env.setTimeout(() => {
+          const input = next === 'search' ? qa(NAMES.searchInput).find(usable) : null;
+          if (input) { select(input); return; }
+          const first = targets().find(el => onScreen(el));
+          if (first) select(first);
+        }, TAB_MS);
+        return true;
+      },
+      // the right stick: the page up / down (nothing in the full player), a shelf sideways
       scroll(dx, dy) {
-        const cur = page.current();
-        const from = cur && Nav.usable(cur) ? cur : main();
-        if (!from) return false;
-        if (dy) verticalScroller(from).scrollBy({ top: dy });
-        if (dx) Nav.scroller(from).scrollBy({ left: dx });
+        if (player()) return true;
+        const cur = page.current(), shelf = shelfOf(cur);
+        if (dy) doc.scrollingElement.scrollBy({ top: dy });
+        if (dx && shelf) shelf.scrollBy({ left: dx });
         return true;
       },
     };
   }
 
-  return { NAMES, matches, isQueue, isNeverLabel, sectionAfter, LAYOUT_WIDTH, driver };
+  return { NAMES, matches, isQueue, isNeverLabel, isClose, tabAfter, seconds, seekFraction, LAYOUT_WIDTH, driver };
 })();
 
 if (typeof module !== 'undefined') module.exports = OwneetSpotify;

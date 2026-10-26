@@ -106,10 +106,14 @@ func TestOpenRunsBraveWithItsOwnProfile(t *testing.T) {
 	cmd := strings.Join(req.Command, " ")
 	profile := filepath.Join(m.ProfilesDir, "netflix")
 	for _, want := range []string{"brave ", "--kiosk", "--user-data-dir=" + profile, "--ozone-platform=x11",
-		"--password-store=basic", "--load-extension=" + m.ExtensionDir, "https://www.netflix.com/"} {
+		"--password-store=basic", "--load-extension=" + m.ExtensionDir,
+		"--disable-features=PerformanceInterventionUI,DisableLoadExtensionCommandLineSwitch", "https://www.netflix.com/"} {
 		if !strings.Contains(cmd, want) {
 			t.Errorf("command %q lacks %q", cmd, want)
 		}
+	}
+	if n := strings.Count(cmd, "--disable-features="); n != 1 {
+		t.Errorf("command %q: %d --disable-features, want one (Brave reads only the last)", cmd, n)
 	}
 	if req.Command[len(req.Command)-1] != "https://www.netflix.com/" {
 		t.Errorf("the address must come last: %v", req.Command)
@@ -236,6 +240,9 @@ func TestWaylandWithoutAnXServer(t *testing.T) {
 	cmd := strings.Join(fa.running["web:youtube"].Command, " ")
 	if !strings.Contains(cmd, "--ozone-platform=wayland") || strings.Contains(cmd, "--load-extension") {
 		t.Errorf("command %q: want Wayland and no missing extension", cmd)
+	}
+	if !strings.Contains(cmd, "--disable-features=PerformanceInterventionUI ") {
+		t.Errorf("command %q: want Brave's performance alert off, alone", cmd)
 	}
 }
 
