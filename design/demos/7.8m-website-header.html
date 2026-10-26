@@ -61,6 +61,10 @@ header.site { position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: v
 .nav .langmenu .lang-list a:hover, .nav .langmenu .lang-list a:focus-visible { background: var(--raised); color: var(--fg); }
 .lang-list .ic { width: 16px; height: 16px; color: var(--accent); display: inline-flex; }
 @media (max-width: 600px) { #langCur { display: none; } }
+/* switching the theme: the colours fade (only after a press of the switch, never at loading) */
+html.theming, html.theming * { transition: background-color .45s ease, color .45s ease, border-color .45s ease,
+  fill .45s ease, stroke .45s ease, box-shadow .45s ease !important; }
+@media (prefers-reduced-motion: reduce) { html.theming, html.theming * { transition: none !important; } }
 .btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; border: 1px solid transparent; cursor: pointer;
   border-radius: 999px; padding: 12px 24px; font-size: 16px; font-weight: 500; transition: transform .15s ease; background: none; white-space: nowrap; }
 .btn:hover { transform: translateY(-1px); }
@@ -892,8 +896,13 @@ $('#themeBtn').onclick = () => {
   const name = state.pal === 'auto' ? (dark.matches ? 'dusk' : 'daylight') : state.pal;
   state.pal = PALETTES.find(q => q[0] === name)[2] === 'dark' ? 'daylight' : 'dusk';
   try { localStorage.setItem('owneet-theme', state.pal); } catch (_) { /* private mode: not remembered */ }
+  const root = document.documentElement;
+  root.classList.add('theming');
   render();
+  clearTimeout(themeTimer);
+  themeTimer = setTimeout(() => root.classList.remove('theming'), 500);
 };
+let themeTimer;
 try { const kept = localStorage.getItem('owneet-theme'); if (kept === 'daylight' || kept === 'dusk') state.pal = kept; } catch (_) { /* nothing kept */ }
 $('#dlBtn').onclick = e => { e.preventDefault(); toast(tr('soon')); };
 $('#menuBtn').onclick = () => { const open = $('#menu').classList.toggle('open'); $('#menuBtn').setAttribute('aria-expanded', open); };
