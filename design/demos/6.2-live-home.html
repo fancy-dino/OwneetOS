@@ -4,7 +4,7 @@
      demo (3.6-home.html). Started from the USB stick (live mode, /run/owneet/mode), Home says so in
      a card next to the apps: nothing is kept at power-off, and "Install OwneetOS" opens the
      installer of [[step-6.4-installer-ui]]. Installed, the card is not there. Settings → System:
-     6.2-live-settings.html. Open in a browser; gamepad or keyboard. Demo keys: M live / installed,
+     6.2-live-settings.html. Open in a browser; gamepad or keyboard. Demo keys: I live / installed,
      the others as in 3.6. Game names and covers are invented. -->
 <html lang="en">
 <head>
@@ -96,6 +96,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .live .ico svg { width: 60%; height: 60%; }
 .live .ttl { font-weight: 600; color: var(--accent); }
 .live .txt { color: var(--muted); }
+/* the side column has one row more: the card, between the apps and the notices */
+.side { grid-template-rows: auto auto auto minmax(0, 1fr); }
 
 .row-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
 .row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 14px; }
@@ -192,7 +194,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 </div></div>
 <p class="help"><b>Gamepad:</b> D-pad / stick move, A select, B back, X secondary, Menu options, LB/RB sections, LT/RT filters (none here).
 <b>Keyboard:</b> arrows, Enter = A, Esc = B, X, Y, M = Menu, Q/E = LB/RB, Z/C = LT/RT.<br>
-<b>New in 6.2:</b> started from the USB stick, Home offers <b>Install OwneetOS</b>; Settings → System: <code>6.2-live-settings.html</code>.<br><b>Demo only:</b> M live / installed (<span id="mode-state">live</span>), S screen (normal · game running · no games yet), P palette, T text size, G button prompts, L language, N sounds on/off (<span id="snd-state">on</span>; browsers allow sound only after a key or a click on the page, not after gamepad buttons). Address: <code>#mode=installed&amp;state=running&amp;pal=ember&amp;ts=1.2&amp;glyphs=ps&amp;lang=it</code></p>
+<b>New in 6.2:</b> started from the USB stick, Home offers <b>Install OwneetOS</b>; Settings → System: <code>6.2-live-settings.html</code>.<br><b>Demo only:</b> I live / installed (<span id="mode-state">live</span>), S screen (normal · game running · no games yet), P palette, T text size, G button prompts, L language, N sounds on/off (<span id="snd-state">on</span>; browsers allow sound only after a key or a click on the page, not after gamepad buttons). Address: <code>#mode=installed&amp;state=running&amp;pal=ember&amp;ts=1.2&amp;glyphs=ps&amp;lang=it</code></p>
 
 <script src="sounds.js"></script>
 <script>
@@ -637,7 +639,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     lb: () => cycleSection(-1), rb: () => cycleSection(1), lt: () => feedback('edge'), rt: () => feedback('edge'),
   };
   const DEMO = {
-    m: () => { live = !live; $('#mode-state').textContent = live ? 'live' : 'installed'; setState(state); toast(live ? '(demo) live: from the USB stick' : '(demo) installed'); },
+    i: () => { live = !live; $('#mode-state').textContent = live ? 'live' : 'installed'; setState(state); toast(live ? '(demo) live: from the USB stick' : '(demo) installed'); },
     s: () => setState({ normal: 'running', running: 'empty', empty: 'normal' }[state]),
     p: () => { setPalette(palIndex + 1); toast(PALETTES[palIndex][0]); },
     t: () => { const sizes = [0.9, 1, 1.2, 1.4]; const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts')) || 1;

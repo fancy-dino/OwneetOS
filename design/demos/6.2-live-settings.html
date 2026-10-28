@@ -4,7 +4,7 @@
      approved updates demo (7.1-updates.html). Started from the USB stick (live mode), System says
      where OwneetOS runs and offers "Install OwneetOS on this PC" (the installer of
      [[step-6.4-installer-ui]]) instead of the updates and going back, which need an installed
-     system. Home: 6.2-live-home.html. Open in a browser; gamepad or keyboard. Demo keys: M live /
+     system. Home: 6.2-live-home.html. Open in a browser; gamepad or keyboard. Demo keys: I live /
      installed, the others as in 7.1. Versions are invented. -->
 <html lang="en">
 <head>
@@ -172,7 +172,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 </div></div>
 <p class="help"><b>Gamepad:</b> D-pad / stick move, right stick scrolls the page, A select, B back (panel → list of sections), Menu options (forget a network or device), LB/RB sections.
 Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = Menu, Q/E = LB/RB.<br>
-<b>New in 6.2:</b> started from the USB stick, System offers <b>Install OwneetOS on this PC</b> in place of the updates; Home: <code>6.2-live-home.html</code>.<br><b>Demo only:</b> M live / installed (<span id="mode-state">live</span>), U update state (<span id="upd-state">available</span>), W offline / Wi-Fi, D one or two screens, B (keyboard) screen with or without brightness control, P palette, L language, N sounds (<span id="snd-state">on</span>; browsers allow sound only after a key or a click). Address: <code>#mode=installed&amp;section=system&amp;upd=available&amp;lang=it</code> (upd: uptodate, available, ready, fellback)</p>
+<b>New in 6.2:</b> started from the USB stick, System offers <b>Install OwneetOS on this PC</b> in place of the updates; Home: <code>6.2-live-home.html</code>.<br><b>Demo only:</b> I live / installed (<span id="mode-state">live</span>), U update state (<span id="upd-state">available</span>), W offline / Wi-Fi, D one or two screens, B (keyboard) screen with or without brightness control, P palette, L language, N sounds (<span id="snd-state">on</span>; browsers allow sound only after a key or a click). Address: <code>#mode=installed&amp;section=system&amp;upd=available&amp;lang=it</code> (upd: uptodate, available, ready, fellback)</p>
 
 <script src="sounds.js"></script>
 <script>
@@ -910,9 +910,9 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
   const DEMO = {
     w: () => { st.offline = !st.offline; renderAll(); toast(st.offline ? 'offline' : 'online'); },
     o: () => { st.offline = !st.offline; renderAll(); toast(st.offline ? 'offline' : 'online'); },
-    m: () => { st.live = !st.live; $('#mode-state').textContent = st.live ? 'live' : 'installed'; renderAll(); toast(st.live ? '(demo) live: from the USB stick' : '(demo) installed'); },
+    i: () => { st.live = !st.live; $('#mode-state').textContent = st.live ? 'live' : 'installed'; renderAll(); toast(st.live ? '(demo) live: from the USB stick' : '(demo) installed'); },
     u: () => {
-      if (st.live) { toast('(demo) updates need an installed system: M first'); return; }
+      if (st.live) { toast('(demo) updates need an installed system: I first'); return; }
       const order = ['uptodate', 'available', 'ready', 'fellback'];
       st.upd = order[(order.indexOf(st.upd) + 1) % order.length]; $('#upd-state').textContent = st.upd;
       if (st.upd === 'fellback') { st.upd = 'uptodate'; renderAll(); fellBackSheet(); return; }
