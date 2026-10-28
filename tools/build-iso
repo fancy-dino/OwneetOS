@@ -4,6 +4,9 @@
 # Builds the OwneetOS ISO from the archiso profile in iso/ into out/.
 # Runs inside the builder VM (it needs root and archiso):
 #   tools/build-in-vm tools/build-iso
+# OWNEET_VERSION=X.Y.Z (release builds, tools/release/build) names the ISO after the release
+# instead of the date. Next to the ISO: its .sha256 and .packages.tsv (every package of the image:
+# name, version, base, licences; used for the release's licence list and source archive).
 
 set -euo pipefail
 
@@ -27,7 +30,7 @@ if git rev-parse --git-dir >/dev/null 2>&1; then
 fi
 
 mkdir -p out
-rm -f out/owneetos-*.iso out/owneetos-*.iso.sha256
+rm -f out/owneetos-*.iso out/owneetos-*.iso.sha256 out/owneetos-*.packages.tsv
 sudo rm -rf "$WORK_DIR"
 
 # OwneetOS packages come from the local [owneet] repository built by tools/build-packages.
@@ -42,6 +45,10 @@ fi
 profile="$(mktemp -d)"
 trap 'rm -rf "$profile"' EXIT
 cp -a "$ROOT/iso/." "$profile/"
+if [[ -n "${OWNEET_VERSION:-}" ]]; then
+    [[ "$OWNEET_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "OWNEET_VERSION must be MAJOR.MINOR.PATCH"
+    sed -i "s/^iso_version=.*/iso_version=\"$OWNEET_VERSION\"/" "$profile/profiledef.sh"
+fi
 # Systems installed from the stick (owneet-tester-install) use the same Arch Linux Archive snapshot
 mkdir -p "$profile/airootfs/usr/share/owneet"
 cp "$ROOT/iso/pacman.conf" "$profile/airootfs/usr/share/owneet/pacman.conf"
@@ -91,6 +98,16 @@ sudo unsquashfs -q -n -d "$check/root" "$check/owneet/x86_64/airootfs.sfs" >/dev
     || die "cannot unpack the system image"
 bad="$(sudo pacman --root "$check/root" -Qkk 2>&1 | grep -E 'checksum mismatch|size mismatch' \
        | grep -vE ': /(etc|var)/' || true)"
+# Every package of the image: name, version, base package, licences (from pacman's database)
+sudo find "$check/root/var/lib/pacman/local" -mindepth 2 -maxdepth 2 -name desc -exec cat {} + | awk '
+    /^%[A-Z]+%$/ { field = $0; next }
+    /^$/ { field = ""; next }
+    field == "%NAME%" { if (name != "") print name "\t" version "\t" base "\t" licences; name = $0; base = ""; licences = "" }
+    field == "%VERSION%" { version = $0 }
+    field == "%BASE%" { base = $0 }
+    field == "%LICENSE%" { licences = licences (licences == "" ? "" : ", ") $0 }
+    END { if (name != "") print name "\t" version "\t" base "\t" licences }
+' | sort > "${iso%.iso}.packages.tsv"
 sudo rm -rf "$check"
 if [[ -n "$bad" ]]; then
     echo "$bad" >&2

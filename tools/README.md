@@ -15,6 +15,19 @@ frontend on a virtual screen in the builder VM with test games and a virtual con
 the steps (keys, controller buttons, sticks, screenshots) and saves the screenshots in
 `out/frontend-preview/`. The step format is described at the top of the script.
 
+## Releases
+
+A release is the tag `vX.Y.Z` of a release commit on `main` (the version in
+`packages/owneet-updates/PKGBUILD`, its notes in `release-notes/X.Y.Z/`), pushed by an author.
+`.github/workflows/release.yml` then waits for an author's approval, builds and signs everything
+(`tools/ci/build-iso --release`, which runs `tools/release/build`), waits for a second approval and
+publishes (`tools/release/publish`): Arch's source archives and the release's folder on
+SourceForge, the packages as the GitHub Release `vX.Y.Z`, and last the signed list of releases.
+`tools/release/check X.Y.Z` says whether the current commit is a complete release commit.
+
+To test the whole pipeline without publishing anything, signed with the throwaway test key:
+`tools/build-in-vm 'OWNEET_SIGNING_TEST=1 tools/release/build X.Y.Z'` (into `out/release/`).
+
 ## Test releases
 
 `tools/build-in-vm tools/make-test-release VERSION` makes a pretend OwneetOS release in

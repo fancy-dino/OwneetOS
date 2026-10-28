@@ -7,9 +7,16 @@
 #   docker run --privileged -v "$PWD:/src" ARCH_IMAGE /src/tools/ci/build-iso
 #
 # Output: /src/out/owneetos-*.iso and .sha256 (an unsigned development build).
+#
+# With --release VERSION (.github/workflows/release.yml) it builds a whole signed release with
+# tools/release/build instead, into /src/out/release/. The signing subkey and its passphrase come
+# in the environment (OWNEET_SIGNING_SUBKEY, OWNEET_SIGNING_PASSPHRASE): they are written to files
+# only the builder user can read, removed from the environment, and deleted with the container.
 
 set -euo pipefail
 
+RELEASE=""
+if [[ "${1:-}" == --release ]]; then RELEASE="${2:?usage: tools/ci/build-iso --release VERSION}"; shift 2; fi
 SRC="${1:-/src}"
 die() { echo "error: $*" >&2; exit 1; }
 [[ $EUID -eq 0 ]] || die "run as root inside the CI container"
@@ -34,6 +41,25 @@ chown -R builder:builder /home/builder/owneet
 
 run() { sudo -u builder -H env OWNEET_NO_CHROOT=1 "$@"; }
 run git config --global --add safe.directory '*'
+
+if [[ -n "$RELEASE" ]]; then
+    keys=/home/builder/signing
+    install -d -m 700 -o builder -g builder "$keys"
+    ( umask 077
+      printf '%s\n' "${OWNEET_SIGNING_SUBKEY:?the signing subkey is missing}" > "$keys/subkey.asc"
+      printf '%s' "${OWNEET_SIGNING_PASSPHRASE:?the passphrase is missing}" > "$keys/passphrase" )
+    chown builder:builder "$keys"/*
+    unset OWNEET_SIGNING_SUBKEY OWNEET_SIGNING_PASSPHRASE
+    echo "==> building release $RELEASE"
+    # shellcheck disable=SC2016  # "$1" is expanded by the inner shell
+    run env OWNEET_SIGNING_DIR="$keys" bash -c 'cd ~/owneet && tools/release/build "$1"' _ "$RELEASE"
+    rm -rf "$keys"
+    mkdir -p "$SRC/out"
+    rm -rf "$SRC/out/release"
+    cp -a /home/builder/owneet/out/release "$SRC/out/"
+    du -sh "$SRC/out/release"
+    exit 0
+fi
 
 echo "==> building the [owneet] packages"
 run bash -c 'cd ~/owneet && tools/build-packages'

@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The source archive of a release ([[legal-compliance]], option a of
+# [[step-7.2-release-pipeline]]): the exact sources of every package in the ISO and in the [owneet]
+# repository. Used by tools/release/build after the packages and the ISO are built:
+#
+#   tools/release/sources VERSION PACKAGES.tsv OUT
+#
+# PACKAGES.tsv is the ISO's package list written by tools/build-iso (name, version, base, licences).
+#  - OwneetOS's packages: makepkg --allsource (PKGBUILD and every source) into OUT/sources/;
+#  - Arch's packages: the exact NAME-VERSION.src.tar.gz Arch publishes on sources.archlinux.org,
+#    listed in OUT/../arch-sources.txt (FILE URL), checked to exist now; tools/release/publish
+#    copies the ones SourceForge does not have yet into the shared sources/ folder;
+#  - OUT/SOURCES.txt: every package with its version and where its sources are.
+# A source that cannot be found fails the release: nothing is published without its sources.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ARCH_SOURCES=https://sources.archlinux.org/sources/packages
+die() { echo "error: $*" >&2; exit 1; }
+VERSION="${1:-}" TSV="${2:-}" OUT="${3:-}"
+[[ -n "$VERSION" && -f "$TSV" && -n "$OUT" ]] || die "usage: tools/release/sources VERSION PACKAGES.tsv OUT"
+mkdir -p "$OUT/sources"
+OUT="$(cd "$OUT" && pwd)"
+list="$OUT/../arch-sources.txt"
+: > "$list"
+
+cd "$ROOT"
+# OwneetOS's packages: the PKGBUILDs in packages/ (their names, as built into the repository)
+mapfile -t ours < <(find packages -mindepth 2 -maxdepth 2 -name PKGBUILD -printf '%h\n' | xargs -rn1 basename | sort)
+is_ours() { printf '%s\n' "${ours[@]}" | grep -qFx "$1"; }
+
+echo "==> sources of OwneetOS's packages"
+for pkg in "${ours[@]}"; do
+    (cd "packages/$pkg" && SRCPKGDEST="$OUT/sources" makepkg --allsource --force >/dev/null 2>&1) \
+        || die "the sources of $pkg cannot be gathered"
+    echo "    $pkg"
+done
+
+# One source archive per base package (a base can make several packages: linux, linux-headers)
+echo "==> sources of Arch's packages (sources.archlinux.org)"
+missing=0
+while IFS=$'\t' read -r name version base _; do
+    base="${base:-$name}"
+    is_ours "$base" && continue
+    url="$ARCH_SOURCES/$(printf '%s-%s.src.tar.gz' "$base" "$version" | sed 's/:/%3A/g; s/+/%2B/g')"
+    # A colon (the epoch) is not safe in a file name on every mirror
+    file="$(printf '%s-%s.src.tar.gz' "$base" "$version" | tr ':' '_')"
+    echo "$file $url"
+done < "$TSV" | sort -u > "$list"
+
+while read -r file url; do
+    if ! curl -sfIL --retry 3 --max-time 60 -o /dev/null "$url"; then
+        echo "    missing: $url" >&2
+        missing=$(( missing + 1 ))
+    fi
+done < "$list"
+(( missing == 0 )) || die "$missing source archive(s) not found on sources.archlinux.org"
+echo "    $(wc -l < "$list") source archives found"
+
+{
+    echo "OwneetOS $VERSION - where the sources of every package are"
+    echo "OwneetOS's packages: sources/ next to this file. Arch's packages: the shared sources/ folder"
+    echo "of the OwneetOS project on SourceForge (copied from $ARCH_SOURCES)."
+    echo
+    while IFS=$'\t' read -r name version base _; do
+        base="${base:-$name}"
+        if is_ours "$base"; then
+            file="$base-$version.src.tar.gz"
+            [[ -f "$OUT/sources/$file" ]] || die "the sources of $name $version were not gathered"
+            printf '%s %s sources/%s\n' "$name" "$version" "$file"
+        else
+            printf '%s %s ../sources/%s\n' "$name" "$version" "$(printf '%s-%s.src.tar.gz' "$base" "$version" | tr ':' '_')"
+        fi
+    done < "$TSV"
+} > "$OUT/SOURCES.txt"
+echo "==> source archive ready: $OUT"

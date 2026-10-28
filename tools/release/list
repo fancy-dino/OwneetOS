@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The list of releases the consoles read ([[step-7.1-updates]]): the new release on top, every
+# earlier one kept (going back to any published version, [[distribution-and-updates]]):
+#
+#   tools/release/list VERSION OUT [URL]
+#
+# Downloads the published list (URL/updates/releases.json; none before the first release),
+# checks its signature against the OwneetOS key, adds VERSION with today's date, the Arch Linux
+# Archive date of iso/pacman.conf and the notes of release-notes/VERSION/, and writes
+# OUT/releases.json (signed by tools/release/build) and OUT/previous.sha256 (what was published
+# when it was made: tools/release/publish refuses to replace a list that changed since).
+# One release per line, newest first (the format owneet-updates reads).
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+die() { echo "error: $*" >&2; exit 1; }
+VERSION="${1:-}" OUT="${2:-}"
+URL="${3:-$(sed -nE 's/^URL=//p' "$ROOT/packages/owneet-updates/updates.conf")}"
+[[ -n "$VERSION" && -n "$OUT" ]] || die "usage: tools/release/list VERSION OUT [URL]"
+mkdir -p "$OUT"
+cd "$ROOT"
+
+json_string() { printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/ /g' | awk 'NR > 1 { printf "\\n" } { printf "%s", $0 }')"; }
+
+archive="$(grep -m1 -oE 'repos/[0-9]{4}/[0-9]{2}/[0-9]{2}' iso/pacman.conf | cut -d/ -f2-)"
+notes="" sep=""
+for f in release-notes/"$VERSION"/*.txt; do
+    [[ -f "$f" ]] || die "no release notes in release-notes/$VERSION/"
+    notes+="$sep$(json_string "$(basename "$f" .txt)"): $(json_string "$(sed -e 's/[[:space:]]*$//' "$f")")"
+    sep=", "
+done
+line="{\"version\": \"$VERSION\", \"date\": \"$(date -u +%F)\", \"archive\": \"$archive\", \"notes\": {$notes}}"
+
+# The published list, verified like the consoles verify it
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+old=()
+# OWNEET_LIST_NEW=1 (tests of the pipeline): never read the published list, start a new one
+if [[ "${OWNEET_LIST_NEW:-0}" == 1 ]]; then code=404
+else code="$(curl -sSL --retry 3 --max-time 60 -o "$work/releases.json" -w '%{http_code}' "$URL/updates/releases.json" || true)"
+fi
+case "$code" in
+    404) echo "==> no list published yet: $VERSION is the first release"
+         : > "$work/releases.json" ;;
+    200) curl -sfSL --retry 3 --max-time 60 -o "$work/releases.json.sig" "$URL/updates/releases.json.sig" \
+             || die "the published list has no signature"
+         gpgv --quiet --keyring "$ROOT/packages/owneet-keyring/owneet.gpg" "$work/releases.json.sig" "$work/releases.json" 2>/dev/null \
+             || die "the published list is not signed by OwneetOS: not touching it"
+         mapfile -t old < <(grep -E '^\{"version":' "$work/releases.json" | sed -E 's/,[[:space:]]*$//') ;;
+    *) die "cannot download the published list (HTTP ${code:-none})" ;;
+esac
+sha256sum < "$work/releases.json" | cut -d' ' -f1 > "$OUT/previous.sha256"
+
+if (( ${#old[@]} )); then
+    newest="$(sed -nE 's/^\{"version": *"([0-9.]+)".*/\1/p' <<< "${old[0]}")"
+    [[ "$(vercmp "$VERSION" "$newest")" -gt 0 ]] || die "$VERSION is not newer than the published $newest"
+fi
+
+{
+    echo '{"releases": ['
+    printf '%s\n' "$line" "${old[@]}" | sed '$!s/$/,/'
+    echo ']}'
+} > "$OUT/releases.json"
+echo "==> list of releases: $VERSION and ${#old[@]} earlier"
