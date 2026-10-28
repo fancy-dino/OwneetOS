@@ -10,7 +10,7 @@
 #                                                       repository, every upstream source downloaded
 #                                                       and checked against its checksums
 #
-# Writes DIR/FILE. Runs on Arch Linux as an unprivileged user (makepkg), in the release's
+# Writes DIR/FILE (and DIR/FILE.notes.txt when a generated patch differs, see below). Runs on Arch Linux as an unprivileged user (makepkg), in the release's
 # container (tools/release/publish), never on the developer's PC. The PKGBUILD is only read by
 # makepkg to download and check its sources: nothing is built or installed (--allsource).
 
@@ -37,9 +37,36 @@ gitlab)
     [[ -n "$src" ]] || die "no PKGBUILD in $url"
     # --skippgpcheck: upstream signatures need their authors' keys; the checksums written in the
     # PKGBUILD are still checked for every file
-    (cd "$src" && SRCDEST="$work/download" SRCPKGDEST="$work/out" \
-        makepkg --allsource --nodeps --skippgpcheck --force >"$work/makepkg.log" 2>&1) \
-        || { tail -20 "$work/makepkg.log" >&2; die "the sources of $base $tag cannot be gathered"; }
+    allsource() { (cd "$src" && SRCDEST="$work/download" SRCPKGDEST="$work/out" \
+        makepkg --allsource --nodeps --skippgpcheck --force "$@" >"$work/makepkg.log" 2>&1); }
+    if ! allsource; then
+        # The one exception (owner, 2026-10-28): a patch that GitHub or GitLab generates from a
+        # commit or a pull request can change its header lines over time, so its checksum stops
+        # matching while the change to the code is the same. Only when every file that failed is
+        # such a patch, the archive is made with the files just checked and downloaded, and the
+        # difference is written in FILE.notes.txt next to it. Any other failure stops the release.
+        mapfile -t failed < <(sed -nE 's/^ +(.+) \.\.\. FAILED$/\1/p' "$work/makepkg.log")
+        generated='/(commit|commits|pull|merge_requests)/[^ ]+\.(patch|diff)$|patch-diff\.githubusercontent'
+        ok=$(( ${#failed[@]} > 0 ))
+        notes=""
+        for f in "${failed[@]}"; do
+            url="$(sed -nE "s/^\tsource(_x86_64)? = (.+::)?(.+)$/\3/p" "$src/.SRCINFO" | grep -F "/$f" | head -1)"
+            [[ -z "$url" ]] && url="$(sed -nE "s/^\tsource(_x86_64)? = $f::(.+)$/\2/p" "$src/.SRCINFO" | head -1)"
+            if [[ "$url" =~ $generated ]]; then
+                notes+="$f ($url): generated again by its host; its checksum differs from Arch's PKGBUILD"$'\n'
+            else
+                ok=0
+            fi
+        done
+        if (( ok )) && allsource --skipchecksums; then
+            printf '%s\n%s' "Source archive of $base $tag, made by OwneetOS from Arch's packaging repository." \
+                "Every file matched the checksums of Arch's PKGBUILD except these patches:"$'\n'"$notes" > "$work/$FILE.notes.txt"
+            echo "note: $FILE: ${#failed[@]} generated patch(es) differ from Arch's checksums (written in $FILE.notes.txt)" >&2
+        else
+            tail -20 "$work/makepkg.log" >&2
+            die "the sources of $base $tag cannot be gathered"
+        fi
+    fi
     made="$(find "$work/out" -name '*.src.tar.gz' | head -1)"
     [[ -n "$made" ]] || die "makepkg made no source archive for $base $tag"
     # The very version the ISO ships (the epoch's ':' spelt '_' in FILE)
@@ -51,3 +78,4 @@ esac
 # A source archive is a gzip'd tar: check it reads to the end
 tar -tzf "$work/$FILE" >/dev/null || die "$FILE is damaged"
 mv "$work/$FILE" "$DIR/$FILE"
+if [[ -f "$work/$FILE.notes.txt" ]]; then mv "$work/$FILE.notes.txt" "$DIR/"; fi

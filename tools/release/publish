@@ -70,7 +70,8 @@ echo "    $(wc -l < "$todo") to add, $(( $(wc -l < "$OUT/arch-sources.txt") - $(
 one() {
     local dir
     dir="$(mktemp -d)"
-    "$ROOT/tools/release/arch-source" "$dir" "$@" && send "$dir/$1" "$FRS/sources/$1" && echo "    $1"
+    # the archive, and its notes when a generated patch differed from Arch's checksums
+    "$ROOT/tools/release/arch-source" "$dir" "$@" && send "$dir"/* "$FRS/sources/" && echo "    $1"
     local status=$?
     rm -rf "$dir"
     return "$status"
