@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Publishes a release built by tools/release/build ([[step-7.2-release-pipeline]]). Run only by
-# the release workflow (.github/workflows/release.yml), after an author's approval:
+# the release workflow (.github/workflows/release.yml), after an author's approval, in the Arch
+# container as an unprivileged user (tools/ci/build-iso --publish VERSION: makepkg makes Arch's
+# missing source archives):
 #
 #   tools/release/publish VERSION
 #
@@ -58,15 +60,24 @@ echo "==> 2. Arch's source archives (shared sources/ folder)"
 empty="$(mktemp -d)"
 send "$empty/" "$FRS/sources/"
 have="$(rsync --list-only -e "$SSH" "$FRS/sources/" | awk '{ print $NF }')"
-added=0
-while read -r file url; do
-    grep -qFx "$file" <<< "$have" && continue
-    curl -sfSL --retry 3 --max-time 3600 -o "$empty/$file" "$url" || die "cannot download $url"
-    send "$empty/$file" "$FRS/sources/$file"
-    rm -f "${empty:?}/$file"
-    added=$(( added + 1 ))
-done < "$OUT/arch-sources.txt"
-echo "    $added new, $(( $(wc -l < "$OUT/arch-sources.txt") - added )) already there"
+# The ones SourceForge does not have yet: made (or downloaded) and sent one by one, four at a time,
+# each removed once sent (the first release makes hundreds, later ones only new versions)
+todo="$(mktemp)"
+while read -r file rest; do
+    grep -qFx "$file" <<< "$have" || echo "$file $rest"
+done < "$OUT/arch-sources.txt" > "$todo"
+echo "    $(wc -l < "$todo") to add, $(( $(wc -l < "$OUT/arch-sources.txt") - $(wc -l < "$todo") )) already there"
+one() {
+    local dir
+    dir="$(mktemp -d)"
+    "$ROOT/tools/release/arch-source" "$dir" "$@" && send "$dir/$1" "$FRS/sources/$1" && echo "    $1"
+    local status=$?
+    rm -rf "$dir"
+    return "$status"
+}
+export -f one send
+export ROOT FRS SSH
+xargs -a "$todo" -L 1 -P 4 bash -c 'one "$@"' _ || die "some of Arch's source archives could not be added (run the job again: the ones sent are kept)"
 
 echo "==> 3. the release's folder on SourceForge"
 send "$REL/sources" "$REL/SOURCES.txt" "$REL/owneetos-$VERSION-source.tar.gz" "$FRS/v$VERSION/"

@@ -12,11 +12,17 @@
 # tools/release/build instead, into /src/out/release/. The signing subkey and its passphrase come
 # in the environment (OWNEET_SIGNING_SUBKEY, OWNEET_SIGNING_PASSPHRASE): they are written to files
 # only the builder user can read, removed from the environment, and deleted with the container.
+#
+# With --publish VERSION it publishes the release in /src/out/release/ with tools/release/publish
+# (after the second approval): SF_USER, SF_PROJECT, SF_SSH_KEY_TEXT (the SourceForge key),
+# GH_TOKEN and GH_REPO come in the environment; the key is written to a file only the builder user
+# can read.
 
 set -euo pipefail
 
-RELEASE=""
+RELEASE="" PUBLISH=""
 if [[ "${1:-}" == --release ]]; then RELEASE="${2:?usage: tools/ci/build-iso --release VERSION}"; shift 2; fi
+if [[ "${1:-}" == --publish ]]; then PUBLISH="${2:?usage: tools/ci/build-iso --publish VERSION}"; shift 2; fi
 SRC="${1:-/src}"
 die() { echo "error: $*" >&2; exit 1; }
 [[ $EUID -eq 0 ]] || die "run as root inside the CI container"
@@ -29,6 +35,7 @@ pacman-key --populate archlinux >/dev/null 2>&1
 # modules (owneet-xone) must be built against the headers of exactly the kernel in the ISO.
 grep -v '^NoExtract' "$SRC/iso/pacman.conf" > /etc/pacman.conf
 pacman -Syuu --noconfirm --needed archiso git sudo >/dev/null
+if [[ -n "$PUBLISH" ]]; then pacman -S --noconfirm --needed rsync openssh github-cli >/dev/null; fi
 
 # makepkg refuses to run as root: build as an unprivileged user with passwordless sudo.
 useradd -m builder
@@ -41,6 +48,21 @@ chown -R builder:builder /home/builder/owneet
 
 run() { sudo -u builder -H env OWNEET_NO_CHROOT=1 "$@"; }
 run git config --global --add safe.directory '*'
+
+if [[ -n "$PUBLISH" ]]; then
+    [[ -d "$SRC/out/release" ]] || die "no release in $SRC/out/release"
+    install -d -o builder -g builder /home/builder/owneet/out
+    cp -a "$SRC/out/release" /home/builder/owneet/out/
+    ( umask 077; printf '%s\n' "${SF_SSH_KEY_TEXT:?the SourceForge key is missing}" > /home/builder/sf-key )
+    chown -R builder:builder /home/builder/sf-key /home/builder/owneet/out
+    unset SF_SSH_KEY_TEXT
+    echo "==> publishing release $PUBLISH"
+    # shellcheck disable=SC2016  # "$1" is expanded by the inner shell
+    sudo -u builder -H env SF_USER="${SF_USER:?}" SF_PROJECT="${SF_PROJECT:?}" SF_SSH_KEY=/home/builder/sf-key \
+        GH_TOKEN="${GH_TOKEN:?}" GH_REPO="${GH_REPO:?}" bash -c 'cd ~/owneet && tools/release/publish "$1"' _ "$PUBLISH"
+    rm -f /home/builder/sf-key
+    exit 0
+fi
 
 if [[ -n "$RELEASE" ]]; then
     keys=/home/builder/signing

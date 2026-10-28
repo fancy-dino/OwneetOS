@@ -9,8 +9,10 @@
 #
 # PACKAGES.tsv is the ISO's package list written by tools/build-iso (name, version, base, licences).
 #  - OwneetOS's packages: makepkg --allsource (PKGBUILD and every source) into OUT/sources/;
-#  - Arch's packages: the exact NAME-VERSION.src.tar.gz Arch publishes on sources.archlinux.org,
-#    listed in OUT/../arch-sources.txt (FILE URL), checked to exist now; tools/release/publish
+#  - Arch's packages, every one whatever its licence: the exact BASE-VERSION.src.tar.gz, listed in
+#    OUT/../arch-sources.txt as "FILE url URL" when sources.archlinux.org has it (a small subset),
+#    otherwise "FILE gitlab BASE TAG": made from Arch's packaging repository at the tag of that
+#    version (tools/release/arch-source). Checked to exist now; tools/release/publish makes and
 #    copies the ones SourceForge does not have yet into the shared sources/ folder;
 #  - OUT/SOURCES.txt: every package with its version and where its sources are.
 # A source that cannot be found fails the release: nothing is published without its sources.
@@ -19,6 +21,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ARCH_SOURCES=https://sources.archlinux.org/sources/packages
+ARCH_GITLAB=https://gitlab.archlinux.org/api/v4/projects/archlinux%2Fpackaging%2Fpackages%2F
 die() { echo "error: $*" >&2; exit 1; }
 VERSION="${1:-}" TSV="${2:-}" OUT="${3:-}"
 [[ -n "$VERSION" && -f "$TSV" && -n "$OUT" ]] || die "usage: tools/release/sources VERSION PACKAGES.tsv OUT"
@@ -40,30 +43,43 @@ for pkg in "${ours[@]}"; do
 done
 
 # One source archive per base package (a base can make several packages: linux, linux-headers)
-echo "==> sources of Arch's packages (sources.archlinux.org)"
+echo "==> sources of Arch's packages"
+ready="$(curl -sfL --retry 3 --max-time 120 "$ARCH_SOURCES/" | grep -oE 'href="[^"/]+\.src\.tar\.gz"' \
+    | sed -E 's/^href="//; s/"$//; s/%3A/:/g; s/%2B/+/g')" || die "cannot read $ARCH_SOURCES/"
+# Arch's packaging repository: the project of a base ('+' is spelt "plus"), the tag of a version
+# (the epoch's ':' is spelt '-')
+project() { case "$1" in tree) echo unix-tree ;; *) echo "${1//+/plus}" ;; esac; }
 missing=0
 while IFS=$'\t' read -r name version base _; do
     base="${base:-$name}"
     is_ours "$base" && continue
-    url="$ARCH_SOURCES/$(printf '%s-%s.src.tar.gz' "$base" "$version" | sed 's/:/%3A/g; s/+/%2B/g')"
     # A colon (the epoch) is not safe in a file name on every mirror
     file="$(printf '%s-%s.src.tar.gz' "$base" "$version" | tr ':' '_')"
-    echo "$file $url"
+    if grep -qFx "$base-$version.src.tar.gz" <<< "$ready"; then
+        echo "$file url $ARCH_SOURCES/$(printf '%s-%s.src.tar.gz' "$base" "$version" | sed 's/:/%3A/g; s/+/%2B/g')"
+    else
+        echo "$file gitlab $(project "$base") ${version//:/-}"
+    fi
 done < "$TSV" | sort -u > "$list"
 
-while read -r file url; do
-    if ! curl -sfIL --retry 3 --max-time 60 -o /dev/null "$url"; then
-        echo "    missing: $url" >&2
-        missing=$(( missing + 1 ))
+while read -r file kind a b; do
+    if [[ "$kind" == url ]]; then
+        curl -sfIL --retry 3 --max-time 60 -o /dev/null "$a" && continue
+    else
+        curl -sf --retry 3 --max-time 60 -o /dev/null "$ARCH_GITLAB$a/repository/tags/$b" && continue
     fi
+    echo "    missing: $file ($kind $a $b)" >&2
+    missing=$(( missing + 1 ))
 done < "$list"
-(( missing == 0 )) || die "$missing source archive(s) not found on sources.archlinux.org"
-echo "    $(wc -l < "$list") source archives found"
+(( missing == 0 )) || die "$missing source archive(s) cannot be found"
+echo "    $(wc -l < "$list") source archives: $(grep -c ' url ' "$list" || true) ready on sources.archlinux.org," \
+     "$(grep -c ' gitlab ' "$list" || true) made from Arch's packaging repository when published"
 
 {
     echo "OwneetOS $VERSION - where the sources of every package are"
     echo "OwneetOS's packages: sources/ next to this file. Arch's packages: the shared sources/ folder"
-    echo "of the OwneetOS project on SourceForge (copied from $ARCH_SOURCES)."
+    echo "of the OwneetOS project on SourceForge (from $ARCH_SOURCES, or made from Arch's"
+    echo "packaging repository at the tag of each version, with every upstream source checked)."
     echo
     while IFS=$'\t' read -r name version base _; do
         base="${base:-$name}"

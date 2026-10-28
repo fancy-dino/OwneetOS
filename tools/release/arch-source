@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Makes one source archive of an Arch package for the release's source archive ([[legal-compliance]],
+# [[step-7.2-release-pipeline]]), from a line of arch-sources.txt (tools/release/sources):
+#
+#   tools/release/arch-source DIR FILE url URL          downloads Arch's ready archive
+#   tools/release/arch-source DIR FILE gitlab BASE TAG  makes it like Arch does: the package's
+#                                                       PKGBUILD at TAG in Arch's packaging
+#                                                       repository, every upstream source downloaded
+#                                                       and checked against its checksums
+#
+# Writes DIR/FILE. Runs on Arch Linux as an unprivileged user (makepkg), in the release's
+# container (tools/release/publish), never on the developer's PC. The PKGBUILD is only read by
+# makepkg to download and check its sources: nothing is built or installed (--allsource).
+
+set -euo pipefail
+
+die() { echo "error: $*" >&2; exit 1; }
+DIR="${1:-}" FILE="${2:-}" KIND="${3:-}"
+[[ -d "$DIR" && -n "$FILE" ]] || die "usage: tools/release/arch-source DIR FILE url URL | gitlab BASE TAG"
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+case "$KIND" in
+url)
+    curl -sfL --retry 3 --max-time 3600 -o "$work/$FILE" "$4" || die "cannot download $4"
+    ;;
+gitlab)
+    base="$4" tag="$5"
+    url="https://gitlab.archlinux.org/archlinux/packaging/packages/$base/-/archive/$tag/$base-$tag.tar.gz"
+    curl -sfL --retry 3 --max-time 600 -o "$work/pkgbuild.tar.gz" "$url" || die "cannot download $url"
+    tar -xzf "$work/pkgbuild.tar.gz" -C "$work"
+    mkdir -p "$work/download" "$work/out"
+    src="$(find "$work" -mindepth 2 -maxdepth 2 -name PKGBUILD -printf '%h\n' | head -1)"
+    [[ -n "$src" ]] || die "no PKGBUILD in $url"
+    # --skippgpcheck: upstream signatures need their authors' keys; the checksums written in the
+    # PKGBUILD are still checked for every file
+    (cd "$src" && SRCDEST="$work/download" SRCPKGDEST="$work/out" \
+        makepkg --allsource --nodeps --skippgpcheck --force >"$work/makepkg.log" 2>&1) \
+        || { tail -20 "$work/makepkg.log" >&2; die "the sources of $base $tag cannot be gathered"; }
+    made="$(find "$work/out" -name '*.src.tar.gz' | head -1)"
+    [[ -n "$made" ]] || die "makepkg made no source archive for $base $tag"
+    # The very version the ISO ships (the epoch's ':' spelt '_' in FILE)
+    [[ "$(basename "$made" | tr ':' '_')" == "$FILE" ]] || die "$base $tag made $(basename "$made"), not $FILE"
+    mv "$made" "$work/$FILE"
+    ;;
+*) die "unknown kind '$KIND'" ;;
+esac
+# A source archive is a gzip'd tar: check it reads to the end
+tar -tzf "$work/$FILE" >/dev/null || die "$FILE is damaged"
+mv "$work/$FILE" "$DIR/$FILE"
