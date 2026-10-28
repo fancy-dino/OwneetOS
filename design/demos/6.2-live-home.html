@@ -2,8 +2,10 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!-- OwneetOS - interactive demo for [[step-6.2-live-vs-installed-mode]] (Home), on the approved home
      demo (3.6-home.html). Started from the USB stick (live mode, /run/owneet/mode), Home says so in
-     a card next to the apps: nothing is kept at power-off, and "Install OwneetOS" opens the
-     installer of [[step-6.4-installer-ui]]. Installed, the card is not there. Settings → System:
+     a strip above the hero (the hero gives it the room; the apps and the notices keep theirs):
+     nothing is kept at power-off, and "Install OwneetOS" opens the installer of
+     [[step-6.4-installer-ui]]. Installed, the strip is not there and Home is exactly the approved
+     one. Settings → System:
      6.2-live-settings.html. Open in a browser; gamepad or keyboard. Demo keys: I live / installed,
      the others as in 3.6. Game names and covers are invented. -->
 <html lang="en">
@@ -90,14 +92,18 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .notice { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 11px 14px; background: var(--surface); border-radius: 14px; border: 1px solid var(--line); width: 100%; }
 .notice .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
 .notice .more { color: var(--muted); white-space: nowrap; }
-.live { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; align-items: center; padding: 10px 14px; border-radius: 14px; text-align: left;
+/* Live mode: a strip above the hero, which gives it the room; the side column keeps its height */
+.home-top.has-live { grid-template-rows: auto minmax(0, 1fr); row-gap: 12px; }
+.home-top.has-live #live-slot { grid-column: 1; grid-row: 1; }
+.home-top.has-live .hero { grid-column: 1; grid-row: 2; }
+.home-top.has-live .side { grid-column: 2; grid-row: 1 / span 2; }
+.home-top:not(.has-live) #live-slot { display: none; }
+.live { display: flex; align-items: center; gap: 4px 12px; padding: 8px 14px; border-radius: 12px; text-align: left; flex-wrap: wrap;
         background: var(--surface); border: 1px solid var(--accent); width: 100%; }
-.live .ico { grid-row: span 2; width: calc(34px * var(--ts)); height: calc(34px * var(--ts)); border-radius: 10px; display: grid; place-items: center; background: var(--raised); color: var(--accent); }
-.live .ico svg { width: 60%; height: 60%; }
+.live .ico { width: calc(26px * var(--ts)); height: calc(26px * var(--ts)); border-radius: 8px; display: grid; place-items: center; background: var(--raised); color: var(--accent); flex: none; }
+.live .ico svg { width: 64%; height: 64%; }
 .live .ttl { font-weight: 600; color: var(--accent); }
 .live .txt { color: var(--muted); }
-/* the side column has one row more: the card, between the apps and the notices */
-.side { grid-template-rows: auto auto auto minmax(0, 1fr); }
 
 .row-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
 .row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 14px; }
@@ -166,12 +172,12 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 
   <main style="min-height:0; display:grid">
     <section class="page home on" id="page-home">
-      <div class="home-top">
+      <div class="home-top" id="home-top">
+        <div id="live-slot" data-group="live"></div>
         <div class="hero" id="hero" data-group="hero"></div>
         <aside class="side" data-group="side">
           <span class="label t-xs" data-i18n="home.apps">Apps</span>
           <div class="apps t-s" id="apps"></div>
-          <div id="live-slot"></div>
           <div id="notice-slot"></div>
         </aside>
       </div>
@@ -407,12 +413,13 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   function renderApps() {
     $('#apps').innerHTML = APPS.map(a => `<button class="app" data-f data-act="app" data-app="${a.key}"><span class="ico">${a.ico}</span><span>${a.i18n ? tr(a.i18n) : a.name}</span></button>`).join('');
   }
-  // Live mode: a card next to the apps, always there (it cannot be dismissed): installing is the way
-  // to keep anything
+  // Live mode: a strip above the hero, always there (it cannot be dismissed): installing is the way to
+  // keep anything
   const STICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 2h8v7H8zM6 9h12v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M10 5h1M13 5h1"/></svg>';
   function renderLive() {
+    $('#home-top').classList.toggle('has-live', live);
     $('#live-slot').innerHTML = live ? `<button class="live t-s" data-f data-act="install"><span class="ico">${STICK}</span>
-      <span class="ttl">${tr('live.install')}</span><span class="txt t-xs">${tr('live.text')}</span></button>` : '';
+      <span class="ttl">${tr('live.install')}</span><span class="txt">${tr('live.text')}</span></button>` : '';
   }
   function renderNotice() {
     $('#notice-slot').innerHTML = notices.length ? `<button class="notice t-xs" data-f data-act="notice"><span class="dot"></span><span>${tr(notices[0])}</span>${notices.length > 1 ? `<span class="more">${tr('notice.more', { n: notices.length - 1 })}</span>` : '<span></span>'}</button>` : '';
