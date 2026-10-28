@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // What the navigations of the supported web apps share ([[extension-design]] "One navigation per
-// supported app"): rows of tiles that slide on (Netflix's rows, Spotify's shelves) and keys sent as
-// a keyboard sends them. Tested without a browser (test/shared.test.js).
+// supported app"): rows of tiles that slide on (Netflix's rows) and keys sent as a keyboard sends
+// them (Netflix, Spotify). Tested without a browser (test/shared.test.js).
 
 'use strict';
 

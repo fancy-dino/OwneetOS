@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // What the supported web apps' navigations share: the geometry of rows of tiles that slide on
-// (Netflix's rows, Spotify's shelves) and keys sent as a keyboard sends them ([[extension-design]]).
+// (Netflix's rows) and keys sent as a keyboard sends them ([[extension-design]]).
 // Run: node --test extension/test/*.test.js
 
 'use strict';

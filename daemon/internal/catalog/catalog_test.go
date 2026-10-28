@@ -250,10 +250,9 @@ func TestShippedCatalog(t *testing.T) {
 	if yt, ok := find(cat, "youtube", KindWebApp); !ok || !strings.HasSuffix(yt.URL, "/tv") || yt.UserAgent == "" {
 		t.Errorf("youtube %+v: want the TV interface with a user agent", yt)
 	}
-	// Spotify's player for an Android TV: another agent gets a page that plays nothing
-	// ([[step-5.5-spotify]]); brand-neutral, as YouTube's
-	if sp, ok := find(cat, "spotify", KindWebApp); !ok || !strings.Contains(sp.UserAgent, "Android") ||
-		!strings.Contains(sp.UserAgent, "Chrome/") || strings.Contains(sp.UserAgent, "Build/") {
-		t.Errorf("spotify %+v: want a brand-neutral Android TV user agent", sp)
+	// Spotify's desktop web player, with Brave's own agent: its player for an Android TV keeps Your
+	// Library in Spotify's app ([[step-5.5-spotify]], 2026-10-28)
+	if sp, ok := find(cat, "spotify", KindWebApp); !ok || sp.UserAgent != "" {
+		t.Errorf("spotify %+v: want the desktop web player, no user agent of its own", sp)
 	}
 }
