@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Writes /run/owneet/mode (live, installed or tester) before the console starts.
+[Unit]
+Description=OwneetOS mode (live, installed or tester)
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/owneet/owneet-mode
+
+[Install]
+WantedBy=sysinit.target
