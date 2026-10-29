@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/clock"
 )
@@ -30,6 +31,17 @@ func (s *Server) handleTime(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	WriteJSON(w, http.StatusOK, s.Clock.Status())
+}
+
+// handleTimeZones tells how far zones are from UTC now: ?zone=Europe/Rome&zone=America/Lima, for
+// the first start's list of cities (it works without a system bus).
+func (s *Server) handleTimeZones(w http.ResponseWriter, r *http.Request) {
+	zones := r.URL.Query()["zone"]
+	if len(zones) > 100 {
+		WriteError(w, http.StatusBadRequest, "request.invalid", "at most 100 zones")
+		return
+	}
+	WriteJSON(w, http.StatusOK, map[string]any{"zones": clock.Offsets(zones, time.Now())})
 }
 
 // handleTimeZone sets the time zone: {"zone": "Europe/Rome"}.

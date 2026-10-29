@@ -11,13 +11,16 @@
 #   - display: two screens, modes of the TV, brightness; a change waits for "Keep" (screen 30 s,
 #     mode 15 s);
 #   - optional web apps (5.0.0): none installed; the first install takes 3 s (the engine), the next
-#     ones and the removals are immediate; the last removal takes 1.5 s.
+#     ones and the removals are immediate; the last removal takes 1.5 s;
+#   - the time zone (6.1): set at once; an Xbox wireless adapter that needs its firmware, which
+#     installs in 3 s (FAKE_FIRSTSTART=1: a new console, not connected to any network).
 #
 # Steps can send it events (tools/frontend-preview "event TYPE JSON"): one line each in the FIFO
 # given as second argument.
 #
 #   fake-owneetd.py SOCKET [EVENTS_FIFO]
 
+import datetime
 import json
 import os
 import queue
@@ -29,12 +32,15 @@ import threading
 import time
 import urllib.parse
 import zipfile
+import zoneinfo
 from http.server import BaseHTTPRequestHandler
 
 lock = threading.Lock()
 listeners = []
 
 state = {
+    "time": {"zone": "UTC", "synchronized": True},
+    "xone": {"needed": True, "state": ""},
     "network": {
         "available": True, "state": "connected", "connectivity": "full",
         "wifi": {"present": True, "enabled": True, "hardware_enabled": True, "state": "connected",
@@ -282,6 +288,21 @@ def display_revert():
     display_done("display.reverted")
 
 
+def zone_known(zone):
+    try:
+        zoneinfo.ZoneInfo(zone)
+        return "/" in zone and ".." not in zone
+    except Exception:
+        return False
+
+
+def zone_offsets(path):
+    zones = urllib.parse.parse_qs(urllib.parse.urlparse(path).query).get("zone", [])
+    now = datetime.datetime.now(datetime.timezone.utc)
+    return [{"zone": z, "offset": int(now.astimezone(zoneinfo.ZoneInfo(z)).utcoffset().total_seconds())}
+            for z in zones if zone_known(z)]
+
+
 def pair_new():
     if not state["bluetooth"]["auto_pair"]:
         return
@@ -328,7 +349,11 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/v1/events":
             return self.events()
         with lock:
+            if path.startswith("/v1/time/zones"):
+                return self.reply(200, {"zones": zone_offsets(path)})
             answers = {
+                "/v1/time": state["time"],
+                "/v1/xone": state["xone"],
                 "/v1/status": {"session_mode": os.environ.get("FAKE_SESSION", "cage"), "owneetos_version": "preview"},
                 "/v1/apps": {"apps": state["apps"], "focus": "home"},
                 "/v1/steam": state["steam"],
@@ -352,6 +377,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path, body = self.path, self.body()
+        if path == "/v1/xone/install":
+            with lock:
+                state["xone"] = {"needed": True, "state": "installing"}
+            publish("xone.changed", state["xone"])
+
+            def installed():
+                with lock:
+                    state["xone"] = {"needed": False, "state": "installed"}
+                publish("xone.changed", state["xone"])
+            later(3, installed)
+            return self.reply(202)
         if path == "/v1/network/wifi/scan":
             later(1.5, lambda: publish("wifi.scan_done"))
             return self.reply(202)
@@ -535,6 +571,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         path, body = self.path, self.body()
+        if path == "/v1/time/zone":
+            zone = body.get("zone", "")
+            if not zone_known(zone):
+                return self.error(400, "time.unknown_zone")
+            with lock:
+                state["time"]["zone"] = zone
+            publish("time.changed", state["time"])
+            return self.reply(200, state["time"])
         if path == "/v1/network/wifi/enabled":
             with lock:
                 state["network"]["wifi"]["enabled"] = bool(body.get("enabled"))
@@ -638,6 +682,12 @@ def read_events(path):
 
 if __name__ == "__main__":
     sock = sys.argv[1]
+    if os.environ.get("FAKE_FIRSTSTART"):   # a new console: no network joined yet
+        state["network"]["state"] = "disconnected"
+        state["network"]["wifi"].update({"state": "disconnected", "ssid": "", "strength": 0})
+        for n in state["networks"]:
+            n["connected"] = False
+            n["known"] = False
     if os.environ.get("FAKE_STEAM"):   # the invented Steam folder of fake-steam.py
         state["steam"].update({"prepared": True, "account": True, "nvidia": True, "games": ["2001", "2002", "2010"],
                                "away": {"2003": "Games SSD"}})

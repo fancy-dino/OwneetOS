@@ -1,0 +1,49 @@
+@owneetd
+@firststart
+@nogames
+# The first start ([[step-6.1-first-boot-flow]]) on a new console, with the pretend owneetd: a
+# controller is already connected (the pairing screen is checked in the test VM). Languages in
+# the picker: English, Deutsch, Español, Français, Italiano. Italian, Wi-Fi with the console's
+# keyboard, the suggested time zone, then the list of every city and back, the Xbox adapter's
+# firmware, ready, the home screen, and no first start after a restart.
+wait 3
+shot 01-language
+pad down down down down
+shot 02-italiano-selected
+pad a
+wait 2
+shot 03-network
+pad a
+wait 1
+shot 04-password
+type rightpassword
+key Return
+wait 3
+shot 05-connected
+pad a
+wait 1
+shot 06-time-suggested
+pad right
+shot 07-other-city-selected
+pad a
+wait 1
+shot 08-every-city
+pad down down down down down down
+shot 09-every-city-scrolled
+pad b
+wait 1
+shot 10-back-to-suggested
+pad left a
+wait 1
+shot 11-xbox-adapter
+pad a
+wait 1
+shot 12-downloading
+wait 4
+shot 13-ready
+pad a
+wait 2
+shot 14-home
+restart
+wait 3
+shot 15-after-restart-no-first-start

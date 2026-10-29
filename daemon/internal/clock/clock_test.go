@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/godbus/dbus/v5"
 
@@ -72,6 +73,24 @@ func TestSetZone(t *testing.T) {
 	bus = &fakeBus{props: map[string]any{}, failNTP: true}
 	if err := newManager(bus).SetZone("America/Bogota"); err != nil || bus.props["Timezone"] != "America/Bogota" {
 		t.Errorf("SetZone without NTP: %v, %v", err, bus.props["Timezone"])
+	}
+}
+
+func TestOffsets(t *testing.T) {
+	summer := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	got := Offsets([]string{"Europe/Rome", "Mars/Olympus", "America/Bogota", "Asia/Kolkata"}, summer)
+	want := []Offset{{"Europe/Rome", 7200}, {"America/Bogota", -18000}, {"Asia/Kolkata", 19800}}
+	if len(got) != len(want) {
+		t.Fatalf("Offsets() = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("Offsets()[%d] = %v, want %v", i, got[i], want[i])
+		}
+	}
+	winter := Offsets([]string{"Europe/Rome"}, time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC))
+	if len(winter) != 1 || winter[0].Offset != 3600 {
+		t.Errorf("winter offset of Rome = %v", winter)
 	}
 }
 

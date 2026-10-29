@@ -94,6 +94,29 @@ func (m *Manager) SetZone(zone string) error {
 	return nil
 }
 
+// Offset is a time zone's distance from UTC now (summer time included), for the list of cities.
+type Offset struct {
+	Zone   string `json:"zone"`
+	Offset int    `json:"offset"` // seconds east of UTC
+}
+
+// Offsets tells how far each zone is from UTC now; unknown zones are left out.
+func Offsets(zones []string, now time.Time) []Offset {
+	out := []Offset{}
+	for _, zone := range zones {
+		if !validZone(zone) {
+			continue
+		}
+		loc, err := time.LoadLocation(zone)
+		if err != nil {
+			continue
+		}
+		_, offset := now.In(loc).Zone()
+		out = append(out, Offset{Zone: zone, Offset: offset})
+	}
+	return out
+}
+
 // Timedated is systemd-timedated on the system bus.
 type Timedated struct {
 	conn *dbus.Conn

@@ -51,6 +51,10 @@ FocusScope {
             sounds.playStartup();
             introFallback.start();
         }
+        // The first start (6.1): until "Ready" on an installed console; from the USB stick at
+        // every start, since nothing there is kept at power-off
+        if (!api.memory.has("firstStartDone"))
+            firstStart.start();
         refreshGames();
         refreshDaemon();          // owneetd may have connected before the theme was loaded
         knownVolumes = volumeKeys();
@@ -209,10 +213,21 @@ FocusScope {
         Nav.feedback("section");
         page.focusStart();
     }
-    readonly property bool modalOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
-                                      || notices.visible || quick.visible || controls.visible || steamPrep.visible || webPrep.visible
-                                      || webKeys.shown
-    function backToPage() { Qt.callLater(() => { if (!root.modalOpen) root.page.forceActiveFocus(); }); }
+    readonly property bool modalOpen: firstStart.visible || windowOpen
+    // a window over the pages (the first start is not one: the Wi-Fi window opens over it)
+    readonly property bool windowOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
+                                       || notices.visible || quick.visible || controls.visible || steamPrep.visible || webPrep.visible
+                                       || webKeys.shown
+    function backToPage() {
+        Qt.callLater(() => {
+            if (root.windowOpen)
+                return;
+            if (firstStart.visible)
+                firstStart.refocus();
+            else
+                root.page.forceActiveFocus();
+        });
+    }
 
     // ---- Buttons the sections leave to the whole interface (section 9.1)
     Keys.onPressed: {
@@ -3218,6 +3233,17 @@ FocusScope {
         id: controls
         z: 103
         onVisibleChanged: if (!visible && quick.visible) quick.refocus()
+    }
+
+    // ---- The first start (6.1): over the pages, under the windows (the Wi-Fi password, the
+    // keyboard) and the start-up animation
+    FirstStart {
+        id: firstStart
+        pads: root.pads
+        network: root.network
+        online: root.online
+        theme: root
+        onFinished: root.page.focusStart()
     }
 
     // ---- Start-up animation (3.13): with the start-up sound; without it (sounds off, or the
