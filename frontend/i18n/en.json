@@ -697,7 +697,6 @@
   "clock.save": "Save",
   "clock.saved": "Time set",
   "clock.failed": "The time could not be set.",
-  "prompt.change": "Change",
   "language.time_zone": "Time zone",
   "language.time_zone.detail": "Never guessed from where you are",
   "language.time": "Date and time",

@@ -301,13 +301,8 @@ FocusScope {
     }
     onTimeStatusChanged: if (timeStatus && TimeZones.offsets[timeStatus.zone] === undefined) refreshZones()
     Timer { interval: 3600000; running: true; repeat: true; onTriggered: root.refreshZones() }   // summer time
-    Timer {                                   // Settings → Language shows the date and time
-        interval: 30000; repeat: true; running: root.section === "settings"
-        onTriggered: owneetd.get("/v1/time", (status, data) => { if (status === 200) root.timeStatus = data; })
-    }
-    // Date and time by hand (without the internet), from the first start or Settings → Language
-    // Date and time by hand, in a zone: the first start's city (the console's zone is not set yet),
-    // or the console's own zone
+    // Date and time by hand (without the internet), from the first start or Settings → Language, in
+    // a zone: the first start's city (the console's zone is not set yet), or the console's own zone
     function openClock(zone) {
         owneetd.get("/v1/time", (status, data) => {
             if (status !== 200) { toast.show(Tr.tr("clock.failed")); return; }
@@ -332,6 +327,7 @@ FocusScope {
         dialog.text = text;
         dialog.buttons = [{ text: Tr.tr("prompt.close"), style: "primary", action: () => dialog.close() }];
         dialog.defaultIndex = 0;
+        dialog.prompts = [{ buttons: ["a"], label: Tr.tr("prompt.close") }, { buttons: ["b"], label: Tr.tr("prompt.close") }];
         dialog.open();
     }
 
@@ -2326,7 +2322,15 @@ FocusScope {
                 Connections { target: TimeZones; function onOffsetsChanged() { clock.tick(); } }
                 Connections { target: root; function onTimeStatusChanged() { clock.tick(); } }
                 Component.onCompleted: tick()
-                Timer { interval: 10000; running: true; repeat: true; onTriggered: clock.tick() }
+                Timer {
+                    interval: 10000; running: true; repeat: true
+                    onTriggered: {
+                        clock.tick();
+                        // Settings → Language shows the date and time too: the same minute as here
+                        if (root.section === "settings")
+                            owneetd.get("/v1/time", (status, data) => { if (status === 200) root.timeStatus = data; });
+                    }
+                }
             }
         }
     }

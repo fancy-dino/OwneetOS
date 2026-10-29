@@ -4,7 +4,7 @@
 // wrong. Day, month, year, hours and minutes, one field each, in a zone's time: left / right
 // choose the field, up / down change it (held: it repeats), A saves
 // (owneetd: PUT /v1/time/now, in that zone), B goes back. Opened by the first start (the city
-// shown or selected: the console's zone is not set yet) and by Settings → Language.
+// shown: the console's zone is not set yet) and by Settings → Language.
 import QtQuick 2.15
 import "foundation"
 
@@ -167,7 +167,6 @@ FocusScope {
             left: parent.left; right: parent.right; bottom: parent.bottom
             leftMargin: Theme.safeX; rightMargin: Theme.safeX; bottomMargin: Theme.safeBottom
         }
-        prompts: [{ buttons: ["dpad"], label: Tr.tr("prompt.change") }, { buttons: ["a"], label: Tr.tr("clock.save") },
-                  { buttons: ["b"], label: Tr.tr("prompt.back") }]
+        prompts: [{ buttons: ["a"], label: Tr.tr("clock.save") }, { buttons: ["b"], label: Tr.tr("prompt.back") }]
     }
 }

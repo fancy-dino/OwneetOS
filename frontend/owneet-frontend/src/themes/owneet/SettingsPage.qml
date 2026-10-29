@@ -787,9 +787,8 @@ NavArea {
                         detail: page.online ? Tr.tr("language.time.net") : Tr.tr("language.time.pc")
                         value: {
                             if (!page.time) return "";
-                            const d = String(page.time.date).split("-");
-                            const date = d.length === 3 ? new Date(+d[0], +d[1] - 1, +d[2]).toLocaleDateString(Qt.locale(), Locale.ShortFormat) : "";
-                            return date + "  " + page.time.time;
+                            const d = String(page.time.date).split("-");    // 29/10/2026 21:14
+                            return (d.length === 3 ? d[2] + "/" + d[1] + "/" + d[0] + " " : "") + page.time.time;
                         }
                         onActivated: page.openClock()
                     }

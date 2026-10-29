@@ -697,7 +697,6 @@
   "clock.save": "Guardar",
   "clock.saved": "Hora ajustada",
   "clock.failed": "No se ha podido ajustar la hora.",
-  "prompt.change": "Cambiar",
   "language.time_zone": "Zona horaria",
   "language.time_zone.detail": "Nunca se deduce de dónde estás",
   "language.time": "Fecha y hora",

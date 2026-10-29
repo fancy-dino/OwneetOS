@@ -697,7 +697,6 @@
   "clock.save": "Enregistrer",
   "clock.saved": "Heure réglée",
   "clock.failed": "L’heure n’a pas pu être réglée.",
-  "prompt.change": "Changer",
   "language.time_zone": "Fuseau horaire",
   "language.time_zone.detail": "Jamais déduit de l’endroit où vous êtes",
   "language.time": "Date et heure",

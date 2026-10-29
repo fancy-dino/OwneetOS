@@ -697,7 +697,6 @@
   "clock.save": "Speichern",
   "clock.saved": "Uhrzeit eingestellt",
   "clock.failed": "Die Uhrzeit konnte nicht eingestellt werden.",
-  "prompt.change": "Ändern",
   "language.time_zone": "Zeitzone",
   "language.time_zone.detail": "Nie aus deinem Standort erraten",
   "language.time": "Datum und Uhrzeit",

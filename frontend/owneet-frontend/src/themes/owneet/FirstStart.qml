@@ -172,12 +172,13 @@ Rectangle {
     property string city: ""             // the chosen one ("": the language's suggestion)
     property real now: Date.now()
     Timer { interval: 20000; repeat: true; running: root.visible; onTriggered: root.now = Date.now() }
+    Connections {                         // the time set by hand: shown at once
+        target: root.theme
+        function onTimeStatusChanged() { root.now = Date.now(); }
+    }
     readonly property var ownCities: TimeZones.citiesFor(Tr.language)
     readonly property var allCities: TimeZones.allCities()
     readonly property string shownCity: city !== "" ? city : ownCities[0]
-    // "Set the time" is for a city's time: the one shown, or the last one selected in the list
-    property string pointedCity: ""
-    readonly property string clockCity: (choosing ? allCities : ownCities).indexOf(pointedCity) >= 0 ? pointedCity : shownCity
     function clockAt(cityId) { return TimeZones.clockAt(TimeZones.cityZones[cityId], now); }
     function utcLabel(cityId) { return TimeZones.utcLabel(TimeZones.cityZones[cityId]); }
     function chooseCity(cityId) {
@@ -306,10 +307,7 @@ Rectangle {
         focus: root.visible
         scrollTarget: root.screen === "network" ? netList : root.screen === "time" ? zoneList : null
         onCancelled: root.back()
-        onMoved: {
-            root.reveal(item);
-            if (item.key && item.key.indexOf("city:") === 0) root.pointedCity = item.key.slice(5);
-        }
+        onMoved: root.reveal(item)
         // the focus came back (from a window, or once the window is active): to the selected item
         onActiveFocusChanged: {
             if (!activeFocus)
@@ -599,7 +597,7 @@ Rectangle {
                 Button {                  // without the internet the PC's own clock may be wrong
                     visible: !root.online
                     text: Tr.tr("first.clock.set")
-                    onActivated: if (root.theme) root.theme.openClock(TimeZones.cityZones[root.clockCity])
+                    onActivated: if (root.theme) root.theme.openClock(TimeZones.cityZones[root.shownCity])
                 }
             }
         }
@@ -634,11 +632,6 @@ Rectangle {
                         }
                     }
                 }
-            }
-            Button {                      // the languages with several cities: the same, under the list
-                visible: !root.online
-                text: Tr.tr("first.clock.set")
-                onActivated: if (root.theme) root.theme.openClock(TimeZones.cityZones[root.clockCity])
             }
         }
 

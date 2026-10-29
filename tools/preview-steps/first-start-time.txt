@@ -17,7 +17,7 @@ shot 02-clock
 pad up up
 shot 03-clock-changed
 pad a
-wait 2
+wait 0.6
 shot 04-saved
 pad left left a
 wait 2

@@ -697,7 +697,6 @@
   "clock.save": "Salva",
   "clock.saved": "Ora impostata",
   "clock.failed": "L’ora non si è potuta impostare.",
-  "prompt.change": "Cambia",
   "language.time_zone": "Fuso orario",
   "language.time_zone.detail": "Mai dedotto da dove ti trovi",
   "language.time": "Data e ora",

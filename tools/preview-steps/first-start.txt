@@ -5,7 +5,7 @@
 # controller is already connected (the pairing screen is checked in the test VM). Languages in
 # the picker: English, Deutsch, Español, Français, Italiano. Italian, Wi-Fi with the console's
 # keyboard, the suggested time zone, then the list of every city and back, the Xbox adapter's
-# firmware, ready, the home screen, and no first start after a restart.
+# firmware, "Read the terms" as a QR code, ready, the home screen, and no first start after a restart.
 wait 3
 shot 01-language
 pad down down down down
@@ -36,7 +36,12 @@ shot 10-back-to-suggested
 pad left a
 wait 1
 shot 11-xbox-adapter
-pad a
+pad right a
+wait 1
+shot 11b-terms
+pad b
+wait 1
+pad left a
 wait 1
 shot 12-downloading
 wait 4
