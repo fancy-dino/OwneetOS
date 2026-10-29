@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// owneetd (the console user) sets the time zone chosen at the first start or in Settings, and
+// keeps the clock synchronised from the internet ([[step-6.1-first-boot-flow]]). Only these two
+// actions of systemd-timedated (not the time itself), only the console user in the active local
+// session.
+polkit.addRule(function (action, subject) {
+    if ((action.id === "org.freedesktop.timedate1.set-timezone" ||
+            action.id === "org.freedesktop.timedate1.set-ntp") &&
+            subject.user === "owneet" && subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});

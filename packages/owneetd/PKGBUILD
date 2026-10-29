@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneetd
-pkgver=0.16.2
+pkgver=0.17.0
 pkgrel=1
 pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps, display, web apps) and owneetctl"
 arch=('x86_64')
@@ -24,7 +24,8 @@ source=('owneetd-src.tar.gz' 'owneetd.service' '50-owneetd.preset'
         '70-owneet-uinput.rules' 'owneet-uinput.modules-load.conf' '50-owneet-networkmanager.rules'
         'owneet-screens-off@.service' '50-owneet-screens.rules' 'owneet-windows-run' 'owneet-dos-run'
         "gamecontrollerdb-$_sdldb.txt::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/gamecontrollerdb.txt"
-        "gamecontrollerdb-LICENSE-$_sdldb::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/LICENSE")
+        "gamecontrollerdb-LICENSE-$_sdldb::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/LICENSE"
+        '50-owneet-time.rules')
 sha256sums=('SKIP'
             'fb009505ebefa5dea078102c8b53950a8f0ace98b0d91ae5cedf2454d874d858'
             '2a0b34565694c894f522721980ee014d8ada9e5ca6e77be199aaf845e87170fb'
@@ -36,7 +37,8 @@ sha256sums=('SKIP'
             '5c6fe4dd1f35027245436b565a8a2e3ddaf0862c9c627797dedd5045c842d573'
             'c83933112b546701d5d6466d7958916d8ffbd120cf048ef1e5be4cb4221e051b'
             'e606134678e6b3fdbdec9081289a1f0ba3e25d53b59b2aa3cdfe69bf491ad18f'
-            '97f35b302b361680ec1e891e95d2d52097bb95abff361434916d99dc1305f127')
+            '97f35b302b361680ec1e891e95d2d52097bb95abff361434916d99dc1305f127'
+            'eb0953198d6b584ffe66c727bbb9bd19593792cf369a92f1b8f7edbf8a5f2753')
 
 _ldflags() {
   echo "-s -w -X github.com/fancy-dino/OwneetOS/daemon/internal/version.Version=$pkgver"
@@ -71,6 +73,7 @@ package() {
   install -Dm644 daemon/cmd/owneet-bridge/org.owneet.bridge.json -t "$pkgdir/etc/opt/chrome/native-messaging-hosts/"
   install -Dm644 owneet-screens-off@.service -t "$pkgdir/usr/lib/systemd/system/"
   install -Dm644 50-owneet-screens.rules "$pkgdir/usr/share/polkit-1/rules.d/50-owneet-screens.rules"
+  install -Dm644 50-owneet-time.rules "$pkgdir/usr/share/polkit-1/rules.d/50-owneet-time.rules"
   install -Dm644 owneetd.service "$pkgdir/usr/lib/systemd/user/owneetd.service"
   install -Dm644 50-owneetd.preset "$pkgdir/usr/lib/systemd/user-preset/50-owneetd.preset"
   install -Dm644 70-owneet-uinput.rules "$pkgdir/usr/lib/udev/rules.d/70-owneet-uinput.rules"

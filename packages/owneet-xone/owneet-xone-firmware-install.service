@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Downloads and installs the Xbox wireless adapter's firmware from Microsoft. Started by owneetd
+# only after the player has accepted Microsoft's terms on the console ([[step-6.1-first-boot-flow]],
+# [[xbox-wireless-dongle]]); polkit allows only this start to the console user.
+[Unit]
+Description=Firmware of the Xbox wireless adapter (after the player's consent)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/owneet/owneet-xone-firmware install --accept-microsoft-terms
+TimeoutStartSec=10min

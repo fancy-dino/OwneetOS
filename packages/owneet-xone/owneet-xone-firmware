@@ -14,6 +14,10 @@
 #       Called by udev when a dongle is plugged in: if its firmware is missing, writes
 #       /run/owneet/xone-firmware-needed so the console UI can ask the user for consent.
 #
+# install writes its progress to /run/owneet/xone-firmware.json for owneetd: {"state":
+# "installing" | "installed" | "failed", "error": code} (owneet-xone-firmware-install.service,
+# started by the console after the player's consent, [[step-6.1-first-boot-flow]]).
+#
 # Download sources and checksums are those of the xone project (install/firmware.sh, v0.5.8).
 
 set -euo pipefail
@@ -21,6 +25,8 @@ set -euo pipefail
 FW_DIR=/usr/lib/firmware
 TERMS_URL="https://www.microsoft.com/en-us/legal/terms-of-use"
 NEEDED_FLAG=/run/owneet/xone-firmware-needed
+STATE_FILE=/run/owneet/xone-firmware.json
+STATE=""
 
 # USB product id | Windows Update cabinet | file inside the cabinet | SHA-256 of that file
 MODELS=(
@@ -30,7 +36,14 @@ MODELS=(
     "091e|https://catalog.s.download.windowsupdate.com/d/msdownload/update/driver/drvs/2017/08/aeff215c-3bc4-4d36-a3ea-e14bfa8fa9d2_e58550c4f74a27e51e5cb6868b10ff633fa77164.cab|FW_ACC_BR.bin|e2710daf81e7b36d35985348f68a81d18bc537a2b0c508ffdfde6ac3eae1bad7"
 )
 
-die() { echo "owneet-xone-firmware: $*" >&2; exit 1; }
+# state STATE [ERROR]: the progress for owneetd, only while installing
+state() {
+    [[ -n "$STATE" ]] || return 0
+    mkdir -p "$(dirname "$STATE_FILE")"
+    printf '{"state":"%s","error":"%s"}\n' "$1" "${2:-}" > "$STATE_FILE.tmp" && mv "$STATE_FILE.tmp" "$STATE_FILE"
+}
+# die MESSAGE [ERROR-CODE]
+die() { echo "owneet-xone-firmware: $1" >&2; state failed "${2:-failed}"; exit 1; }
 
 known_pids() { local m; for m in "${MODELS[@]}"; do echo "${m%%|*}"; done; }
 
@@ -63,7 +76,7 @@ install_one() {
     if installed "$pid"; then echo "dongle $pid: firmware already installed"; return 0; fi
     tmp="$(mktemp -d)"
     echo "dongle $pid: downloading firmware from Microsoft..."
-    curl -fsSL --retry 3 -o "$tmp/driver.cab" "$url" || { rm -rf "$tmp"; die "download failed (is the PC online?)"; }
+    curl -fsSL --retry 3 -o "$tmp/driver.cab" "$url" || { rm -rf "$tmp"; die "download failed (is the PC online?)" offline; }
     bsdtar -xf "$tmp/driver.cab" -C "$tmp" "$file" || { rm -rf "$tmp"; die "could not extract $file"; }
     echo "$sum  $tmp/$file" | sha256sum --check --quiet || { rm -rf "$tmp"; die "checksum mismatch for $file"; }
     install -Dm644 "$tmp/$file" "$FW_DIR/xone_dongle_$pid.bin"
@@ -82,9 +95,13 @@ cmd_install() {
     done
     (( accepted )) || die "the firmware is subject to Microsoft's terms ($TERMS_URL): pass --accept-microsoft-terms"
     [[ $EUID -eq 0 ]] || die "must run as root"
+    STATE=1
+    state installing
+    # any other failure (writing the file, reloading the driver) is a failure too
+    trap 'state failed failed' ERR
     local pids
     if (( all )); then pids="$(known_pids)"; else pids="$(connected_pids)"; fi
-    [[ -n "$pids" ]] || die "no Xbox wireless dongle connected (use --all to install every model)"
+    [[ -n "$pids" ]] || die "no Xbox wireless dongle connected (use --all to install every model)" no_adapter
     for pid in $pids; do install_one "$pid"; done
     rm -f "$NEEDED_FLAG"
     # Reload the driver so a connected dongle picks up its firmware.
@@ -92,6 +109,7 @@ cmd_install() {
         modprobe -r xone_dongle 2>/dev/null || true
         modprobe xone_dongle
     fi
+    state installed
 }
 
 cmd_mark_needed() {

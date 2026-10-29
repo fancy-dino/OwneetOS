@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// owneetd (the console user) installs the Xbox wireless adapter's firmware once the player has
+// accepted Microsoft's terms on the console. Only this unit, only start, only the console user in
+// the active local session.
+polkit.addRule(function (action, subject) {
+    if (action.id === "org.freedesktop.systemd1.manage-units" &&
+            subject.user === "owneet" && subject.local && subject.active &&
+            action.lookup("unit") === "owneet-xone-firmware-install.service" &&
+            action.lookup("verb") === "start") {
+        return polkit.Result.YES;
+    }
+});

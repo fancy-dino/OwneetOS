@@ -3,7 +3,7 @@
 
 pkgname=owneet-xone
 pkgver=0.5.8
-pkgrel=3
+pkgrel=4
 pkgdesc="Xbox wireless dongle driver (xone) built for the OwneetOS kernel, and the firmware download helper"
 arch=('x86_64')
 url="https://github.com/dlundqvist/xone"
@@ -14,11 +14,14 @@ license=('GPL-2.0-only' 'GPL-3.0-or-later')
 depends=('curl' 'libarchive' 'kmod')
 makedepends=('linux-headers')
 source=("xone-$pkgver.tar.gz::https://github.com/dlundqvist/xone/archive/refs/tags/v$pkgver.tar.gz"
-        'owneet-xone-firmware' 'xone.modprobe.conf' '70-owneet-xone.rules')
+        'owneet-xone-firmware' 'xone.modprobe.conf' '70-owneet-xone.rules'
+        'owneet-xone-firmware-install.service' '50-owneet-xone.rules')
 sha256sums=('f1905d5046ce79b94df0501045008203c4ae4ce6f43dbcf8bd04d7c944bf420e'
-            '94e0dc2c5bfa3105d37f351c18799d6af69e2c5d29e869b75f6d892e376bad86'
+            '19692afbc2796b2811e65f87534e3fa702d8da97ba75434c56cb4ef924b80280'
             '83f0f7c4fbb83e1d0fe9f09698b753ed349ae0f7eb5b32e6551a5fba180b3507'
-            'e799d4e25f44e38920dc6361473872c5a219a7a45e1299fee45ee931ed680a46')
+            'e799d4e25f44e38920dc6361473872c5a219a7a45e1299fee45ee931ed680a46'
+            '8d802759fbd4a9ad6b231752ba7edf5fbd1b517923663ffa34aaf531c5530774'
+            '3a686d5619cad11a50d8ec18b97d4b160bb7244d4f787afc40de65945cfe510b')
 
 # Modules for the dongle. xone_wired is left out on purpose: the kernel's xpad driver already
 # handles wired Xbox controllers (and many others), and the two would compete for them.
@@ -45,5 +48,8 @@ package() {
   install -Dm755 owneet-xone-firmware "$pkgdir/usr/lib/owneet/owneet-xone-firmware"
   install -Dm644 xone.modprobe.conf "$pkgdir/usr/lib/modprobe.d/owneet-xone.conf"
   install -Dm644 70-owneet-xone.rules "$pkgdir/usr/lib/udev/rules.d/70-owneet-xone.rules"
+  # The console installs the firmware after the player's consent ([[step-6.1-first-boot-flow]])
+  install -Dm644 owneet-xone-firmware-install.service -t "$pkgdir/usr/lib/systemd/system/"
+  install -Dm644 50-owneet-xone.rules "$pkgdir/usr/share/polkit-1/rules.d/50-owneet-xone.rules"
   install -Dm644 "$srcdir/xone-$pkgver/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE.xone"
 }

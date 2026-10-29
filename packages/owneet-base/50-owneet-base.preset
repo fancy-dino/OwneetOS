@@ -4,3 +4,5 @@ enable owneet-mode.service
 enable owneet-testlog.service
 enable owneet-tester-install.service
 enable owneet-update-boot.service
+# the clock from the internet; the time zone is the player's choice ([[first-boot-setup]])
+enable systemd-timesyncd.service

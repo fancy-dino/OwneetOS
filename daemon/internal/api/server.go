@@ -59,6 +59,10 @@ type Server struct {
 	Installs Installs
 	// Pointer makes the controller a mouse for an app's window (nil: not available).
 	Pointer Pointer
+	// Clock reads and sets the time zone (nil without a system bus).
+	Clock Clock
+	// Xone installs the Xbox wireless adapter's firmware (nil without a system bus).
+	Xone Xone
 
 	started time.Time
 }
@@ -125,6 +129,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/update", s.handleUpdate)
 	mux.HandleFunc("POST /v1/update/check", s.handleUpdateAction(Update.Check))
 	mux.HandleFunc("POST /v1/update/apply", s.handleUpdateAction(Update.Apply))
+	mux.HandleFunc("GET /v1/time", s.handleTime)
+	mux.HandleFunc("PUT /v1/time/zone", s.handleTimeZone)
+	mux.HandleFunc("GET /v1/xone", s.handleXone)
+	mux.HandleFunc("POST /v1/xone/install", s.handleXoneInstall)
 	mux.HandleFunc("GET /v1/windows", s.handleWindows)
 	mux.HandleFunc("POST /v1/windows/needed", s.handleWindowsNeeded)
 	mux.HandleFunc("GET /v1/installs", s.handleInstalls)

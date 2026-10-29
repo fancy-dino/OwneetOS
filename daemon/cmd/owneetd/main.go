@@ -21,6 +21,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/audio"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/bluetooth"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/catalog"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/clock"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/config"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/display"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
@@ -36,6 +37,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/vinput"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/webapps"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/windows"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/xone"
 )
 
 func main() {
@@ -197,8 +199,14 @@ func run(configPath string) error {
 	// ([[step-5.0.0-optional-web-apps]]): both start root units that polkit allows
 	var updateAPI api.Update
 	var catalogAPI api.Catalog
+	var xoneAPI api.Xone
 	if starter, err := update.NewSystemdStarter(); err == nil {
 		defer starter.Close()
+		// The Xbox wireless adapter's firmware, after the player's consent ([[step-6.1-first-boot-flow]])
+		adapter := &xone.Manager{Broker: broker, Log: log, Units: starter,
+			NeededFile: "/run/owneet/xone-firmware-needed", StateFile: "/run/owneet/xone-firmware.json"}
+		go adapter.Run(ctx.Done())
+		xoneAPI = adapter
 		updateAPI = &update.Manager{Broker: broker, Log: log, Units: starter,
 			StateFile: "/run/owneet/update.json", TesterMark: "/etc/owneet/tester"}
 		stateDir := os.Getenv("XDG_STATE_HOME")
@@ -289,6 +297,15 @@ func run(configPath string) error {
 			Pads: pointer.ReadPads(db, log)}
 	}
 
+	// The time zone, chosen at the first start and in Settings ([[step-6.1-first-boot-flow]])
+	var clockAPI api.Clock
+	if td, err := clock.NewTimedated(); err != nil {
+		log.Warn("the time zone cannot be set", "err", err)
+	} else {
+		defer td.Close()
+		clockAPI = &clock.Manager{Bus: td, Broker: broker, Log: log}
+	}
+
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
@@ -307,6 +324,8 @@ func run(configPath string) error {
 		Windows:         winMgr,
 		Installs:        instMgr,
 		Pointer:         pointerAPI,
+		Clock:           clockAPI,
+		Xone:            xoneAPI,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)
