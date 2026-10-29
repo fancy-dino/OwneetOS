@@ -1,0 +1,431 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS - interactive demo for [[step-6.1-first-boot-flow]]: the first start of an installed
+     console ([[first-boot-setup]]), in the console's look (the settings demo 3.9) and following
+     the approved mockup's pairing screen (design/mockups/wave1-mockups.html: the searching radar,
+     the title cycling through languages, every brand's instructions lit in turn, nothing to
+     press). Then: the language (the keyboard layout follows it), the network (cable, Wi-Fi, or
+     later: games on disks work offline), the time zone (suggested from the language; a list of
+     cities when the language has several zones; never geolocated), the Xbox wireless adapter's
+     firmware (only when an adapter is plugged in and the console is online: downloaded from
+     Microsoft with consent, [[xbox-wireless-dongle]]), ready. The console's name was chosen in the
+     installer. The five languages of Wave 1 are listed (English, Italian, German, French,
+     Spanish); in the demo only English and Italian have their texts (step 7.9). Open in a browser; gamepad or keyboard (Enter = A, Esc = B). Demo keys: C a
+     controller pairs, K network cable, D Xbox adapter plugged in, L language, P palette, N sounds.
+     Networks and controllers are invented. Fonts come from Google Fonts for the demo only. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS - First start (demo 6.1)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1; --motion: 1; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+.frame { position: relative; flex: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+.stage { width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px; display: grid; grid-template-rows: auto 1fr auto; gap: 20px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350; }
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); } .t-xl { font-size: calc(40px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+[data-f] { outline: none; position: relative; transition: transform calc(.16s * var(--motion)) ease, box-shadow calc(.16s * var(--motion)) ease; }
+[data-f].focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); transform: scale(calc(1 + .02 * var(--motion))); z-index: 2; }
+.top { display: flex; align-items: center; justify-content: space-between; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+/* the set-up's steps, as the mockup */
+.steps { display: flex; gap: .6em; align-items: center; color: var(--muted); }
+.steps .s { display: inline-flex; align-items: center; gap: .45em; }
+.steps .n { width: 1.6em; height: 1.6em; border-radius: 50%; display: grid; place-items: center; border: .12em solid var(--line); }
+.steps .s.on { color: var(--fg); }
+.steps .s.on .n { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.steps .s.done .n { border-color: var(--accent); color: var(--accent); }
+.steps .sep { width: 1.4em; height: .12em; background: var(--line); }
+main { min-height: 0; display: grid; align-content: center; justify-items: center; }
+.screen { width: 860px; display: grid; gap: 16px; justify-items: start; }
+.screen.center { justify-items: center; text-align: center; }
+.screen h1 { margin: 0; } .screen p { margin: 0; max-width: 780px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line); width: 100%; min-height: 60px; text-align: left; }
+.row .left { display: grid; gap: 3px; } .row .right { display: flex; align-items: center; gap: 10px; color: var(--muted); flex: none; }
+.list { display: grid; gap: 10px; width: 100%; }
+.scroll { max-height: 330px; overflow-y: auto; scrollbar-width: none; padding: 10px 12px; margin: -10px -12px; scroll-padding-block: 12px; }
+.tag { padding: 2px 10px; border-radius: 999px; background: var(--raised); color: var(--fg); }
+.tag.ok { background: var(--accent); color: var(--on-accent); }
+.buttons { display: flex; gap: 16px; margin-top: 6px; flex-wrap: wrap; }
+.btn { padding: 12px 28px; border-radius: 999px; font-weight: 500; background: var(--raised); color: var(--fg); }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+/* pairing (the mockup) */
+.pair { display: grid; grid-template-columns: 1fr 1.25fr; gap: 3em; align-items: center; width: 1100px; }
+.radar { position: relative; aspect-ratio: 1; width: 330px; justify-self: center; display: grid; place-items: center; }
+.radar .ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--accent); opacity: 0; animation: ping 3s ease-out infinite; }
+.radar .ring:nth-child(2) { animation-delay: 1s; } .radar .ring:nth-child(3) { animation-delay: 2s; }
+.radar .core { width: 52%; aspect-ratio: 1; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); display: grid; place-items: center; }
+.radar svg { width: 64%; }
+@keyframes ping { 0% { transform: scale(.45); opacity: .9; } 100% { transform: scale(1); opacity: 0; } }
+.pair-copy { display: grid; gap: 1.1em; align-content: center; }
+.hello { min-height: 1.2em; transition: opacity .35s ease; } .hello.fade { opacity: 0; }
+.searching { display: inline-flex; align-items: center; gap: .6em; color: var(--accent); font-weight: 500; }
+.searching::before { content: ""; width: .6em; height: .6em; border-radius: 50%; background: var(--accent); animation: blink 1.2s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.brands { display: grid; grid-template-columns: 1fr 1fr; gap: .7em; }
+.brand-card { padding: .85em 1em; border-radius: .9em; background: var(--surface); border: 1px solid var(--line); display: grid; gap: .3em; transition: border-color .3s ease, background .3s ease; }
+.brand-card.lit { border-color: var(--accent); background: var(--raised); }
+.brand-card .who { font-weight: 600; }
+.note { color: var(--muted); }
+.row .wifi { width: calc(22px * var(--ts)); height: calc(22px * var(--ts)); color: var(--fg); }
+.clock { font-variant-numeric: tabular-nums; }
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 24px; } .prompt { display: inline-flex; align-items: center; gap: 8px; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+.overlay { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 85%, transparent); display: none; z-index: 10; }
+.overlay.open { display: grid; place-items: center; }
+.sheet { width: 640px; text-align: center; background: var(--bg); border: 1px solid var(--line); border-radius: 18px; padding: 22px 26px; display: grid; gap: 14px; justify-items: center; }
+.sheet input { width: 100%; font: inherit; font-size: 20px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); }
+.toast { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); padding: 9px 18px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; white-space: nowrap; }
+.toast.show { opacity: 1; }
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <header class="top"><span class="mark">Owneet<i>OS</i></span><div class="steps t-s" id="steps"></div></header>
+  <main id="main"></main>
+  <footer class="prompts t-s" id="prompts"></footer>
+  <div class="toast t-s" id="toast"></div>
+  <div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
+</div></div>
+<p class="help"><b>Gamepad:</b> D-pad / stick move, A select, B back. <b>Keyboard:</b> arrows, Enter = A, Esc = B.<br>
+<b>Demo only:</b> C a controller pairs, K network cable (<span id="cable-state">off</span>), D Xbox adapter plugged in (<span id="dongle-state">off</span>), L language, P palette, N sounds (<span id="snd-state">on</span>). Address: <code>#screen=time&amp;lang=en</code></p>
+
+<script src="sounds.js"></script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 70) / 720);
+    stage.style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+
+  /* ---------- Texts (the console takes them from its message files) ---------- */
+  const EN = {
+    'step.controller': 'Controller', 'step.language': 'Language', 'step.network': 'Network', 'step.time': 'Time zone', 'step.ready': 'Ready',
+    'pair.searching': 'Searching for controllers. There is nothing to press here.',
+    'pair.ps': 'Hold PS and Create until the light bar blinks fast.', 'pair.xbox': 'Hold the pair button on the top edge until the logo blinks fast.',
+    'pair.switch': 'Hold the small sync button on top for 3 seconds.', 'pair.cable.title': 'USB cable', 'pair.cable': 'Plug it in. It works right away, no pairing needed.',
+    'pair.note': 'The first set-up needs a Bluetooth controller or one with a cable. An Xbox wireless adapter works once its firmware is downloaded, a few steps from now.',
+    'pair.found': '{name} connected',
+    'lang.title': 'Choose your language', 'lang.text': 'The keyboard follows the language; you can change both in Settings.',
+    'net.title': 'Connect to the internet', 'net.text': 'For Steam, streaming and updates. Games on disks and DRM-free games work without it.',
+    'net.cable': 'Connected with a cable', 'net.later': 'Not now: set it up later', 'net.password': 'Password for {ssid}',
+    'net.typing': 'Type the password with the console\'s keyboard (demo 3.10); here, with your keyboard. Enter to connect.',
+    'net.connecting': 'Connecting to {ssid}…', 'net.connected': 'Connected', 'net.secured': 'Secured', 'net.open': 'Open',
+    'time.title': 'Your time zone', 'time.suggested': 'Suggested from your language. Once online the clock sets itself; the time zone stays the one you choose.',
+    'time.choose': 'Choose your city', 'time.choose.text': 'Your language is spoken in several time zones: pick the city nearest to you.', 'time.other': 'Choose another city',
+    'dongle.title': 'Xbox wireless adapter found', 'dongle.text': 'To work, it needs Microsoft\'s firmware. OwneetOS downloads it now from Microsoft, for this PC only. By downloading you accept Microsoft\'s terms.',
+    'dongle.download': 'Download', 'dongle.terms': 'Read the terms', 'dongle.later': 'Not now', 'dongle.done': 'The Xbox wireless adapter is ready',
+    'ready.title': 'You are all set', 'ready.text': 'Your console is ready. Settings has everything you chose here.', 'ready.home': 'Go to the home screen',
+    'ready.lang': 'Language', 'ready.net': 'Network', 'ready.time': 'Time zone', 'ready.offline': 'Not connected',
+    'continue': 'Continue', 'p.select': 'Select', 'p.back': 'Back', 'p.scroll': 'Scroll',
+    'demo.home': '(demo) The home screen opens', 'demo.texts': '(demo) This language\'s texts come with step 7.9: here in English', 'demo.terms': '(demo) Microsoft\'s terms open here, readable with the controller',
+  };
+  const IT = {
+    'step.controller': 'Controller', 'step.language': 'Lingua', 'step.network': 'Rete', 'step.time': 'Fuso orario', 'step.ready': 'Pronto',
+    'pair.searching': 'Ricerca dei controller in corso. Qui non c\'è niente da premere.',
+    'pair.ps': 'Tieni premuti PS e Create finché la barra luminosa lampeggia veloce.', 'pair.xbox': 'Tieni premuto il tasto di abbinamento sul bordo superiore finché il logo lampeggia veloce.',
+    'pair.switch': 'Tieni premuto il piccolo tasto sync in alto per 3 secondi.', 'pair.cable.title': 'Cavo USB', 'pair.cable': 'Collegalo. Funziona subito, senza abbinamento.',
+    'pair.note': 'La prima configurazione richiede un controller Bluetooth o con cavo. La chiavetta wireless Xbox funziona dopo aver scaricato il suo firmware, tra qualche passo.',
+    'pair.found': '{name} collegato',
+    'lang.title': 'Scegli la lingua', 'lang.text': 'La tastiera segue la lingua; puoi cambiarle entrambe nelle Impostazioni.',
+    'net.title': 'Collegati a internet', 'net.text': 'Per Steam, lo streaming e gli aggiornamenti. I giochi sui dischi e quelli senza DRM funzionano anche senza.',
+    'net.cable': 'Collegato con il cavo', 'net.later': 'Non ora: lo configuro dopo', 'net.password': 'Password di {ssid}',
+    'net.typing': 'Scrivi la password con la tastiera della console (demo 3.10); qui, con la tua tastiera. Invio per collegarti.',
+    'net.connecting': 'Collegamento a {ssid}…', 'net.connected': 'Collegato', 'net.secured': 'Protetta', 'net.open': 'Aperta',
+    'time.title': 'Il tuo fuso orario', 'time.suggested': 'Proposto in base alla lingua. Una volta online l\'ora si regola da sola; il fuso resta quello che scegli.',
+    'time.choose': 'Scegli la tua città', 'time.choose.text': 'La tua lingua si parla in più fusi orari: scegli la città più vicina a te.', 'time.other': 'Scegli un\'altra città',
+    'dongle.title': 'Trovata la chiavetta wireless Xbox', 'dongle.text': 'Per funzionare le serve il firmware di Microsoft. OwneetOS lo scarica ora da Microsoft, solo per questo PC. Scaricandolo accetti i termini di Microsoft.',
+    'dongle.download': 'Scarica', 'dongle.terms': 'Leggi i termini', 'dongle.later': 'Non ora', 'dongle.done': 'La chiavetta wireless Xbox è pronta',
+    'ready.title': 'Tutto pronto', 'ready.text': 'La tua console è pronta. Nelle Impostazioni trovi tutto quello che hai scelto qui.', 'ready.home': 'Vai alla Home',
+    'ready.lang': 'Lingua', 'ready.net': 'Rete', 'ready.time': 'Fuso orario', 'ready.offline': 'Non collegata',
+    'continue': 'Continua', 'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.scroll': 'Scorri',
+    'demo.home': '(demo) Si apre la Home', 'demo.texts': '(demo) I testi di questa lingua arrivano con lo step 7.9: qui in inglese', 'demo.terms': '(demo) Qui si aprono i termini di Microsoft, da leggere con il controller',
+  };
+  let lang = 'en';
+  const tr = (k, a = {}) => ((lang === 'it' ? IT[k] : null) || EN[k] || k).replace(/\{(\w+)\}/g, (_, x) => a[x] ?? '');
+
+  /* ---------- Glyphs, sounds, palettes (as the settings demo) ---------- */
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const G = { a: letter('A'), b: letter('B'),
+    rs: `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="13" cy="13" r="4" fill="currentColor"/><path d="M13 3.8v2.4M10.8 5.6 13 3.4l2.2 2.2M13 19.8v2.4M10.8 20.4l2.2 2.2 2.2-2.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>` };
+  const P = (b, l) => `<span class="prompt">${b.map(x => G[x]).join('')}<span>${tr(l)}</span></span>`;
+  let soundOn = true, ctx = null;
+  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', notify: 'notify', error: 'error' };
+  const buffers = {};
+  function startAudio() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    if (!window.OWNEET_SOUNDS) return;
+    ctx = new AudioContext();
+    for (const [k, f] of Object.entries(SOUNDS)) {
+      const url = window.OWNEET_SOUNDS[f]; if (!url) continue;
+      const bytes = Uint8Array.from(atob(url.split(',')[1]), c => c.charCodeAt(0));
+      ctx.decodeAudioData(bytes.buffer).then(b => { buffers[k] = b; });
+    }
+  }
+  addEventListener('keydown', startAudio, true); addEventListener('pointerdown', startAudio, true);
+  function feedback(k) {
+    if (!soundOn || !ctx || !buffers[k]) return;
+    const src = ctx.createBufferSource(), g = ctx.createGain(); g.gain.value = .7;
+    src.buffer = buffers[k]; src.connect(g); g.connect(ctx.destination); src.start();
+  }
+  const PALETTES = [
+    ['#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+    ['#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+    ['#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+    ['#000000', '#000000', '#161616', '#FFFFFF', '#FFFFFF', '#E0E0E0', '#FFE14D', '#000000'],
+  ];
+  const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
+  let palI = 0;
+  const applyPalette = () => TOKENS.forEach((t, i) => stage.style.setProperty('--' + t, PALETTES[palI][i]));
+
+  /* ---------- State (invented: owneetd gives the real one) ---------- */
+  const NETWORKS = [{ ssid: 'Casa Rossi', strength: 82, secured: true }, { ssid: 'Casa Rossi 5G', strength: 64, secured: true },
+    { ssid: 'Biblioteca', strength: 35, secured: false }, { ssid: 'TIM-38211', strength: 21, secured: true }];
+  // time zones: one suggested per language when it has one; else the cities of the language's zones
+  const ZONES = {
+    it: [['Europe/Rome', 'Roma', 1]],
+    de: [['Europe/Berlin', 'Berlin', 1]],
+    fr: [['Europe/Paris', 'Paris', 1], ['Europe/Brussels', 'Bruxelles', 1], ['Europe/Zurich', 'Genève', 1], ['America/Toronto', 'Montréal', -5]],
+    es: [['Europe/Madrid', 'Madrid', 1], ['America/Mexico_City', 'Ciudad de México', -6], ['America/Bogota', 'Bogotá', -5],
+      ['America/Lima', 'Lima', -5], ['America/Argentina/Buenos_Aires', 'Buenos Aires', -3], ['America/Santiago', 'Santiago', -3]],
+    en: [['Europe/London', 'London', 0], ['Europe/Dublin', 'Dublin', 0], ['America/New_York', 'New York', -5], ['America/Toronto', 'Toronto', -5],
+      ['America/Chicago', 'Chicago', -6], ['America/Denver', 'Denver', -7], ['America/Los_Angeles', 'Los Angeles', -8], ['America/Vancouver', 'Vancouver', -8],
+      ['Australia/Sydney', 'Sydney', 11], ['Pacific/Auckland', 'Auckland', 13], ['Africa/Johannesburg', 'Johannesburg', 2], ['Asia/Singapore', 'Singapore', 8]],
+  };
+  const ALL_ZONES = Object.values(ZONES).flat().filter((z, i, a) => a.findIndex(y => y[0] === z[0]) === i).sort((a, b) => a[2] - b[2] || a[1].localeCompare(b[1]));
+  const st = { screen: 'pair', cable: false, dongle: false, net: null, zone: null, choosing: false };
+  const ORDER = ['pair', 'language', 'network', 'time', 'dongle', 'ready'];
+  const STEP_OF = { pair: 'controller', language: 'language', network: 'network', time: 'time', dongle: 'network', ready: 'ready' };
+  const online = () => st.cable || !!st.net;
+  const clock = off => { const d = new Date(Date.now() + (off * 60 + new Date().getTimezoneOffset()) * 60000); return d.toTimeString().slice(0, 5); };
+  const utc = off => 'UTC' + (off >= 0 ? '+' : '') + off;
+
+  /* ---------- Screens ---------- */
+  const btn = (k, label, primary, extra = '') => `<button class="btn${primary ? ' primary' : ''}" data-f data-k="${k}" ${extra}>${label}</button>`;
+  const HELLO = ['Connect a controller', 'Collega un controller', 'Verbinde einen Controller', 'Connectez une manette', 'Conecta un mando'];
+  const PAD = `<svg viewBox="0 0 120 80" fill="none"><path d="M30 12h60c14 0 22 10 25 26l4 20c2 12-8 18-16 12l-12-10H29L17 70C9 76-1 70 1 58l4-20C8 22 16 12 30 12Z" fill="var(--raised)" stroke="var(--fg)" stroke-width="3"/>
+    <path d="M30 32v16M22 40h16" stroke="var(--fg)" stroke-width="4" stroke-linecap="round"/><circle cx="86" cy="33" r="4" fill="var(--accent)"/><circle cx="95" cy="41" r="4" fill="var(--fg)"/>
+    <circle cx="77" cy="41" r="4" fill="var(--fg)"/><circle cx="86" cy="49" r="4" fill="var(--fg)"/></svg>`;
+  const SCREENS = {
+    pair: () => `<div class="pair"><div class="radar" aria-hidden="true"><span class="ring"></span><span class="ring"></span><span class="ring"></span><div class="core">${PAD}</div></div>
+      <div class="pair-copy"><div class="hello disp t-xl" id="hello">${HELLO[0]}</div><div class="searching t-m">${tr('pair.searching')}</div>
+      <div class="brands t-s">${[['PlayStation', 'pair.ps'], ['Xbox', 'pair.xbox'], ['Nintendo Switch Pro', 'pair.switch'], [tr('pair.cable.title'), 'pair.cable']].map(([w, k], i) =>
+        `<div class="brand-card" data-b="${i}"><span class="who">${w}</span><span class="muted">${tr(k)}</span></div>`).join('')}</div>
+      <span class="note t-s">${tr('pair.note')}</span></div></div>`,
+    language: () => `<div class="screen"><h1 class="disp t-l">${tr('lang.title')}</h1><p class="t-m muted">${tr('lang.text')}</p>
+      <div class="list">${LANGS.map(([c, n]) => `<button class="row" data-f data-k="lang" data-v="${c}"><span class="t-m">${n}</span>${c === lang ? '<span class="tag ok">✓</span>' : ''}</button>`).join('')}</div></div>`,
+    network: () => `<div class="screen"><h1 class="disp t-l">${tr('net.title')}</h1><p class="t-m muted">${tr('net.text')}</p>
+      ${st.cable ? `<div class="row"><span class="t-m">${tr('net.cable')}</span><span class="tag ok">${tr('net.connected')}</span></div><div class="buttons">${btn('next', tr('continue'), true)}</div>`
+      : `<div class="list">${NETWORKS.map((n, i) => `<button class="row" data-f data-k="net" data-i="${i}"><span class="left"><span class="t-m">${n.ssid}</span><span class="t-s muted">${n.secured ? tr('net.secured') : tr('net.open')}</span></span>
+        <span class="right">${st.net === n ? `<span class="tag ok">${tr('net.connected')}</span>` : bars(n.strength)}</span></button>`).join('')}</div>
+        <div class="buttons">${st.net ? btn('next', tr('continue'), true) : ''}${btn('later', tr('net.later'))}</div>`}</div>`,
+    time: () => {
+      const zones = ZONES[lang] || ZONES.en;
+      if (zones.length === 1 && !st.choosing) {
+        const z = st.zone || zones[0];
+        return `<div class="screen center"><h1 class="disp t-l">${tr('time.title')}</h1><span class="disp t-xl clock">${clock(z[2])}</span>
+          <span class="t-m">${z[1]} · ${utc(z[2])}</span><p class="t-s muted">${tr('time.suggested')}</p>
+          <div class="buttons">${btn('next', tr('continue'), true)}${btn('choose', tr('time.other'))}</div></div>`;
+      }
+      const list = st.choosing ? ALL_ZONES : zones;
+      return `<div class="screen"><h1 class="disp t-l">${tr('time.choose')}</h1><p class="t-m muted">${st.choosing ? tr('time.suggested') : tr('time.choose.text')}</p>
+        <div class="list scroll" id="zones">${list.map(z => `<button class="row" data-f data-k="zone" data-z="${z[0]}"><span class="t-m">${z[1]}</span>
+          <span class="right"><span class="clock">${clock(z[2])}</span><span class="t-s">${utc(z[2])}</span></span></button>`).join('')}</div></div>`;
+    },
+    dongle: () => `<div class="screen"><h1 class="disp t-l">${tr('dongle.title')}</h1><p class="t-m">${tr('dongle.text')}</p>
+      <div class="buttons">${btn('download', tr('dongle.download'), true)}${btn('terms', tr('dongle.terms'))}${btn('dlater', tr('dongle.later'))}</div></div>`,
+    ready: () => {
+      const z = st.zone || (ZONES[lang] || ZONES.en)[0];
+      const rows = [[tr('ready.lang'), LANGS.find(([c]) => c === lang)[1]], [tr('ready.net'), st.cable ? tr('net.cable') : st.net ? st.net.ssid : tr('ready.offline')], [tr('ready.time'), `${z[1]} · ${utc(z[2])}`]];
+      return `<div class="screen center"><h1 class="disp t-xl">${tr('ready.title')}</h1><p class="t-m muted">${tr('ready.text')}</p>
+        <div class="list" style="width:560px">${rows.map(([a, b]) => `<div class="row"><span class="muted">${a}</span><span>${b}</span></div>`).join('')}</div>
+        <div class="buttons">${btn('home', tr('ready.home'), true)}</div></div>`;
+    },
+  };
+  // the signal: the settings demo's Wi-Fi icon, its arcs lit by strength (3.9)
+  const wifiIcon = level => `<svg class="wifi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+    <path d="M2 9a15 15 0 0 1 20 0" opacity="${level >= 3 ? 1 : .3}"/><path d="M5 12.5a10 10 0 0 1 14 0" opacity="${level >= 2 ? 1 : .3}"/>
+    <path d="M8.5 16a5 5 0 0 1 7 0" opacity="${level >= 1 ? 1 : .3}"/><circle cx="12" cy="19.5" r="1.2" fill="currentColor" stroke="none"/></svg>`;
+  // the five languages of Wave 1, each in its own name ([[languages]]); in this demo only English
+  // and Italian have their texts (the others come with step 7.9)
+  const LANGS = [['en', 'English'], ['it', 'Italiano'], ['de', 'Deutsch'], ['fr', 'Français'], ['es', 'Español']];
+  const bars = s => wifiIcon(s > 60 ? 3 : s > 30 ? 2 : 1);
+
+  function render(keepK) {
+    const cur = STEP_OF[st.screen], names = ['controller', 'language', 'network', 'time', 'ready'];
+    $('#steps').innerHTML = names.map((n, i) => `<span class="s${n === cur ? ' on' : names.indexOf(cur) > i ? ' done' : ''}"><span class="n">${i + 1}</span><span>${tr('step.' + n)}</span></span>`).join('<span class="sep"></span>');
+    $('#main').innerHTML = SCREENS[st.screen]();
+    focus((keepK && $(`#main [data-k="${keepK}"]`)) || $('#main [data-f]') || null, true);
+    if (st.screen === 'pair') startPairing(); else stopPairing();
+  }
+  function renderPrompts() {
+    let left = [];
+    if (sheetOpen) left = [P(['a'], 'p.select'), P(['b'], 'p.back')];
+    else if (focused) left = [P(['a'], 'p.select'), ...(st.screen === 'language' || st.screen === 'ready' ? [] : [P(['b'], 'p.back')]), ...($('#zones') ? [P(['rs'], 'p.scroll')] : [])];
+    $('#prompts').innerHTML = `<div class="set">${left.join('')}</div><div class="set"></div>`;
+  }
+
+  /* ---------- Pairing: the title cycles through languages, the brands light in turn ---------- */
+  let cycle = null, n = 0;
+  function startPairing() {
+    stopPairing();
+    cycle = setInterval(() => {
+      n++;
+      const h = $('#hello'); if (!h) return;
+      h.classList.add('fade'); setTimeout(() => { h.textContent = HELLO[n % HELLO.length]; h.classList.remove('fade'); }, 350);
+      $$('.brand-card').forEach((c, i) => c.classList.toggle('lit', i === n % 4));
+    }, 2200);
+  }
+  function stopPairing() { clearInterval(cycle); cycle = null; }
+  function paired(name) {
+    if (st.screen !== 'pair') return;
+    feedback('notify'); toast(tr('pair.found', { name })); st.screen = 'language'; render();
+  }
+
+  /* ---------- Focus and navigation ---------- */
+  let focused = null;
+  function focus(el, silent) {
+    if (focused) focused.classList.remove('focus');
+    focused = el || null;
+    if (el) { el.classList.add('focus'); el.scrollIntoView({ block: 'nearest' }); if (!silent) feedback('move'); }
+    renderPrompts();
+  }
+  function move(dir) {
+    if (sheetOpen || !focused) { feedback('edge'); return; }
+    const a = focused.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    let pick = null, score = Infinity;
+    for (const el of $$('#main [data-f]')) {
+      if (el === focused) continue;
+      const b = el.getBoundingClientRect(), dx = b.left + b.width / 2 - ax, dy = b.top + b.height / 2 - ay;
+      if (!(dir === 'left' ? dx < -4 : dir === 'right' ? dx > 4 : dir === 'up' ? dy < -4 : dy > 4)) continue;
+      const h = dir === 'left' || dir === 'right';
+      const s = h ? Math.abs(dx) + 2.5 * Math.abs(dy) : Math.abs(dy) + 2.5 * Math.abs(dx);
+      if (s < score) { score = s; pick = el; }
+    }
+    pick ? focus(pick) : feedback('edge');
+  }
+  function next() {
+    let i = ORDER.indexOf(st.screen) + 1;
+    if (ORDER[i] === 'dongle' && !(st.dongle && online())) i++;   // the adapter's firmware: only with an adapter and the internet
+    st.screen = ORDER[i]; st.choosing = false; feedback('confirm'); render();
+  }
+
+  function accept() {
+    if (sheetOpen) { connect(); return; }
+    if (st.screen === 'pair') { paired('Xbox Wireless Controller'); return; }
+    if (!focused) return;
+    const k = focused.dataset.k;
+    if (k === 'lang') { lang = focused.dataset.v; if (!['en', 'it'].includes(lang)) toast(tr('demo.texts')); next(); }
+    else if (k === 'net') { const nw = NETWORKS[+focused.dataset.i]; if (st.net === nw) return; nw.secured ? passwordSheet(nw) : join(nw); }
+    else if (k === 'next') next();
+    else if (k === 'later') { st.net = null; next(); }
+    else if (k === 'choose') { st.choosing = true; feedback('confirm'); render(); }
+    else if (k === 'zone') { st.zone = ALL_ZONES.find(z => z[0] === focused.dataset.z); st.choosing = false; next(); }
+    else if (k === 'download') { feedback('notify'); toast(tr('dongle.done')); next(); }
+    else if (k === 'terms') toast(tr('demo.terms'));
+    else if (k === 'dlater') next();
+    else if (k === 'home') toast(tr('demo.home'));
+  }
+  function back() {
+    if (sheetOpen) { closeSheet(); return; }
+    if (st.screen === 'time' && st.choosing) { st.choosing = false; feedback('confirm'); render('choose'); return; }
+    const i = ORDER.indexOf(st.screen);
+    if (i <= 1 || st.screen === 'ready') { feedback('edge'); return; }
+    let p = i - 1; if (ORDER[p] === 'dongle' && !(st.dongle && online())) p--;
+    st.screen = ORDER[p]; feedback('confirm'); render();
+  }
+
+  /* ---------- Wi-Fi password (the console's keyboard in the real set-up) ---------- */
+  let sheetOpen = false, pending = null;
+  function passwordSheet(nw) {
+    pending = nw; sheetOpen = true; feedback('sheet-open');
+    $('#sheet').innerHTML = `<span class="disp t-l">${tr('net.password', { ssid: nw.ssid })}</span><span class="t-s muted">${tr('net.typing')}</span><input id="pw" type="password" value="password">`;
+    $('#overlay').classList.add('open'); renderPrompts();
+    setTimeout(() => { $('#pw').focus(); $('#pw').select(); }, 30);
+  }
+  function closeSheet() { sheetOpen = false; feedback('sheet-close'); $('#overlay').classList.remove('open'); render(); }
+  function connect() { const nw = pending; closeSheet(); join(nw); }
+  function join(nw) {
+    toast(tr('net.connecting', { ssid: nw.ssid }));
+    setTimeout(() => { st.net = nw; feedback('notify'); render('next'); }, 1100);
+  }
+
+  let toastTimer;
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 1800); }
+
+  /* ---------- Keyboard, demo keys, mouse, gamepad ---------- */
+  const DEMO = {
+    c: () => paired('DualSense Wireless Controller'),
+    k: () => { st.cable = !st.cable; $('#cable-state').textContent = st.cable ? 'on' : 'off'; if (st.screen === 'network') render(); },
+    d: () => { st.dongle = !st.dongle; $('#dongle-state').textContent = st.dongle ? 'on' : 'off'; },
+    l: () => { lang = lang === 'en' ? 'it' : 'en'; render(focused && focused.dataset.k); },
+    p: () => { palI = (palI + 1) % PALETTES.length; applyPalette(); },
+    n: () => { soundOn = !soundOn; $('#snd-state').textContent = soundOn ? 'on' : 'off'; },
+  };
+  document.addEventListener('keydown', e => {
+    if (sheetOpen) {
+      if (e.key === 'Enter') { e.preventDefault(); connect(); } else if (e.key === 'Escape') { e.preventDefault(); closeSheet(); }
+      return;
+    }
+    const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    if (dirs[e.key]) { e.preventDefault(); move(dirs[e.key]); return; }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!e.repeat) accept(); return; }
+    if (e.key === 'Escape') { e.preventDefault(); back(); return; }
+    const k = e.key.toLowerCase(); if (DEMO[k]) { e.preventDefault(); DEMO[k](); }
+  });
+  document.addEventListener('click', e => { const el = e.target.closest('#main [data-f]'); if (el && !sheetOpen) { focus(el, true); accept(); } });
+  const prev = {}; let repeatAt = 0, lastDir = null;
+  function poll(ts) {
+    const pad = (navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [])[0];
+    if (pad) {
+      if (st.screen === 'pair') paired(pad.id.split('(')[0].trim() || 'Controller');
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+      const ry = pad.axes[3] || 0, box = $('#zones');
+      if (box && Math.abs(ry) > 0.5) box.scrollTop += ry * 12;
+      if (on(0) && !prev.a) { startAudio(); accept(); }
+      if (on(1) && !prev.b) back();
+      prev.a = on(0); prev.b = on(1);
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+
+  /* ---------- Start state ---------- */
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (LANGS.some(([c]) => c === q.get('lang'))) lang = q.get('lang');
+  if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
+  if (q.get('cable') === '1') { st.cable = true; $('#cable-state').textContent = 'on'; }
+  if (q.get('dongle') === '1') { st.dongle = true; $('#dongle-state').textContent = 'on'; }
+  if (ORDER.includes(q.get('screen'))) st.screen = q.get('screen');
+  applyPalette();
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
+
+pkgname=owneet-installer
+pkgver=0.0.2
+pkgrel=1
+pkgdesc="OwneetOS installer backend: installs the live USB stick's system on a whole internal disk"
+arch=('any')
+url="https://github.com/fancy-dino/OwneetOS"
+license=('GPL-3.0-or-later')
+# owneet-session: the console user owneet, who writes the request and starts the installation
+depends=('bash' 'coreutils' 'util-linux' 'btrfs-progs' 'dosfstools' 'systemd' 'polkit' 'mkinitcpio'
+         'owneet-session')
+source=('owneet-install' 'owneet-install.service' '50-owneet-install.rules' 'owneet-installer.tmpfiles')
+sha256sums=('da201b66100908b7779912ba2431898421b7b17ce251eb5c477929a26b60de70'
+            '0d1337a1d9624c9a6a9aa9db7d38f0882116a46ce42e901ea9ab93acf3a5da34'
+            '2b0bbb5e0c56e332fdc75d3711888ebb18a9ac3d441ebb06683e2e0c5d2681c4'
+            'a9cc8cba0cc8f3e25274df35f621ad3a661f4941dfd39abb2e07554aa0262da0')
+
+package() {
+  install -Dm755 owneet-install "$pkgdir/usr/lib/owneet/owneet-install"
+  install -Dm644 owneet-install.service -t "$pkgdir/usr/lib/systemd/system/"
+  install -Dm644 50-owneet-install.rules "$pkgdir/usr/share/polkit-1/rules.d/50-owneet-install.rules"
+  install -Dm644 owneet-installer.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/owneet-installer.conf"
+}

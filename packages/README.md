@@ -28,6 +28,8 @@ first if it is missing.
 | [`owneet-xone`](owneet-xone/) | Xbox wireless dongle driver ([xone](https://github.com/dlundqvist/xone) 0.5.8) built for the ISO's exact kernel, without `xone_wired` (wired controllers stay on the kernel's `xpad`); loads before `mt76x2u` so USB Wi-Fi adapters keep working; `owneet-xone-firmware` downloads Microsoft's firmware only with consent. **Rebuilt for every kernel change.** |
 | [`brave-bin`](brave-bin/) | Brave's official Linux build (unmodified), the hidden engine behind the web apps. Not installed by default: the ISO carries it, with the dependencies the system lacks, in the offline repository `/usr/share/owneet/bundled/`, installed when the user picks a web app ([[step-5.0.0-optional-web-apps]]). |
 | [`owneet-session`](owneet-session/) | Console user `owneet`, autologin on tty1, `owneet-session` (gamescope or cage, restarts, fallback) and the fullscreen placeholder shown until the real UI exists. |
+| [`owneet-installer`](owneet-installer/) | The installer's backend: `owneet-install disks` (the internal disks as JSON, with Windows and BitLocker found) and `owneet-install install` (offline, the stick's own image on a whole disk; started by the console through `owneet-install.service`, its progress in `/run/owneet/install.json`). Runs only on the live stick. |
+| [`owneet-rollback`](owneet-rollback/) | Rollback of an installed system: one spare copy (btrfs snapshot) of the last version that worked, `owneet-rollback prepare`/`arm` around an update, systemd-boot's boot counting (3 tries), `owneet-boot-check.service` that counts a version as working, `now` (back by hand) and `keep`. |
 
 ## Rules
 
