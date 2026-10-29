@@ -20,7 +20,7 @@
 //    nothing.
 //  - On a TV: drawn as on a screen about 1280 px wide (layoutWidth: the worker sets Brave's zoom
 //    for the tab), and Spotify's right panel folded away when the page opens and after A plays
-//    (the desktop player reopens it when a song starts).
+//    (the desktop player reopens it when a song starts), only while its own parts show.
 // "Install App", "Open in Desktop app" and "Open Miniplayer" are never reached: they open windows
 // or programs the console cannot show.
 //
@@ -54,6 +54,8 @@ var OwneetSpotify = (() => {
     menu: '#context-menu, [data-testid="context-menu"]',
     menuItem: '[role="menuitem"]',
     window: '[role="dialog"], [aria-modal="true"]',
+    // the right panel ("Now playing view"): its own parts are on screen while it is open
+    panel: '[data-testid^="npv-"]',
     // never reached: "Open Miniplayer" (a window of its own) and "Install App" (a download)
     never: '[data-testid="pip-toggle-button"], a[href*="/download"]',
   };
@@ -65,7 +67,6 @@ var OwneetSpotify = (() => {
   const SLIDE_MS = 450;          // a shelf sliding on with Spotify's arrow
   const MENU_MS = 350;           // a context menu appearing
   const PLAY_MS = 1500;          // a song starting (Spotify then reopens its right panel)
-  const PANEL_GAP = 120;         // the main view ends this far from the right edge: the right panel is open
 
   const matches = loc => loc.hostname === 'open.spotify.com';
   const isQueue = label => QUEUE.some(r => r.test(label));
@@ -247,16 +248,16 @@ var OwneetSpotify = (() => {
     }
     const inBar = cur => { const b = bar(); return !!(cur && b && b.contains(cur)); };
 
-    // ---- On a TV: Spotify's right panel folded away once when the page opens (its own Alt+Shift+R)
-    function foldPanel(tries) {
-      const m = main();
-      if (!usable(m)) { if (tries > 0) env.setTimeout(() => foldPanel(tries - 1), 500); return; }
-      if (m.getBoundingClientRect().right < doc.defaultView.innerWidth - PANEL_GAP) {
-        sendKey(env, keyTarget(), 'R', 'KeyR', 82, { alt: true, shift: true });
-      }
+    // ---- On a TV: Spotify's right panel folded away (its own Alt+Shift+R) when the page opens and
+    // after A plays. The key toggles the panel: it is sent only while the panel's own parts are on
+    // screen, checked once a second for a few seconds (Spotify opens it when a song starts)
+    const panelOpen = () => qa(NAMES.panel).some(usable);
+    function foldPanel(checks) {
+      if (panelOpen()) { sendKey(env, keyTarget(), 'R', 'KeyR', 82, { alt: true, shift: true }); return; }
+      if (checks > 1) env.setTimeout(() => foldPanel(checks - 1), 1000);
     }
-    env.setTimeout(() => foldPanel(20), 1000);
-    const afterPlay = () => env.setTimeout(() => foldPanel(0), PLAY_MS);
+    env.setTimeout(() => foldPanel(8), 1000);
+    const afterPlay = () => env.setTimeout(() => foldPanel(4), PLAY_MS);
 
     return {
       layoutWidth: LAYOUT_WIDTH,
