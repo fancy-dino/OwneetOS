@@ -31,6 +31,11 @@ Mockups and design assets.
     ([[step-6.1-first-boot-flow]]): the mockup's pairing screen, the language, the network (or
     later), the time zone (suggested, or a list of cities), the Xbox adapter's firmware with
     consent (only with an adapter and the internet), ready. Start state: `#screen=time&lang=en`.
+  - [`6.2-live-home.html`](demos/6.2-live-home.html) and
+    [`6.2-live-settings.html`](demos/6.2-live-settings.html): started from the USB stick
+    ([[step-6.2-live-vs-installed-mode]]), Home has an always visible strip above the hero,
+    "Install OwneetOS", and Settings → System offers installing in place of the updates; key I
+    switches live / installed. Start state: `#mode=installed`.
   - [`6.4-installer.html`](demos/6.4-installer.html): the installer ([[step-6.4-installer-ui]]):
     welcome, the internal disks with what is on them, the console's name, the warning (a switch to
     turn on for a disk with Windows or BitLocker), the final confirmation held for three seconds,
@@ -40,9 +45,16 @@ Mockups and design assets.
     disks (a 96 GB SSD and a 2 TB HDD, as the FrankenPC): each cover says its disk; Menu → "Move to
     another disk" (disks without room or read only are off and say why), a confirmation with the
     switch "Remove the original after the copy is checked", then the steps ticked one by one (copy
-    with Cancel, check, the original removed); Steam's games moved by Steam; a USB disk with games
+    with Cancel, which asks first, check, the original removed; a failed check says so, with Close
+    and Try again); Steam's games moved by Steam; a USB disk with games
     asks "Play from here / Copy to the console", then which disk. Start state:
     `#open=move|confirm|copying|steam|plug|plugwhere|plugrun`.
+  - [`7.1-updates.html`](demos/7.1-updates.html): the updates in Settings → System
+    ([[step-7.1-updates]], [[step-7.1b-going-back-to-any-version]]), on the approved settings demo:
+    the automatic check's notice, "What's new" with a closed "Details" list of packages, download
+    and install, "Restart now" / "Later", going back to the previous version or to any version
+    (with its warning), the notice after a failed update. Start state:
+    `#section=system&upd=available&lang=it` (upd: uptodate, available, ready, fellback).
   - [`7.8-website-home.html`](demos/7.8-website-home.html): the website's home
     ([[step-7.8-website]]), one page whose sections snap, the features in a carousel, the
     console's home screen drawn; English and Italian; the "Demo 7.8" button switches palette,

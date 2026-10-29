@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Signs release files with detached signatures (FILE.sig) and checks every signature made
+# ([[step-7.2-release-pipeline]], [[package-signing]]). Used by tools/release/build, never by hand:
+#
+#   tools/release/sign FILE...
+#
+# The key comes from one of two places:
+#   OWNEET_SIGNING_DIR=DIR   the release build in CI: DIR/subkey.asc (the signing subkey, exported
+#                            with its passphrase by the owner) and DIR/passphrase, written from the
+#                            GitHub environment "release". The key is imported into a temporary
+#                            GnuPG home, removed at the end, and never printed.
+#   OWNEET_SIGNING_TEST=1    tests of the pipeline: the THROWAWAY test key of tools/make-test-release
+#                            (~/.owneet-test-gnupg in the builder VM), never the project's.
+# With neither, nothing is signed and the script fails: a release is never unsigned.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+die() { echo "error: $*" >&2; exit 1; }
+(( $# )) || die "usage: tools/release/sign FILE..."
+for f in "$@"; do [[ -f "$f" ]] || die "$f not found"; done
+
+home="$(mktemp -d)"
+trap 'rm -rf "$home"' EXIT
+chmod 700 "$home"
+
+if [[ -n "${OWNEET_SIGNING_DIR:-}" ]]; then
+    [[ -s "$OWNEET_SIGNING_DIR/subkey.asc" && -s "$OWNEET_SIGNING_DIR/passphrase" ]] \
+        || die "the signing subkey or its passphrase is missing in OWNEET_SIGNING_DIR"
+    export GNUPGHOME="$home"
+    gpg --batch --quiet --import "$OWNEET_SIGNING_DIR/subkey.asc" 2>/dev/null \
+        || die "the signing subkey cannot be imported"
+    # The primary key's fingerprint: gpg signs with its signing subkey, the only secret part here
+    key="$(cut -d: -f1 "$ROOT/packages/owneet-keyring/owneet-trusted")"
+    sign_one() {
+        gpg --batch --yes --quiet --pinentry-mode loopback --passphrase-file "$OWNEET_SIGNING_DIR/passphrase" \
+            --local-user "$key" --detach-sign --no-armor -o "$1.sig" "$1"
+    }
+    keyring="$ROOT/packages/owneet-keyring/owneet.gpg"
+elif [[ "${OWNEET_SIGNING_TEST:-0}" == 1 ]]; then
+    export GNUPGHOME="$HOME/.owneet-test-gnupg"
+    [[ -d "$GNUPGHOME" ]] || mkdir -m 700 "$GNUPGHOME"
+    # A test key lasts one day: a new one when none is still valid (e: expired, r: revoked)
+    usable() { gpg --list-secret-keys --with-colons 2>/dev/null | awk -F: '/^sec/ { ok = ($2 != "e" && $2 != "r") } /^fpr/ && ok { print $10; exit }'; }
+    if [[ -z "$(usable)" ]]; then
+        gpg --batch --yes --quiet --pinentry-mode loopback --passphrase '' \
+            --quick-gen-key "OwneetOS TEST KEY (never for releases) <test@invalid>" ed25519 sign 1d
+    fi
+    key="$(usable)"
+    sign_one() { gpg --batch --yes --quiet --local-user "$key" --detach-sign --no-armor -o "$1.sig" "$1"; }
+    keyring="$home/test-key.gpg"
+    gpg --export "$key" > "$keyring"
+else
+    die "no signing key: OWNEET_SIGNING_DIR (release in CI) or OWNEET_SIGNING_TEST=1 (tests only)"
+fi
+
+for f in "$@"; do
+    sign_one "$f" || die "signing $f failed"
+    # Every signature is checked against the public key only, as the console will check it
+    gpgv --quiet --keyring "$keyring" "$f.sig" "$f" 2>/dev/null || die "the signature of $f does not verify"
+done
+echo "==> signed and verified: $# file(s)"

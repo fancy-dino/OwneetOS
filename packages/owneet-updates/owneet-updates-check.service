@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Checks for a newer OwneetOS release (owneet-updates check, [[step-7.1-updates]]): by itself through
+# owneet-updates-check.timer, or from Settings → System (polkit rule 50-owneet-updates.rules).
+[Unit]
+Description=OwneetOS: check for updates
+ConditionPathExists=/etc/owneet/installed
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/owneet/owneet-updates check
+TimeoutStartSec=5min

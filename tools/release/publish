@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Publishes a release built by tools/release/build ([[step-7.2-release-pipeline]]). Run only by
+# the release workflow (.github/workflows/release.yml), after an author's approval, in the Arch
+# container as an unprivileged user (tools/ci/build-iso --publish VERSION: makepkg makes Arch's
+# missing source archives):
+#
+#   tools/release/publish VERSION
+#
+# Environment: SF_USER and SF_PROJECT (SourceForge), SF_SSH_KEY (a file: the SSH key of the
+# SourceForge account), GH_TOKEN (gh, the workflow's token). Order, so that nothing is ever
+# visible without its sources ([[legal-compliance]]):
+#   1. every signature checked against the OwneetOS key (nothing unsigned is ever published);
+#   2. Arch's source archives SourceForge does not have yet, into the shared sources/ folder;
+#   3. the release's folder on SourceForge: its sources first, then the ISO;
+#   4. the GitHub Release vVERSION with the [owneet] packages;
+#   5. last, the list of releases (GitHub Release "updates"): from now on consoles see it.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+die() { echo "error: $*" >&2; exit 1; }
+VERSION="${1:-}"
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "usage: tools/release/publish MAJOR.MINOR.PATCH"
+: "${SF_USER:?}" "${SF_PROJECT:?}" "${SF_SSH_KEY:?}" "${GH_TOKEN:?}"
+OUT="$ROOT/out/release"
+REL="$OUT/sourceforge/v$VERSION"
+KEYRING="$ROOT/packages/owneet-keyring/owneet.gpg"
+URL="$(sed -nE 's/^URL=//p' "$ROOT/packages/owneet-updates/updates.conf")"
+
+# SourceForge's file servers, their host key pinned (checked against SourceForge's published
+# fingerprint SHA256:209BDmH3jsRyO9UeGPPgLWPSegKmYCBIya0nR/AWWCY on 2026-10-28)
+known="$(mktemp)"
+trap 'rm -f "$known"' EXIT
+cp "$ROOT/tools/release/sourceforge-known-hosts" "$known"
+SSH="ssh -i $SF_SSH_KEY -o IdentitiesOnly=yes -o UserKnownHostsFile=$known -o StrictHostKeyChecking=yes"
+FRS="$SF_USER@frs.sourceforge.net:/home/frs/project/$SF_PROJECT"
+send() { rsync -a --chmod=D755,F644 -e "$SSH" "$@"; }
+
+echo "==> 1. checking every signature against the OwneetOS key"
+mapfile -t signed < <(find "$OUT/github" "$REL" "$OUT/updates" -maxdepth 1 -type f \
+    \( -name '*.pkg.tar.zst' -o -name 'owneet.db' -o -name 'owneet.files' -o -name '*.iso' -o -name 'releases.json' \))
+(( ${#signed[@]} >= 4 )) || die "the release in out/release is incomplete"
+for f in "${signed[@]}"; do
+    gpgv --quiet --keyring "$KEYRING" "$f.sig" "$f" 2>/dev/null || die "not signed by OwneetOS: $f"
+done
+(cd "$REL" && sha256sum -c --quiet ./*.iso.sha256) || die "the ISO does not match its checksum"
+echo "    ${#signed[@]} files signed by OwneetOS"
+
+# The list must still be the one this release was built on (no other release in between)
+current="$(mktemp)"
+code="$(curl -sSL --retry 3 --max-time 60 -o "$current" -w '%{http_code}' "$URL/updates/releases.json" || true)"
+[[ "$code" == 404 ]] && : > "$current"
+[[ "$code" == 200 || "$code" == 404 ]] || die "cannot read the published list (HTTP ${code:-none})"
+[[ "$(sha256sum < "$current" | cut -d' ' -f1)" == "$(cat "$OUT/updates/previous.sha256")" ]] \
+    || die "the published list changed after this release was built: build it again"
+
+echo "==> 2. Arch's source archives (shared sources/ folder)"
+empty="$(mktemp -d)"
+send "$empty/" "$FRS/sources/"
+have="$(rsync --list-only -e "$SSH" "$FRS/sources/" | awk '{ print $NF }')"
+# The ones SourceForge does not have yet: made (or downloaded) and sent one by one, four at a time,
+# each removed once sent (the first release makes hundreds, later ones only new versions)
+todo="$(mktemp)"
+while read -r file rest; do
+    grep -qFx "$file" <<< "$have" || echo "$file $rest"
+done < "$OUT/arch-sources.txt" > "$todo"
+echo "    $(wc -l < "$todo") to add, $(( $(wc -l < "$OUT/arch-sources.txt") - $(wc -l < "$todo") )) already there"
+one() {
+    local dir
+    dir="$(mktemp -d)"
+    # the archive, and its notes when a generated patch differed from Arch's checksums
+    "$ROOT/tools/release/arch-source" "$dir" "$@" && send "$dir"/* "$FRS/sources/" && echo "    $1"
+    local status=$?
+    rm -rf "$dir"
+    return "$status"
+}
+export -f one send
+export ROOT FRS SSH
+xargs -a "$todo" -L 1 -P 4 bash -c 'one "$@"' _ || die "some of Arch's source archives could not be added (run the job again: the ones sent are kept)"
+
+echo "==> 3. the release's folder on SourceForge"
+send "$REL/sources" "$REL/SOURCES.txt" "$REL/owneetos-$VERSION-source.tar.gz" "$FRS/v$VERSION/"
+send "$REL/" "$FRS/v$VERSION/"
+
+echo "==> 4. the GitHub Release v$VERSION"
+gh release create "v$VERSION" --verify-tag --title "OwneetOS $VERSION" --notes-file "$OUT/notes.md" \
+    "$OUT"/github/*
+
+echo "==> 5. the list of releases"
+gh release view updates >/dev/null 2>&1 \
+    || gh release create updates --title "Updates" --latest=false \
+        --notes "The signed list of OwneetOS releases that consoles read. Not a release itself."
+gh release upload updates "$OUT/updates/releases.json.sig" "$OUT/updates/releases.json" --clobber
+gh release edit "v$VERSION" --latest
+echo "==> OwneetOS $VERSION published"

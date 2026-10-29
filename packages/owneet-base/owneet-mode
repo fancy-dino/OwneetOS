@@ -1,0 +1,27 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# How this OwneetOS runs ([[step-6.2-live-vs-installed-mode]]), written at every start to
+# /run/owneet/mode for the rest of the system (owneetd, the interface):
+#
+#   live       started from the USB stick (archiso): nothing is kept at power-off; the interface
+#              offers "Install OwneetOS" (the installer of [[step-6.4-installer-ui]])
+#   installed  installed by owneet-install (/etc/owneet/installed): updates and going back
+#   tester     installed by owneet-tester-install (/etc/owneet/tester): updates from the USB stick
+#
+# A system that is none of these (built by hand) counts as installed, without the extras the
+# marks enable.
+
+set -euo pipefail
+
+if [[ -d /run/archiso ]]; then
+    mode=live
+elif [[ -f /etc/owneet/tester ]]; then
+    mode=tester
+else
+    mode=installed
+fi
+mkdir -p /run/owneet
+printf '%s\n' "$mode" > /run/owneet/mode.tmp
+mv /run/owneet/mode.tmp /run/owneet/mode
+echo "OwneetOS runs as: $mode"

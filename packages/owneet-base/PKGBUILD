@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.50
+pkgver=0.0.51
 pkgrel=1
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
@@ -28,12 +28,13 @@ source=('owneet-base-src.tar.gz' 'owneet-release' 'owneet-diagnostics' 'owneet-d
         'getty-tty1-tester-install.conf' 'owneet-update' 'owneet-update@.service'
         'owneet-update-boot.service' '50-owneet-update.rules' 'apps.json' 'owneet-apps'
         'owneet-apps-install@.service' 'owneet-apps-remove@.service' '50-owneet-apps.rules'
-        'brave-policies.json' 'owneet-mount-ro' 'owneet-mount-ro@.service' '90-owneet-usb-disks.rules')
+        'brave-policies.json' 'owneet-mount-ro' 'owneet-mount-ro@.service' '90-owneet-usb-disks.rules'
+        'owneet-mode' 'owneet-mode.service')
 sha256sums=('SKIP'
             '74f473c3e5cec980798421ac667c84f3938a1e93160b37112300a25aa2ea0400'
             'e739678148442c4770b5c7cf793df180bc475cd33cf1bcb347affdb978f84fc3'
             'dfcdb91edaa6fd46121f8f3a2ce95b0a8e461c5f04c6f9325a1babe45e53cdea'
-            '471544b748df8fd99f6ec426784a1c389ae9db8f829ef392fda862bd91cc4f49'
+            '5a0129b319581f53ee8c6d24f045e57f47be18ea4751af42e103d7956dce16c5'
             '5ada10d2823e601b79510fdbef86025d4bd71c8a822cfadb96ceef14692a6397'
             '21a26bf30666c8897ec0425f967e0a415352e22a92ba3a243e0d57fca3e55a9b'
             'c1380a518174ea5d23be5afa65ddb4d53ae89da705ac7a643f0587dec659579a'
@@ -51,7 +52,9 @@ sha256sums=('SKIP'
             '1f8dcc23da09d8f649ef63f11bd290e0b427e93c53fd129d76b3f071eeeb46ed'
             '7735866ea379018ed106f4dc1b0f964376ddff2d4e7c922af8ea081a08b77131'
             '25fd1c3c58527e17a0b9922fcb1b0966f10712719f372707b9176ddd1af127b1'
-            '43b9b5cd50a82ba2aa9dc7cd1adebde87675badeda14c98ee1a3993e3894cce0')
+            '43b9b5cd50a82ba2aa9dc7cd1adebde87675badeda14c98ee1a3993e3894cce0'
+            '33dbc77bad7179e64888234d203fbe6ff41bddd109260322efabfda9cf6c2dd5'
+            '9fdd68d620cf7729b3a37b455eb9e04910bd1525550247873782b7cfe3329544')
 
 package() {
   install -Dm644 owneet-release "$pkgdir/usr/share/owneet/owneet-release"
@@ -99,6 +102,9 @@ package() {
   install -Dm755 owneet-mount-ro "$pkgdir/usr/lib/owneet/owneet-mount-ro"
   install -Dm644 owneet-mount-ro@.service -t "$pkgdir/usr/lib/systemd/system/"
   install -Dm644 90-owneet-usb-disks.rules "$pkgdir/usr/lib/udev/rules.d/90-owneet-usb-disks.rules"
+  # Live, installed or tester: /run/owneet/mode ([[step-6.2-live-vs-installed-mode]])
+  install -Dm755 owneet-mode "$pkgdir/usr/lib/owneet/owneet-mode"
+  install -Dm644 owneet-mode.service -t "$pkgdir/usr/lib/systemd/system/"
   install -Dm644 50-owneet-base.preset "$pkgdir/usr/lib/systemd/system-preset/50-owneet-base.preset"
   install -Dm644 CREDITS.md "$pkgdir/usr/share/doc/owneetos/CREDITS.md"
 }

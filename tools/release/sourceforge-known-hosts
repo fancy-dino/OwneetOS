@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The host key of SourceForge's file servers (tools/release/publish). Its fingerprint matched
+# SourceForge's published one, SHA256:209BDmH3jsRyO9UeGPPgLWPSegKmYCBIya0nR/AWWCY, on 2026-10-28.
+frs.sourceforge.net ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOQD35Ujalhh+JJkPvMckDlhu4dS7WH6NsOJ15iGCJLC
