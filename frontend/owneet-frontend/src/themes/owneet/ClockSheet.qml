@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Date and time by hand ([[step-6.1-first-boot-flow]], approved demos 6.1-first-start and
 // 6.1-settings-time): without the internet the console uses the PC's own clock, which may be
-// wrong. Day, month, year, hours and minutes, one field each, in a city's time (named over the
-// fields): left / right choose the field, up / down change it (held: it repeats), A saves
+// wrong. Day, month, year, hours and minutes, one field each, in a zone's time: left / right
+// choose the field, up / down change it (held: it repeats), A saves
 // (owneetd: PUT /v1/time/now, in that zone), B goes back. Opened by the first start (the city
 // shown or selected: the console's zone is not set yet) and by Settings → Language.
 import QtQuick 2.15
@@ -18,14 +18,12 @@ FocusScope {
     property int at: 3                          // the field selected: the hours
     property var toast: null                    // the theme's, which stays after the window closes
     property string zone: ""                    // the zone of the fields (Europe/Rome)
-    property string city: ""                    // its city ("": none of the list's)
     signal saved()
 
-    // open([29, 10, 2026, 14, 30], "Europe/Rome", "rome"): the date and time now in that zone
-    function open(now, zone, city) {
+    // open([29, 10, 2026, 14, 30], "Europe/Rome"): the date and time now in that zone
+    function open(now, zone) {
         fields = now;
         root.zone = zone;
-        root.city = city;
         at = 3;
         Nav.feedback("sheet-open");
         visible = true;
@@ -121,14 +119,6 @@ FocusScope {
                 font.family: Theme.textFont
                 font.pixelSize: Theme.fs(14.5)
                 wrapMode: Text.Wrap
-            }
-            Text {
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                text: (root.city !== "" ? Tr.tr("city." + root.city) + " · " : "") + TimeZones.utcLabel(root.zone)
-                color: Theme.fg
-                font.family: Theme.textFont
-                font.pixelSize: Theme.fs(17)
             }
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter

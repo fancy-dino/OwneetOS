@@ -599,7 +599,7 @@ Rectangle {
                 Button {                  // without the internet the PC's own clock may be wrong
                     visible: !root.online
                     text: Tr.tr("first.clock.set")
-                    onActivated: if (root.theme) root.theme.openClock(TimeZones.cityZones[root.clockCity], root.clockCity)
+                    onActivated: if (root.theme) root.theme.openClock(TimeZones.cityZones[root.clockCity])
                 }
             }
         }
@@ -638,7 +638,7 @@ Rectangle {
             Button {                      // the languages with several cities: the same, under the list
                 visible: !root.online
                 text: Tr.tr("first.clock.set")
-                onActivated: if (root.theme) root.theme.openClock(TimeZones.cityZones[root.clockCity], root.clockCity)
+                onActivated: if (root.theme) root.theme.openClock(TimeZones.cityZones[root.clockCity])
             }
         }
 

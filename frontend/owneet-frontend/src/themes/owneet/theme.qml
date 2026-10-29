@@ -308,13 +308,12 @@ FocusScope {
     // Date and time by hand (without the internet), from the first start or Settings → Language
     // Date and time by hand, in a zone: the first start's city (the console's zone is not set yet),
     // or the console's own zone
-    function openClock(zone, city) {
+    function openClock(zone) {
         owneetd.get("/v1/time", (status, data) => {
             if (status !== 200) { toast.show(Tr.tr("clock.failed")); return; }
             root.timeStatus = data;
             const z = zone || data.zone;
-            const c = city !== undefined ? city : TimeZones.cityOf(z, api.memory.has("city") ? api.memory.get("city") : "");
-            clockSheet.open(TimeZones.fieldsIn(data.date, data.time, data.zone, z), z, c);
+            clockSheet.open(TimeZones.fieldsIn(data.date, data.time, data.zone, z), z);
         });
     }
     function openTimeZones() {
