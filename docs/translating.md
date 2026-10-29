@@ -6,7 +6,9 @@ it appears in **Appearance → Language** (Settings → Language from [[step-3.9
 
 - **English** (`en.json`) is the default language and the reference: every message exists there
   first. When a message is missing in a language, the English one is shown.
-- **Italian** (`it.json`) is kept complete too. Other languages may be partial.
+- **Italian, German, French and Spanish** (`it.json`, `de.json`, `fr.json`, `es.json`), the
+  languages of Wave 1, are kept complete too; their reviews by native speakers are welcome. Other
+  languages may be partial.
 
 ## The file
 
@@ -53,8 +55,8 @@ A language whose plural rules are not listed needs a small code change (a new ru
 ## Checking a translation
 
 `tools/i18n-check` (also part of `tools/lint`) checks every file: valid JSON, known plural rule,
-the same placeholders as English, no keys that English does not have; for English and Italian, no
-missing message. It lists how many messages each other language still misses.
+the same placeholders as English, no keys that English does not have; for the five languages of
+Wave 1, no missing message. It lists how many messages each other language still misses.
 
 To see a translation on a running console without rebuilding anything, copy the file to
 `~/.config/owneet-frontend/i18n/` of the `owneet` user and restart the interface: a file there

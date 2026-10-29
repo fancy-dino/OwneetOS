@@ -1728,7 +1728,7 @@ FocusScope {
     }
     // The on-screen keyboard's layout (owneetd): the chosen one, or the language's
     function keyboardFor(language, layouts) {
-        const byLanguage = { en: "us", it: "it" };
+        const byLanguage = { en: "us", it: "it", de: "de", fr: "fr", es: "es" };
         const l = byLanguage[language] || "us";
         return !layouts || layouts.indexOf(l) >= 0 ? l : "us";
     }
@@ -3118,7 +3118,7 @@ FocusScope {
         id: osk
         layout: {
             const l = Theme.keyboardSetting === "same" ? root.keyboardFor(Tr.language) : Theme.keyboardSetting;
-            return ["us", "it"].indexOf(l) >= 0 ? l : "us";
+            return ["us", "it", "de", "fr", "es"].indexOf(l) >= 0 ? l : "us";
         }
         showPassword: showPassword.checked
         onTogglePassword: showPassword.checked = !showPassword.checked

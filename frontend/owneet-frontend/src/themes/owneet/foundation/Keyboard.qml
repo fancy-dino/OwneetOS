@@ -15,7 +15,7 @@ FocusScope {
     property bool password: false         // shows the show / hide key
     property bool showPassword: false
     property bool eyeKey: true            // false: no show / hide key (nothing here shows the text)
-    property string layout: "us"          // us, it
+    property string layout: "us"          // us, it, de, fr, es
     signal done()                         // Done (or Menu, or Enter on a keyboard)
     signal closed()                       // B
     signal togglePassword()               // the show / hide key
@@ -32,7 +32,10 @@ FocusScope {
     // ---- Keys
     readonly property var letterRows: ({
         us: ["1234567890", "qwertyuiop", "asdfghjkl'", "zxcvbnm,.-"],
-        it: ["1234567890", "qwertyuiopè", "asdfghjklòàù", "zxcvbnm,.-"]
+        it: ["1234567890", "qwertyuiopè", "asdfghjklòàù", "zxcvbnm,.-"],
+        de: ["1234567890ß", "qwertzuiopü", "asdfghjklöä", "yxcvbnm,.-"],
+        fr: ["1234567890", "azertyuiop", "qsdfghjklm", "wxcvbn,.'-"],
+        es: ["1234567890", "qwertyuiop", "asdfghjklñ", "zxcvbnm,.-"]
     })
     readonly property var symbolRows: ["1234567890", "@#€$%&*()_", "+=/\\:;\"!?'", "<>[]{}~^|`"]
     readonly property var accentRows: ["àáâäãåæ", "èéêëìíîï", "òóôöõøùúûü", "çñßÿ"]

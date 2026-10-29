@@ -368,7 +368,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/v1/bluetooth": state["bluetooth"],
                 "/v1/audio": state["audio"],
                 "/v1/display": state["display"],
-                "/v1/input/layout": {"layout": "us", "supported": ["it", "us"]},
+                "/v1/input/layout": {"layout": "us", "supported": ["de", "es", "fr", "it", "us"]},
             }
             answer = json.loads(json.dumps(answers.get(path))) if path in answers else None
         if answer is None:

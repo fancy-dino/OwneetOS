@@ -61,3 +61,47 @@ func TestEveryPrintableASCIIOnUS(t *testing.T) {
 		}
 	}
 }
+
+// The letters, digits and a few characters of the German, French and Spanish layouts
+func TestStrokesMoreLayouts(t *testing.T) {
+	cases := []struct {
+		layout, text string
+		want         []stroke
+	}{
+		{"de", "zyß@", []stroke{{code: keyY}, {code: keyZ}, {code: keyMinus}, {code: keyQ, altgr: true}}},
+		{"de", "Ü1!", []stroke{{code: keyLeftBrace, shift: true}, {code: key1}, {code: key1, shift: true}}},
+		{"fr", "aqmé1", []stroke{{code: keyQ}, {code: keyA}, {code: keySemicolon}, {code: key1 + 1}, {code: key1, shift: true}}},
+		{"fr", "@,!", []stroke{{code: key0, altgr: true}, {code: keyM}, {code: keySlash}}},
+		{"es", "ñÑ¿@", []stroke{{code: keySemicolon}, {code: keySemicolon, shift: true}, {code: keyEqual, shift: true}, {code: key1 + 1, altgr: true}}},
+	}
+	for _, c := range cases {
+		got, err := Strokes(c.layout, c.text)
+		if err != nil {
+			t.Errorf("%s %q: %v", c.layout, c.text, err)
+			continue
+		}
+		for i := range c.want {
+			if got[i] != c.want[i] {
+				t.Errorf("%s %q stroke %d: got %+v want %+v", c.layout, c.text, i, got[i], c.want[i])
+			}
+		}
+	}
+}
+
+// Every letter and digit can be typed on every layout, each on its own stroke
+func TestLettersAndDigitsOnEveryLayout(t *testing.T) {
+	for name := range Layouts {
+		seen := map[stroke]rune{}
+		for _, c := range "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 " {
+			s, err := Strokes(name, string(c))
+			if err != nil {
+				t.Errorf("%s: %q: %v", name, c, err)
+				continue
+			}
+			if other, ok := seen[s[0]]; ok {
+				t.Errorf("%s: %q and %q on the same stroke", name, other, c)
+			}
+			seen[s[0]] = c
+		}
+	}
+}

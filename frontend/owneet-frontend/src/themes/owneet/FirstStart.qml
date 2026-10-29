@@ -769,6 +769,7 @@ Rectangle {
             leftMargin: Theme.safeX; rightMargin: Theme.safeX; bottomMargin: Theme.safeBottom
         }
         globalPrompts: []
+        visible: !(root.theme && root.theme.windowOpen)     // a window (the keyboard) has its own
         prompts: {
             if (root.screen === "pair" || root.dongleState === "installing")
                 return [];

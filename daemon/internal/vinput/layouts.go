@@ -12,7 +12,9 @@ const (
 	keyBackspace  = 14
 	keyTab        = 15
 	keyQ          = 16
+	keyW          = 17
 	keyE          = 18
+	keyY          = 21
 	keyLeftBrace  = 26
 	keyRightBrace = 27
 	keyEnter      = 28
@@ -24,6 +26,7 @@ const (
 	keyLeftShift  = 42
 	keyBackslash  = 43
 	keyZ          = 44
+	keyM          = 50
 	keyComma      = 51
 	keyDot        = 52
 	keySlash      = 53
@@ -139,7 +142,7 @@ func layoutIT() Layout {
 }
 
 // Layouts are the supported keyboard layouts, by XKB name.
-var Layouts = map[string]func() Layout{"us": layoutUS, "it": layoutIT}
+var Layouts = map[string]func() Layout{"us": layoutUS, "it": layoutIT, "de": layoutDE, "fr": layoutFR, "es": layoutES}
 
 // namedKeys are the special keys accepted by PressKey.
 var namedKeys = map[string]int{
@@ -151,4 +154,118 @@ var namedKeys = map[string]int{
 
 var modifierKeys = map[string]int{
 	"ctrl": keyLeftCtrl, "shift": keyLeftShift, "alt": keyLeftAlt, "meta": keyLeftMeta,
+}
+
+// shiftedDigits sets the characters of Shift and a digit key, from 0 to 9.
+func (l Layout) shiftedDigits(chars string) {
+	for i, s := range chars {
+		code := key0
+		if i > 0 {
+			code = key1 + i - 1
+		}
+		l[s] = stroke{code: code, shift: true}
+	}
+}
+
+// letter puts a letter (and its capital) on another key.
+func (l Layout) letter(c rune, code int) {
+	l[c] = stroke{code: code}
+	l[c-'a'+'A'] = stroke{code: code, shift: true}
+}
+
+// layoutDE is XKB "de" (German, QWERTZ); its dead keys (^, ´, `) are left out.
+func layoutDE() Layout {
+	l := common()
+	l.letter('z', keyY)
+	l.letter('y', keyZ)
+	l.shiftedDigits("=!\"§$%&/()")
+	l.add(keyGrave, 0, '°', 0, 0)
+	l.add(keyMinus, 'ß', '?', '\\', 0)
+	l.add(keyLeftBrace, 'ü', 'Ü', 0, 0)
+	l.add(keyRightBrace, '+', '*', '~', 0)
+	l.add(keySemicolon, 'ö', 'Ö', 0, 0)
+	l.add(keyApostrophe, 'ä', 'Ä', 0, 0)
+	l.add(keyBackslash, '#', '\'', 0, 0)
+	l.add(key102nd, '<', '>', '|', 0)
+	l.add(keyComma, ',', ';', 0, 0)
+	l.add(keyDot, '.', ':', 0, 0)
+	l.add(keySlash, '-', '_', 0, 0)
+	for i, c := range "²³" {
+		l[c] = stroke{code: key1 + 1 + i, altgr: true}
+	}
+	for i, c := range "{[]}" { // AltGr 7, 8, 9, 0
+		code := key1 + 6 + i
+		if i == 3 {
+			code = key0
+		}
+		l[c] = stroke{code: code, altgr: true}
+	}
+	l['@'] = stroke{code: keyQ, altgr: true}
+	l['€'] = stroke{code: keyE, altgr: true}
+	return l
+}
+
+// layoutFR is XKB "fr" (French, AZERTY): the digits with Shift; its dead keys (^, ¨) are left out.
+func layoutFR() Layout {
+	l := common()
+	l.letter('a', keyQ)
+	l.letter('z', keyW)
+	l.letter('q', keyA)
+	l.letter('w', keyZ)
+	l.letter('m', keySemicolon)
+	for d := '1'; d <= '9'; d++ {
+		l[d] = stroke{code: key1 + int(d-'1'), shift: true}
+	}
+	l['0'] = stroke{code: key0, shift: true}
+	for i, c := range "&é\"'(-è_çà" { // the digit keys without Shift, from 1 to 0
+		code := key1 + i
+		if i == 9 {
+			code = key0
+		}
+		l[c] = stroke{code: code}
+	}
+	for i, c := range "#{[|" { // AltGr 3, 4, 5, 6
+		l[c] = stroke{code: key1 + 2 + i, altgr: true}
+	}
+	l['\\'] = stroke{code: key1 + 7, altgr: true}
+	l['^'] = stroke{code: key1 + 8, altgr: true}
+	l['@'] = stroke{code: key0, altgr: true}
+	l.add(keyGrave, '²', 0, 0, 0)
+	l.add(keyMinus, ')', '°', ']', 0)
+	l.add(keyEqual, '=', '+', '}', 0)
+	l.add(keyRightBrace, '$', '£', '¤', 0)
+	l.add(keyApostrophe, 'ù', '%', 0, 0)
+	l.add(keyBackslash, '*', 'µ', 0, 0)
+	l.add(key102nd, '<', '>', 0, 0)
+	l.add(keyM, ',', '?', 0, 0)
+	l.add(keyComma, ';', '.', 0, 0)
+	l.add(keyDot, ':', '/', 0, 0)
+	l.add(keySlash, '!', '§', 0, 0)
+	l['€'] = stroke{code: keyE, altgr: true}
+	return l
+}
+
+// layoutES is XKB "es" (Spanish); its dead keys (`, ^, ´, ¨) are left out.
+func layoutES() Layout {
+	l := common()
+	l.shiftedDigits("=!\"·$%&/()")
+	l.add(keyGrave, 'º', 'ª', '\\', 0)
+	l.add(keyMinus, '\'', '?', 0, 0)
+	l.add(keyEqual, '¡', '¿', 0, 0)
+	l.add(keyLeftBrace, 0, 0, '[', 0)
+	l.add(keyRightBrace, '+', '*', ']', 0)
+	l.add(keySemicolon, 'ñ', 'Ñ', 0, 0)
+	l.add(keyApostrophe, 0, 0, '{', 0)
+	l.add(keyBackslash, 'ç', 'Ç', '}', 0)
+	l.add(key102nd, '<', '>', 0, 0)
+	l.add(keyComma, ',', ';', 0, 0)
+	l.add(keyDot, '.', ':', 0, 0)
+	l.add(keySlash, '-', '_', 0, 0)
+	l['|'] = stroke{code: key1, altgr: true}
+	l['@'] = stroke{code: key1 + 1, altgr: true}
+	l['#'] = stroke{code: key1 + 2, altgr: true}
+	l['~'] = stroke{code: key1 + 3, altgr: true}
+	l['¬'] = stroke{code: key1 + 5, altgr: true}
+	l['€'] = stroke{code: keyE, altgr: true}
+	return l
 }
