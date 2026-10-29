@@ -101,6 +101,13 @@ OwneetOS's interface is a modified version of Pegasus Frontend. As its licence r
 not use the names "Pegasus Frontend", "Pegasus Launcher" or "Pegasus" as its title, nor Pegasus's
 logos; Pegasus's copyright notices are kept in its source code.
 
+## Web apps (from [[phase-5-streaming-apps-and-media]])
+
+| Project | Who | Licence | What it does in OwneetOS |
+|---|---|---|---|
+| [Brave](https://github.com/brave/brave-browser) | Brave Software and contributors | MPL-2.0, and others | The engine behind the web apps (Netflix, YouTube, Spotify), installed only when the user picks one; Brave's official Linux build, redistributed unmodified (`brave-bin`) |
+| [Chromium](https://www.chromium.org) | The Chromium authors | BSD-3-Clause and others | The browser engine Brave is built on |
+
 ## Fonts, sounds and design
 
 | Project | Who | Licence | Use |
@@ -139,7 +146,7 @@ machines for building and testing), [fontTools](https://github.com/fonttools/fon
 
 ## Trademarks
 
-Names such as Xbox, PlayStation, Steam, NVIDIA, AMD, Intel, Netflix, YouTube and Spotify are
+Names such as Xbox, PlayStation, Steam, NVIDIA, AMD, Intel, Netflix, YouTube, Spotify and Brave are
 trademarks of their respective owners. They are used only to say what works with OwneetOS.
 OwneetOS is not affiliated with or endorsed by them, nor by any of the projects listed here.
 "Based on Arch Linux" is said with gratitude; OwneetOS is not an official Arch Linux project.

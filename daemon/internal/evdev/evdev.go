@@ -20,6 +20,10 @@ const (
 	EvRel = 0x02
 	EvAbs = 0x03
 
+	KeyA            = 30
+	KeyZ            = 44
+	KeyLeftMeta     = 125 // Super / Windows key
+	KeyRightMeta    = 126
 	KeyHomepage     = 172
 	BtnMisc         = 0x100
 	BtnJoystick     = 0x120 // first joystick button (BTN_TRIGGER)

@@ -1,0 +1,7 @@
+{
+  "name": "org.owneet.bridge",
+  "description": "OwneetOS: the console's extension talks to owneetd",
+  "path": "/usr/lib/owneet/owneet-bridge",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://jlekhdampjopkpjhbgilolchffjpdjcn/"]
+}

@@ -208,11 +208,18 @@ Backend::Backend(const CliArgs& args)
                      [this](){ onProcessFinished(); });
 
     // OwneetOS: in gamescope, Guide shows the home screen over a running game (owneetd switches
-    // between them): the interface reads the gamepads only while it is on screen.
-    QObject::connect(m_frontend->daemon(), &owneet::Daemon::event, [this](const QString& type, const QVariant& data) {
-        if (type != QLatin1String("focus.changed"))
+    // between them): the interface reads the gamepads only while it is on screen, or while the
+    // console's keyboard types into a web app (drawn over the page in gamescope, which leaves the
+    // web app in front: [[step-5.2-extension-core]]). The interface starts on screen.
+    QObject::connect(m_frontend->daemon(), &owneet::Daemon::event,
+                     [this, home = true, keyboard = false](const QString& type, const QVariant& data) mutable {
+        if (type == QLatin1String("focus.changed"))
+            home = data.toMap().value(QStringLiteral("focus")).toString() == QLatin1String("home");
+        else if (type == QLatin1String("webapp.keyboard"))
+            keyboard = data.toMap().value(QStringLiteral("open")).toBool();
+        else
             return;
-        if (data.toMap().value(QStringLiteral("focus")).toString() == QLatin1String("home"))
+        if (home || keyboard)
             m_api_private->gamepad().start(m_args);
         else
             m_api_private->gamepad().stop();

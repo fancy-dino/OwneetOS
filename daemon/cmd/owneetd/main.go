@@ -20,11 +20,13 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/audio"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/bluetooth"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/catalog"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/config"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/display"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/installs"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/live"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/network"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/pointer"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/power"
@@ -32,6 +34,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/update"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/vinput"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/webapps"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/windows"
 )
 
@@ -190,12 +193,53 @@ func run(configPath string) error {
 	go screen.Run(ctx)
 
 	// Testers' updates from a USB stick ([[step-4.2b-updates-from-a-usb-stick]])
+	// and the optional apps, installed from the ISO's bundled repository
+	// ([[step-5.0.0-optional-web-apps]]): both start root units that polkit allows
 	var updateAPI api.Update
+	var catalogAPI api.Catalog
 	if starter, err := update.NewSystemdStarter(); err == nil {
 		defer starter.Close()
 		updateAPI = &update.Manager{Broker: broker, Log: log, Units: starter,
 			StateFile: "/run/owneet/update.json", TesterMark: "/etc/owneet/tester"}
+		stateDir := os.Getenv("XDG_STATE_HOME")
+		if stateDir == "" {
+			stateDir = filepath.Join(os.Getenv("HOME"), ".local", "state")
+		}
+		dataDir := os.Getenv("XDG_DATA_HOME")
+		if dataDir == "" {
+			dataDir = filepath.Join(os.Getenv("HOME"), ".local", "share")
+		}
+		// the web apps open in the console session ([[step-5.1-brave-in-the-os]])
+		var launcher catalog.Launcher
+		if appsAPI != nil {
+			launcher = appsMgr
+		}
+		webApps := &catalog.Manager{Broker: broker, Log: log, Units: starter,
+			CatalogFile: "/usr/share/owneet/apps.json", StateFile: "/run/owneet/apps.json",
+			ChosenFile: filepath.Join(stateDir, "owneetd", "webapps.json"),
+			PacmanDB:   "/var/lib/pacman/local",
+			Allowed:    func() bool { return live.Allowed(live.MinRAM) },
+			FreeMiB:    func() int64 { return catalog.DiskFreeMiB("/") }}
+		webApps.Apps, webApps.Session = launcher, appsMgr.Session
+		webApps.ProfilesDir = filepath.Join(dataDir, "owneet", "webapps")
+		webApps.ExtensionDir = "/usr/share/owneet/extension"
+		webApps.ConsentFile = filepath.Join(stateDir, "owneetd", "widevine.json")
+		catalogAPI = webApps
 	}
+
+	// The console's Brave extension and the interface ([[extension-design]])
+	hub := &webapps.Hub{Broker: broker, Log: log}
+	if appsAPI != nil {
+		hub.Screen = appsMgr
+	}
+	hub.HomePID = func() int {
+		sess, err := appsMgr.Session()
+		if err != nil {
+			return 0
+		}
+		return sess.HomePID
+	}
+	go hub.Follow(ctx.Done())
 
 	// Windows games ([[step-4.5-windows-games-proton]]): Proton and its runtime, downloaded once
 	// by umu-launcher when the library has a Windows game and the console is online
@@ -258,6 +302,8 @@ func run(configPath string) error {
 		Apps:            appsAPI,
 		Display:         screen,
 		Update:          updateAPI,
+		Catalog:         catalogAPI,
+		WebApps:         hub,
 		Windows:         winMgr,
 		Installs:        instMgr,
 		Pointer:         pointerAPI,

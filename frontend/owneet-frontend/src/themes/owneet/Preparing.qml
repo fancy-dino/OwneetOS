@@ -9,6 +9,8 @@
 // {game}…" until the game's first picture, longer the first time (its prefix is made).
 // While Steam downloads what a game needs before starting it (its version for Windows and what
 // runs it, an update), the percentage of those downloads (demo 4.5, approved 2026-10-18).
+// A web app's first opening ([[step-5.4-netflix]]) uses it too, with its own title and text:
+// Brave first downloads Google Widevine, a few seconds.
 import QtQuick 2.15
 import "foundation"
 
@@ -23,6 +25,9 @@ NavArea {
     property string gameTitle: ""           // started for this game: Steam stays hidden
     property bool windows: false            // a Windows game (not Steam)
     property bool steamRestart: false       // Steam closes and starts again for the game (4.5)
+    // Given by the shell, they replace Steam's texts (a web app's first opening, 5.4)
+    property string title: ""
+    property string text: ""
     // What Steam downloads now (not what waits in its queue), in one percentage; -1: nothing
     readonly property int downloadPct: {
         if (!visible || windows || gameTitle === "" || !GameInfo.steam) return -1;
@@ -67,7 +72,8 @@ NavArea {
         Text {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: root.windows ? Tr.tr("windows.prep.title", { title: root.gameTitle })
+            text: root.title !== "" ? root.title
+                  : root.windows ? Tr.tr("windows.prep.title", { title: root.gameTitle })
                   : root.gameTitle !== "" ? Tr.tr("toast.launch", { title: root.gameTitle }) : Tr.tr("steam.prep.title")
             color: Theme.fg
             font.family: Theme.displayFont
@@ -101,7 +107,8 @@ NavArea {
             visible: root.firstTime || root.gameTitle === ""
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: Tr.tr(root.windows ? "windows.prep.first" : root.firstTime ? "steam.prep.first" : "steam.prep.text")
+            text: root.text !== "" ? root.text
+                  : Tr.tr(root.windows ? "windows.prep.first" : root.firstTime ? "steam.prep.first" : "steam.prep.text")
             color: Theme.muted
             font.family: Theme.textFont
             font.pixelSize: Theme.fs(17)

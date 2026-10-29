@@ -4,7 +4,12 @@
 // games. Three navigation groups: hero, apps column, row of games.
 // A game running behind the home screen (owneetd, 3.8) takes the hero: Resume (gamescope only:
 // in cage the home screen is not shown over a game) and Close game.
-// Still to come: notices (3.11), apps (phase 5), real covers from Steam's local files (4.1).
+// The web apps (Netflix, YouTube, Spotify) are optional ([[step-5.0.0-optional-web-apps]], approved
+// demo design/demos/5.0.0-optional-apps.html): a missing one is dimmed with a download mark, A
+// installs it, Menu opens its options (Open, Remove). An open web app takes the hero like a game
+// ([[step-5.1-brave-in-the-os]], approved demo design/demos/5.1-web-app-running.html): its letter
+// instead of art, Resume and Close; its tile shows a green dot.
+// Still to come: real covers from Steam's local files (4.1).
 import QtQuick 2.15
 import "foundation"
 
@@ -15,11 +20,25 @@ NavArea {
     // with a game running, the hero shows it and the row starts from the most recent game
     readonly property var recent: running ? games.slice(0, 6) : games.slice(1, 7)
     property var notices: []                   // [{ text, game }]: Steam's downloads (4.2c)
-    property var running: null                 // the running game: { id, name, started }
+    // The web apps of the catalogue (owneetd): { id, nameKey, icon, installed, busy, sizeMiB }
+    property var webApps: []
+    // Their ids, changed only when apps come or go: the tiles stay (and stay selected) while an
+    // app is installed or removed
+    property var webAppIds: []
+    onWebAppsChanged: {
+        const ids = webApps.map(a => a.id);
+        if (ids.join() !== webAppIds.join()) webAppIds = ids;
+    }
+    function webApp(id) { return webApps.find(a => a.id === id) || null; }
+    property var running: null                 // the running game or web app: { id, name, kind, started }
     property bool canResume: true
+    // An open web app (5.1): its catalogue entry
+    readonly property bool webOpen: running !== null && running.kind === "webapp"
+    readonly property var runningWeb: webOpen ? (webApps.find(a => "web:" + a.id === running.id) || null) : null
+    function isOpen(app) { return app !== null && running !== null && running.id === "web:" + app.id; }
     // The Pegasus game of the running one (same title), for its art and source
     readonly property var runningGame: {
-        if (!running) return null;
+        if (!running || webOpen) return null;
         for (let i = 0; i < games.length; i++)
             if (games[i].title === running.name) return games[i];
         return null;
@@ -44,6 +63,8 @@ NavArea {
     signal notYet()                            // a feature of a later step
     signal quickMenu()                         // B: nothing to go back to here (3.13)
     signal openStore()                         // Steam's store (4.2)
+    signal openWebApp(var app)                 // A on a web app: install it, or open it
+    signal webAppOptions(var app)              // Menu on a web app
     signal openNotice(var notice)              // the downloads notice: the game's details (4.2c)
     property bool steamRunning: false           // Steam runs (hidden or not): Menu on its tile closes it
     signal steamOptions()
@@ -67,6 +88,10 @@ NavArea {
             return [P("a", "prompt.play"), P("x", "prompt.details"), P("menu", "prompt.options")];
         if (k === "details")
             return [P("a", "prompt.details"), P("menu", "prompt.options")];
+        if (k === "app" && current.webApp)
+            return current.webApp.busy ? [] : [P("a", isOpen(current.webApp) ? "prompt.resume"
+                                                    : current.webApp.installed ? "prompt.open" : "prompt.install"),
+                                               P("menu", "prompt.options")];
         if (k === "app" && current.steamStore && steamRunning)
             return [P("a", "prompt.open"), P("menu", "prompt.options")];
         if (k === "app" || k === "all" || k === "notice" || k === "store")
@@ -107,6 +132,7 @@ NavArea {
         else if (k === "pointer") resumeWithPointer(running);
         else if (k === "pointerOff") pointerOff();
         else if (k === "store" || item.steamStore) openStore();
+        else if (k === "app" && item.webApp) openWebApp(item.webApp);
         else if (k === "notice" && page.notices.length > 0) openNotice(page.notices[0]);
         else notYet();                         // apps (later steps)
     }
@@ -114,6 +140,10 @@ NavArea {
         const game = gameOf(current);
         if (action === "secondary" && game && current.kind !== "details") { details(game); event.accepted = true; }
         else if (action === "options" && game) { options(game); event.accepted = true; }
+        else if (action === "options" && current && current.webApp && !current.webApp.busy) {
+            webAppOptions(current.webApp);
+            event.accepted = true;
+        }
         else if (action === "options" && current && current.steamStore && steamRunning) { steamOptions(); event.accepted = true; }
     }
 
@@ -130,7 +160,7 @@ NavArea {
             GameArt {
                 anchors.fill: parent
                 readonly property var game: page.running ? page.runningGame : page.hero
-                visible: page.hero !== null || page.running !== null
+                visible: (page.hero !== null || page.running !== null) && !page.webOpen
                 radius: Theme.radiusL
                 seed: page.running ? page.running.name : (page.hero ? page.hero.title : "")
                 // Art (4.4): a Steam game's wide picture, else its header, else the generated art; a
@@ -143,9 +173,9 @@ NavArea {
                 fitMargin: Theme.px(22)
                 scrim: true
             }
-            Rectangle {                         // welcome card, when there are no games
+            Rectangle {                         // welcome card, when there are no games; an open web app
                 anchors.fill: parent
-                visible: page.hero === null && page.running === null
+                visible: (page.hero === null && page.running === null) || page.webOpen
                 radius: Theme.radiusL
                 color: Theme.surface
                 border.color: Theme.line
@@ -155,10 +185,25 @@ NavArea {
                 // at the bottom over the art, in the middle of the welcome card
                 x: Theme.px(34)
                 width: parent.width - Theme.px(68)
-                readonly property bool art: page.hero !== null || page.running !== null
+                readonly property bool art: (page.hero !== null || page.running !== null) && !page.webOpen
                 y: art ? parent.height - height - Theme.px(30) : (parent.height - height) / 2
                 spacing: Theme.px(12)
                 readonly property color ink: art ? "#FFFFFF" : Theme.fg
+
+                Rectangle {                     // an open web app: its letter, no art
+                    visible: page.webOpen
+                    width: Theme.fs(64); height: width
+                    radius: Theme.px(18)
+                    color: Theme.raised
+                    Text {
+                        anchors.centerIn: parent
+                        text: page.runningWeb ? page.runningWeb.icon : ""
+                        color: Theme.accent
+                        font.family: Theme.displayFont
+                        font.weight: Font.ExtraBold
+                        font.pixelSize: Theme.fs(34)
+                    }
+                }
 
                 Row {
                     spacing: Theme.px(8)
@@ -166,10 +211,11 @@ NavArea {
                         visible: page.running !== null
                         anchors.verticalCenter: parent.verticalCenter
                         width: Theme.px(9); height: width; radius: width / 2
-                        color: "#4ADE80"
+                        color: Theme.running
                     }
                     Text {
-                        text: page.running ? Tr.tr("home.playing")
+                        text: page.webOpen ? Tr.tr("home.open")
+                            : page.running ? Tr.tr("home.playing")
                             : page.hero ? Tr.tr(GameInfo.played(page.hero) ? "home.continue" : "home.ready") : Tr.tr("home.welcome")
                         color: parent.parent.ink
                         opacity: 0.85
@@ -182,7 +228,8 @@ NavArea {
                 }
                 Text {
                     width: parent.width
-                    text: page.running ? page.running.name : page.hero ? page.hero.title : Tr.tr("home.empty.title")
+                    text: page.webOpen ? (page.runningWeb ? Tr.tr(page.runningWeb.nameKey) : page.running.name)
+                        : page.running ? page.running.name : page.hero ? page.hero.title : Tr.tr("home.empty.title")
                     color: parent.ink
                     font.family: Theme.displayFont
                     font.weight: Font.Bold
@@ -221,8 +268,9 @@ NavArea {
                         }
                     }
                     Text {
-                        text: page.running ? Tr.trn("home.session", page.playingMinutes) : GameInfo.lastPlayed(page.hero)
-                        color: "#E6FFFFFF"
+                        text: page.webOpen ? Tr.trn("home.open.time", page.playingMinutes)
+                            : page.running ? Tr.trn("home.session", page.playingMinutes) : GameInfo.lastPlayed(page.hero)
+                        color: page.webOpen ? Theme.muted : "#E6FFFFFF"
                         font.family: Theme.textFont
                         font.pixelSize: Theme.fs(14.5)
                         anchors.verticalCenter: parent.verticalCenter
@@ -265,7 +313,7 @@ NavArea {
                         visible: page.running !== null && page.canResume
                         readonly property string kind: "resume"
                         text: Tr.tr("home.resume")
-                        style: "light"
+                        style: page.webOpen ? "primary" : "light"
                     }
                     Button {
                         visible: page.running !== null && page.canResume
@@ -276,8 +324,9 @@ NavArea {
                     Button {
                         visible: page.running !== null
                         readonly property string kind: "close"
-                        text: Tr.tr("home.close")
-                        style: page.canResume ? "glass" : "light"
+                        text: Tr.tr(page.webOpen ? "home.closeapp" : "home.close")
+                        style: page.webOpen ? (page.canResume ? "secondary" : "primary")
+                                            : (page.canResume ? "glass" : "light")
                     }
                     Button {
                         visible: page.hero !== null && page.running === null
@@ -322,15 +371,20 @@ NavArea {
                     spacing: Theme.px(12)
                     readonly property real cell: (width - 2 * spacing) / 3
                     Repeater {
-                        // Generic tiles, no third-party logos (real icons fetched at runtime, phase 5)
-                        model: [
-                            { name: "Netflix", icon: "N" }, { name: "YouTube", icon: "Y" }, { name: "Spotify", icon: "S" },
-                            { key: "app.videos", icon: "▶" }, { key: "app.music", icon: "♪" }, { key: "app.store", icon: "$" }
-                        ]
+                        // Generic tiles, no third-party logos. The web apps come from owneetd's
+                        // catalogue (generic tiles until it answers); Videos, Music and the store stay.
+                        model: (page.webAppIds.length > 0
+                                ? page.webAppIds.map(id => ({ id: id }))
+                                : [{ key: "app.netflix", icon: "N" }, { key: "app.youtube", icon: "Y" }, { key: "app.spotify", icon: "S" }])
+                            .concat([{ key: "app.videos", icon: "▶" }, { key: "app.music", icon: "♪" }, { key: "app.store", icon: "$" }])
                         Rectangle {
                             readonly property bool navigable: true
                             readonly property string kind: "app"
                             readonly property bool steamStore: modelData.key === "app.store"
+                            readonly property var webApp: modelData.id ? page.webApp(modelData.id) : null
+                            readonly property string nameKey: webApp ? webApp.nameKey : (modelData.key || "")
+                            readonly property bool missing: webApp !== null && !webApp.installed && !webApp.busy
+                            readonly property real dim: missing ? (activeFocus ? 0.85 : 0.55) : 1
                             width: apps.cell
                             height: Math.max(Theme.px(78), appName.implicitHeight + icon.height + Theme.px(28))
                             radius: Theme.radiusM
@@ -343,20 +397,47 @@ NavArea {
                                 width: Theme.fs(30); height: width
                                 radius: Theme.px(9)
                                 color: Theme.raised
+                                opacity: parent.dim
                                 Text {
                                     anchors.centerIn: parent
-                                    text: modelData.icon
+                                    text: parent.parent.webApp ? parent.parent.webApp.icon : modelData.icon
                                     color: Theme.accent
                                     font.family: Theme.displayFont
                                     font.weight: Font.Bold
                                     font.pixelSize: Theme.fs(15)
                                 }
                             }
+                            Rectangle {                 // not installed: download mark
+                                visible: parent.missing
+                                anchors { right: parent.right; top: parent.top; rightMargin: Theme.px(10); topMargin: Theme.px(10) }
+                                width: Theme.fs(22); height: width; radius: width / 2
+                                color: Theme.raised
+                                Icon {
+                                    anchors.centerIn: parent
+                                    width: parent.width * 0.62; height: width
+                                    name: "download"
+                                    color: Theme.fg
+                                }
+                            }
+                            Rectangle {                 // open (5.1): green dot, as the running game
+                                visible: page.isOpen(parent.webApp) && !parent.webApp.busy
+                                anchors { right: parent.right; top: parent.top; rightMargin: Theme.px(14); topMargin: Theme.px(16) }
+                                width: Theme.px(9); height: width; radius: width / 2
+                                color: Theme.running
+                            }
+                            Spinner {                   // installing or removing
+                                visible: parent.webApp !== null && !!parent.webApp.busy
+                                anchors { right: parent.right; top: parent.top; rightMargin: Theme.px(10); topMargin: Theme.px(10) }
+                                width: Theme.fs(18); height: width
+                            }
                             Text {
                                 id: appName
                                 anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: Theme.px(12); bottomMargin: Theme.px(10) }
-                                text: modelData.key ? Tr.tr(modelData.key) : modelData.name
-                                color: Theme.fg
+                                text: parent.webApp && parent.webApp.busy
+                                      ? Tr.tr(parent.webApp.busy === "install" ? "apps.installing" : "apps.removing")
+                                      : Tr.tr(parent.nameKey)
+                                color: parent.webApp && parent.webApp.busy ? Theme.muted : Theme.fg
+                                opacity: parent.dim
                                 font.family: Theme.textFont
                                 font.pixelSize: Theme.fs(14.5)
                                 elide: Text.ElideRight

@@ -37,6 +37,12 @@ public slots:
     /// events will not come).
     void releaseAll();
 
+public:
+    /// OwneetOS: the item that gets the gamepad's keys instead of the focused window (null: the
+    /// focused window, as in Pegasus). The web keyboard drawn over a page in gamescope (5.2) has
+    /// no input focus: gamescope keeps it on the web app.
+    static void setKeyTarget(QObject* target);
+
 private:
     const HashMap<GamepadButton, QTimer* const, EnumHash> m_timers;
     const HashMap<GamepadButton, Qt::Key, EnumHash> m_keys;

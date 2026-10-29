@@ -22,6 +22,11 @@ Mockups and design assets.
   - [`3.9-settings.html`](demos/3.9-settings.html): settings (network and Wi-Fi password, controllers
     and pairing, sound with sliders, display with several screens, appearance, language, disks,
     system with power and credits).
+  - [`5.0.0-optional-apps.html`](demos/5.0.0-optional-apps.html): the home screen's Apps grid with
+    optional web apps ([[step-5.0.0-optional-web-apps]]): missing apps dimmed with a download
+    mark, A installs (size, usage requirements, progress on the tile), Menu → Remove, and what can go
+    wrong (live system under 12 GB of RAM, disk full, failed install; W cycles them). The engine
+    behind the web apps is never named. Start state: `#installed=netflix&sim=ram&focus=apps`.
   - [`7.8-website-home.html`](demos/7.8-website-home.html): the website's home
     ([[step-7.8-website]]), one page whose sections snap, the features in a carousel, the
     console's home screen drawn; English and Italian; the "Demo 7.8" button switches palette,

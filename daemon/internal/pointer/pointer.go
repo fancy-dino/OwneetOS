@@ -41,7 +41,7 @@ type Mouse interface {
 // Apps gives a running app's gamescope app id (0: not running) and brings the home screen up.
 type Apps interface {
 	AppIDOf(id string) uint32
-	ShowHome()
+	ShowHome() error
 }
 
 // Screen is gamescope's X server: what is on screen, and the pointer's shape.
@@ -298,7 +298,9 @@ func (m *Manager) afterClick() {
 func (m *Manager) askKeyboard(reason string) {
 	app := m.Status().App
 	m.Log.Info("pointer: the keyboard", "app", app, "reason", reason)
-	m.Apps.ShowHome()
+	if err := m.Apps.ShowHome(); err != nil {
+		m.Log.Debug("pointer: the home screen not shown", "err", err)
+	}
 	if m.Broker != nil {
 		m.Broker.Publish("pointer.type", map[string]string{"app": app, "reason": reason})
 	}

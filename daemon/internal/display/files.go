@@ -6,10 +6,11 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/fancy-dino/OwneetOS/daemon/internal/atomicfile"
 )
 
 // Mode is a screen mode as gamescope lists it: "1920x1080@60".
@@ -113,16 +114,9 @@ func readLines(path string) []string {
 }
 
 func writeLines(path string, lines []string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	tmp := path + ".tmp"
 	data := strings.Join(lines, "\n")
 	if data != "" {
 		data += "\n"
 	}
-	if err := os.WriteFile(tmp, []byte(data), 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return atomicfile.Write(path, []byte(data), 0o644)
 }

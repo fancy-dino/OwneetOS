@@ -12,7 +12,8 @@
 # OWNEET_NO_CHROOT=1 builds with plain makepkg instead (CI: the throwaway container already is a
 # clean environment, and systemd-nspawn does not run inside it).
 #
-# OWNEET_VERBOSE=1 shows the build output (compiler, tests), hidden by default.
+# The build output (compiler, tests) of each package goes to out/logs/NAME.log; when a build fails,
+# its last lines are shown. OWNEET_VERBOSE=1 shows the whole output as it runs.
 
 set -euo pipefail
 
@@ -100,9 +101,9 @@ make_source_tarball() {
 }
 
 mkdir -p "$REPO_DIR"
-# Build output (compiler, tests) is hidden unless OWNEET_VERBOSE=1.
-BUILD_OUT=/dev/null
-if [[ "${OWNEET_VERBOSE:-0}" == 1 ]]; then BUILD_OUT=/dev/stdout; fi
+LOG_DIR="$ROOT/out/logs"
+mkdir -p "$LOG_DIR"
+VERBOSE="${OWNEET_VERBOSE:-0}"
 
 # Drop the database first: if a build fails, no stale (possibly signed) database is left behind.
 rm -f "$REPO_DIR/$REPO_NAME".{db,files}*
@@ -124,7 +125,10 @@ for pkg in "${ordered[@]}"; do
             done
         done
     fi
+    log="$LOG_DIR/$pkg.log"
+    set +e
     (
+        set -e
         cd "packages/$pkg"
         if [[ "$NO_CHROOT" == 1 ]]; then
             if (( ${#install_args[@]} )); then
@@ -133,11 +137,18 @@ for pkg in "${ordered[@]}"; do
                 sudo pacman -U --noconfirm --needed "${files[@]}" >/dev/null
             fi
             [[ " ${makepkg_args[*]} " == *" --nodeps "* ]] || makepkg_args+=(--syncdeps)
-            PKGDEST="$REPO_DIR" makepkg --clean --cleanbuild --force "${makepkg_args[@]}" >"$BUILD_OUT"
+            PKGDEST="$REPO_DIR" makepkg --clean --cleanbuild --force "${makepkg_args[@]}"
         else
-            PKGDEST="$REPO_DIR" makechrootpkg -c -r "$CHROOT_DIR" "${install_args[@]}" -- "${makepkg_args[@]}" >"$BUILD_OUT"
+            PKGDEST="$REPO_DIR" makechrootpkg -c -r "$CHROOT_DIR" "${install_args[@]}" -- "${makepkg_args[@]}"
         fi
-    ) || die "build of $pkg failed"
+    ) 2>&1 | if [[ "$VERBOSE" == 1 ]]; then tee "$log"; else cat > "$log"; fi
+    status="${PIPESTATUS[0]}"
+    set -e
+    if [[ "$status" != 0 ]]; then
+        echo "---- last lines of the build output (whole output: out/logs/$pkg.log) ----" >&2
+        tail -n 40 "$log" >&2
+        die "build of $pkg failed"
+    fi
 done
 
 info "updating the [$REPO_NAME] repository database"

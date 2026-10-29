@@ -1,0 +1,27 @@
+@owneetd
+# Optional web apps ([[step-5.0.0-optional-web-apps]]): missing apps on the home screen's Apps
+# grid, the install window, progress, installed, options, removal.
+pad right right
+shot 01-apps-missing
+pad a
+shot 02-install-window
+pad a
+wait 1
+shot 03-installing
+wait 3
+shot 04-installed
+pad right
+shot 05-next-app
+pad a
+shot 06-install-window-small
+pad a
+wait 1
+pad left menu
+shot 07-options
+pad right
+shot 08-remove-selected
+pad a
+shot 09-remove-confirm
+pad left a
+wait 1
+shot 10-removed

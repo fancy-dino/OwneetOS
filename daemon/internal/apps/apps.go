@@ -40,7 +40,13 @@ const HoldToHome = time.Second
 const (
 	KindGame = "game"
 	KindApp  = "app"
+	// KindWebApp is a web app (Netflix, YouTube…, [[step-5.1-brave-in-the-os]]): treated like a
+	// game, one game or web app at a time
+	KindWebApp = "webapp"
 )
+
+// exclusive kinds run one at a time: a game or a web app.
+func exclusive(kind string) bool { return kind == KindGame || kind == KindWebApp }
 
 // App is a running game or app.
 type App struct {
@@ -72,8 +78,9 @@ const HomeAppID uint32 = 0x7E000000
 // Status is the body of GET /v1/apps.
 type Status struct {
 	Apps []App `json:"apps"`
-	// Focus is what the screen shows: "home", the id of an app, or "" when unknown (cage
-	// session, or no console session).
+	// Focus is what the screen shows: "home", the id of an app, or "" when unknown (no console
+	// session). In the cage session it is what owneetd last decided: the interface carries it out
+	// (it shows or hides its own window).
 	Focus string `json:"focus"`
 }
 
@@ -95,7 +102,7 @@ var (
 	ErrInvalid          = errors.New("invalid launch request")
 	ErrNoSession        = errors.New("the console session is not running")
 	ErrAlreadyRunning   = errors.New("this app is already running")
-	ErrGameRunning      = errors.New("another game is running: close it first")
+	ErrGameRunning      = errors.New("another game or web app is running: close it first")
 	ErrUnknownApp       = errors.New("this app is not running")
 	ErrNotFound         = errors.New("program not found")
 	ErrFocusUnsupported = errors.New("the reduced (cage) session shows one app at a time")
@@ -275,7 +282,7 @@ func (m *Manager) tag(pid int) uint32 {
 	}
 	unit := m.UnitOf(pid)
 	if unit == "" {
-		return 0
+		return m.parentOfApp(pid)
 	}
 	if unit == steamUnit {
 		if appid, reaper := m.reaperOf(pid); appid != "" {
@@ -287,6 +294,29 @@ func (m *Manager) tag(pid int) uint32 {
 	for _, a := range m.apps {
 		if a.unit == unit && a.reaper == 0 {
 			return a.appID
+		}
+	}
+	return 0
+}
+
+// parentOfApp finds the app of a process that left its unit: Chromium-based browsers (Brave, the
+// web apps' engine, [[step-5.1-brave-in-the-os]]) move their main process, the one that owns the
+// windows, into a scope of their own (app-org.chromium.Chromium-PID.scope) when they start. Their
+// helper processes stay in the app's unit as children of that process. 0 when none.
+func (m *Manager) parentOfApp(pid int) uint32 {
+	m.mu.Lock()
+	units := map[string]uint32{}
+	for _, a := range m.apps {
+		if a.reaper == 0 {
+			units[a.unit] = a.appID
+		}
+	}
+	m.mu.Unlock()
+	for unit, appID := range units {
+		for _, p := range m.Procs.InUnit(unit) {
+			if m.Procs.Parent(p) == pid {
+				return appID
+			}
 		}
 	}
 	return 0
@@ -516,8 +546,8 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 	if req.Kind == "" {
 		req.Kind = KindApp
 	}
-	if req.Kind != KindGame && req.Kind != KindApp {
-		return App{}, fmt.Errorf("%w: kind is %q or %q", ErrInvalid, KindGame, KindApp)
+	if req.Kind != KindGame && req.Kind != KindApp && req.Kind != KindWebApp {
+		return App{}, fmt.Errorf("%w: kind is %q, %q or %q", ErrInvalid, KindGame, KindApp, KindWebApp)
 	}
 	if req.Name == "" {
 		req.Name = req.ID
@@ -542,9 +572,9 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 		m.mu.Unlock()
 		return App{}, ErrAlreadyRunning
 	}
-	if req.Kind == KindGame {
+	if exclusive(req.Kind) {
 		for _, a := range m.apps {
-			if a.Kind == KindGame {
+			if exclusive(a.Kind) {
 				m.mu.Unlock()
 				return App{}, ErrGameRunning
 			}
@@ -754,6 +784,12 @@ func (m *Manager) Status() Status {
 	if err != nil {
 		return st
 	}
+	if sess.Mode == "cage" {
+		m.mu.Lock()
+		st.Focus = m.lastFocus
+		m.mu.Unlock()
+		return st
+	}
 	f := m.focus(sess)
 	if f == nil {
 		return st
@@ -772,7 +808,8 @@ func (m *Manager) Status() Status {
 	return st
 }
 
-// FocusApp brings an app to the front (gamescope only), e.g. "Resume" on the home screen.
+// FocusApp brings an app to the front, e.g. "Resume" on the home screen. In the cage session it
+// only says so ("focus.changed"): the interface hides its own window and cage shows the app.
 func (m *Manager) FocusApp(id string) error {
 	m.mu.Lock()
 	m.init()
@@ -788,6 +825,10 @@ func (m *Manager) FocusApp(id string) error {
 	sess, err := m.Session()
 	if err != nil {
 		return ErrNoSession
+	}
+	if sess.Mode == "cage" {
+		m.focusChanged(id)
+		return nil
 	}
 	f := m.focus(sess)
 	if f == nil {
@@ -807,6 +848,50 @@ func (m *Manager) FocusApp(id string) error {
 		}
 	}
 	return ErrNoWindow
+}
+
+// Layered: the session can draw the interface's windows over an app (gamescope, whose external
+// overlays the interface uses for the web keyboard, [[step-5.2-extension-core]] part 6).
+func (m *Manager) Layered() bool {
+	sess, err := m.Session()
+	return err == nil && sess.Mode == "gamescope"
+}
+
+// ShowHome brings the home screen to the front; the app keeps running, and Guide or Resume goes
+// back to it, as after Guide over an app. For a web app while the console's keyboard types into
+// it or asks "Close {name}?" ([[extension-design]]), and for the controller pointer's keyboard
+// ([[step-4.7-controller-pointer]]). Nothing when the home screen is on screen already. In the
+// cage session it only says so: the interface shows its own window again, and cage shows the
+// newest window.
+func (m *Manager) ShowHome() error {
+	sess, err := m.Session()
+	if err != nil {
+		return ErrNoSession
+	}
+	if sess.Mode == "cage" {
+		m.focusChanged("home") // the interface shows its own window again: cage shows the newest
+		return nil
+	}
+	f := m.focus(sess)
+	if f == nil {
+		return ErrFocusUnsupported
+	}
+	if focused, err := f.Focused(); err == nil {
+		if focused == HomeAppID {
+			return nil
+		}
+		m.mu.Lock()
+		m.init()
+		if shown := m.appOfID(focused); shown != nil {
+			m.lastApp = shown.ID // Guide or Resume goes back to it
+		}
+		m.mu.Unlock()
+	}
+	if err := m.show(f, []uint32{HomeAppID}); err != nil {
+		return err
+	}
+	m.focusChanged("home")
+	return nil
 }
 
 // Guide handles the Guide button (from any controller).

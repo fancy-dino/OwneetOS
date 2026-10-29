@@ -14,10 +14,15 @@ FocusScope {
     property Item target: null            // the TextInput to type into
     property bool password: false         // shows the show / hide key
     property bool showPassword: false
+    property bool eyeKey: true            // false: no show / hide key (nothing here shows the text)
     property string layout: "us"          // us, it
     signal done()                         // Done (or Menu, or Enter on a keyboard)
     signal closed()                       // B
     signal togglePassword()               // the show / hide key
+    // Each edit that went through (the web keyboard passes them on to the page, 5.2)
+    signal typed(string text)
+    signal deleted()
+    signal cursorMoved(int step)
 
     visible: false
     anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
@@ -46,7 +51,7 @@ FocusScope {
         out[out.length - 1].unshift({ t: "shift", w: 1.6 });
         const next = pages[(pages.indexOf(page) + 1) % pages.length];
         out.push([{ t: "page", p: next, w: 1.6 }, { t: "left", w: 1 }, { t: "space", w: 5.5 }, { t: "right", w: 1 }]
-                 .concat(password ? [{ t: "eye", w: 1 }] : [], [{ t: "done", w: 2.1 }]));
+                 .concat(password && eyeKey ? [{ t: "eye", w: 1 }] : [], [{ t: "done", w: 2.1 }]));
         return out;
     }
 
@@ -83,6 +88,7 @@ FocusScope {
         if (shift === 1)
             shift = 0;
         Nav.feedback("confirm");
+        typed(s);
     }
     function deleteBack() {
         if (!target || target.cursorPosition === 0) {
@@ -92,6 +98,7 @@ FocusScope {
         const p = target.cursorPosition;
         target.remove(p - 1, p);
         Nav.feedback("confirm");
+        deleted();
     }
     function moveCursor(step) {
         const next = target ? target.cursorPosition + step : -1;
@@ -101,6 +108,7 @@ FocusScope {
         }
         target.cursorPosition = next;
         Nav.feedback("confirm");
+        cursorMoved(step);
     }
     function setPage(p) {
         page = p;

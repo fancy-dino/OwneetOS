@@ -210,7 +210,8 @@ FocusScope {
         page.focusStart();
     }
     readonly property bool modalOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
-                                      || notices.visible || quick.visible || controls.visible || steamPrep.visible
+                                      || notices.visible || quick.visible || controls.visible || steamPrep.visible || webPrep.visible
+                                      || webKeys.shown
     function backToPage() { Qt.callLater(() => { if (!root.modalOpen) root.page.forceActiveFocus(); }); }
 
     // ---- Buttons the sections leave to the whole interface (section 9.1)
@@ -241,11 +242,24 @@ FocusScope {
                 return apps[i];
         return null;
     }
-    function refreshApps() {
+    // An open web app (5.1): treated like a game, one game or web app at a time
+    readonly property var runningWebApp: apps.find(a => a.kind === "webapp") || null
+    // The name of what is open, for "{name} is open: close it first."
+    function openName() {
+        if (runningGame) return runningGame.name;
+        const w = runningWebApp ? webApps.find(a => "web:" + a.id === runningWebApp.id) : null;
+        return w ? Tr.tr(w.nameKey) : (runningWebApp ? runningWebApp.name : "");
+    }
+    // then: called once the list is updated (and the pages have reacted to it)
+    function refreshApps(then) {
         owneetd.get("/v1/apps", (status, data) => {
-            if (status === 200) { apps = data.apps || []; focusedApp = data.focus || ""; }
+            if (status === 200) { apps = (data.apps || []).map(named); focusedApp = data.focus || ""; }
+            if (then) Qt.callLater(then);
         });
     }
+    // Google's terms page (5.4) runs like a web app: shown by its name, never by its id
+    readonly property string termsAppId: "web:widevine-terms"
+    function named(a) { return a.id === termsAppId ? Object.assign({}, a, { name: Tr.tr("widevine.terms.name") }) : a; }
     function refreshControllers() {
         owneetd.get("/v1/controllers", (status, data) => { if (status === 200) controllers = data.controllers || []; });
     }
@@ -260,7 +274,10 @@ FocusScope {
         refreshInstalls();
         owneetd.get("/v1/pointer", (status, data) => { if (status === 200) root.pointerStatus = data; });
         owneetd.get("/v1/update", (status, data) => { if (status === 200) root.updateStatus = data; });
+        refreshCatalog();
         checkDisplayPending();
+        // a web keyboard opened while the interface was restarting
+        owneetd.get("/v1/webapps/keyboard", (status, data) => { if (status === 200 && data.open) root.webKeyboard(data); });
     }
     Connections {
         target: owneetd
@@ -268,7 +285,10 @@ FocusScope {
         function onEvent(type, data) {
             root.noticeFor(type, data);
             if (type === "app.started" || type === "app.exited") {
-                root.refreshApps();
+                // Google's terms page closed: its question again, but only once the home screen has
+                // caught up (it selects its hero when the running app changes, which would take
+                // the selection away from a question opened before)
+                root.refreshApps(type === "app.exited" && data.id === root.termsAppId ? root.termsClosed : null);
                 // a Steam game started: its licence agreement, if any, has been accepted
                 if (type === "app.started" && String(data.id).startsWith("steam:"))
                     root.agreementAccepted(String(data.id).slice(6));
@@ -285,6 +305,9 @@ FocusScope {
                 root.focusedApp = data.focus;
                 if (data.focus === "home" && fromGame)
                     sounds.play("launch");
+                // Guide over Google's terms page: back to the question it was opened from
+                if (data.focus === "home")
+                    root.closeTerms();
             } else if (type.startsWith("controller.")) {
                 root.refreshControllers();
             } else if (type === "network.changed") {
@@ -308,6 +331,12 @@ FocusScope {
             } else if (type === "update.changed") {
                 root.updateStatus = data;
                 root.showUpdate(data);
+            } else if (type === "apps.catalog.changed") {
+                root.catalogChanged(data);
+            } else if (type === "webapp.keyboard") {
+                root.webKeyboard(data);
+            } else if (type === "webapp.ask_close") {
+                root.askCloseWebApp(data);
             }
         }
     }
@@ -330,6 +359,26 @@ FocusScope {
             if (status !== 200 && status !== 204)
                 toast.show(Tr.tr("error.resume"));
         });
+    }
+    // The console's keyboard for a web app's text field (5.2): opened and closed by owneetd
+    function webKeyboard(k) {
+        if (!k.open) {
+            webKeys.dismiss();
+            return;
+        }
+        const w = webApps.find(a => a.id === k.app);
+        webKeys.open(k, w ? Tr.tr(w.nameKey) : (k.app || ""));
+    }
+    // B with nothing to go back to in a web app (5.2): owneetd brought the console in front;
+    // Cancel or B bring the web app back
+    function askCloseWebApp(data) {
+        if ("web:" + data.app === termsAppId) {       // Google's terms page: back to the question
+            closeTerms();
+            return;
+        }
+        const app = apps.find(a => a.id === "web:" + data.app);
+        if (app)
+            confirmClose(app, () => root.resume(app));
     }
     // ---- The controller as a mouse (4.7, approved demo design/demos/4.7-controller-pointer.html):
     // "Resume with the pointer" on the running game's card; owneetd follows that window only and
@@ -404,25 +453,29 @@ FocusScope {
             });
         }
     }
-    function confirmClose(app) {
+    // back: what Cancel and B also do (e.g. bring the web app back)
+    function confirmClose(app, back) {
+        const web = app.kind === "webapp";
         dialog.game = null;
         dialog.mode = "close";
         dialog.appId = app.id;
         dialog.contentWidth = 0;
-        dialog.title = Tr.tr("close.title", { title: app.name });
-        dialog.text = Tr.tr("close.text");
+        dialog.title = Tr.tr("close.title", { title: web ? openName() : app.name });
+        dialog.text = Tr.tr(web ? "closeapp.text" : "close.text");
         dialog.buttons = [
-            { text: Tr.tr("home.close"), action: () => {
+            { text: Tr.tr(web ? "home.closeapp" : "home.close"), action: () => {
                 dialog.close();
                 closingApps[app.id] = true;          // closed on purpose: not "closed unexpectedly"
                 owneetd.post("/v1/apps/" + encodeURIComponent(app.id) + "/close", {}, (status) => {
                     if (status >= 300 || status === 0) toast.show(Tr.tr("error.close"));
                 });
             } },
-            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => { dialog.close(); if (back) back(); } }
         ];
         dialog.defaultIndex = 1;             // Cancel first: no game closed by accident
         dialog.open();
+        if (back)
+            dialog.backAction = () => { dialog.close(true); back(); };
     }
 
     // ---- Notifications (3.11, approved demo design/demos/3.11-notifications.html): banners at the top
@@ -439,7 +492,7 @@ FocusScope {
     function quietNetwork() { quietNetUntil = Date.now() + 15000; }
     // While a game is on screen nothing is drawn over it (the overlay comes in Wave 2) and no
     // sound plays: the notification waits in the list, the bell counts it
-    readonly property bool gameOnScreen: runningGame !== null && focusedApp !== "home"
+    readonly property bool gameOnScreen: (runningGame !== null || runningWebApp !== null) && focusedApp !== "home"
     function notify(n) {
         n.time = Date.now();
         noticeList = [n].concat(noticeList).slice(0, 30);
@@ -560,6 +613,11 @@ FocusScope {
         if (runningGame && owneetd.connected && runningGame.name === game.title) {
             Nav.feedback("launch");
             root.resume(runningGame);
+            return;
+        }
+        if (runningWebApp && owneetd.connected) {   // one game or web app at a time (5.1)
+            toast.show(Tr.tr("toast.app.busy", { name: openName() }));
+            Nav.feedback("edge");
             return;
         }
         if (runningGame && owneetd.connected) {     // one game at a time
@@ -690,6 +748,218 @@ FocusScope {
         dialog.open();
     }
     function notYet() { toast.show(Tr.tr("toast.later")); }
+
+    // ---- Optional web apps (5.0.0, approved demo design/demos/5.0.0-optional-apps.html): installed
+    // and removed from the home screen's Apps grid. The engine behind them is never named.
+    property var webApps: []                  // owneetd's catalogue: { id, nameKey, icon, installed, busy, sizeMiB }
+    function refreshCatalog() {
+        owneetd.get("/v1/apps/catalog", (status, data) => { if (status === 200) webApps = data.apps || []; });
+    }
+    function catalogChanged(data) {
+        webApps = data.apps || [];
+        const r = data.result;
+        if (!r)
+            return;
+        const app = webApps.find(a => a.id === r.id);
+        const name = app ? Tr.tr(app.nameKey) : r.id;
+        if (r.ok) {
+            if (r.action === "install") Nav.feedback("notify");
+            toast.show(Tr.tr(r.action === "install" ? "toast.app.installed" : "toast.app.removed", { app: name }));
+        } else if (app) {
+            Nav.feedback("notify");
+            appMessage(Tr.tr("apps.fail.title", { app: name }), Tr.tr("apps.fail.text"), () => root.installApp(app));
+        }
+    }
+    function openWebApp(app) {
+        if (app.busy) toast.show(Tr.tr("toast.app.wait"));
+        else if (!app.installed) confirmInstall(app);
+        else openAfterConsent(app);
+    }
+
+    // ---- Google's terms for Widevine (5.4, approved demo design/demos/5.4-widevine-consent.html):
+    // asked before a web app opens, the first time and after every Widevine update, one consent per
+    // user (owneetd keeps it). "Read the terms" shows Google's live page in the web apps' window,
+    // never a copy; B, Guide or its end bring the question back.
+    readonly property string termsAddress: "policies.google.com/terms"     // shown, not translated
+    property var termsFor: null           // { app, updated }: the question waiting for Google's page
+    function openAfterConsent(app) {
+        // already open (brought back), or another one open ("close it first"): nothing to ask
+        if (runningGame || runningWebApp) {
+            startWebApp(app);
+            return;
+        }
+        owneetd.get("/v1/webapps/widevine", (status, data) => {
+            if (status === 200 && data.ask) askWidevine(app, data.updated);
+            else startWebApp(app);
+        });
+    }
+    function askWidevine(app, updated) {
+        dialog.game = null;
+        dialog.mode = "widevine";
+        dialog.contentWidth = Theme.px(640);
+        dialog.title = Tr.tr(updated ? "widevine.update.title" : "widevine.first.title");
+        dialog.text = Tr.tr(updated ? "widevine.update.text" : "widevine.first.text", { app: Tr.tr(app.nameKey) });
+        dialog.buttons = [
+            { text: Tr.tr("widevine.accept"), style: "primary", action: () => {
+                owneetd.post("/v1/webapps/widevine/accept", {}, (status) => {
+                    if (status !== 204 && status !== 200) {
+                        toast.show(Tr.tr("error.widevine.accept"));
+                        return;
+                    }
+                    dialog.close(true);
+                    root.startWebApp(app);
+                });
+            } },
+            { text: Tr.tr("widevine.read"), action: () => { dialog.close(true); root.readWidevineTerms(app, updated); } },
+            { text: Tr.tr("widevine.notnow"), action: () => dialog.close() }
+        ];
+        dialog.defaultIndex = 0;
+        dialog.open();
+        dialog.prompts = [{ buttons: ["a"], label: Tr.tr("prompt.select") }, { buttons: ["b"], label: Tr.tr("widevine.notnow") }];
+    }
+    function readWidevineTerms(app, updated) {
+        termsFor = { app: app, updated: updated };
+        Nav.feedback("launch");
+        owneetd.post("/v1/webapps/widevine/terms", { language: Tr.language }, (status, data) => {
+            if (status === 204 || status === 200)
+                return;
+            termsFor = null;
+            const code = data && data.error ? data.error.code : "";
+            toast.show(Tr.tr(code === "apps.game_running" ? "error.apps.game_running" : "error.apps.open"));
+            root.askWidevine(app, updated);
+        });
+    }
+    function closeTerms() {
+        if (!termsFor || termsFor.closing || !apps.some(a => a.id === termsAppId))
+            return;
+        termsFor.closing = true;                 // once: B and Guide may both bring the console back
+        owneetd.post("/v1/apps/" + encodeURIComponent(termsAppId) + "/close", {});
+    }
+    function termsClosed() {
+        const t = termsFor;
+        termsFor = null;
+        if (t)
+            askWidevine(t.app, t.updated);
+    }
+    // Opens an installed web app ([[step-5.1-brave-in-the-os]]): owneetd starts it like a game, or
+    // brings it back when it is already open
+    function startWebApp(app) {
+        const open = runningWebApp !== null && runningWebApp.id === "web:" + app.id;
+        if (!open && (runningGame || runningWebApp)) {
+            toast.show(Tr.tr("toast.app.busy", { name: openName() }));
+            Nav.feedback("edge");
+            return;
+        }
+        Nav.feedback("launch");
+        if (!open)
+            toast.show(Tr.tr("toast.app.open", { app: Tr.tr(app.nameKey) }));
+        // The extension draws with the console's accent and language (5.2, [[extension-design]])
+        const hex = c => "#" + [c.r, c.g, c.b].map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join("");
+        const look = { accent: hex(Theme.accent), language: Tr.language };
+        owneetd.post("/v1/apps/catalog/" + encodeURIComponent(app.id) + "/open", look, (status, data) => {
+            if (status === 204 || status === 200)
+                return;
+            if (status === 202) {                 // its first opening: Brave first gets Widevine (5.4)
+                webPrep.app = app;
+                webPrep.start(true);
+                return;
+            }
+            const code = data && data.error ? data.error.code : "";
+            if (code === "apps.game_running")
+                toast.show(Tr.tr("toast.app.busy", { name: openName() }));
+            else if (code === "apps.not_installed" || code === "apps.widevine_consent" || code === "apps.preparing")
+                toast.show(Tr.tr("error." + code));
+            else
+                toast.show(Tr.tr("error.apps.open"));
+        });
+    }
+    // Until the user has accepted Google's terms for Widevine, the confirmation says they come at
+    // the first opening (5.4)
+    function confirmInstall(app) {
+        owneetd.get("/v1/webapps/widevine", (status, data) => root.showInstall(app, status !== 200 || data.ask));
+    }
+    function showInstall(app, widevineLater) {
+        dialog.game = null;
+        dialog.mode = "app";
+        dialog.contentWidth = widevineLater ? Theme.px(640) : 0;      // room for the notice
+        dialog.title = Tr.tr("apps.install.title", { app: Tr.tr(app.nameKey) });
+        dialog.text = "";
+        dialog.facts = [
+            [Tr.tr("apps.install.space"), app.sizeMiB > 0 ? Tr.tr("apps.install.space.about", { mb: app.sizeMiB })
+                                                          : Tr.tr("apps.install.space.small")],
+            [Tr.tr("apps.install.requirements"), Tr.tr("apps.install.internet")],
+            [Tr.tr("apps.install.widevine"), Tr.tr("apps.install.widevine.value")]
+        ];
+        dialog.note = widevineLater ? Tr.tr("apps.install.widevine.later", { app: Tr.tr(app.nameKey) }) : "";
+        dialog.buttons = [
+            { text: Tr.tr("apps.install"), style: "primary", action: () => { dialog.close(true); root.installApp(app); } },
+            { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }
+        ];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function installApp(app) {
+        owneetd.post("/v1/apps/catalog/" + encodeURIComponent(app.id) + "/install", {}, (status, data) => {
+            if (status === 202)
+                return;
+            const code = data && data.error ? data.error.code : "";
+            const name = Tr.tr(app.nameKey);
+            if (code === "apps.needs_install")
+                appMessage(Tr.tr("apps.ram.title"), Tr.tr("apps.ram.text"));
+            else if (code === "apps.no_space")
+                appMessage(Tr.tr("apps.disk.title"), Tr.tr("apps.disk.text", { app: name, mb: app.sizeMiB }));
+            else if (code === "apps.busy")
+                toast.show(Tr.tr("toast.app.wait"));
+            else
+                appMessage(Tr.tr("apps.fail.title", { app: name }), Tr.tr("apps.fail.text"), () => root.installApp(app));
+        });
+    }
+    // A message about an app, with "Try again" when retry is given
+    function appMessage(title, text, retry) {
+        dialog.game = null;
+        dialog.mode = "appMessage";
+        dialog.contentWidth = Theme.px(560);
+        dialog.title = title;
+        dialog.text = text;
+        const ok = { text: Tr.tr("prompt.ok"), style: retry ? "" : "primary", action: () => dialog.close() };
+        dialog.buttons = retry ? [{ text: Tr.tr("prompt.retry"), style: "primary", action: () => { dialog.close(true); retry(); } }, ok]
+                               : [ok];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function webAppOptions(app) {
+        dialog.game = null;
+        dialog.mode = "appOptions";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr(app.nameKey);
+        dialog.text = "";
+        dialog.buttons = app.installed
+            ? [{ text: Tr.tr("prompt.open"), style: "primary", action: () => { dialog.close(true); root.openAfterConsent(app); } },
+               { text: Tr.tr("apps.remove"), action: () => { dialog.close(true); root.confirmRemove(app); } }]
+            : [{ text: Tr.tr("apps.install"), style: "primary", action: () => { dialog.close(true); root.confirmInstall(app); } }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+    function confirmRemove(app) {
+        dialog.game = null;
+        dialog.mode = "appRemove";
+        dialog.contentWidth = Theme.px(560);
+        dialog.title = Tr.tr("apps.remove.title", { app: Tr.tr(app.nameKey) });
+        dialog.text = Tr.tr("apps.remove.text");
+        dialog.buttons = [
+            { text: Tr.tr("apps.remove"), action: () => {
+                dialog.close(true);
+                owneetd.post("/v1/apps/catalog/" + encodeURIComponent(app.id) + "/remove", {}, (status, data) => {
+                    if (status === 202) return;
+                    const code = data && data.error ? data.error.code : "";
+                    toast.show(Tr.tr(code === "apps.busy" ? "toast.app.wait" : "error.apps.remove"));
+                });
+            } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }
+        ];
+        dialog.defaultIndex = 1;             // Cancel first: nothing removed by accident
+        dialog.open();
+    }
 
     // ---- Windows games (4.5, approved demo design/demos/4.5-windows-games.html): what they need is
     // downloaded once by owneetd, only once the library has one (POST /v1/windows/needed), while
@@ -2004,7 +2274,7 @@ FocusScope {
             onOpenLibrary: root.goSection("library")
             onHowToAdd: root.showHowToAdd()
             onOpenStore: root.openSteam("store")
-            running: root.runningGame
+            running: root.runningGame || root.runningWebApp
             canResume: root.sessionMode === "gamescope"
             onResume: root.resume(app)
             onCloseApp: root.confirmClose(app)
@@ -2013,6 +2283,9 @@ FocusScope {
             onPointerOff: root.turnPointerOff()
             onNotYet: root.notYet()
             onQuickMenu: quick.openMenu()
+            webApps: root.webApps
+            onOpenWebApp: root.openWebApp(app)
+            onWebAppOptions: root.webAppOptions(app)
         }
         LibraryPage {
             id: library
@@ -2102,6 +2375,8 @@ FocusScope {
         property bool updateBusy: false     // update: checking or installing
         property var updateLines: []        // update: "name  from  →  to"
         property string updateNote: ""
+        property var facts: []              // app: [label, value] lines
+        property string note: ""            // app: Google's terms for Widevine come at the first opening
         property string agreementUrl: ""    // agreement: the licence agreement's address (4.2c)
         property string licence: ""         // licence: an installer's licence text (4.6)
         scrollTarget: mode === "licence" && licence !== "" ? licenceFlick : null
@@ -2311,6 +2586,48 @@ FocusScope {
                     FocusFrame {}
                 }
             }
+        }
+        Column {                          // app: what installing it takes (5.0.0)
+            visible: dialog.mode === "app"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(6)
+            Repeater {
+                model: dialog.mode === "app" ? dialog.facts : []
+                Row {
+                    spacing: Theme.px(18)
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    Text { text: modelData[0]; color: Theme.muted; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
+                    Text { text: modelData[1]; color: Theme.fg; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
+                }
+            }
+        }
+        Rectangle {                       // app: Google's terms for Widevine come at the first opening (5.4)
+            visible: dialog.mode === "app" && dialog.note !== ""
+            anchors.horizontalCenter: parent.horizontalCenter
+            // never wider than the window's content
+            width: Math.min(noteText.implicitWidth + Theme.px(32), parent.width)
+            height: noteText.height + Theme.px(24)
+            radius: Theme.radiusM
+            color: Theme.surface
+            border.color: Theme.line
+            border.width: Math.max(1, Theme.px(1))
+            Text {
+                id: noteText
+                anchors.centerIn: parent
+                width: parent.width - Theme.px(32)
+                text: dialog.note
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(14.5)
+                wrapMode: Text.Wrap
+            }
+        }
+        Row {                             // widevine: where Google's terms are (5.4)
+            visible: dialog.mode === "widevine"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(8)
+            Text { text: Tr.tr("widevine.terms"); color: Theme.muted; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
+            Text { text: root.termsAddress; color: Theme.fg; font.family: Theme.displayFont; font.weight: Font.Bold; font.pixelSize: Theme.fs(14.5) }
         }
         Column {                          // details: facts about the game (Steam: its download, 4.2c)
             visible: dialog.mode === "details" && dialog.game !== null
@@ -2774,7 +3091,7 @@ FocusScope {
     UiSounds {
         id: sounds
         dir: systemInfo.soundsDir
-        muted: root.gameOnScreen
+        muted: root.gameOnScreen && !webKeys.shown    // the web keyboard is the console's
     }
     Connections {
         target: Nav
@@ -2821,8 +3138,21 @@ FocusScope {
         onVisibleChanged: if (!visible) root.backToPage()
     }
 
+    // ---- The web keyboard (5.2): the console's keyboard for a web app's text field
+    WebKeyboard {
+        id: webKeys
+        layered: root.sessionMode === "gamescope"     // drawn over the page (part 6)
+        layout: osk.layout
+        onFinished: root.backToPage()
+    }
+
+    // ---- The cage session (5.2): the interface shows or hides its own window, as owneetd decides
+    CageWindow {
+        active: root.sessionMode === "cage"
+    }
+
     // ---- Steam starting (4.2): until Steam's or the game's window appears, or Steam stops
-    SteamPreparing {
+    Preparing {                           // its texts are Steam's and the games' own (Preparing.qml)
         id: steamPrep
         onVisibleChanged: if (!visible) root.backToPage()
     }
@@ -2840,6 +3170,39 @@ FocusScope {
                     || (type === "app.exited" && ((id === "steam" && !steamPrep.steamRestart) || id.startsWith("steam:") || steamPrep.windows))
                     || (type === "focus.changed" && data.focus !== "home"))
                 steamPrep.close(true);
+        }
+    }
+
+    // ---- A web app's first opening (5.4): Brave first downloads Google Widevine, with no window;
+    // until the web app starts, or its opening fails. Without Widevine it does not open: the
+    // console says so and offers to try again (also when B hid this screen meanwhile).
+    Preparing {
+        id: webPrep
+        property var app: null              // the catalogue entry being prepared
+        readonly property string appId: app ? "web:" + app.id : ""
+        readonly property string appName: app ? Tr.tr(app.nameKey) : ""
+        title: Tr.tr("webapp.prep.title", { app: appName })
+        text: Tr.tr("webapp.prep.first", { app: appName })
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
+    Connections {
+        target: owneetd
+        function onEvent(type, data) {
+            if (!webPrep.app || !data) return;
+            if (type === "apps.open_failed" && data.id === webPrep.appId) {
+                const app = webPrep.app;
+                webPrep.app = null;
+                webPrep.close(true);
+                if (data.code === "apps.widevine_failed")
+                    root.appMessage(Tr.tr("widevine.fail.title"), Tr.tr("widevine.fail.text", { app: Tr.tr(app.nameKey) }),
+                                    () => root.openAfterConsent(app));
+                else
+                    toast.show(Tr.tr("error.apps.open"));
+            } else if ((type === "app.started" && data.id === webPrep.appId)
+                       || (type === "focus.changed" && data.focus === webPrep.appId)) {
+                webPrep.app = null;
+                webPrep.close(true);
+            }
         }
     }
 

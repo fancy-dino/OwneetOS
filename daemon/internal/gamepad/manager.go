@@ -3,6 +3,7 @@
 // Package gamepad tracks the game controllers connected to the console: discovery and hot-plug
 // (/dev/input), the Guide button (owned by owneetd, [[controller-input-map]]) and battery
 // levels. Devices are read without grabbing them: games and the UI get their input as usual.
+// On a keyboard, the Super (Windows) key is Guide ([[controller-input-map]], [[guide-button]]).
 package gamepad
 
 import (
@@ -65,6 +66,17 @@ type tracked struct {
 	info      Controller
 	guideCode int  // -1 if unknown
 	companion bool // not a gamepad, but may carry the Guide button of one (KEY_HOMEPAGE)
+	keyboard  bool // a keyboard: its Super keys are Guide
+}
+
+// pad: a controller (not a companion device or a keyboard), listed and reported to the API.
+func (t *tracked) pad() bool { return !t.companion && !t.keyboard }
+
+func (t *tracked) isGuide(code int) bool {
+	if t.keyboard {
+		return code == evdev.KeyLeftMeta || code == evdev.KeyRightMeta
+	}
+	return code == t.guideCode
 }
 
 // Ready is closed after the first scan of /dev/input.
@@ -97,7 +109,7 @@ func (m *Manager) List() []Controller {
 	m.mu.Lock()
 	out := []Controller{}
 	for _, t := range m.devs {
-		if !t.companion {
+		if t.pad() {
 			out = append(out, t.info)
 		}
 	}
@@ -186,6 +198,9 @@ func (m *Manager) add(path string) {
 	case IsGamepad(dev):
 		t.guideCode = m.guideCode(dev)
 		t.info = m.describe(dev, t.guideCode >= 0)
+	case IsKeyboard(dev):
+		t.keyboard = true
+		t.info = Controller{ID: "keyboard"}
 	case dev.HasKey(evdev.KeyHomepage) && dev.Uniq != "":
 		t.companion = true
 		t.guideCode = evdev.KeyHomepage
@@ -204,7 +219,10 @@ func (m *Manager) add(path string) {
 	m.devs[path] = t
 	m.mu.Unlock()
 
-	if !t.companion {
+	if t.keyboard {
+		m.Log.Debug("keyboard connected: Super is Guide", "path", path, "name", dev.Name)
+	}
+	if t.pad() {
 		m.refreshBattery(t)
 		m.Log.Info("controller connected", "id", t.info.ID, "name", t.info.Name, "guide", t.info.HasGuide)
 		m.Broker.Publish("controller.added", m.snapshot(path))
@@ -230,7 +248,7 @@ func (m *Manager) read(path string, t *tracked) {
 		}
 		for _, ev := range evs {
 			// Value 1: pressed, 0: released, 2: autorepeat (ignored).
-			if ev.Type != evdev.EvKey || int(ev.Code) != t.guideCode || ev.Value > 1 {
+			if ev.Type != evdev.EvKey || !t.isGuide(int(ev.Code)) || ev.Value > 1 {
 				continue
 			}
 			id := t.info.ID
@@ -255,7 +273,7 @@ func (m *Manager) hasController(id string) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, t := range m.devs {
-		if !t.companion && t.info.ID == id {
+		if t.pad() && t.info.ID == id {
 			return true
 		}
 	}
@@ -271,7 +289,7 @@ func (m *Manager) remove(path string) {
 		return
 	}
 	t.dev.Close()
-	if !t.companion {
+	if t.pad() {
 		m.Log.Info("controller disconnected", "id", t.info.ID)
 		m.Broker.Publish("controller.removed", map[string]string{"id": t.info.ID})
 	}
@@ -298,6 +316,13 @@ func IsGamepad(d *evdev.Device) bool {
 	}
 	hasAxes := d.HasAbs(evdev.AbsX) || d.HasAbs(evdev.AbsY) || d.HasAbs(evdev.AbsHat0X)
 	return hasButtons && hasAxes
+}
+
+// IsKeyboard tells keyboards (letters and a Super key) apart from the other devices with keys:
+// power buttons, media remotes, the companion devices of some controllers.
+func IsKeyboard(d *evdev.Device) bool {
+	return d.HasKey(evdev.KeyA) && d.HasKey(evdev.KeyZ) &&
+		(d.HasKey(evdev.KeyLeftMeta) || d.HasKey(evdev.KeyRightMeta)) && !IsGamepad(d)
 }
 
 // guideCode returns the key code of the Guide button: BTN_MODE when the driver reports it,
@@ -403,7 +428,7 @@ func (m *Manager) batteryLoop(ctx context.Context) {
 			m.mu.Lock()
 			var list []*tracked
 			for _, t := range m.devs {
-				if !t.companion {
+				if t.pad() {
 					list = append(list, t)
 				}
 			}

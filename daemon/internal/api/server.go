@@ -49,6 +49,10 @@ type Server struct {
 	Display Display
 	// Update is the testers' update from a USB stick (nil without a system bus).
 	Update Update
+	// Catalog installs and removes the optional apps (nil without a system bus).
+	Catalog Catalog
+	// WebApps connects the console's Brave extension with the interface (nil: not available).
+	WebApps WebApps
 	// Windows makes Windows games ready (nil: not available).
 	Windows Windows
 	// Installs installs games from their installers (nil: not available).
@@ -102,6 +106,19 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/display/revert", s.handleDisplayAction(Display.Revert))
 	mux.HandleFunc("GET /v1/apps", s.handleApps)
 	mux.HandleFunc("POST /v1/apps/launch", s.handleAppLaunch)
+	mux.HandleFunc("GET /v1/apps/catalog", s.handleCatalog)
+	mux.HandleFunc("POST /v1/apps/catalog/{id}/install", s.handleCatalogAction(Catalog.Install))
+	mux.HandleFunc("POST /v1/apps/catalog/{id}/remove", s.handleCatalogAction(Catalog.Remove))
+	mux.HandleFunc("POST /v1/apps/catalog/{id}/open", s.handleCatalogOpen)
+	mux.HandleFunc("GET /v1/webapps/widevine", s.handleWidevine)
+	mux.HandleFunc("POST /v1/webapps/widevine/accept", s.handleWidevineAccept)
+	mux.HandleFunc("POST /v1/webapps/widevine/terms", s.handleWidevineTerms)
+	mux.HandleFunc("GET /v1/webapps/look", s.handleWebAppsLook)
+	mux.HandleFunc("GET /v1/webapps/keyboard", s.handleWebAppsKeyboardState)
+	mux.HandleFunc("POST /v1/webapps/keyboard", s.handleWebAppsKeyboard)
+	mux.HandleFunc("POST /v1/webapps/keyboard/shown", s.handleWebAppsKeyboardShown)
+	mux.HandleFunc("POST /v1/webapps/text", s.handleWebAppsText)
+	mux.HandleFunc("POST /v1/webapps/ask-close", s.handleWebAppsAskClose)
 	mux.HandleFunc("POST /v1/apps/{id}/close", s.handleAppAction(Apps.Close))
 	mux.HandleFunc("POST /v1/apps/{id}/kill", s.handleAppAction(Apps.Kill))
 	mux.HandleFunc("POST /v1/apps/{id}/focus", s.handleAppAction(Apps.FocusApp))

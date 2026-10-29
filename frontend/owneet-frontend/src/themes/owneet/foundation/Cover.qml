@@ -113,12 +113,12 @@ Item {
         width: runningText.implicitWidth + Theme.px(18)
         height: runningText.implicitHeight + Theme.px(4)
         radius: height / 2
-        color: "#4ADE80"
+        color: Theme.running
         Text {
             id: runningText
             anchors.centerIn: parent
             text: Tr.tr("game.running")
-            color: "#062010"
+            color: Theme.runningInk
             font.family: Theme.textFont
             font.weight: Font.DemiBold
             font.pixelSize: Theme.fs(12.5)
