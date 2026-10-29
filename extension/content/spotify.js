@@ -3,21 +3,24 @@
 // Spotify's own navigation ([[step-5.5-spotify]]; [[extension-design]] "Spotify"; bindings:
 // [[controller-input-map]] "Inside Spotify"). Spotify's desktop web player, driven with the ring of
 // input.js (its player for phones and TVs keeps Your Library in Spotify's app, 2026-10-27).
-//  - The D-pad moves by position only (owner, 2026-10-28): from the selection, the nearest target
-//    past its edge in the pressed direction (spatialPick), wherever it is: the top bar, the left
-//    sidebar (Your Library), the main view. No rows, columns or parts. A card, a song and a Your
-//    Library row are one target each (their own buttons and links are not). The page and a shelf
+//  - The D-pad moves by position only (owner, 2026-10-28 / 29): from the selection, the nearest
+//    target past its edge in the pressed direction (spatialPick), wherever it is: the top bar, the
+//    left sidebar (Your Library), the main view; inside the player bar, a menu or a window, the
+//    same. No rows, columns or parts. A card, a song and a Your Library row are one target each
+//    (their own buttons and links are not); Spotify's sliders are not stops. The page and a shelf
 //    scroll to the selection. This geometry is Spotify's own: the generic one (spatnav.js) is not
 //    used for moving here, and Spotify's changes never reach it.
-//  - A clicks (a scripted Enter does nothing on Spotify); on a song it presses the song's play
-//    button. B closes an open menu or Spotify window first (the selection stays inside them while
-//    they are open), then the player bar, then the generic B: back a page, or "Close Spotify?".
+//  - A plays a card, a Your Library row or a song at once (its own play button); elsewhere it
+//    clicks (a scripted Enter does nothing on Spotify). Menu opens the selected item's page.
+//  - B closes an open menu or Spotify window first (the selection stays inside them while they
+//    are open), then the player bar, then the generic B: back a page, or "Close Spotify?".
 //  - X: the selected item's context menu, then its "Add to queue" (found by its label: the menu's
-//    items have no names of their own; in another language the menu stays open). Menu: the menu.
-//  - Y: the selection to the player bar and back. LT / RT: Spotify's Shift+← / → (5 s).
-//  - LB / RB: Home → Search → Your Library, going round.
+//    items have no names of their own; in another language the menu stays open).
+//  - Y: the selection to the player bar and back. LT / RT: Spotify's Shift+← / → (5 s). LB / RB:
+//    nothing.
 //  - On a TV: drawn as on a screen about 1280 px wide (layoutWidth: the worker sets Brave's zoom
-//    for the tab), and Spotify's right panel folded away once when the page opens.
+//    for the tab), and Spotify's right panel folded away when the page opens and after A plays
+//    (the desktop player reopens it when a song starts).
 // "Install App", "Open in Desktop app" and "Open Miniplayer" are never reached: they open windows
 // or programs the console cannot show.
 //
@@ -32,7 +35,6 @@ var OwneetSpotify = (() => {
 
   const NAMES = {
     top: '[data-testid="global-nav-bar"]',
-    searchInput: '[data-testid="search-input"]',
     main: 'main',
     sidebar: 'nav',
     libraryRow: '[role="row"]',
@@ -44,6 +46,11 @@ var OwneetSpotify = (() => {
     shelfPrev: '[data-testid="carousel-previous-button"]',
     card: '[data-encore-id="card"]',
     song: '[data-testid="tracklist-row"]',
+    // a card's or Your Library row's own play button; a song's title link
+    playButton: '[data-testid="play-button"]',
+    songLink: '[data-testid="internal-track-link"]',
+    // Spotify's sliders (progress, volume): not stops
+    slider: 'input[type="range"], [role="slider"]',
     menu: '#context-menu, [data-testid="context-menu"]',
     menuItem: '[role="menuitem"]',
     window: '[role="dialog"], [aria-modal="true"]',
@@ -53,19 +60,16 @@ var OwneetSpotify = (() => {
   // The labels Spotify gives the items found by their label, in the console's languages
   const QUEUE = [/^add to queue$/i, /^aggiungi (in|alla) coda$/i];
   const NEVER = [/desktop app$/i, /app desktop$/i, /^install(a)? (l'|the )?app$/i, /miniplayer/i];
-  const SECTIONS = ['home', 'search', 'library'];
   const LAYOUT_WIDTH = 1280;     // on a TV Spotify lays out as on a screen this wide (owner, 2026-10-24)
   const SLACK = 4;               // px of overlap still counted as past the selection's edge
   const SLIDE_MS = 450;          // a shelf sliding on with Spotify's arrow
   const MENU_MS = 350;           // a context menu appearing
-  const SECTION_MS = 700;        // a section's page appearing
+  const PLAY_MS = 1500;          // a song starting (Spotify then reopens its right panel)
   const PANEL_GAP = 120;         // the main view ends this far from the right edge: the right panel is open
 
   const matches = loc => loc.hostname === 'open.spotify.com';
   const isQueue = label => QUEUE.some(r => r.test(label));
   const isNeverLabel = label => NEVER.some(r => r.test(label));
-  // LB / RB: the section after now (step 1) or before it (-1), going round
-  const sectionAfter = (now, step) => SECTIONS[(SECTIONS.indexOf(now) + step + SECTIONS.length) % SECTIONS.length];
 
   // The D-pad, by position only (owner, 2026-10-28): from box c, the box to go to in dir, as an
   // index into rects (-1: none). Only boxes past c's edge in that direction count; among them, those
@@ -91,7 +95,7 @@ var OwneetSpotify = (() => {
   // env: { document, location, KeyboardEvent, MouseEvent, PointerEvent, setTimeout, now } of the
   // page; page: the ring of input.js { Nav, skip, current(), moveTo(el), click(el), openKeyboard(el) }
   function driver(env, page) {
-    const doc = env.document, loc = env.location, Nav = page.Nav;
+    const doc = env.document, Nav = page.Nav;
     const q = (sel, root = doc) => root.querySelector(sel);
     const qa = (sel, root = doc) => Array.from(root.querySelectorAll(sel));
     const usable = el => !!el && Nav.usable(el);
@@ -124,9 +128,9 @@ var OwneetSpotify = (() => {
     // The element of a unit that the ring selects
     const focusOf = u => u.matches(NAMES.song) ? u : (q('[role="button"]', u) || u);
     const toUnit = (el, side) => { const u = unitOf(el, side); return u ? focusOf(u) : el; };
-    // a unit is never one of these (side: the sidebar)
+    // a unit is never one of these (side: the sidebar); Spotify's sliders are not stops either
     function isNever(el, side) {
-      if (el.closest(NAMES.never)) return true;
+      if (el.closest(NAMES.never) || el.matches(NAMES.slider)) return true;
       return !unitOf(el, side) && el.matches('a, button, [role="menuitem"]') && isNeverLabel(label(el));
     }
 
@@ -211,9 +215,9 @@ var OwneetSpotify = (() => {
         enter(root);
         return true;
       }
-      let el = Nav.next(root, cur, dir, page.skip);
-      while (el && isNever(el)) el = Nav.next(root, el, dir, page.skip);
-      if (el) page.moveTo(el);
+      const els = Nav.targets(root, page.skip).filter(el => el !== cur && !el.contains(cur) && !isNever(el));
+      const i = spatialPick(Nav.rectOf(cur), els.map(el => Nav.rectOf(el)), dir);
+      if (i >= 0) page.moveTo(els[i]);
       return true;
     }
     function enter(root) {
@@ -252,6 +256,7 @@ var OwneetSpotify = (() => {
       }
     }
     env.setTimeout(() => foldPanel(20), 1000);
+    const afterPlay = () => env.setTimeout(() => foldPanel(0), PLAY_MS);
 
     return {
       layoutWidth: LAYOUT_WIDTH,
@@ -273,15 +278,17 @@ var OwneetSpotify = (() => {
           return true;
         }
         const unit = unitOf(cur);
-        if (unit && unit.matches(NAMES.song)) {
-          // a song plays with its own play button (a click on the row only selects it)
-          const play = q('button', unit);
+        if (unit) {
+          // a card, a Your Library row or a song plays at once with its own play button (a click
+          // on a song's row only selects it; a song's play button is its first one)
+          const song = unit.matches(NAMES.song), play = song ? q('button', unit) : q(NAMES.playButton, unit);
           if (usable(play)) page.click(play);
-          else {
+          else if (song) {
             const r = unit.getBoundingClientRect();
             unit.dispatchEvent(new env.MouseEvent('dblclick', { bubbles: true, cancelable: true, composed: true,
               view: doc.defaultView, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }));
-          }
+          } else return false;                         // no play button of its own: the generic A opens it
+          afterPlay();
           return true;
         }
         return false;                                  // the generic A clicks it (a text field: the keyboard)
@@ -315,11 +322,13 @@ var OwneetSpotify = (() => {
         });
         return true;
       },
-      // Menu: the selected item's context menu, the selection inside it
+      // Menu: the selected item's page (a card or a Your Library row through its own link, a song
+      // through its title)
       options() {
-        const cur = page.current();
-        if (!cur || openMenu() || openWindow()) return true;
-        openMenuFor(toUnit(cur), enter);
+        const unit = unitOf(page.current());
+        if (!unit || openMenu() || openWindow()) return true;
+        const open = unit.matches(NAMES.song) ? (q(NAMES.songLink, unit) || q('a[href]', unit)) : focusOf(unit);
+        if (usable(open)) page.click(open);
         return true;
       },
       // Y: the selection to the player bar and back
@@ -340,27 +349,6 @@ var OwneetSpotify = (() => {
           step > 0 ? 39 : 37, { shift: true });
         return true;
       },
-      // LB / RB: Home → Search → Your Library, going round
-      section(step) {
-        if (openMenu() || openWindow()) return true;
-        const side = sidebar(), cur = page.current();
-        const now = cur && side && side.contains(cur) ? 'library' : loc.pathname.startsWith('/search') ? 'search' : 'home';
-        const next = sectionAfter(now, step);
-        barFrom = null;
-        if (next === 'library') {
-          const row = side ? qa(NAMES.libraryRow, side).filter(usable).map(focusOf)[0] : null;
-          if (row) page.moveTo(row);
-          return true;
-        }
-        if (next === 'home') sendKey(env, keyTarget(), 'H', 'KeyH', 72, { alt: true, shift: true });
-        else sendKey(env, keyTarget(), 'L', 'KeyL', 76, { ctrl: true, shift: true });
-        env.setTimeout(() => {
-          const input = next === 'search' ? q(NAMES.searchInput) : null;
-          const m = main(), el = usable(input) ? input : usable(m) ? toUnit(Nav.first(m, page.skip)) : null;
-          if (el) page.moveTo(el);
-        }, SECTION_MS);
-        return true;
-      },
       // the right stick: up / down scroll the main view or the sidebar (not a shelf), sideways a shelf
       scroll(dx, dy) {
         const cur = page.current();
@@ -373,7 +361,7 @@ var OwneetSpotify = (() => {
     };
   }
 
-  return { NAMES, matches, isQueue, isNeverLabel, sectionAfter, spatialPick, LAYOUT_WIDTH, driver };
+  return { NAMES, matches, isQueue, isNeverLabel, spatialPick, LAYOUT_WIDTH, driver };
 })();
 
 if (typeof module !== 'undefined') module.exports = OwneetSpotify;

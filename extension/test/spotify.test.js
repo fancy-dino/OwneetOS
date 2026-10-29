@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Spotify's own navigation in its desktop web player: where it applies, its names, the items found
-// by their label, the sections on LB / RB, and its D-pad, which moves by position only
-// ([[extension-design]] "Spotify"). The parts that need Spotify's pages are checked in the test VM.
+// by their label, and its D-pad, which moves by position only ([[extension-design]] "Spotify").
+// The parts that need Spotify's pages are checked in the test VM.
 // Run: node --test extension/test/*.test.js
 
 'use strict';
@@ -29,6 +29,7 @@ test("Spotify's names are valid selectors in one place", () => {
     assert.strictEqual((sel.match(/"/g) || []).length % 2, 0, name);
   }
   assert.match(SP.NAMES.never, /pip-toggle-button/);
+  assert.match(SP.NAMES.slider, /range/);
 });
 
 test('X finds "Add to queue" by its label, in English and Italian', () => {
@@ -41,14 +42,6 @@ test('the items that open what the console cannot show are never reached', () =>
     assert.ok(SP.isNeverLabel(l), l);
   }
   for (const l of ['Add to queue', 'Go to album', 'Share', 'Desktop music for work']) assert.ok(!SP.isNeverLabel(l), l);
-});
-
-test('LB / RB: Home, Search, Your Library, going round', () => {
-  assert.strictEqual(SP.sectionAfter('home', 1), 'search');
-  assert.strictEqual(SP.sectionAfter('search', 1), 'library');
-  assert.strictEqual(SP.sectionAfter('library', 1), 'home');
-  assert.strictEqual(SP.sectionAfter('home', -1), 'library');
-  assert.strictEqual(SP.sectionAfter('search', -1), 'home');
 });
 
 test('the D-pad: only boxes past the edge in the direction count', () => {

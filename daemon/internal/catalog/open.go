@@ -144,9 +144,10 @@ func (m *Manager) braveCommand(e Entry, profile string, sess apps.Session) []str
 		"--hide-crash-restore-bubble",
 		"--ozone-platform=" + platform,
 	}
-	// Brave's performance alert ("Fix the tabs slowing your browser") is a window that needs a
-	// mouse ([[step-5.5-spotify]])
-	disabled := []string{"PerformanceInterventionUI"}
+	// Brave's windows and pages that need a mouse ([[step-5.5-spotify]]): its performance alert
+	// ("Fix the tabs slowing your browser") and its reading view (Speedreader, Alt+Shift+R on a
+	// keyboard, which Spotify also uses)
+	disabled := []string{"PerformanceInterventionUI", "Speedreader"}
 	if st, err := os.Stat(m.ExtensionDir); err == nil && st.IsDir() {
 		// The console's extension ([[step-5.2-extension-core]]), loaded from the system's files:
 		// no store and no update server

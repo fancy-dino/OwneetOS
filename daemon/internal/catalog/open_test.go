@@ -107,7 +107,7 @@ func TestOpenRunsBraveWithItsOwnProfile(t *testing.T) {
 	profile := filepath.Join(m.ProfilesDir, "netflix")
 	for _, want := range []string{"brave ", "--kiosk", "--user-data-dir=" + profile, "--ozone-platform=x11",
 		"--password-store=basic", "--load-extension=" + m.ExtensionDir,
-		"--disable-features=PerformanceInterventionUI,DisableLoadExtensionCommandLineSwitch", "https://www.netflix.com/"} {
+		"--disable-features=PerformanceInterventionUI,Speedreader,DisableLoadExtensionCommandLineSwitch", "https://www.netflix.com/"} {
 		if !strings.Contains(cmd, want) {
 			t.Errorf("command %q lacks %q", cmd, want)
 		}
@@ -241,8 +241,8 @@ func TestWaylandWithoutAnXServer(t *testing.T) {
 	if !strings.Contains(cmd, "--ozone-platform=wayland") || strings.Contains(cmd, "--load-extension") {
 		t.Errorf("command %q: want Wayland and no missing extension", cmd)
 	}
-	if !strings.Contains(cmd, "--disable-features=PerformanceInterventionUI ") {
-		t.Errorf("command %q: want Brave's performance alert off, alone", cmd)
+	if !strings.Contains(cmd, "--disable-features=PerformanceInterventionUI,Speedreader ") {
+		t.Errorf("command %q: want Brave's performance alert and reading view off, nothing else", cmd)
 	}
 }
 
