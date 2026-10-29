@@ -4,4 +4,7 @@ mesa
 mkinitcpio
 mkinitcpio-archiso
 owneet-base
+owneet-installer
+owneet-rollback
+owneet-updates
 vulkan-swrast

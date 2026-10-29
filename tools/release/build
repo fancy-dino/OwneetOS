@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Builds a whole OwneetOS release into out/release/ ([[step-7.2-release-pipeline]]): checks the
+# release commit, builds and signs the [owneet] packages, builds the ISO with the release's
+# version, signs it, gathers the source archive and makes the signed list of releases. Nothing is
+# published here: tools/release/publish does it, after an author's approval.
+#
+#   tools/release/build VERSION
+#
+# In CI (tools/ci/build-iso --release VERSION) with the signing subkey (OWNEET_SIGNING_DIR); in the
+# builder VM, to test the pipeline, with the throwaway test key:
+#   tools/build-in-vm 'OWNEET_SIGNING_TEST=1 tools/release/build VERSION'
+# A test build is never a release: its signatures are the test key's, which no console trusts.
+#
+# out/release/
+#   github/              the GitHub Release vVERSION: packages, owneet.db, owneet.files, signatures
+#   sourceforge/vVERSION/  the ISO (.sha256, .sig), its package and licence lists, SOURCES.txt,
+#                        sources/ (OwneetOS's packages) and the repository's own source archive
+#   arch-sources.txt     Arch's source archives the release needs (copied by tools/release/publish)
+#   updates/             releases.json (.sig) and previous.sha256
+#   notes.md             the English notes, for the GitHub Release's page
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+die() { echo "error: $*" >&2; exit 1; }
+VERSION="${1:-}"
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "usage: tools/release/build MAJOR.MINOR.PATCH"
+cd "$ROOT"
+
+OUT="$ROOT/out/release"
+REPO="$ROOT/out/repo/x86_64"
+SF="$OUT/sourceforge/v$VERSION"
+SIGN="$ROOT/tools/release/sign"
+TEST="${OWNEET_SIGNING_TEST:-0}"
+[[ -n "${OWNEET_SIGNING_DIR:-}" || "$TEST" == 1 ]] || die "no signing key: a release is never unsigned"
+
+echo "==> checking the release commit"
+tools/release/check "$VERSION"
+rm -rf "$OUT"
+mkdir -p "$OUT/github" "$SF" "$OUT/updates"
+
+echo "==> building the [owneet] packages"
+# Only the packages of this commit: nothing left over from other builds
+rm -rf "$REPO"
+tools/build-packages
+
+# Packages first, then the database (repo-add puts each package's signature in it), then the
+# database itself, under the names pacman asks for
+sign_repo() {
+    echo "==> signing the [owneet] repository"
+    rm -f "$REPO"/*.sig "$REPO"/owneet.{db,files}*
+    "$SIGN" "$REPO"/*.pkg.tar.zst
+    repo-add --quiet "$REPO/owneet.db.tar.gz" "$REPO"/*.pkg.tar.zst
+    "$SIGN" "$REPO/owneet.db.tar.gz" "$REPO/owneet.files.tar.gz"
+    ln -sf owneet.db.tar.gz.sig "$REPO/owneet.db.sig"
+    ln -sf owneet.files.tar.gz.sig "$REPO/owneet.files.sig"
+}
+# The ISO is built from the signed repository, verified against the OwneetOS key; the test key is
+# not trusted by the ISO, so a test signs after building it
+if [[ "$TEST" == 1 ]]; then
+    OWNEET_VERSION="$VERSION" tools/build-iso
+    sign_repo
+else
+    sign_repo
+    OWNEET_VERSION="$VERSION" tools/build-iso
+fi
+
+iso="$(find out -maxdepth 1 -name "owneetos-$VERSION-*.iso" | head -1)"
+[[ -n "$iso" ]] || die "no ISO for $VERSION in out/"
+echo "==> signing the ISO"
+"$SIGN" "$iso"
+mv "$iso" "$iso.sha256" "$iso.sig" "${iso%.iso}.packages.tsv" "$SF/"
+iso="$SF/$(basename "$iso")"
+
+# The licences of everything the ISO ships (every package keeps its texts in /usr/share/licenses)
+{
+    echo "OwneetOS $VERSION - the licences of every package in the ISO (name, version, licences)."
+    echo "The full texts are in /usr/share/licenses on the system. Sources: SOURCES.txt."
+    echo
+    awk -F'\t' '{ printf "%-40s %-30s %s\n", $1, $2, $4 }' "${iso%.iso}.packages.tsv"
+} > "${iso%.iso}.licences.txt"
+
+# GitHub Releases have no symbolic links: the database and file list under their plain names
+cp "$REPO"/*.pkg.tar.zst "$REPO"/*.pkg.tar.zst.sig "$OUT/github/"
+for f in owneet.db owneet.files; do
+    cp "$REPO/$f.tar.gz" "$OUT/github/$f"
+    cp "$REPO/$f.tar.gz.sig" "$OUT/github/$f.sig"
+done
+
+echo "==> gathering the source archive"
+tools/release/sources "$VERSION" "${iso%.iso}.packages.tsv" "$SF"
+git archive --format=tar --prefix="owneetos-$VERSION/" HEAD | gzip -n > "$SF/owneetos-$VERSION-source.tar.gz"
+mv "$SF/../arch-sources.txt" "$OUT/"
+
+echo "==> the list of releases"
+if [[ "$TEST" == 1 ]]; then
+    # A test never reads or extends the published list: it starts a list of its own
+    OWNEET_LIST_NEW=1 tools/release/list "$VERSION" "$OUT/updates"
+else
+    tools/release/list "$VERSION" "$OUT/updates"
+fi
+"$SIGN" "$OUT/updates/releases.json"
+cp "release-notes/$VERSION/en.txt" "$OUT/notes.md"
+
+# A test leaves the development repository as it found it: unsigned, without the test key's
+# signatures (the next development ISO would not know that key)
+if [[ "$TEST" == 1 ]]; then
+    rm -f "$REPO"/*.sig "$REPO"/owneet.{db,files}*
+    repo-add --quiet "$REPO/owneet.db.tar.gz" "$REPO"/*.pkg.tar.zst
+fi
+
+echo "==> release $VERSION ready in out/release$([[ "$TEST" == 1 ]] && echo ' (TEST: signed with the throwaway test key, never to be published)')"
+du -sh "$OUT"/* | sed 's/^/    /'

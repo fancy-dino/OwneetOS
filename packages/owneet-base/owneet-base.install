@@ -12,7 +12,7 @@ _owneet_locales() {
 }
 
 post_install() {
-  systemctl preset owneet-diagnostics.service owneet-testlog.service owneet-tester-install.service owneet-update-boot.service >/dev/null 2>&1 || true
+  systemctl preset owneet-diagnostics.service owneet-mode.service owneet-testlog.service owneet-tester-install.service owneet-update-boot.service >/dev/null 2>&1 || true
   _owneet_locales
 }
 

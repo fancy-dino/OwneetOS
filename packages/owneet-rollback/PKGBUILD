@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
+
+pkgname=owneet-rollback
+pkgver=0.0.1
+pkgrel=1
+pkgdesc="OwneetOS rollback: one spare copy of the system, the last version that worked"
+arch=('any')
+url="https://github.com/fancy-dino/OwneetOS"
+license=('GPL-3.0-or-later')
+depends=('bash' 'coreutils' 'util-linux' 'procps-ng' 'btrfs-progs' 'systemd')
+install=owneet-rollback.install
+source=('owneet-rollback' 'owneet-boot-check.service' '50-owneet-rollback.preset')
+sha256sums=('a6812f2723ca87745387481414aa5b38d1ef13f854709b583ab6bd35b65137fc'
+            '052ab71231785efa9abcd04c193610164a451383abc0a63d6a9056b26f978790'
+            'f5fbbc8c6c62d4c27f68e1ebee65d8ca5d6ca49e4427cb135da8b1e16e347a09')
+
+package() {
+  install -Dm755 owneet-rollback "$pkgdir/usr/lib/owneet/owneet-rollback"
+  install -Dm644 owneet-boot-check.service -t "$pkgdir/usr/lib/systemd/system/"
+  install -Dm644 50-owneet-rollback.preset "$pkgdir/usr/lib/systemd/system-preset/50-owneet-rollback.preset"
+}

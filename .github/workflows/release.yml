@@ -1,0 +1,97 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The release pipeline ([[step-7.2-release-pipeline]]): an author pushes the tag vX.Y.Z of a
+# release commit on main. Both jobs belong to the environment "release", so each one waits for an
+# author's approval: the first before the signing key is used, the second before anything is
+# published (between the two, the built release can be downloaded from the run and tested).
+#
+# The environment "release" holds (created by the owner):
+#   secrets   OWNEET_SIGNING_SUBKEY (the signing subkey, exported with its passphrase),
+#             OWNEET_SIGNING_PASSPHRASE, SF_SSH_KEY (the SourceForge account's SSH key)
+#   variables SF_USER, SF_PROJECT
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and sign
+    runs-on: ubuntu-24.04
+    environment: release
+    timeout-minutes: 300
+    env:
+      # The same Arch Linux container as ci.yml and the publish job (keep all three in step).
+      ARCH_IMAGE: archlinux:base-devel-20261004.0.606936@sha256:996c3a1d6b0d87b01242f6fcd8cfa3ad3eece1a67ab5c8f108e20af1d7b97bdd
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Check that the tag is on main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
+          df -h /
+
+      - name: Build and sign the release in an Arch Linux container
+        env:
+          OWNEET_SIGNING_SUBKEY: ${{ secrets.OWNEET_SIGNING_SUBKEY }}
+          OWNEET_SIGNING_PASSPHRASE: ${{ secrets.OWNEET_SIGNING_PASSPHRASE }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          docker run --rm --privileged -e OWNEET_SIGNING_SUBKEY -e OWNEET_SIGNING_PASSPHRASE \
+            -v "$PWD:/src" "$ARCH_IMAGE" /src/tools/ci/build-iso --release "${VERSION#v}"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: out/release/
+          retention-days: 14
+          compression-level: 0
+
+  publish:
+    name: Publish
+    needs: build
+    runs-on: ubuntu-24.04
+    environment: release
+    timeout-minutes: 360
+    permissions:
+      contents: write
+    env:
+      ARCH_IMAGE: archlinux:base-devel-20261004.0.606936@sha256:996c3a1d6b0d87b01242f6fcd8cfa3ad3eece1a67ab5c8f108e20af1d7b97bdd
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: out/release/
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost
+          df -h /
+
+      # In the Arch container: the source archives Arch does not publish are made with makepkg.
+      # If the job stops half way, running it again keeps what SourceForge already has.
+      - name: Publish (sources, ISO, packages, then the list of releases)
+        env:
+          SF_SSH_KEY_TEXT: ${{ secrets.SF_SSH_KEY }}
+          SF_USER: ${{ vars.SF_USER }}
+          SF_PROJECT: ${{ vars.SF_PROJECT }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          docker run --rm --privileged -e SF_SSH_KEY_TEXT -e SF_USER -e SF_PROJECT -e GH_TOKEN -e GH_REPO \
+            -v "$PWD:/src" "$ARCH_IMAGE" /src/tools/ci/build-iso --publish "${VERSION#v}"

@@ -1,0 +1,138 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS — interactive demo for [[step-7.8f-website-search-and-sharing]]: the picture shown
+     when a link to the website is shared (Open Graph, 1200 x 630 px). Two proposals: A the logo
+     and the slogan "Plug it. Play it. Own it!" (never translated, so one picture for every
+     language; the last frame of the start-up animation), B the logo and the home's title and line
+     in the page's language, with the gamepad "O" large at the right. In the site's palettes, Dusk
+     or Daylight. Shown whole, and in two plain link previews (a large one, and a small one where
+     the picture is cut to a square): no real app's look, no third-party logo. The logo is the
+     gamepad "O" draft of step 7.6 (the site's wordmark.data.ts); the texts are the site's
+     (src/i18n). Start state in the address, e.g. #shape=b&pal=dusk&lang=it. Fonts come from
+     Google Fonts for the demo only. Open in a browser. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS - sharing picture demo (7.8f)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Lexend:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root { --page: #e9ebf0; --ink: #1c2130; --soft: #5f6778; --card: #fff; --edge: #d3d8e2; font-family: system-ui, sans-serif; }
+@media (prefers-color-scheme: dark) { :root { --page: #12151c; --ink: #e8eaf0; --soft: #9aa1b2; --card: #1c2029; --edge: #2c3240; } }
+body { margin: 0; background: var(--page); color: var(--ink); line-height: 1.5; }
+main { max-width: 1000px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 28px; margin: 0 0 4px; }
+h2 { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); margin: 36px 0 12px; }
+.lede { color: var(--soft); margin: 0 0 24px; }
+.choices { display: grid; gap: 12px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.row > span { width: 80px; color: var(--soft); font-size: 14px; }
+.row button { background: var(--card); color: var(--ink); border: 1px solid var(--edge); border-radius: 999px; padding: 8px 16px; font: inherit; font-size: 14px; cursor: pointer; }
+.row button[aria-pressed="true"] { border-color: currentColor; box-shadow: inset 0 0 0 1px currentColor; }
+.note { color: var(--soft); font-size: 14px; max-width: 48em; }
+
+/* the picture: drawn at 1200 x 630 and scaled to its box */
+.frame { width: 100%; aspect-ratio: 1200 / 630; container-type: inline-size; overflow: hidden; border-radius: 10px; }
+.og { width: 1200px; height: 630px; transform-origin: 0 0; transform: scale(calc(100cqw / 1200px)); position: relative; overflow: hidden;
+  background: var(--bg); color: var(--fg); font-family: Lexend, sans-serif; }
+.og.dusk { --bg: #0e1424; --fg: #eef1f8; --muted: #8f9ab5; --accent: #ff8a5b; }
+.og.daylight { --bg: #eef0f5; --fg: #121826; --muted: #5a6378; --accent: #2f5bea; }
+.og svg path { fill: var(--fg); }
+.og svg path.accent { fill: var(--accent); }
+/* A: the logo and the slogan in the middle, inside the middle square (630 x 630) that some apps cut */
+.og.a .in { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 20px; }
+.og.a .logo { width: 580px; }
+.og.a .slogan { font-size: 34px; color: var(--muted); letter-spacing: .01em; }
+/* B: the logo small, the title and its line at the left, the gamepad "O" large at the right */
+.og.b .logo { position: absolute; left: 80px; top: 72px; width: 300px; }
+.og.b h3 { position: absolute; left: 80px; top: 190px; width: 620px; margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800;
+  font-size: 84px; line-height: 1.02; letter-spacing: -0.02em; }
+.og.b p { position: absolute; left: 80px; bottom: 80px; width: 640px; margin: 0; font-size: 30px; color: var(--muted); }
+.og.b .mark { position: absolute; right: -150px; top: 95px; width: 560px; }
+
+/* plain link previews (no real app's look) */
+.previews { display: grid; gap: 24px; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); align-items: start; }
+@media (max-width: 760px) { .previews { grid-template-columns: 1fr; } }
+.bubble { background: var(--card); border: 1px solid var(--edge); border-radius: 14px; padding: 10px; font-size: 14px; }
+.bubble .msg { margin: 2px 4px 10px; }
+.bubble .msg a { color: inherit; }
+.link { border-radius: 10px; overflow: hidden; border: 1px solid var(--edge); }
+.link .txt { padding: 10px 12px; display: grid; gap: 2px; }
+.link .site { color: var(--soft); font-size: 12px; }
+.link b { font-weight: 600; }
+.link .desc { color: var(--soft); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.small .link { display: flex; }
+.small .thumb { width: 96px; flex: none; aspect-ratio: 1; overflow: hidden; position: relative; }
+/* the square crop: the middle of the picture */
+.small .thumb .frame { position: absolute; height: 100%; width: auto; left: 50%; transform: translateX(-50%); border-radius: 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sharing picture</h1>
+  <p class="lede">What a chat or a social network shows when someone shares a link to the website.</p>
+  <div class="choices">
+    <div class="row" id="shapes"><span>Picture</span></div>
+    <div class="row" id="pals"><span>Palette</span></div>
+    <div class="row" id="langs"><span>Language</span></div>
+  </div>
+
+  <h2>The picture (1200 × 630)</h2>
+  <div id="whole"></div>
+
+  <h2>In a message</h2>
+  <div class="previews">
+    <div class="bubble large" id="large"></div>
+    <div class="bubble small" id="small"></div>
+  </div>
+  <p class="note">Some apps show the picture large, others cut a square from its middle and show it small.
+    The title and the description under the picture come from the page itself, in its language.</p>
+</main>
+<script>
+const VIEWBOX = '-60.4 -817.5 3968.9 975';
+const PATHS = [{"accent": true, "evenodd": true, "transform": "translate(19.6 -757.5) scale(8.55)", "d": "M0,50a50,50 0 1,0 100,0a50,50 0 1,0 -100,0ZM28.40,30.20L71.60,30.20A19.20,19.20 0 0,1 90.80,49.40L90.80,49.40A19.20,19.20 0 0,1 58.02,62.98Q50.00,55.40 41.98,62.98A19.20,19.20 0 0,1 9.20,49.40L9.20,49.40A19.20,19.20 0 0,1 28.40,30.20ZM25.28,39.32L31.52,39.32L31.52,45.08L37.28,45.08L37.28,51.32L31.52,51.32L31.52,57.08L25.28,57.08L25.28,51.32L19.52,51.32L19.52,45.08L25.28,45.08ZM68.36,41.24a3.24,3.24 0 1,0 6.48,0a3.24,3.24 0 1,0 -6.48,0ZM75.32,48.20a3.24,3.24 0 1,0 6.48,0a3.24,3.24 0 1,0 -6.48,0ZM68.36,55.16a3.24,3.24 0 1,0 6.48,0a3.24,3.24 0 1,0 -6.48,0ZM61.40,48.20a3.24,3.24 0 1,0 6.48,0a3.24,3.24 0 1,0 -6.48,0Z"}, {"accent": false, "evenodd": false, "transform": "translate(447.1 0)", "d": "M550.8 0 451.4 -527.7H607.4L643.8 -120.7H648.1L701.4 -527.7H864.6L918.8 -120.7H924L960.6 -527.7H1110.8L1011.8 0H822.6L781.9 -393.8H777.1L736.7 0Z"}, {"accent": false, "evenodd": false, "transform": "translate(447.1 0)", "d": "M1108.9 0V-312.7L1108.7 -527.7H1235.5L1233.7 -334.5H1241.9Q1243.6 -409.5 1258.9 -454.4Q1274.3 -499.3 1302.3 -519.6Q1330.3 -539.9 1369.8 -539.9Q1435.3 -539.9 1465.8 -488.3Q1496.2 -436.6 1496.2 -326.9V0H1348.2V-292.4Q1348.2 -350.1 1340 -376.4Q1331.9 -402.7 1309.5 -402.7Q1288.1 -402.7 1276.5 -380.1Q1265 -357.5 1260.6 -318.4Q1256.2 -279.2 1256.2 -228.5V0Z"}, {"accent": false, "evenodd": false, "transform": "translate(447.1 0)", "d": "M1708.7 12.3Q1649.4 12.3 1610 -6.9Q1570.6 -26 1547.4 -61.1Q1524.2 -96.2 1514.4 -144.9Q1504.6 -193.6 1504.6 -252.1Q1504.6 -308.7 1514 -360.1Q1523.3 -411.4 1545.6 -452.2Q1567.8 -493.1 1606.2 -516.5Q1644.5 -539.9 1703.1 -539.9Q1757.9 -539.9 1795.3 -519.2Q1832.7 -498.5 1854.2 -460Q1875.6 -421.5 1881.8 -368.4Q1888 -315.2 1879.1 -250.7L1601.1 -241.9V-314.6L1758.3 -319.5L1742.3 -270.1Q1747.5 -323.2 1745 -357.2Q1742.5 -391.2 1732.4 -407.7Q1722.3 -424.1 1703.1 -424.1Q1682.6 -424.1 1671.2 -405.3Q1659.8 -386.5 1655.3 -352.1Q1650.9 -317.7 1650.9 -270.2Q1650.9 -176.8 1664.8 -137.3Q1678.8 -97.8 1708.9 -97.8Q1723.9 -97.8 1732.9 -106.8Q1741.8 -115.8 1746.2 -131Q1750.5 -146.2 1751.4 -166Q1752.3 -185.8 1750.4 -207.3L1885.5 -195.7Q1891.6 -159.8 1886.7 -123Q1881.9 -86.3 1862.6 -55.5Q1843.3 -24.8 1805.9 -6.3Q1768.5 12.3 1708.7 12.3Z"}, {"accent": false, "evenodd": false, "transform": "translate(447.1 0)", "d": "M2094.7 12.3Q2035.4 12.3 1996 -6.9Q1956.6 -26 1933.4 -61.1Q1910.2 -96.2 1900.4 -144.9Q1890.6 -193.6 1890.6 -252.1Q1890.6 -308.7 1900 -360.1Q1909.3 -411.4 1931.6 -452.2Q1953.8 -493.1 1992.2 -516.5Q2030.5 -539.9 2089.1 -539.9Q2143.9 -539.9 2181.3 -519.2Q2218.7 -498.5 2240.2 -460Q2261.6 -421.5 2267.8 -368.4Q2274 -315.2 2265.1 -250.7L1987.1 -241.9V-314.6L2144.3 -319.5L2128.3 -270.1Q2133.5 -323.2 2131 -357.2Q2128.5 -391.2 2118.4 -407.7Q2108.3 -424.1 2089.1 -424.1Q2068.6 -424.1 2057.2 -405.3Q2045.8 -386.5 2041.3 -352.1Q2036.9 -317.7 2036.9 -270.2Q2036.9 -176.8 2050.8 -137.3Q2064.8 -97.8 2094.9 -97.8Q2109.9 -97.8 2118.9 -106.8Q2127.8 -115.8 2132.2 -131Q2136.5 -146.2 2137.4 -166Q2138.3 -185.8 2136.4 -207.3L2271.5 -195.7Q2277.6 -159.8 2272.7 -123Q2267.9 -86.3 2248.6 -55.5Q2229.3 -24.8 2191.9 -6.3Q2154.5 12.3 2094.7 12.3Z"}, {"accent": false, "evenodd": false, "transform": "translate(447.1 0)", "d": "M2461.1 8.6Q2383.4 8.6 2341.4 -36.7Q2299.4 -82 2299.4 -174.8V-413H2263.3V-510.8H2275Q2311.7 -512.3 2325.2 -531.3Q2338.7 -550.2 2342.9 -589L2347.9 -631.3H2443.5V-527.7H2522.7V-410.1H2443.5V-202.5Q2443.5 -165.3 2455.9 -147.4Q2468.4 -129.6 2488.7 -129.6Q2497.8 -129.6 2506.3 -132.7Q2514.9 -135.9 2522.8 -142.2V-0.6Q2506.5 4.4 2491.4 6.5Q2476.3 8.6 2461.1 8.6Z"}, {"accent": true, "evenodd": false, "transform": "translate(447.1 0)", "d": "M2742.8 12.3Q2685.3 12.3 2644.1 -9.5Q2602.9 -31.3 2577.2 -74.3Q2551.4 -117.2 2539.5 -180.4Q2527.6 -243.6 2527.6 -326.3Q2527.6 -444.5 2550 -520.8Q2572.3 -597.2 2621 -634.7Q2669.6 -672.3 2746 -672.3Q2804.2 -672.3 2845.6 -651.2Q2887 -630.2 2913.6 -588Q2940.1 -545.7 2952.8 -481Q2965.5 -416.3 2965.5 -329.8Q2965.5 -245.4 2952.7 -181.5Q2939.8 -117.5 2912.7 -74.6Q2885.7 -31.7 2843.7 -9.7Q2801.7 12.3 2742.8 12.3ZM2746.2 -103.2Q2770.9 -103.2 2786.2 -125.6Q2801.5 -148 2808.5 -197.1Q2815.6 -246.2 2815.6 -325.9Q2815.6 -408.2 2808.2 -459Q2800.8 -509.7 2785.2 -532.9Q2769.7 -556.1 2745 -556.1Q2721.5 -556.1 2706.4 -532.8Q2691.4 -509.4 2684.6 -459Q2677.7 -408.5 2677.7 -326.9Q2677.7 -267 2681.5 -224.4Q2685.4 -181.7 2693.2 -155.1Q2701.1 -128.4 2714.5 -115.8Q2727.9 -103.2 2746.2 -103.2Z"}, {"accent": true, "evenodd": false, "transform": "translate(447.1 0)", "d": "M3177.1 12.3Q3118.2 12.3 3075.9 -4.9Q3033.7 -22 3008.4 -54.2Q2983.1 -86.4 2975.8 -131.2Q2968.6 -175.9 2980.6 -231L3116.7 -251.6Q3112 -210.6 3116.4 -175.6Q3120.8 -140.7 3136.2 -119.7Q3151.7 -98.7 3180.3 -98.7Q3197.1 -98.7 3209.3 -105.5Q3221.4 -112.3 3228 -125.6Q3234.7 -139 3234.7 -159.4Q3234.7 -195.5 3218.7 -220.3Q3202.7 -245.2 3177.2 -263.4Q3151.8 -281.7 3123.7 -297.4Q3097.4 -312.6 3070.7 -330.2Q3044.1 -347.8 3022.2 -370.8Q3000.3 -393.7 2987.1 -424.5Q2973.8 -455.2 2973.8 -496.4Q2973.8 -549.5 2997.3 -589Q3020.8 -628.5 3065.2 -650.4Q3109.6 -672.3 3171.2 -672.3Q3239.6 -672.3 3285.4 -645.6Q3331.2 -618.9 3351.9 -568.7Q3372.6 -518.5 3364.7 -448.4L3231.2 -430Q3233.8 -455.1 3232 -478.2Q3230.2 -501.2 3223.1 -519.3Q3216.1 -537.4 3202.9 -547.9Q3189.7 -558.4 3170.1 -558.4Q3154.2 -558.4 3142.6 -551.5Q3131 -544.6 3124.8 -532.4Q3118.7 -520.3 3118.7 -503.3Q3118.7 -477.5 3131.9 -459.2Q3145 -440.8 3166.9 -426.9Q3188.7 -413 3213.5 -399.9Q3245.3 -382.3 3275.2 -362.2Q3305 -342.1 3329.1 -316Q3353.2 -289.8 3367.3 -254.6Q3381.4 -219.5 3381.4 -171.8Q3381.4 -117.3 3359.4 -75.6Q3337.5 -33.9 3292.4 -10.8Q3247.4 12.3 3177.1 12.3Z"}];
+const TEXTS = {"en": {"meta.title": "OwneetOS - Turn your PC into a game console", "meta.description": "A free and open source system that turns your PC into a game console. You only need a controller.", "hero.kicker": "Plug it. Play it. Own it!", "hero.title": "Turn your PC into a game console.", "hero.lede": "Free and open source. You only need a controller."}, "it": {"meta.title": "OwneetOS - Trasforma il tuo PC in una console", "meta.description": "Un sistema gratuito e open source che trasforma il tuo PC in una console. Ti basta un controller.", "hero.kicker": "Plug it. Play it. Own it!", "hero.title": "Trasforma il tuo PC in una console.", "hero.lede": "Gratuito e open source. Ti basta un controller."}};
+const SITE = 'fancy-dino.github.io/OwneetOS-website';
+const state = { shape: 'a', pal: 'dusk', lang: 'en' };
+const opt = name => (new RegExp(name + '=(\\w+)').exec(location.hash) || [])[1];
+if (['a', 'b'].includes(opt('shape'))) state.shape = opt('shape');
+if (['dusk', 'daylight'].includes(opt('pal'))) state.pal = opt('pal');
+if (TEXTS[opt('lang')]) state.lang = opt('lang');
+
+const path = p => `<path d="${p.d}" transform="${p.transform}"${p.accent ? ' class="accent"' : ''}${p.evenodd ? ' fill-rule="evenodd"' : ''}/>`;
+const logo = () => `<svg class="logo" viewBox="${VIEWBOX}">${PATHS.map(path).join('')}</svg>`;
+const mark = () => `<svg class="mark" viewBox="0 0 100 100"><path class="accent" fill-rule="evenodd" d="${PATHS[0].d}"/></svg>`;
+
+function picture() {
+  const t = TEXTS[state.lang];
+  const inner = state.shape === 'a'
+    ? `<div class="in">${logo()}<div class="slogan">${t['hero.kicker']}</div></div>`
+    : `${logo()}<h3>${t['hero.title']}</h3><p>${t['hero.lede']}</p>${mark()}`;
+  return `<div class="frame"><div class="og ${state.shape} ${state.pal}">${inner}</div></div>`;
+}
+function link(withText = true) {
+  const t = TEXTS[state.lang];
+  return `<div class="link">${withText === 'thumb' ? `<div class="thumb">${picture()}</div>` : picture()}` +
+    `<div class="txt"><span class="site">${SITE}</span><b>${t['meta.title']}</b><span class="desc">${t['meta.description']}</span></div></div>`;
+}
+function buttons(id, label, key, list) {
+  document.getElementById(id).innerHTML = `<span>${label}</span>` + list.map(([v, l]) =>
+    `<button type="button" data-k="${key}" data-v="${v}" aria-pressed="${state[key] === v}">${l}</button>`).join('');
+}
+function render() {
+  buttons('shapes', 'Picture', 'shape', [['a', 'A · Logo and slogan'], ['b', 'B · Logo and promise']]);
+  buttons('pals', 'Palette', 'pal', [['dusk', 'Dusk'], ['daylight', 'Daylight']]);
+  buttons('langs', 'Language', 'lang', [['en', 'English'], ['it', 'Italiano']]);
+  document.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { state[b.dataset.k] = b.dataset.v; render(); });
+  document.getElementById('whole').innerHTML = picture();
+  const url = `https://${SITE}/${state.lang === 'it' ? 'it' : ''}`;
+  const msg = (state.lang === 'it' ? 'Guarda qui: ' : 'Look at this: ') + `<a href="#">${url}</a>`;
+  document.getElementById('large').innerHTML = `<p class="msg">${msg}</p>${link()}`;
+  document.getElementById('small').innerHTML = `<p class="msg">${msg}</p>${link('thumb')}`;
+  history.replaceState(null, '', `#shape=${state.shape}&pal=${state.pal}&lang=${state.lang}`);
+}
+render();
+</script>
+</body>
+</html>

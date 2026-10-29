@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# At every start-up of an installed OwneetOS: waits for the console and, once it has run for a
+# minute, counts this version as working (owneet-rollback check, [[step-6.3-installer-backend]]).
+# Before boot-complete.target and required by it: while it has not succeeded, systemd-bless-boot
+# does not take the counting off a new version's boot entry, so 3 failed start-ups start the spare
+# copy (the last version that worked).
+[Unit]
+Description=OwneetOS: check that this version of the system works
+ConditionPathExists=/etc/owneet/installed
+After=multi-user.target
+Before=boot-complete.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/owneet/owneet-rollback check
+TimeoutStartSec=10min
+
+[Install]
+WantedBy=multi-user.target
+RequiredBy=boot-complete.target

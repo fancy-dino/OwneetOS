@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Installs OwneetOS on the disk of the console's request (owneet-install install,
+# [[step-6.3-installer-backend]]). Only on the live USB stick; started by owneetd from the
+# installer's screens (polkit rule 50-owneet-install.rules: only this unit, only start, only the
+# console user). The request is read by the script itself, never as an environment file.
+[Unit]
+Description=OwneetOS installation on a whole disk
+ConditionPathExists=/run/archiso/bootmnt
+ConditionPathExists=/run/owneet-install/request
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/owneet/owneet-install install
+TimeoutStartSec=60min

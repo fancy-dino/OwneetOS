@@ -1,0 +1,182 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS — interactive demo for [[step-7.8e-website-favicon]]: the website's icon in the
+     browser's tab, made from the site's logo of the moment, the gamepad "O" draft of step 7.6
+     (design/demos/logo-gamepad-o.html; replaced with the final logo in step 7.8i). Three shapes:
+     A the whole mark (the circle with the gamepad, its cross and its four buttons cut out),
+     B the simple mark (the gamepad's outline only, for 16 pixels), C the mark on a tile (the
+     site's background behind it, the same on any tab bar). Colours: the site's accent following
+     the visitor's device (Daylight blue when light, Dusk orange when dark), or always one of them.
+     Shown on light and dark tab bars, pixel by pixel at 16 and 32 px, at 180 px for a phone's home
+     screen; the chosen one is also this page's own icon (look at this tab). Start state in the
+     address, e.g. #shape=b&colour=theme. Open in a browser. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS — favicon demo (7.8e)</title>
+<link rel="icon" id="favicon" href="data:,">
+<style>
+:root {
+  --bg: #0e1424; --surface: #172036; --line: #2e3a5c; --fg: #eef1f8; --muted: #8f9ab5; --accent: #ff8a5b;
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg: #eef0f5; --surface: #fff; --line: #c9cfdc; --fg: #121826; --muted: #5a6378; --accent: #2f5bea; color-scheme: light; }
+}
+body { margin: 0; background: var(--bg); color: var(--fg); line-height: 1.5; }
+main { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 28px; margin: 0 0 4px; }
+h2 { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 36px 0 12px; }
+p.lede { color: var(--muted); margin: 0 0 24px; }
+.choices { display: grid; gap: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.row > span { width: 70px; color: var(--muted); font-size: 14px; }
+.row button { background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; font: inherit; font-size: 14px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+.row button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.row button img { width: 20px; height: 20px; }
+
+/* tab bars drawn plainly: no browser's look, no browser's logo */
+.bars { display: grid; gap: 14px; }
+.bar { border-radius: 12px; padding: 8px 8px 0; display: flex; gap: 4px; overflow: hidden; }
+.bar.light { background: #dfe3ea; color: #1f2430; }
+.bar.light .tab.on { background: #fff; }
+.bar.dark { background: #1d2029; color: #e6e8ee; }
+.bar.dark .tab.on { background: #353945; }
+.tab { display: flex; gap: 8px; align-items: center; padding: 9px 14px; border-radius: 10px 10px 0 0; font-size: 13px; min-width: 0; width: 260px; }
+.tab img { width: 16px; height: 16px; flex: none; }
+.tab span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab .blank { width: 16px; height: 16px; border-radius: 50%; background: currentColor; opacity: .25; flex: none; }
+
+.pixels { display: flex; flex-wrap: wrap; gap: 24px; }
+.pixels figure { margin: 0; display: grid; gap: 6px; justify-items: center; font-size: 13px; color: var(--muted); }
+.pixels canvas { image-rendering: pixelated; border-radius: 6px; }
+.pixels .on-light { background: #fff; }
+.pixels .on-dark { background: #1d2029; }
+.big { display: flex; flex-wrap: wrap; gap: 24px; align-items: end; }
+.big figure { margin: 0; display: grid; gap: 6px; justify-items: center; font-size: 13px; color: var(--muted); }
+/* the outline only shows the icon's edge here (the tile can be the colour of this page) */
+.big img.home { width: 90px; height: 90px; border-radius: 20px; box-shadow: 0 0 0 1px var(--line); }
+.note { color: var(--muted); font-size: 14px; max-width: 46em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Website favicon</h1>
+  <p class="lede">The site's icon in the browser's tab, from the gamepad "O" of the logo draft. This tab shows the chosen one too.</p>
+
+  <div class="choices">
+    <div class="row" id="shapes"><span>Shape</span></div>
+    <div class="row" id="colours"><span>Colour</span></div>
+  </div>
+
+  <h2>In the tab bar</h2>
+  <div class="bars">
+    <div class="bar light"></div>
+    <div class="bar dark"></div>
+  </div>
+
+  <h2>Pixel by pixel</h2>
+  <div class="pixels" id="pixels"></div>
+  <p class="note">What a screen really draws: 16 px on an ordinary screen, 32 px on a high-density one (laptops, phones), enlarged here.</p>
+
+  <h2>On a phone's home screen</h2>
+  <div class="big" id="big"></div>
+  <p class="note">A phone needs a solid icon (180 × 180 px): it always gets the tile, in the colour of the choice above.</p>
+</main>
+
+<script>
+// ---- The mark: the gamepad "O" of the logo draft (the website's wordmark.data.ts), in a 100 x 100 box.
+// The circle, the gamepad's outline, its cross, its four buttons; even-odd, so each one is a hole.
+const CIRCLE = 'M0,50a50,50 0 1,0 100,0a50,50 0 1,0 -100,0Z';
+const PAD = 'M28.40,30.20L71.60,30.20A19.20,19.20 0 0,1 90.80,49.40L90.80,49.40A19.20,19.20 0 0,1 58.02,62.98Q50.00,55.40 41.98,62.98A19.20,19.20 0 0,1 9.20,49.40L9.20,49.40A19.20,19.20 0 0,1 28.40,30.20Z';
+const DETAILS = 'M25.28,39.32L31.52,39.32L31.52,45.08L37.28,45.08L37.28,51.32L31.52,51.32L31.52,57.08L25.28,57.08L25.28,51.32L19.52,51.32L19.52,45.08L25.28,45.08Z' +
+  'M68.36,41.24a3.24,3.24 0 1,0 6.48,0a3.24,3.24 0 1,0 -6.48,0ZM75.32,48.20a3.24,3.24 0 1,0 6.48,0a3.24,3.24 0 1,0 -6.48,0Z' +
+  'M68.36,55.16a3.24,3.24 0 1,0 6.48,0a3.24,3.24 0 1,0 -6.48,0ZM61.40,48.20a3.24,3.24 0 1,0 6.48,0a3.24,3.24 0 1,0 -6.48,0Z';
+// the site's palettes (src/styles.scss): Daylight when the device is light, Dusk when it is dark
+const DAYLIGHT = { accent: '#2f5bea', bg: '#eef0f5' };
+const DUSK = { accent: '#ff8a5b', bg: '#0e1424' };
+
+const SHAPES = [
+  ['a', 'A · Whole mark'],
+  ['b', 'B · Simple mark'],
+  ['c', 'C · On a tile'],
+];
+const COLOURS = [
+  ['theme', 'Follows the device'],
+  ['blue', 'Always blue'],
+  ['orange', 'Always orange'],
+];
+const state = { shape: 'a', colour: 'theme' };
+const opt = name => (new RegExp(name + '=(\\w+)').exec(location.hash) || [])[1];
+if (SHAPES.some(s => s[0] === opt('shape'))) state.shape = opt('shape');
+if (COLOURS.some(c => c[0] === opt('colour'))) state.colour = opt('colour');
+
+/** The icon's SVG. `scheme` 'light' / 'dark' fixes the palette; null lets the device choose (theme). */
+function svg(shape, colour, scheme = null, tile = shape === 'c') {
+  const d = CIRCLE + PAD + (shape === 'b' ? '' : DETAILS);
+  const pick = s => colour === 'blue' ? DAYLIGHT : colour === 'orange' ? DUSK : s === 'dark' ? DUSK : DAYLIGHT;
+  const fixed = colour !== 'theme' || scheme;
+  const p = pick(scheme || 'light');
+  // the tile: the site's background with the mark a little smaller on it
+  const body = tile
+    ? `<rect class="t" width="100" height="100" rx="22" fill="${p.bg}"/><path class="m" fill="${p.accent}" fill-rule="evenodd" transform="translate(14 14) scale(.72)" d="${d}"/>`
+    : `<path class="m" fill="${p.accent}" fill-rule="evenodd" d="${d}"/>`;
+  const media = fixed ? '' : `<style>@media (prefers-color-scheme: dark){.m{fill:${DUSK.accent}}.t{fill:${DUSK.bg}}}</style>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">${media}${body}</svg>`;
+}
+const url = s => 'data:image/svg+xml,' + encodeURIComponent(s);
+
+/** What the tab bar of a light or dark browser shows: its theme decides when the icon follows the device. */
+const forBar = scheme => url(svg(state.shape, state.colour, state.colour === 'theme' ? scheme : null));
+
+function drawPixels(fig, src, size, scale) {
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  c.style.width = c.style.height = size * scale + 'px';
+  const img = new Image();
+  img.onload = () => c.getContext('2d').drawImage(img, 0, 0, size, size);
+  img.src = src;
+  fig.prepend(c);
+  return c;
+}
+
+function render() {
+  $('#shapes').innerHTML = '<span>Shape</span>' + SHAPES.map(([k, l]) =>
+    `<button type="button" data-shape="${k}" aria-pressed="${state.shape === k}"><img alt="" src="${url(svg(k, state.colour))}">${l}</button>`).join('');
+  $('#colours').innerHTML = '<span>Colour</span>' + COLOURS.map(([k, l]) =>
+    `<button type="button" data-colour="${k}" aria-pressed="${state.colour === k}">${l}</button>`).join('');
+  document.querySelectorAll('[data-shape]').forEach(b => b.onclick = () => { state.shape = b.dataset.shape; render(); });
+  document.querySelectorAll('[data-colour]').forEach(b => b.onclick = () => { state.colour = b.dataset.colour; render(); });
+
+  for (const scheme of ['light', 'dark']) {
+    $('.bar.' + scheme).innerHTML =
+      `<div class="tab on"><img alt="" src="${forBar(scheme)}"><span>OwneetOS — Turn your PC into a game console.</span></div>` +
+      `<div class="tab"><span class="blank"></span><span>Another site</span></div>`;
+  }
+
+  const pixels = $('#pixels');
+  pixels.innerHTML = '';
+  for (const [size, scale] of [[16, 8], [32, 4]]) {
+    for (const scheme of ['light', 'dark']) {
+      const fig = document.createElement('figure');
+      fig.innerHTML = `<figcaption>${size} px · ${scheme} tab</figcaption>`;
+      drawPixels(fig, forBar(scheme), size, scale).className = 'on-' + scheme;
+      pixels.append(fig);
+    }
+  }
+
+  const home = scheme => url(svg(state.shape === 'b' ? 'b' : 'a', state.colour, state.colour === 'theme' ? scheme : null, true));
+  $('#big').innerHTML = ['light', 'dark'].map(scheme =>
+    `<figure><img class="home" alt="" src="${home(scheme)}"><figcaption>${state.colour === 'theme' ? scheme + ' device' : 'any device'}</figcaption></figure>`).join('');
+
+  // this page's own tab
+  $('#favicon').href = url(svg(state.shape, state.colour));
+  history.replaceState(null, '', `#shape=${state.shape}&colour=${state.colour}`);
+}
+function $(q) { return document.querySelector(q); }
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The console checks for updates by itself: a few minutes after start-up, then once a day
+# (owner, 2026-10-25). It only downloads the list; installing is always the player's choice.
+[Unit]
+Description=OwneetOS: check for updates every day
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=1d
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target

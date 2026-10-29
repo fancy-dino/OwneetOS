@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// The installer's screens (owneetd, the console user) start the installation on the disk the
+// player chose and confirmed ([[step-6.3-installer-backend]]). Only this unit, only start, only the
+// console user in the active local session; the unit itself runs only on the live USB stick and
+// checks the request again.
+polkit.addRule(function (action, subject) {
+    if (action.id === "org.freedesktop.systemd1.manage-units" &&
+            subject.user === "owneet" && subject.local && subject.active &&
+            action.lookup("unit") === "owneet-install.service" &&
+            action.lookup("verb") === "start") {
+        return polkit.Result.YES;
+    }
+});

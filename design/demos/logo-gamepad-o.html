@@ -7,10 +7,9 @@
      no thumbsticks): one straight top edge with corners as round as the grips, two round ends
      below it as short grips, a narrower middle whose bottom curves inwards. On the boot splash
      the letters are white, the "O" and "OS" light grey (#B0B0B0). The animation, in the
-     palette's colours: the "O" appears in the middle of the screen, the other letters come out
-     of it as one strip ("S" first) while it moves left, until the wordmark is whole and centred;
-     then the subtitle "don't worry, it's yours!" fades in under it (in the system it would come
-     from the message files, translated). A draft only: nothing in the system uses it (the final logo is step 7.6). The letters
+     palette's colours, in four beats (owner, 2026-10-23): the whole logo appears, then "Plug
+     it.", "Play it.", "Own it!" (the website's line) under it, each at once, no fade (in the
+     system the words would come from the message files, translated). A draft only: nothing in the system uses it (the final logo is step 7.6). The letters
      are the outlines of the current wordmark (packages/owneet-branding, Bricolage Grotesque, SIL
      Open Font License 1.1); the gamepad is drawn for OwneetOS. Open in a browser; drive it with a
      gamepad or the keyboard (A / Enter: play again, left / right: palette). -->
@@ -41,6 +40,8 @@ p { margin: 0; color: var(--muted); line-height: 1.45; max-width: 75ch; }
 .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 500; }
 .screen { background: #000; border-radius: 12px; overflow: hidden; aspect-ratio: 16 / 9; }
 .screen svg { display: block; width: 100%; height: 100%; }
+.screens { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.screens h3 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 10px; }
 .hero svg { display: block; width: min(640px, 100%); height: auto; }
 .before { margin-top: 22px; display: flex; align-items: center; gap: 16px; }
 .before svg { width: min(300px, 60%); height: auto; }
@@ -77,7 +78,10 @@ p { margin: 0; color: var(--muted); line-height: 1.45; max-width: 75ch; }
       <div class="ctl"><button class="chip" id="replay" type="button">Play again</button></div>
       <div class="ctl"><span>Palette</span><button class="chip" id="palName" type="button"></button></div>
     </div>
-    <div class="screen" id="screen"></div>
+    <div class="screens">
+      <div><h3>Website: the logo from transparent</h3><div class="screen" id="screen-website"></div></div>
+      <div><h3>Distro: the logo from the boot splash's colours</h3><div class="screen" id="screen-distro"></div></div>
+    </div>
   </section>
 
   <section class="card">
@@ -193,89 +197,72 @@ function wordmark(cText, cOS, old = false) {
 const markSvg = (px, colour) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${px}" height="${px}">${markPath(colour)}</svg>`;
 
-// ---- The animation, on a 1600 x 900 screen, in the palette's colours. Each glyph is its own
-// group, moved per frame. The letters come out of the "O" as one strip, "S" first: a mask hides
-// them inside the "O"'s circle (its gamepad hole too) and left of its centre, wherever it is.
-// Then the subtitle fades in under the wordmark, rising a little.
-const ANIM = {
-  oIn: [0, 650],          // the "O" appears in the middle (fades in, grows from 70 %)
-  out: [750, 2350],       // the letters come out of it; the "O" moves left, all stays centred
-  subtitle: [2550, 3350], // the subtitle fades in
-};
-const SUBTITLE = "don't worry, it's yours!";   // demo only: in the system, from the message files
+// ---- The animation, on a 1600 x 900 screen, in the palette's colours, in four beats (owner,
+// 2026-10-23): 1, the whole logo appears over the whole first beat (FIRST_BEAT ms); 2, "Plug
+// it."; 3, "Play it."; 4, "Own it!", one BEAT apart — each word at once, no fade, already in its
+// final place (the line never moves). Two variants of the logo's appearing:
+//   website: from transparent to visible;
+//   distro: from the boot splash's colours (white letters, the "O" and "OS" light grey, already
+//           on screen) to the palette's.
+const FIRST_BEAT = 2000;       // ms: the logo alone, before "Plug it."
+const BEAT = 500;              // ms between the words
+const LOGO_FADE = FIRST_BEAT;  // ms: the logo's appearing covers the whole first beat
+const VARIANTS = ['website', 'distro'];
+const SUBTITLE = ['Plug it.', 'Play it.', 'Own it!'];   // demo only: in the system, from the message files
 const SUB_SIZE = 40;      // the subtitle's font size, in units of the 1600 x 900 screen
 const SUB_CAP = 0.72;     // Lexend's ascender over the font size: the text's top above its baseline
 const SUB_GAP = 32;       // from the circle's bottom (the wordmark's lowest point) to the subtitle's top (owner)
 const clamp = v => Math.max(0, Math.min(1, v));
 const span = (t, [a, b]) => clamp((t - a) / (b - a));
 const easeOut = x => 1 - Math.pow(1 - x, 3);
-const easeInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
-let anim = null;
+// a colour between `a` and `b` (#RRGGBB), x from 0 (a) to 1 (b)
+const rgb = h => h.replace('#', '').match(/../g).map(v => parseInt(v, 16));
+const mix = (a, b, x) => '#' + rgb(a).map((v, i) => Math.round(v + (rgb(b)[i] - v) * x).toString(16).padStart(2, '0')).join('');
+let anims = [];
 // "#t=1500" in the address shows the animation stopped at that time (ms), to look at one frame
 const FROZEN = /t=(\d+)/.exec(location.hash);
 
-function buildScreen(root) {
-  const t = tok(PALETTES[state.pal]), p = 's-';
-  const letters = [...WNEET.map(d => [d, t.fg]), ...OS.map(d => [d, t.accent])].map(([d, fill], i) =>
-    `<g class="gl" id="${p}g${i + 1}" opacity="0"><path transform="translate(${SHIFT} 0)" fill="${fill}" d="${d}"/></g>`).join('');
+function buildScreen(root, variant) {
+  const t = tok(PALETTES[state.pal]);
+  const letters = [...WNEET.map(d => [d, t.fg]), ...OS.map(d => [d, t.accent])]
+    .map(([d, fill]) => `<path transform="translate(${SHIFT} 0)" fill="${fill}" d="${d}"/>`).join('');
+  // the words, each hidden until its beat but already taking its room: the line is laid out once
+  const words = SUBTITLE.map((w, i) => `<tspan visibility="hidden">${i ? ' ' : ''}${w}</tspan>`).join('');
   root.style.background = t.bg;
   root.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">` +
-    `<g class="place"><mask id="${p}behindO" maskUnits="userSpaceOnUse" x="-6000" y="-4000" width="14000" height="8000">` +
-    `<rect x="-6000" y="-4000" width="14000" height="8000" fill="#fff"/><circle class="oShadow" r="0" fill="#000"/>` +
-    `<rect class="oLeft" x="-6000" y="-4000" width="0" height="8000" fill="#000"/></mask>` +
-    `<g mask="url(#${p}behindO)">${letters}</g>` +
-    `<g class="gl" id="${p}g0" opacity="0">${markGroup(t.accent)}</g></g>` +
+    `<g class="logo">${markGroup(t.accent)}${letters}</g>` +
     `<text class="subtitle" x="800" y="0" text-anchor="middle" font-family="Lexend, system-ui, sans-serif" font-size="${SUB_SIZE}"` +
-    ` font-weight="350" fill="${t.muted}" opacity="0"></text></svg>`;
-  root.querySelector('.subtitle').textContent = SUBTITLE;
-  // glyphs: 0 the "O", 1-5 "wneet", 6-7 "OS"
-  const els = [root.querySelector(`#${p}g0`), ...root.querySelectorAll('g[mask] > .gl')];
-  // each glyph's box, in the wordmark's units
-  const boxes = els.map(el => { const b = el.getBBox(); return { x0: b.x, x1: b.x + b.width, cx: b.x + b.width / 2, cy: b.y + b.height / 2 }; });
-  const left = boxes[0].x0, right = Math.max(...boxes.map(b => b.x1));
-  const s = 900 / (right - left);       // the whole wordmark is 900 of the screen's 1600 wide
-  root.querySelector('.place').setAttribute('transform', `translate(${800 - s * (left + right) / 2} ${450 - s * O_CY}) scale(${s})`);
-  return { root, els, left, right, oCx: boxes[0].cx, oCy: O_CY, oRight: boxes[0].x1, circleBottom: 450 + s * O_D / 2 };
+    ` font-weight="350" fill="${t.muted}">${words}</text></svg>`;
+  // the whole wordmark is 900 of the screen's 1600 wide, the circle's centre in the middle
+  const logo = root.querySelector('.logo'), b = logo.getBBox();
+  const s = 900 / b.width;
+  logo.setAttribute('transform', `translate(${800 - s * (b.x + b.width / 2)} ${450 - s * O_CY}) scale(${s})`);
+  root.querySelector('.subtitle').setAttribute('y', (450 + s * O_D / 2 + SUB_GAP + SUB_SIZE * SUB_CAP).toFixed(1));
+  // the logo's parts and their colours: from the splash's to the palette's
+  const paths = [...logo.querySelectorAll('path')];
+  const parts = paths.map(p => p.getAttribute('fill') === t.accent ? [p, SPLASH.accent, t.accent] : [p, SPLASH.fg, t.fg]);
+  return { variant, logo, parts, words: [...root.querySelectorAll('.subtitle tspan')] };
 }
 
 function draw(a, t) {
-  const { root, els, left, right, oCx, oCy, oRight } = a;
-  // how far the strip of letters has come out, measured from the "O"'s centre to its right end
-  const out = easeInOut(span(t, ANIM.out)) * (right - oCx);
-  // what is shown (the "O" and the letters out) stays centred: where the "O"'s centre goes
-  const shown = (oCx - left) + Math.max(oRight - oCx, out);
-  const centre = (left + right) / 2 - shown / 2 + (oCx - left), dx = centre - oCx;
-  const o = easeOut(span(t, ANIM.oIn)), grow = 0.7 + 0.3 * o;
-  els[0].setAttribute('opacity', o.toFixed(3));
-  els[0].setAttribute('transform', `translate(${(dx + oCx).toFixed(1)} ${oCy}) scale(${grow.toFixed(4)}) translate(${-oCx} ${-oCy})`);
-  const shadow = root.querySelector('.oShadow');
-  shadow.setAttribute('cx', centre.toFixed(1));
-  shadow.setAttribute('cy', oCy);
-  shadow.setAttribute('r', (O_D / 2 * (0.7 + 0.3 * o)).toFixed(1));
-  root.querySelector('.oLeft').setAttribute('width', (centre + 6000).toFixed(1));
-  // the strip: its right end at the "O"'s centre plus what has come out
-  const strip = centre + out - right;
-  for (let i = 1; i < els.length; i++) {
-    els[i].setAttribute('opacity', 1);
-    els[i].setAttribute('transform', `translate(${strip.toFixed(1)} 0)`);
-  }
-  // the subtitle: fades in, rising 16 units
-  const sub = easeOut(span(t, ANIM.subtitle));
-  root.querySelector('.subtitle').setAttribute('opacity', sub.toFixed(3));
-  root.querySelector('.subtitle').setAttribute('y', (a.circleBottom + SUB_GAP + SUB_SIZE * SUB_CAP).toFixed(1));
-  root.querySelector('.subtitle').setAttribute('transform', `translate(0 ${((1 - sub) * 16).toFixed(1)})`);
+  // beat 1: the logo appears (website: from transparent; distro: from the splash's colours);
+  // beats 2-4: one word each, at once
+  const x = easeOut(span(t, [0, LOGO_FADE]));
+  if (a.variant === 'website') a.logo.setAttribute('opacity', x.toFixed(3));
+  else a.parts.forEach(([path, from, to]) => path.setAttribute('fill', mix(from, to, x)));
+  a.words.forEach((w, i) => w.setAttribute('visibility', t >= FIRST_BEAT + i * BEAT ? 'visible' : 'hidden'));
 }
 
 let start = 0, run = 0;     // run: which play() the frames belong to (a newer one stops them)
 function frame(now, mine = run) {
   if (mine !== run) return;
   const t = FROZEN ? +FROZEN[1] : now - start;
-  if (anim) draw(anim, t);
-  if (!FROZEN && t < ANIM.subtitle[1]) requestAnimationFrame(n => frame(n, mine));
+  anims.forEach(a => draw(a, t));
+  if (!FROZEN && t < FIRST_BEAT + (SUBTITLE.length - 1) * BEAT + 100) requestAnimationFrame(n => frame(n, mine));
 }
 function play() {
   run++;
-  anim = buildScreen(document.getElementById('screen'));
+  anims = VARIANTS.map(v => buildScreen(document.getElementById('screen-' + v), v));
   start = performance.now();
   if (FROZEN) frame(0); else requestAnimationFrame(frame);
 }
