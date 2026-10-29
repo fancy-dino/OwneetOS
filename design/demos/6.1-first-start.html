@@ -8,7 +8,9 @@
      later: games on disks work offline), the time zone (suggested from the language; a list of
      cities when the language has several zones; never geolocated), the Xbox wireless adapter's
      firmware (only when an adapter is plugged in and the console is online: downloaded from
-     Microsoft with consent, [[xbox-wireless-dongle]]), ready. The console's name was chosen in the
+     Microsoft with consent, [[xbox-wireless-dongle]]; "Read the terms" shows Microsoft's terms as a
+     code to read on a phone, owner 2026-10-29), ready. Without the internet the time screen also
+     offers "Set the time" (the PC's own clock may be wrong). The console's name was chosen in the
      installer. The five languages of Wave 1 are listed (English, Italian, German, French,
      Spanish); in the demo only English and Italian have their texts (step 7.9). Open in a browser; gamepad or keyboard (Enter = A, Esc = B). Demo keys: C a
      controller pairs, K network cable, D Xbox adapter plugged in, L language, P palette, N sounds.
@@ -89,6 +91,12 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
 .overlay.open { display: grid; place-items: center; }
 .sheet { width: 640px; text-align: center; background: var(--bg); border: 1px solid var(--line); border-radius: 18px; padding: 22px 26px; display: grid; gap: 14px; justify-items: center; }
 .sheet input { width: 100%; font: inherit; font-size: 20px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); }
+.qr { display: grid; background: var(--fg); padding: 12px; border-radius: 10px; }
+.qr i { display: block; width: 6px; height: 6px; } .qr i.d { background: var(--bg); }
+.fields { display: flex; gap: 10px; align-items: center; font-variant-numeric: tabular-nums; }
+.field { padding: 10px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); min-width: 3.2em; text-align: center; }
+.field.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--bg), 0 0 0 6px var(--accent); }
+.field-sep { color: var(--muted); }
 .toast { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); padding: 9px 18px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; white-space: nowrap; }
 .toast.show { opacity: 1; }
 .help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; }
@@ -104,7 +112,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
   <div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
 </div></div>
 <p class="help"><b>Gamepad:</b> D-pad / stick move, A select, B back. <b>Keyboard:</b> arrows, Enter = A, Esc = B.<br>
-<b>Demo only:</b> C a controller pairs, K network cable (<span id="cable-state">off</span>), D Xbox adapter plugged in (<span id="dongle-state">off</span>), L language, P palette, N sounds (<span id="snd-state">on</span>). Address: <code>#screen=time&amp;lang=en</code></p>
+<b>New:</b> "Read the terms" shows a QR code; without the internet the time can be set by hand.<br><b>Demo only:</b> C a controller pairs, K network cable (<span id="cable-state">off</span>), D Xbox adapter plugged in (<span id="dongle-state">off</span>), L language, P palette, N sounds (<span id="snd-state">on</span>). Address: <code>#screen=time&amp;lang=en</code></p>
 
 <script src="sounds.js"></script>
 <script>
@@ -139,6 +147,9 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
     'ready.title': 'You are all set', 'ready.text': 'Your console is ready. Settings has everything you chose here.', 'ready.home': 'Go to the home screen',
     'ready.lang': 'Language', 'ready.net': 'Network', 'ready.time': 'Time zone', 'ready.offline': 'Not connected',
     'continue': 'Continue', 'p.select': 'Select', 'p.back': 'Back', 'p.scroll': 'Scroll',
+    'terms.title': 'Microsoft’s terms', 'terms.text': 'Scan the code with your phone to read them.', 'terms.close': 'Close',
+    'clock.set': 'Set the time', 'clock.title': 'Date and time', 'clock.text': 'Without the internet the console uses the PC’s own clock: correct it here if it is wrong. Once online it sets itself again.',
+    'clock.save': 'Save', 'clock.saved': 'Time set', 'p.change': 'Change', 'p.field': 'Next field',
     'demo.home': '(demo) The home screen opens', 'demo.texts': '(demo) This language\'s texts come with step 7.9: here in English', 'demo.terms': '(demo) Microsoft\'s terms open here, readable with the controller',
   };
   const IT = {
@@ -160,6 +171,9 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
     'ready.title': 'Tutto pronto', 'ready.text': 'La tua console è pronta. Nelle Impostazioni trovi tutto quello che hai scelto qui.', 'ready.home': 'Vai alla Home',
     'ready.lang': 'Lingua', 'ready.net': 'Rete', 'ready.time': 'Fuso orario', 'ready.offline': 'Non collegata',
     'continue': 'Continua', 'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.scroll': 'Scorri',
+    'terms.title': 'Termini di Microsoft', 'terms.text': 'Inquadra il codice con il telefono per leggerli.', 'terms.close': 'Chiudi',
+    'clock.set': 'Imposta l’ora', 'clock.title': 'Data e ora', 'clock.text': 'Senza internet la console usa l’orologio del PC: correggilo qui se è sbagliato. Una volta online si regola di nuovo da solo.',
+    'clock.save': 'Salva', 'clock.saved': 'Ora impostata', 'p.change': 'Cambia', 'p.field': 'Campo successivo',
     'demo.home': '(demo) Si apre la Home', 'demo.texts': '(demo) I testi di questa lingua arrivano con lo step 7.9: qui in inglese', 'demo.terms': '(demo) Qui si aprono i termini di Microsoft, da leggere con il controller',
   };
   let lang = 'en';
@@ -219,7 +233,8 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
   const ORDER = ['pair', 'language', 'network', 'time', 'dongle', 'ready'];
   const STEP_OF = { pair: 'controller', language: 'language', network: 'network', time: 'time', dongle: 'network', ready: 'ready' };
   const online = () => st.cable || !!st.net;
-  const clock = off => { const d = new Date(Date.now() + (off * 60 + new Date().getTimezoneOffset()) * 60000); return d.toTimeString().slice(0, 5); };
+  let manual = 0;   // minutes added by "Set the time" (the demo's pretend PC clock)
+  const clock = off => { const d = new Date(Date.now() + (off * 60 + new Date().getTimezoneOffset() + manual) * 60000); return d.toTimeString().slice(0, 5); };
   const utc = off => 'UTC' + (off >= 0 ? '+' : '') + off;
 
   /* ---------- Screens ---------- */
@@ -247,7 +262,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
         const z = st.zone || zones[0];
         return `<div class="screen center"><h1 class="disp t-l">${tr('time.title')}</h1><span class="disp t-xl clock">${clock(z[2])}</span>
           <span class="t-m">${z[1]} · ${utc(z[2])}</span><p class="t-s muted">${tr('time.suggested')}</p>
-          <div class="buttons">${btn('next', tr('continue'), true)}${btn('choose', tr('time.other'))}</div></div>`;
+          <div class="buttons">${btn('next', tr('continue'), true)}${btn('choose', tr('time.other'))}${online() ? '' : btn('clock', tr('clock.set'))}</div></div>`;
       }
       const list = st.choosing ? ALL_ZONES : zones;
       return `<div class="screen"><h1 class="disp t-l">${tr('time.choose')}</h1><p class="t-m muted">${st.choosing ? tr('time.suggested') : tr('time.choose.text')}</p>
@@ -282,7 +297,9 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
   }
   function renderPrompts() {
     let left = [];
-    if (sheetOpen) left = [P(['a'], 'p.select'), P(['b'], 'p.back')];
+    if (sheetOpen && sheetKind === 'clock') left = [P(['a'], 'clock.save'), P(['b'], 'p.back')];
+    else if (sheetOpen && sheetKind === 'terms') left = [P(['a'], 'terms.close'), P(['b'], 'terms.close')];
+    else if (sheetOpen) left = [P(['a'], 'p.select'), P(['b'], 'p.back')];
     else if (focused) left = [P(['a'], 'p.select'), ...(st.screen === 'language' || st.screen === 'ready' ? [] : [P(['b'], 'p.back')]), ...($('#zones') ? [P(['rs'], 'p.scroll')] : [])];
     $('#prompts').innerHTML = `<div class="set">${left.join('')}</div><div class="set"></div>`;
   }
@@ -313,6 +330,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
     renderPrompts();
   }
   function move(dir) {
+    if (sheetOpen && sheetKind === 'clock') { clockMove(dir); return; }
     if (sheetOpen || !focused) { feedback('edge'); return; }
     const a = focused.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
     let pick = null, score = Infinity;
@@ -333,7 +351,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
   }
 
   function accept() {
-    if (sheetOpen) { connect(); return; }
+    if (sheetOpen) { sheetKind === 'clock' ? saveClock() : sheetKind === 'terms' ? closeSheet() : connect(); return; }
     if (st.screen === 'pair') { paired('Xbox Wireless Controller'); return; }
     if (!focused) return;
     const k = focused.dataset.k;
@@ -344,7 +362,8 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
     else if (k === 'choose') { st.choosing = true; feedback('confirm'); render(); }
     else if (k === 'zone') { st.zone = ALL_ZONES.find(z => z[0] === focused.dataset.z); st.choosing = false; next(); }
     else if (k === 'download') { feedback('notify'); toast(tr('dongle.done')); next(); }
-    else if (k === 'terms') toast(tr('demo.terms'));
+    else if (k === 'terms') termsSheet();
+    else if (k === 'clock') clockSheet();
     else if (k === 'dlater') next();
     else if (k === 'home') toast(tr('demo.home'));
   }
@@ -358,14 +377,55 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
   }
 
   /* ---------- Wi-Fi password (the console's keyboard in the real set-up) ---------- */
-  let sheetOpen = false, pending = null;
+  let sheetOpen = false, pending = null, sheetKind = '';
+  // Microsoft's terms: a code to read on a phone (Brave is not installed at the first start)
+  const QR = ['111111101011000101110101001111111', '100000100110100011000000001000001', '101110100011100001101110001011101', '101110100100110010000001001011101', '101110101110100111100001001011101', '100000101100110011001100001000001', '111111101010101010101010101111111', '000000000011010100101110000000000', '011111110110011001001011100110001', '001110011100011100111001001101101', '100011111101001100100110111010100', '100011011001101000011111000011110', '011010111011000110100011100111011', '110000011101011010011101001001011', '010110101000100010001000111001010', '011001001000100101010111111101100', '110011101111100110000010110110001', '101110010110111111111011111101101', '110111111001000010001010011110110', '011111001101010000111111011111111', '100110110010010100111010010111011', '101000000000111111111101011001001', '101000100101010101101000010010110', '100011011100111011001100011001100', '101110110111111000100010111110011', '000000001100010011111101100010101', '111111101101101000101011101010110', '100000101011000001010101100011111', '101110101111010101101000111111000', '101110101100000101011001010011101', '101110101010110001101011111101100', '100000101010110110001110010011100', '111111100100010101111011100100010'];
+  function termsSheet() {
+    sheetOpen = true; sheetKind = 'terms'; feedback('sheet-open');
+    $('#sheet').innerHTML = `<span class="disp t-l">${tr('terms.title')}</span><span class="t-s muted">${tr('terms.text')}</span>
+      <div class="qr" style="grid-template-columns:repeat(${QR.length},6px)">${QR.map(r => Array.from(r).map(c => `<i class="${c === '1' ? 'd' : ''}"></i>`).join('')).join('')}</div>
+      <span class="t-xs muted">www.microsoft.com/legal/terms-of-use</span>
+      <div class="buttons">${btn('close', tr('terms.close'), true)}</div>`;
+    $('#overlay').classList.add('open'); renderPrompts();
+  }
+  // Date and time by hand: left / right choose the field, up / down change it
+  let clockFields = [], clockAt = 0;
+  function clockSheet() {
+    const d = new Date(Date.now() + manual * 60000);
+    clockFields = [d.getDate(), d.getMonth() + 1, d.getFullYear(), d.getHours(), d.getMinutes()];
+    clockAt = 3; sheetOpen = true; sheetKind = 'clock'; feedback('sheet-open'); drawClock();
+    $('#overlay').classList.add('open'); renderPrompts();
+  }
+  function drawClock() {
+    const two = n => String(n).padStart(2, '0');
+    const f = (i, v) => `<span class="field t-l${i === clockAt ? ' on' : ''}">${v}</span>`;
+    $('#sheet').innerHTML = `<span class="disp t-l">${tr('clock.title')}</span><span class="t-s muted">${tr('clock.text')}</span>
+      <div class="fields">${f(0, two(clockFields[0]))}<span class="field-sep">/</span>${f(1, two(clockFields[1]))}<span class="field-sep">/</span>${f(2, clockFields[2])}
+      <span style="width:18px"></span>${f(3, two(clockFields[3]))}<span class="field-sep">:</span>${f(4, two(clockFields[4]))}</div>`;
+  }
+  function clockMove(dir) {
+    if (dir === 'left' || dir === 'right') {
+      const n = clockAt + (dir === 'left' ? -1 : 1);
+      if (n < 0 || n > 4) { feedback('edge'); return; }
+      clockAt = n; feedback('move'); drawClock(); return;
+    }
+    const step = dir === 'up' ? 1 : -1, max = [31, 12, 2100, 23, 59], min = [1, 1, 2024, 0, 0];
+    let v = clockFields[clockAt] + step;
+    if (v > max[clockAt]) v = min[clockAt]; if (v < min[clockAt]) v = max[clockAt];
+    clockFields[clockAt] = v; feedback('move'); drawClock();
+  }
+  function saveClock() {
+    const [dd, mo, yy, hh, mi] = clockFields;
+    manual = Math.round((new Date(yy, mo - 1, dd, hh, mi).getTime() - Date.now()) / 60000);
+    closeSheet(); feedback('notify'); toast(tr('clock.saved'));
+  }
   function passwordSheet(nw) {
-    pending = nw; sheetOpen = true; feedback('sheet-open');
+    pending = nw; sheetOpen = true; sheetKind = 'password'; feedback('sheet-open');
     $('#sheet').innerHTML = `<span class="disp t-l">${tr('net.password', { ssid: nw.ssid })}</span><span class="t-s muted">${tr('net.typing')}</span><input id="pw" type="password" value="password">`;
     $('#overlay').classList.add('open'); renderPrompts();
     setTimeout(() => { $('#pw').focus(); $('#pw').select(); }, 30);
   }
-  function closeSheet() { sheetOpen = false; feedback('sheet-close'); $('#overlay').classList.remove('open'); render(); }
+  function closeSheet() { sheetOpen = false; sheetKind = ''; feedback('sheet-close'); $('#overlay').classList.remove('open'); render(); }
   function connect() { const nw = pending; closeSheet(); join(nw); }
   function join(nw) {
     toast(tr('net.connecting', { ssid: nw.ssid }));
@@ -386,7 +446,9 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
   };
   document.addEventListener('keydown', e => {
     if (sheetOpen) {
-      if (e.key === 'Enter') { e.preventDefault(); connect(); } else if (e.key === 'Escape') { e.preventDefault(); closeSheet(); }
+      const sd = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+      if (sheetKind === 'clock' && sd[e.key]) { e.preventDefault(); clockMove(sd[e.key]); return; }
+      if (e.key === 'Enter') { e.preventDefault(); accept(); } else if (e.key === 'Escape') { e.preventDefault(); closeSheet(); }
       return;
     }
     const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
