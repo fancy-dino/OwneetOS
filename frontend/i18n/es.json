@@ -644,6 +644,7 @@
   "first.net.no_wifi": "Esta consola no tiene Wi-Fi: conecta un cable o configúralo más tarde.",
   "first.time.title": "Tu zona horaria",
   "first.time.suggested": "Propuesta según tu idioma. Cuando esté en línea, el reloj se ajusta solo; la zona horaria sigue siendo la que elijas.",
+  "first.time.chosen": "Cuando esté en línea, el reloj se ajusta solo; la zona horaria sigue siendo la que elijas.",
   "first.time.choose": "Elige tu ciudad",
   "first.time.choose.text": "Tu idioma se habla en varias zonas horarias: elige la ciudad más cercana a ti.",
   "first.time.other": "Elegir otra ciudad",

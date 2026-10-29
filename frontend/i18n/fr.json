@@ -644,6 +644,7 @@
   "first.net.no_wifi": "Cette console n’a pas de Wi-Fi : branchez un câble, ou configurez-le plus tard.",
   "first.time.title": "Votre fuseau horaire",
   "first.time.suggested": "Proposé d’après votre langue. Une fois en ligne, l’horloge se règle toute seule ; le fuseau reste celui que vous choisissez.",
+  "first.time.chosen": "Une fois en ligne, l’horloge se règle toute seule ; le fuseau reste celui que vous choisissez.",
   "first.time.choose": "Choisissez votre ville",
   "first.time.choose.text": "Votre langue est parlée dans plusieurs fuseaux horaires : choisissez la ville la plus proche de vous.",
   "first.time.other": "Choisir une autre ville",

@@ -644,6 +644,7 @@
   "first.net.no_wifi": "Diese Konsole hat kein WLAN: schließe ein Kabel an oder richte es später ein.",
   "first.time.title": "Deine Zeitzone",
   "first.time.suggested": "Anhand deiner Sprache vorgeschlagen. Sobald die Konsole online ist, stellt sich die Uhr selbst; die Zeitzone bleibt die, die du wählst.",
+  "first.time.chosen": "Sobald die Konsole online ist, stellt sich die Uhr selbst; die Zeitzone bleibt die, die du wählst.",
   "first.time.choose": "Wähle deine Stadt",
   "first.time.choose.text": "Deine Sprache wird in mehreren Zeitzonen gesprochen: wähle die Stadt, die dir am nächsten ist.",
   "first.time.other": "Andere Stadt wählen",

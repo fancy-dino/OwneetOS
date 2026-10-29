@@ -644,6 +644,7 @@
   "first.net.no_wifi": "Questa console non ha il Wi-Fi: collega un cavo, oppure configuralo dopo.",
   "first.time.title": "Il tuo fuso orario",
   "first.time.suggested": "Proposto in base alla lingua. Una volta online l’ora si regola da sola; il fuso resta quello che scegli.",
+  "first.time.chosen": "Una volta online l’ora si regola da sola; il fuso resta quello che scegli.",
   "first.time.choose": "Scegli la tua città",
   "first.time.choose.text": "La tua lingua si parla in più fusi orari: scegli la città più vicina a te.",
   "first.time.other": "Scegli un’altra città",

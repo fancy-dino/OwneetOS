@@ -34,6 +34,7 @@ Rectangle {
     function start() {
         screen = pads && pads.count > 0 ? "language" : "pair";
         choosing = false;
+        picked = false;
         visible = true;
         refreshNetworks(true);
         if (theme) theme.refreshZones();
@@ -57,6 +58,7 @@ Rectangle {
     function go(name) {
         screen = name;
         choosing = false;
+        picked = false;
         netList.contentY = 0;
         zoneList.contentY = 0;
         Qt.callLater(focusScreen);
@@ -72,6 +74,12 @@ Rectangle {
         if (screen === "time" && choosing) {
             choosing = false;
             Qt.callLater(() => focusScreen("choose"));
+            return;
+        }
+        if (screen === "time" && picked) {   // back to the list the city was picked in
+            picked = false;
+            choosing = pickedFrom === "all";
+            Qt.callLater(() => focusScreen("city:" + city));
             return;
         }
         let i = order.indexOf(screen);
@@ -169,6 +177,17 @@ Rectangle {
     // another city" lists them all (TimeZones: the cities, their zones and their time now).
     // Without the internet, "Set the time" corrects the PC's own clock (the theme's ClockSheet).
     property bool choosing: false        // "Choose another city": every city
+    // a city picked in a list gets the suggested city's screen, the same in every language
+    // ([[first-boot-setup]]): its time, Continue, Choose another city, Set the time
+    property bool picked: false
+    property string pickedFrom: "own"    // the list it was picked in: "own" (the language's), "all"
+    function pickCity(cityId) {
+        city = cityId;
+        pickedFrom = choosing ? "all" : "own";
+        choosing = false;
+        picked = true;
+        Qt.callLater(focusScreen);
+    }
     property string city: ""             // the chosen one ("": the language's suggestion)
     property real now: Date.now()
     Timer { interval: 20000; repeat: true; running: root.visible; onTriggered: root.now = Date.now() }
@@ -558,7 +577,7 @@ Rectangle {
 
         // ---- Time zone
         Column {
-            visible: root.screen === "time" && root.ownCities.length === 1 && !root.choosing
+            visible: root.screen === "time" && !root.choosing && (root.ownCities.length === 1 || root.picked)
             anchors.centerIn: parent
             width: Theme.px(860)
             spacing: Theme.px(14)
@@ -580,7 +599,7 @@ Rectangle {
                 font.family: Theme.textFont
                 font.pixelSize: Theme.fs(17)
             }
-            Para { text: Tr.tr("first.time.suggested"); horizontalAlignment: Text.AlignHCenter; small: true }
+            Para { text: Tr.tr(root.picked ? "first.time.chosen" : "first.time.suggested"); horizontalAlignment: Text.AlignHCenter; small: true }
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: Theme.px(16)
@@ -602,7 +621,7 @@ Rectangle {
             }
         }
         Column {
-            visible: root.screen === "time" && (root.ownCities.length > 1 || root.choosing)
+            visible: root.screen === "time" && (root.choosing || (root.ownCities.length > 1 && !root.picked))
             anchors.centerIn: parent
             width: Theme.px(860)
             spacing: Theme.px(14)
@@ -628,7 +647,7 @@ Rectangle {
                             key: "city:" + modelData
                             text: Tr.tr("city." + modelData)
                             value: root.clockAt(modelData) + "   " + root.utcLabel(modelData)
-                            onActivated: root.chooseCity(modelData)
+                            onActivated: root.pickCity(modelData)
                         }
                     }
                 }

@@ -644,6 +644,7 @@
   "first.net.no_wifi": "No Wi-Fi on this console: connect a cable, or set it up later.",
   "first.time.title": "Your time zone",
   "first.time.suggested": "Suggested from your language. Once online the clock sets itself; the time zone stays the one you choose.",
+  "first.time.chosen": "Once online the clock sets itself; the time zone stays the one you choose.",
   "first.time.choose": "Choose your city",
   "first.time.choose.text": "Your language is spoken in several time zones: pick the city nearest to you.",
   "first.time.other": "Choose another city",
