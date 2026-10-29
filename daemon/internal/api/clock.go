@@ -15,6 +15,7 @@ import (
 type Clock interface {
 	Status() clock.Status
 	SetZone(zone string) error
+	SetTime(date, clockTime, zone string) error
 }
 
 func (s *Server) clockAvailable(w http.ResponseWriter) bool {
@@ -42,6 +43,35 @@ func (s *Server) handleTimeZones(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, http.StatusOK, map[string]any{"zones": clock.Offsets(zones, time.Now())})
+}
+
+// handleTimeNow sets the date and time by hand: {"date": "2026-10-29", "time": "14:30", "zone":
+// "Europe/Rome"}, in that zone, or the console's without "zone" (without the internet).
+func (s *Server) handleTimeNow(w http.ResponseWriter, r *http.Request) {
+	if !s.clockAvailable(w) {
+		return
+	}
+	var body struct {
+		Date string `json:"date"`
+		Time string `json:"time"`
+		Zone string `json:"zone"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		WriteError(w, http.StatusBadRequest, "request.invalid", "expected {\"date\": \"YYYY-MM-DD\", \"time\": \"HH:MM\"}")
+		return
+	}
+	err := s.Clock.SetTime(body.Date, body.Time, body.Zone)
+	switch {
+	case err == nil:
+		WriteJSON(w, http.StatusOK, s.Clock.Status())
+	case errors.Is(err, clock.ErrBadTime):
+		WriteError(w, http.StatusBadRequest, "time.bad_time", err.Error())
+	case errors.Is(err, clock.ErrUnknownZone):
+		WriteError(w, http.StatusBadRequest, "time.unknown_zone", err.Error())
+	default:
+		s.Log.Warn("date and time not set", "err", err)
+		WriteError(w, http.StatusBadGateway, "time.failed", err.Error())
+	}
 }
 
 // handleTimeZone sets the time zone: {"zone": "Europe/Rome"}.

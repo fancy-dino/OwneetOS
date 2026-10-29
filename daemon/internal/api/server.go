@@ -132,6 +132,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/time", s.handleTime)
 	mux.HandleFunc("PUT /v1/time/zone", s.handleTimeZone)
 	mux.HandleFunc("GET /v1/time/zones", s.handleTimeZones)
+	mux.HandleFunc("PUT /v1/time/now", s.handleTimeNow)
 	mux.HandleFunc("GET /v1/xone", s.handleXone)
 	mux.HandleFunc("POST /v1/xone/install", s.handleXoneInstall)
 	mux.HandleFunc("GET /v1/windows", s.handleWindows)

@@ -47,6 +47,7 @@ state = {
                  "ssid": "Casa Rossi", "strength": 82},
         "ethernet": {"present": True, "connected": False},
     },
+    "layout": "us",
     "networks": [
         {"ssid": "Casa Rossi", "strength": 82, "security": "wpa", "known": True, "connected": True},
         {"ssid": "Casa Rossi 5G", "strength": 64, "security": "wpa", "known": True, "connected": False},
@@ -296,6 +297,11 @@ def zone_known(zone):
         return False
 
 
+def time_status():
+    now = datetime.datetime.fromtimestamp(time.time() + state.get("manual", 0), zoneinfo.ZoneInfo(state["time"]["zone"]))
+    return dict(state["time"], date=now.strftime("%Y-%m-%d"), time=now.strftime("%H:%M"))
+
+
 def zone_offsets(path):
     zones = urllib.parse.parse_qs(urllib.parse.urlparse(path).query).get("zone", [])
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -352,7 +358,7 @@ class Handler(BaseHTTPRequestHandler):
             if path.startswith("/v1/time/zones"):
                 return self.reply(200, {"zones": zone_offsets(path)})
             answers = {
-                "/v1/time": state["time"],
+                "/v1/time": time_status(),
                 "/v1/xone": state["xone"],
                 "/v1/status": {"session_mode": os.environ.get("FAKE_SESSION", "cage"), "owneetos_version": "preview"},
                 "/v1/apps": {"apps": state["apps"], "focus": "home"},
@@ -368,7 +374,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/v1/bluetooth": state["bluetooth"],
                 "/v1/audio": state["audio"],
                 "/v1/display": state["display"],
-                "/v1/input/layout": {"layout": "us", "supported": ["de", "es", "fr", "it", "us"]},
+                "/v1/input/layout": {"layout": state["layout"], "supported": ["de", "es", "fr", "it", "us"]},
             }
             answer = json.loads(json.dumps(answers.get(path))) if path in answers else None
         if answer is None:
@@ -571,14 +577,27 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         path, body = self.path, self.body()
+        if path == "/v1/time/now":
+            try:
+                t = datetime.datetime.strptime(body.get("date", "") + " " + body.get("time", ""), "%Y-%m-%d %H:%M")
+            except ValueError:
+                return self.error(400, "time.bad_time")
+            name = body.get("zone") or state["time"]["zone"]
+            if not zone_known(name):
+                return self.error(400, "time.unknown_zone")
+            zone = zoneinfo.ZoneInfo(name)
+            with lock:
+                state["manual"] = t.replace(tzinfo=zone).timestamp() - time.time()
+            publish("time.changed", time_status())
+            return self.reply(200, time_status())
         if path == "/v1/time/zone":
             zone = body.get("zone", "")
             if not zone_known(zone):
                 return self.error(400, "time.unknown_zone")
             with lock:
                 state["time"]["zone"] = zone
-            publish("time.changed", state["time"])
-            return self.reply(200, state["time"])
+            publish("time.changed", time_status())
+            return self.reply(200, time_status())
         if path == "/v1/network/wifi/enabled":
             with lock:
                 state["network"]["wifi"]["enabled"] = bool(body.get("enabled"))
@@ -610,6 +629,9 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/v1/audio/mute", "/v1/audio/volume"):
             with lock:
                 state["audio"].update(body)
+        if path == "/v1/input/layout":
+            with lock:
+                state["layout"] = body.get("layout", "us")
         if path.startswith("/v1/audio/") or path == "/v1/input/layout":
             publish("input.layout_changed" if "layout" in path else "audio.changed", body)
             return self.reply(204)
@@ -683,6 +705,7 @@ def read_events(path):
 if __name__ == "__main__":
     sock = sys.argv[1]
     if os.environ.get("FAKE_FIRSTSTART"):   # a new console: no network joined yet
+        state["time"]["synchronized"] = False
         state["network"]["state"] = "disconnected"
         state["network"]["wifi"].update({"state": "disconnected", "ssid": "", "strength": 0})
         for n in state["networks"]:

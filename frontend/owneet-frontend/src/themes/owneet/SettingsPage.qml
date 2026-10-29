@@ -20,6 +20,10 @@ NavArea {
 
     signal openPalettes()
     signal openLanguages()
+    signal openTimeZones()              // Language → Time zone (6.1)
+    signal openClock()                  // Language → Date and time: by hand without the internet
+    property var time: null             // owneetd's GET /v1/time: zone, date, time, synchronized
+    property bool online: true
     signal chooseOutput(var outputs, string current)
     signal chooseKeyboard(var layouts, string current)
     signal confirmPower(string action)
@@ -761,6 +765,33 @@ NavArea {
                             ? Tr.tr("language.keyboard.same", { layout: Tr.tr("keyboard." + page.keyboardLayout) })
                             : Tr.tr("keyboard." + Theme.keyboardSetting)
                         onActivated: page.chooseKeyboard(page.keyboardLayouts, Theme.keyboardSetting)
+                    }
+                    // the time zone: a city (the one chosen, for zones with several), never guessed
+                    SettingRow {
+                        readonly property string zone: page.time ? page.time.zone : ""
+                        readonly property string city: TimeZones.cityOf(zone, api.memory.has("city") ? api.memory.get("city") : "")
+                        visible: page.time !== null
+                        width: parent.width
+                        kind: "picker"
+                        text: Tr.tr("language.time_zone")
+                        detail: Tr.tr("language.time_zone.detail")
+                        value: (city !== "" ? Tr.tr("city." + city) : zone) + " · " + TimeZones.utcLabel(zone)
+                        onActivated: page.openTimeZones()
+                    }
+                    // the date and time: from the internet, or by hand without it
+                    SettingRow {
+                        visible: page.time !== null
+                        width: parent.width
+                        kind: "picker"
+                        text: Tr.tr("language.time")
+                        detail: page.online ? Tr.tr("language.time.net") : Tr.tr("language.time.pc")
+                        value: {
+                            if (!page.time) return "";
+                            const d = String(page.time.date).split("-");
+                            const date = d.length === 3 ? new Date(+d[0], +d[1] - 1, +d[2]).toLocaleDateString(Qt.locale(), Locale.ShortFormat) : "";
+                            return date + "  " + page.time.time;
+                        }
+                        onActivated: page.openClock()
                     }
                 }
 

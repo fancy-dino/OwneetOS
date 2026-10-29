@@ -18,6 +18,7 @@ type fakeBus struct {
 	props   map[string]any
 	calls   []string
 	failNTP bool
+	onCall  func(method string, args []any)
 }
 
 func (b *fakeBus) Property(name string) (dbus.Variant, error) {
@@ -30,6 +31,9 @@ func (b *fakeBus) Property(name string) (dbus.Variant, error) {
 
 func (b *fakeBus) Call(method string, args ...any) error {
 	b.calls = append(b.calls, method)
+	if b.onCall != nil {
+		b.onCall(method, args)
+	}
 	if method == "SetTimezone" {
 		b.props["Timezone"] = args[0]
 	}
@@ -100,5 +104,60 @@ func TestSetZoneRefusesUnknown(t *testing.T) {
 		if err := newManager(bus).SetZone(zone); !errors.Is(err, ErrUnknownZone) || len(bus.calls) != 0 {
 			t.Errorf("SetZone(%q) = %v, calls %v", zone, err, bus.calls)
 		}
+	}
+}
+
+func TestSetTime(t *testing.T) {
+	bus := &fakeBus{props: map[string]any{"Timezone": "Europe/Rome"}}
+	m := newManager(bus)
+	var set int64
+	bus.onCall = func(method string, args []any) {
+		if method == "SetTime" {
+			set = args[0].(int64)
+		}
+	}
+	if err := m.SetTime("2026-10-29", "15:30", ""); err != nil {
+		t.Fatal(err)
+	}
+	// 15:30 in Rome on 29 October 2026 (CET) is 14:30 UTC; the internet's time off, then on again
+	if want := time.Date(2026, 10, 29, 14, 30, 0, 0, time.UTC).UnixMicro(); set != want {
+		t.Errorf("SetTime(%d), want %d", set, want)
+	}
+	if got := bus.calls; len(got) != 3 || got[0] != "SetNTP" || got[1] != "SetTime" || got[2] != "SetNTP" {
+		t.Errorf("calls %v", got)
+	}
+	for _, bad := range [][2]string{{"2026-13-01", "10:00"}, {"2026-10-29", "25:00"}, {"1999-01-01", "10:00"}, {"", ""}} {
+		if err := m.SetTime(bad[0], bad[1], ""); !errors.Is(err, ErrBadTime) {
+			t.Errorf("SetTime(%q, %q) = %v, want ErrBadTime", bad[0], bad[1], err)
+		}
+	}
+}
+
+func TestSetTimeInZone(t *testing.T) {
+	// the first start: the console is still on UTC, the time is typed for the city shown
+	bus := &fakeBus{props: map[string]any{"Timezone": "UTC"}}
+	m := newManager(bus)
+	var set int64
+	bus.onCall = func(method string, args []any) {
+		if method == "SetTime" {
+			set = args[0].(int64)
+		}
+	}
+	if err := m.SetTime("2026-10-29", "15:30", "Europe/Rome"); err != nil {
+		t.Fatal(err)
+	}
+	if want := time.Date(2026, 10, 29, 14, 30, 0, 0, time.UTC).UnixMicro(); set != want {
+		t.Errorf("SetTime(%d), want %d", set, want)
+	}
+	if err := m.SetTime("2026-10-29", "15:30", "Mars/Olympus"); !errors.Is(err, ErrUnknownZone) {
+		t.Errorf("SetTime in an unknown zone = %v, want ErrUnknownZone", err)
+	}
+}
+
+func TestStatusDateAndTime(t *testing.T) {
+	m := newManager(&fakeBus{props: map[string]any{"Timezone": "America/Bogota"}})
+	m.Now = func() time.Time { return time.Date(2026, 10, 29, 3, 5, 0, 0, time.UTC) }
+	if st := m.Status(); st.Date != "2026-10-28" || st.Time != "22:05" {
+		t.Errorf("Status() = %+v, want 2026-10-28 22:05", st)
 	}
 }

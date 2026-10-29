@@ -1,0 +1,38 @@
+@owneetd
+@firststart
+@nogames
+# The time without the internet ([[step-6.1-first-boot-flow]], approved demos 6.1): the first
+# start in Italian with no network, "Set the time" on the time zone screen, its window (a field
+# right, the hours up twice), saved; then Settings → Language: the time zone and the date and time,
+# the list of cities.
+wait 3
+pad down down down down a
+wait 3
+pad down down down down down down a
+wait 2
+shot 01-time-offline
+pad right right a
+wait 1
+shot 02-clock
+pad up up
+shot 03-clock-changed
+pad a
+wait 2
+shot 04-saved
+pad left left a
+wait 2
+pad a
+wait 2
+pad rb rb
+wait 1
+pad down down down down down
+pad right
+wait 1
+shot 05-settings-language
+pad down down a
+wait 1
+shot 06-cities
+pad b
+pad down a
+wait 1
+shot 07-clock-from-settings

@@ -687,5 +687,22 @@
   "city.sydney": "Sydney",
   "city.auckland": "Auckland",
   "city.johannesburg": "Johannesburg",
-  "city.singapore": "Singapour"
+  "city.singapore": "Singapour",
+  "first.dongle.terms": "Lire les conditions",
+  "first.terms.title": "Conditions de Microsoft",
+  "first.terms.text": "Scannez le code avec votre téléphone pour les lire.",
+  "first.clock.set": "Régler l’heure",
+  "clock.title": "Date et heure",
+  "clock.text": "Sans Internet, la console utilise l’horloge du PC : corrigez-la ici si elle n’est pas juste. Une fois en ligne, elle se règle de nouveau toute seule.",
+  "clock.save": "Enregistrer",
+  "clock.saved": "Heure réglée",
+  "clock.failed": "L’heure n’a pas pu être réglée.",
+  "prompt.change": "Changer",
+  "language.time_zone": "Fuseau horaire",
+  "language.time_zone.detail": "Jamais déduit de l’endroit où vous êtes",
+  "language.time": "Date et heure",
+  "language.time.net": "Depuis Internet",
+  "language.time.pc": "De l’horloge du PC : réglez-la si elle n’est pas juste",
+  "language.time.auto": "En ligne, la console règle l’heure toute seule",
+  "toast.time_zone": "Fuseau horaire : {city}"
 }

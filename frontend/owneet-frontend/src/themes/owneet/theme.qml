@@ -216,6 +216,7 @@ FocusScope {
     readonly property bool modalOpen: firstStart.visible || windowOpen
     // a window over the pages (the first start is not one: the Wi-Fi window opens over it)
     readonly property bool windowOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
+                                       || zoneSheet.visible || clockSheet.visible
                                        || notices.visible || quick.visible || controls.visible || steamPrep.visible || webPrep.visible
                                        || webKeys.shown
     function backToPage() {
@@ -278,6 +279,63 @@ FocusScope {
     function refreshControllers() {
         owneetd.get("/v1/controllers", (status, data) => { if (status === 200) controllers = data.controllers || []; });
     }
+    // ---- Time (6.1): the console's time zone, its date and time (owneetd), the zones' distance
+    // from UTC now (TimeZones.offsets). The clock in the top bar is UTC plus the zone's distance:
+    // the interface's own idea of the local time stays the one it started with.
+    property var timeStatus: null
+    function refreshTime() {
+        owneetd.get("/v1/time", (status, data) => { if (status === 200) root.timeStatus = data; });
+        refreshZones();
+    }
+    function refreshZones() {
+        const zones = TimeZones.allZones.slice();
+        const own = timeStatus ? timeStatus.zone : "";
+        if (own !== "" && zones.indexOf(own) < 0) zones.push(own);
+        owneetd.get("/v1/time/zones?" + zones.map(z => "zone=" + encodeURIComponent(z)).join("&"), (status, data) => {
+            if (status !== 200)
+                return;
+            const map = {};
+            (data.zones || []).forEach(z => { map[z.zone] = z.offset; });
+            TimeZones.offsets = map;
+        });
+    }
+    onTimeStatusChanged: if (timeStatus && TimeZones.offsets[timeStatus.zone] === undefined) refreshZones()
+    Timer { interval: 3600000; running: true; repeat: true; onTriggered: root.refreshZones() }   // summer time
+    Timer {                                   // Settings → Language shows the date and time
+        interval: 30000; repeat: true; running: root.section === "settings"
+        onTriggered: owneetd.get("/v1/time", (status, data) => { if (status === 200) root.timeStatus = data; })
+    }
+    // Date and time by hand (without the internet), from the first start or Settings → Language
+    // Date and time by hand, in a zone: the first start's city (the console's zone is not set yet),
+    // or the console's own zone
+    function openClock(zone, city) {
+        owneetd.get("/v1/time", (status, data) => {
+            if (status !== 200) { toast.show(Tr.tr("clock.failed")); return; }
+            root.timeStatus = data;
+            const z = zone || data.zone;
+            const c = city !== undefined ? city : TimeZones.cityOf(z, api.memory.has("city") ? api.memory.get("city") : "");
+            clockSheet.open(TimeZones.fieldsIn(data.date, data.time, data.zone, z), z, c);
+        });
+    }
+    function openTimeZones() {
+        const zone = timeStatus ? timeStatus.zone : "";
+        zoneSheet.openPicker(TimeZones.cityOf(zone, api.memory.has("city") ? api.memory.get("city") : ""));
+    }
+    // Terms to read on a phone, as a code with the address under it (Microsoft's, for the Xbox
+    // adapter's firmware at the first start: the same window as a game's licence agreement, 4.2c)
+    function showTerms(title, text, url) {
+        dialog.game = null;
+        dialog.mode = "agreement";
+        dialog.agreementUrl = url;
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.title = title;
+        dialog.text = text;
+        dialog.buttons = [{ text: Tr.tr("prompt.close"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+
     function refreshDaemon() {
         owneetd.get("/v1/status", (status, data) => { if (status === 200) sessionMode = data.session_mode || ""; });
         owneetd.get("/v1/network", (status, data) => { if (status === 200) { network = data; lastNetwork = data; } });
@@ -290,6 +348,7 @@ FocusScope {
         owneetd.get("/v1/pointer", (status, data) => { if (status === 200) root.pointerStatus = data; });
         owneetd.get("/v1/update", (status, data) => { if (status === 200) root.updateStatus = data; });
         refreshCatalog();
+        refreshTime();
         checkDisplayPending();
         // a web keyboard opened while the interface was restarting
         owneetd.get("/v1/webapps/keyboard", (status, data) => { if (status === 200 && data.open) root.webKeyboard(data); });
@@ -325,6 +384,8 @@ FocusScope {
                     root.closeTerms();
             } else if (type.startsWith("controller.")) {
                 root.refreshControllers();
+            } else if (type === "time.changed") {
+                root.timeStatus = data;
             } else if (type === "network.changed") {
                 root.network = data;
             } else if (type.startsWith("bluetooth.")) {
@@ -2258,7 +2319,13 @@ FocusScope {
                 font.family: Theme.textFont
                 font.weight: Font.Medium
                 font.pixelSize: Theme.fs(14.5)
-                function tick() { text = Qt.formatTime(new Date(), "hh:mm"); }
+                function tick() {
+                    const zone = root.timeStatus ? root.timeStatus.zone : "";
+                    text = zone !== "" && TimeZones.offsets[zone] !== undefined ? TimeZones.clockAt(zone, Date.now())
+                                                                               : Qt.formatTime(new Date(), "hh:mm");
+                }
+                Connections { target: TimeZones; function onOffsetsChanged() { clock.tick(); } }
+                Connections { target: root; function onTimeStatusChanged() { clock.tick(); } }
                 Component.onCompleted: tick()
                 Timer { interval: 10000; running: true; repeat: true; onTriggered: clock.tick() }
             }
@@ -2324,6 +2391,10 @@ FocusScope {
             focus: visible
             onOpenPalettes: palettes.openPicker()
             onOpenLanguages: languages.openPicker()
+            onOpenTimeZones: root.openTimeZones()
+            onOpenClock: root.online ? toast.show(Tr.tr("language.time.auto")) : root.openClock()
+            time: root.timeStatus
+            online: root.online
             onChooseOutput: root.chooseOutput(outputs, current)
             onChooseKeyboard: root.chooseKeyboard(layouts, current)
             onConfirmPower: root.confirmPower(action)
@@ -3145,6 +3216,20 @@ FocusScope {
     LanguagePicker {
         id: languages
         z: 101
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
+    // ---- The time zone and the date and time (6.1)
+    TimeZoneSheet {
+        id: zoneSheet
+        z: 101
+        toast: toast
+        onChosen: root.refreshTime()
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
+    ClockSheet {
+        id: clockSheet
+        toast: toast
+        onSaved: root.refreshTime()
         onVisibleChanged: if (!visible) root.backToPage()
     }
     CreditsSheet {

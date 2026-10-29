@@ -30,10 +30,19 @@ type Status struct {
 	Zone string `json:"zone"` // e.g. Europe/Rome; "UTC" until one is chosen
 	// Synchronized: the clock has been set from the internet
 	Synchronized bool `json:"synchronized"`
+	// Date and Time now in the zone ("2026-10-29", "14:30"): the interface shows them as they are,
+	// whatever time zone it started with
+	Date string `json:"date"`
+	Time string `json:"time"`
 }
 
-// ErrUnknownZone: not a time zone of the system's database.
-var ErrUnknownZone = errors.New("unknown time zone")
+// Errors returned to the API.
+var (
+	// ErrUnknownZone: not a time zone of the system's database.
+	ErrUnknownZone = errors.New("unknown time zone")
+	// ErrBadTime: not a date and time ("2026-10-29" and "14:30"), or one before 2024.
+	ErrBadTime = errors.New("not a valid date and time")
+)
 
 // Bus is the part of systemd-timedated the manager uses (a fake in tests).
 type Bus interface {
@@ -48,6 +57,15 @@ type Manager struct {
 	Log    *slog.Logger
 	// ValidZone tells whether a name is in the time zone database (default: time.LoadLocation).
 	ValidZone func(string) bool
+	// Now is the clock (tests set it; default: time.Now).
+	Now func() time.Time
+}
+
+func (m *Manager) now() time.Time {
+	if m.Now != nil {
+		return m.Now()
+	}
+	return time.Now()
 }
 
 // Status reads the time zone and whether the clock is synchronised.
@@ -61,6 +79,11 @@ func (m *Manager) Status() Status {
 	if v, err := m.Bus.Property("NTPSynchronized"); err == nil {
 		st.Synchronized, _ = v.Value().(bool)
 	}
+	now := m.now()
+	if loc, err := time.LoadLocation(st.Zone); err == nil {
+		now = now.In(loc)
+	}
+	st.Date, st.Time = now.Format("2006-01-02"), now.Format("15:04")
 	return st
 }
 
@@ -72,14 +95,17 @@ func validZone(zone string) bool {
 	return err == nil
 }
 
+func (m *Manager) valid(zone string) bool {
+	if m.ValidZone != nil {
+		return m.ValidZone(zone)
+	}
+	return validZone(zone)
+}
+
 // SetZone sets the time zone and keeps the clock synchronised from the internet; "time.changed"
 // follows.
 func (m *Manager) SetZone(zone string) error {
-	valid := m.ValidZone
-	if valid == nil {
-		valid = validZone
-	}
-	if !valid(zone) {
+	if !m.valid(zone) {
 		return fmt.Errorf("%w: %q", ErrUnknownZone, zone)
 	}
 	if err := m.Bus.Call("SetTimezone", zone, false); err != nil {
@@ -90,6 +116,40 @@ func (m *Manager) SetZone(zone string) error {
 		m.Log.Warn("time synchronisation could not be turned on", "err", err)
 	}
 	m.Log.Info("time zone set", "zone", zone)
+	m.Broker.Publish("time.changed", m.Status())
+	return nil
+}
+
+// SetTime sets the date and time by hand (date "2026-10-29", time "14:30"): without the internet
+// the PC's own clock may be wrong. They are read in the zone given (the first start's city, which
+// is not the console's zone yet), or in the console's zone for "". The internet's time is turned
+// off for the change (systemd-timedated refuses it otherwise) and on again: once online, the clock
+// sets itself. "time.changed" follows.
+func (m *Manager) SetTime(date, clockTime, zone string) error {
+	if zone == "" {
+		zone = m.Status().Zone
+	} else if !m.valid(zone) {
+		return fmt.Errorf("%w: %q", ErrUnknownZone, zone)
+	}
+	loc, err := time.LoadLocation(zone)
+	if err != nil {
+		loc = time.UTC
+	}
+	t, err := time.ParseInLocation("2006-01-02 15:04", date+" "+clockTime, loc)
+	if err != nil || t.Year() < 2024 || t.Year() > 2100 {
+		return fmt.Errorf("%w: %q %q", ErrBadTime, date, clockTime)
+	}
+	if err := m.Bus.Call("SetNTP", false, false); err != nil {
+		m.Log.Warn("time synchronisation could not be turned off", "err", err)
+	}
+	err = m.Bus.Call("SetTime", t.UnixMicro(), false, false)
+	if e := m.Bus.Call("SetNTP", true, false); e != nil {
+		m.Log.Warn("time synchronisation could not be turned on again", "err", e)
+	}
+	if err != nil {
+		return err
+	}
+	m.Log.Info("date and time set by hand", "time", t.Format(time.RFC3339))
 	m.Broker.Publish("time.changed", m.Status())
 	return nil
 }

@@ -687,5 +687,22 @@
   "city.sydney": "Sydney",
   "city.auckland": "Auckland",
   "city.johannesburg": "Johannesburg",
-  "city.singapore": "Singapore"
+  "city.singapore": "Singapore",
+  "first.dongle.terms": "Leggi i termini",
+  "first.terms.title": "Termini di Microsoft",
+  "first.terms.text": "Inquadra il codice con il telefono per leggerli.",
+  "first.clock.set": "Imposta l’ora",
+  "clock.title": "Data e ora",
+  "clock.text": "Senza internet la console usa l’orologio del PC: correggilo qui se è sbagliato. Una volta online si regola di nuovo da solo.",
+  "clock.save": "Salva",
+  "clock.saved": "Ora impostata",
+  "clock.failed": "L’ora non si è potuta impostare.",
+  "prompt.change": "Cambia",
+  "language.time_zone": "Fuso orario",
+  "language.time_zone.detail": "Mai dedotto da dove ti trovi",
+  "language.time": "Data e ora",
+  "language.time.net": "Da internet",
+  "language.time.pc": "Dall’orologio del PC: correggilo se è sbagliato",
+  "language.time.auto": "Online la console regola l’ora da sola",
+  "toast.time_zone": "Fuso orario: {city}"
 }

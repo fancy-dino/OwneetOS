@@ -687,5 +687,22 @@
   "city.sydney": "Sydney",
   "city.auckland": "Auckland",
   "city.johannesburg": "Johannesburg",
-  "city.singapore": "Singapur"
+  "city.singapore": "Singapur",
+  "first.dongle.terms": "Bedingungen lesen",
+  "first.terms.title": "Bedingungen von Microsoft",
+  "first.terms.text": "Scanne den Code mit deinem Handy, um sie zu lesen.",
+  "first.clock.set": "Uhrzeit einstellen",
+  "clock.title": "Datum und Uhrzeit",
+  "clock.text": "Ohne Internet nutzt die Konsole die Uhr des PCs: Korrigiere sie hier, wenn sie falsch geht. Sobald die Konsole online ist, stellt sie sich wieder selbst.",
+  "clock.save": "Speichern",
+  "clock.saved": "Uhrzeit eingestellt",
+  "clock.failed": "Die Uhrzeit konnte nicht eingestellt werden.",
+  "prompt.change": "Ändern",
+  "language.time_zone": "Zeitzone",
+  "language.time_zone.detail": "Nie aus deinem Standort erraten",
+  "language.time": "Datum und Uhrzeit",
+  "language.time.net": "Aus dem Internet",
+  "language.time.pc": "Von der Uhr des PCs: stelle sie ein, wenn sie falsch geht",
+  "language.time.auto": "Online stellt die Konsole die Uhrzeit selbst ein",
+  "toast.time_zone": "Zeitzone: {city}"
 }

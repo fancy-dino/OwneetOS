@@ -687,5 +687,22 @@
   "city.sydney": "Sydney",
   "city.auckland": "Auckland",
   "city.johannesburg": "Johannesburg",
-  "city.singapore": "Singapore"
+  "city.singapore": "Singapore",
+  "first.dongle.terms": "Read the terms",
+  "first.terms.title": "Microsoft’s terms",
+  "first.terms.text": "Scan the code with your phone to read them.",
+  "first.clock.set": "Set the time",
+  "clock.title": "Date and time",
+  "clock.text": "Without the internet the console uses the PC’s own clock: correct it here if it is wrong. Once online it sets itself again.",
+  "clock.save": "Save",
+  "clock.saved": "Time set",
+  "clock.failed": "The time could not be set.",
+  "prompt.change": "Change",
+  "language.time_zone": "Time zone",
+  "language.time_zone.detail": "Never guessed from where you are",
+  "language.time": "Date and time",
+  "language.time.net": "From the internet",
+  "language.time.pc": "From the PC’s clock: set it if it is wrong",
+  "language.time.auto": "Online, the console sets the time by itself",
+  "toast.time_zone": "Time zone: {city}"
 }

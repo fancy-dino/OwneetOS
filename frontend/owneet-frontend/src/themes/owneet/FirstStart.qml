@@ -36,7 +36,7 @@ Rectangle {
         choosing = false;
         visible = true;
         refreshNetworks(true);
-        refreshZones();
+        if (theme) theme.refreshZones();
         owneetd.get("/v1/xone", (status, data) => { if (status === 200) root.xone = data; });
         Qt.callLater(focusScreen);
     }
@@ -166,64 +166,24 @@ Rectangle {
     onWiredChanged: if (visible && screen === "network") Qt.callLater(focusScreen)
 
     // ---- Time zone: suggested from the language, or a city of the language's zones; "Choose
-    // another city" lists them all. The cities' names are messages (city.<id>).
-    readonly property var cityZones: ({
-        rome: "Europe/Rome", berlin: "Europe/Berlin", paris: "Europe/Paris", brussels: "Europe/Brussels",
-        geneva: "Europe/Zurich", montreal: "America/Toronto", madrid: "Europe/Madrid",
-        mexico_city: "America/Mexico_City", bogota: "America/Bogota", lima: "America/Lima",
-        buenos_aires: "America/Argentina/Buenos_Aires", santiago: "America/Santiago",
-        london: "Europe/London", dublin: "Europe/Dublin", new_york: "America/New_York",
-        toronto: "America/Toronto", chicago: "America/Chicago", denver: "America/Denver",
-        los_angeles: "America/Los_Angeles", vancouver: "America/Vancouver", sydney: "Australia/Sydney",
-        auckland: "Pacific/Auckland", johannesburg: "Africa/Johannesburg", singapore: "Asia/Singapore"
-    })
-    readonly property var languageCities: ({
-        it: ["rome"], de: ["berlin"], fr: ["paris", "brussels", "geneva", "montreal"],
-        es: ["madrid", "mexico_city", "bogota", "lima", "buenos_aires", "santiago"],
-        en: ["london", "dublin", "new_york", "toronto", "chicago", "denver", "los_angeles", "vancouver",
-             "sydney", "auckland", "johannesburg", "singapore"]
-    })
+    // another city" lists them all (TimeZones: the cities, their zones and their time now).
+    // Without the internet, "Set the time" corrects the PC's own clock (the theme's ClockSheet).
     property bool choosing: false        // "Choose another city": every city
     property string city: ""             // the chosen one ("": the language's suggestion)
-    property var offsets: ({})           // zone -> seconds from UTC now (owneetd)
     property real now: Date.now()
     Timer { interval: 20000; repeat: true; running: root.visible; onTriggered: root.now = Date.now() }
-    readonly property var ownCities: languageCities[Tr.language] || languageCities.en
-    readonly property var allCities: {
-        const seen = {};
-        const out = [];
-        for (const tag in languageCities)
-            languageCities[tag].forEach(c => { if (!seen[c]) { seen[c] = true; out.push(c); } });
-        const off = offsets;
-        out.sort((a, b) => ((off[cityZones[a]] || 0) - (off[cityZones[b]] || 0))
-                           || Tr.tr("city." + a).localeCompare(Tr.tr("city." + b)));
-        return out;
-    }
+    readonly property var ownCities: TimeZones.citiesFor(Tr.language)
+    readonly property var allCities: TimeZones.allCities()
     readonly property string shownCity: city !== "" ? city : ownCities[0]
-    function refreshZones() {
-        const zones = Object.keys(cityZones).map(c => "zone=" + encodeURIComponent(cityZones[c]));
-        owneetd.get("/v1/time/zones?" + zones.join("&"), (status, data) => {
-            if (status !== 200)
-                return;
-            const map = {};
-            (data.zones || []).forEach(z => { map[z.zone] = z.offset; });
-            root.offsets = map;
-        });
-    }
-    function clockAt(cityId) {
-        const offset = offsets[cityZones[cityId]] || 0;
-        const d = new Date(now + offset * 1000);
-        const two = n => (n < 10 ? "0" : "") + n;
-        return two(d.getUTCHours()) + ":" + two(d.getUTCMinutes());
-    }
-    function utcLabel(cityId) {
-        const offset = offsets[cityZones[cityId]] || 0;
-        const h = Math.floor(Math.abs(offset) / 3600), m = Math.floor(Math.abs(offset) % 3600 / 60);
-        return "UTC" + (offset < 0 ? "−" : "+") + h + (m > 0 ? ":" + (m < 10 ? "0" : "") + m : "");
-    }
+    // "Set the time" is for a city's time: the one shown, or the last one selected in the list
+    property string pointedCity: ""
+    readonly property string clockCity: (choosing ? allCities : ownCities).indexOf(pointedCity) >= 0 ? pointedCity : shownCity
+    function clockAt(cityId) { return TimeZones.clockAt(TimeZones.cityZones[cityId], now); }
+    function utcLabel(cityId) { return TimeZones.utcLabel(TimeZones.cityZones[cityId]); }
     function chooseCity(cityId) {
         city = cityId;
-        owneetd.put("/v1/time/zone", { zone: cityZones[cityId] }, status => {
+        api.memory.set("city", cityId);
+        owneetd.put("/v1/time/zone", { zone: TimeZones.cityZones[cityId] }, status => {
             if (status !== 200) toast.show(Tr.tr("first.time.failed"));
         });
         next();
@@ -346,7 +306,10 @@ Rectangle {
         focus: root.visible
         scrollTarget: root.screen === "network" ? netList : root.screen === "time" ? zoneList : null
         onCancelled: root.back()
-        onMoved: root.reveal(item)
+        onMoved: {
+            root.reveal(item);
+            if (item.key && item.key.indexOf("city:") === 0) root.pointedCity = item.key.slice(5);
+        }
         // the focus came back (from a window, or once the window is active): to the selected item
         onActiveFocusChanged: {
             if (!activeFocus)
@@ -633,6 +596,11 @@ Rectangle {
                     text: Tr.tr("first.time.other")
                     onActivated: { root.choosing = true; zoneList.contentY = 0; Qt.callLater(root.focusScreen); }
                 }
+                Button {                  // without the internet the PC's own clock may be wrong
+                    visible: !root.online
+                    text: Tr.tr("first.clock.set")
+                    onActivated: if (root.theme) root.theme.openClock(TimeZones.cityZones[root.clockCity], root.clockCity)
+                }
             }
         }
         Column {
@@ -666,6 +634,11 @@ Rectangle {
                         }
                     }
                 }
+            }
+            Button {                      // the languages with several cities: the same, under the list
+                visible: !root.online
+                text: Tr.tr("first.clock.set")
+                onActivated: if (root.theme) root.theme.openClock(TimeZones.cityZones[root.clockCity], root.clockCity)
             }
         }
 
@@ -704,6 +677,11 @@ Rectangle {
                     text: root.dongleState === "failed" ? Tr.tr("prompt.retry") : Tr.tr("first.dongle.download")
                     style: "primary"
                     onActivated: root.downloadFirmware()
+                }
+                Button {                  // Microsoft's terms as a code to read on a phone
+                    text: Tr.tr("first.dongle.terms")
+                    onActivated: if (root.theme) root.theme.showTerms(Tr.tr("first.terms.title"), Tr.tr("first.terms.text"),
+                                                                     "https://www.microsoft.com/legal/terms-of-use")
                 }
                 Button {
                     text: Tr.tr("first.dongle.later")
