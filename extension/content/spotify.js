@@ -17,10 +17,10 @@
 //  - X: the selected item's context menu, then its "Add to queue" (found by its label: the menu's
 //    items have no names of their own; in another language the menu stays open).
 //  - Y: the selection to the player bar and back. LT / RT: Spotify's Shift+← / → (5 s). LB / RB:
-//    nothing.
+//    nothing. R3: Spotify's right panel folded or opened (its Alt+Shift+R; Spotify opens it when a
+//    song starts, the user closes it).
 //  - On a TV: drawn as on a screen about 1280 px wide (layoutWidth: the worker sets Brave's zoom
-//    for the tab), and Spotify's right panel folded away when the page opens and after A plays
-//    (the desktop player reopens it when a song starts), only while its own parts show.
+//    for the tab).
 // "Install App", "Open in Desktop app" and "Open Miniplayer" are never reached: they open windows
 // or programs the console cannot show.
 //
@@ -54,8 +54,6 @@ var OwneetSpotify = (() => {
     menu: '#context-menu, [data-testid="context-menu"]',
     menuItem: '[role="menuitem"]',
     window: '[role="dialog"], [aria-modal="true"]',
-    // the right panel ("Now playing view"): its own parts are on screen while it is open
-    panel: '[data-testid^="npv-"]',
     // never reached: "Open Miniplayer" (a window of its own) and "Install App" (a download)
     never: '[data-testid="pip-toggle-button"], a[href*="/download"]',
   };
@@ -66,7 +64,6 @@ var OwneetSpotify = (() => {
   const SLACK = 4;               // px of overlap still counted as past the selection's edge
   const SLIDE_MS = 450;          // a shelf sliding on with Spotify's arrow
   const MENU_MS = 350;           // a context menu appearing
-  const PLAY_MS = 1500;          // a song starting (Spotify then reopens its right panel)
 
   const matches = loc => loc.hostname === 'open.spotify.com';
   const isQueue = label => QUEUE.some(r => r.test(label));
@@ -248,17 +245,6 @@ var OwneetSpotify = (() => {
     }
     const inBar = cur => { const b = bar(); return !!(cur && b && b.contains(cur)); };
 
-    // ---- On a TV: Spotify's right panel folded away (its own Alt+Shift+R) when the page opens and
-    // after A plays. The key toggles the panel: it is sent only while the panel's own parts are on
-    // screen, checked once a second for a few seconds (Spotify opens it when a song starts)
-    const panelOpen = () => qa(NAMES.panel).some(usable);
-    function foldPanel(checks) {
-      if (panelOpen()) { sendKey(env, keyTarget(), 'R', 'KeyR', 82, { alt: true, shift: true }); return; }
-      if (checks > 1) env.setTimeout(() => foldPanel(checks - 1), 1000);
-    }
-    env.setTimeout(() => foldPanel(8), 1000);
-    const afterPlay = () => env.setTimeout(() => foldPanel(4), PLAY_MS);
-
     return {
       layoutWidth: LAYOUT_WIDTH,
       move(dir) {
@@ -289,7 +275,6 @@ var OwneetSpotify = (() => {
             unit.dispatchEvent(new env.MouseEvent('dblclick', { bubbles: true, cancelable: true, composed: true,
               view: doc.defaultView, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }));
           } else return false;                         // no play button of its own: the generic A opens it
-          afterPlay();
           return true;
         }
         return false;                                  // the generic A clicks it (a text field: the keyboard)
@@ -342,6 +327,11 @@ var OwneetSpotify = (() => {
         const pp = q(NAMES.playPause, b);
         if (usable(pp)) page.moveTo(pp);
         else enter(b);
+        return true;
+      },
+      // R3: Spotify's right panel folded or opened (its own Alt+Shift+R)
+      stickPress() {
+        if (!openMenu() && !openWindow()) sendKey(env, keyTarget(), 'R', 'KeyR', 82, { alt: true, shift: true });
         return true;
       },
       // LT / RT: back / forward 5 s, Spotify's Shift+← / →

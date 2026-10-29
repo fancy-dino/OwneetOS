@@ -8,8 +8,8 @@
 // bridge to owneetd. A supported web app has a navigation of its own, which takes the buttons it
 // wants ([[extension-design]] "One navigation per supported app"): YouTube's TV interface
 // (youtube-tv.js, "Inside YouTube"), Netflix (netflix.js, "Inside Netflix"), Spotify (spotify.js,
-// "Inside Spotify"). X, Y, Menu, LB / RB and LT / RT mean something only where such an app gives
-// them a meaning.
+// "Inside Spotify"). X, Y, Menu, LB / RB, LT / RT and R3 mean something only where such an app
+// gives them a meaning.
 
 'use strict';
 
@@ -18,7 +18,7 @@
   const Nav = OwneetNav;
 
   // Standard Gamepad API mapping
-  const BTN = { a: 0, b: 1, x: 2, y: 3, lb: 4, rb: 5, lt: 6, rt: 7, menu: 9, up: 12, down: 13, left: 14, right: 15 };
+  const BTN = { a: 0, b: 1, x: 2, y: 3, lb: 4, rb: 5, lt: 6, rt: 7, menu: 9, rs: 11, up: 12, down: 13, left: 14, right: 15 };
   const REPEAT_FIRST = 360, REPEAT_NEXT = 140;     // held directions ([[controller-input-map]])
   const TRIGGER_FIRST = 720, TRIGGER_NEXT = 360;   // held LB / RB and LT / RT
   const TRIGGER_ON = 0.5, TRIGGER_OFF = 0.25;      // analog triggers: pressed past half, released under a quarter
@@ -288,7 +288,7 @@
         // buttons still held from the console count only once released and pressed again (B
         // that closed the keyboard must not also go back), a held direction or trigger waits to
         // repeat
-        for (const i of [BTN.a, BTN.b, BTN.x, BTN.y, BTN.menu]) prev[i] = on(i);
+        for (const i of [BTN.a, BTN.b, BTN.x, BTN.y, BTN.menu, BTN.rs]) prev[i] = on(i);
         heldDir = direction(p, on);
         repeatAt = now + REPEAT_FIRST;
         heldTrigger = trigger(p);
@@ -317,10 +317,11 @@
       }
       if (edge(BTN.a)) { if (!(site && site.press())) press(); lastInput = now; }
       if (edge(BTN.b)) { if (!(site && site.back(() => send({ type: 'ask_close' })))) back(); lastInput = now; }
-      // X, Y, Menu, LB / RB and LT / RT: only a supported app gives them a meaning
+      // X, Y, Menu, LB / RB, LT / RT and R3: only a supported app gives them a meaning
       if (edge(BTN.y) && site) { site.page(); lastInput = now; }
       if (edge(BTN.x) && site && site.secondary) { site.secondary(); lastInput = now; }
       if (edge(BTN.menu) && site && site.options) { site.options(); lastInput = now; }
+      if (edge(BTN.rs) && site && site.stickPress) { site.stickPress(); lastInput = now; }
       const sh = shoulder(on);
       if (sh && (sh !== heldShoulder || now >= shoulderAt)) {
         if (site && site.section) site.section(sh);

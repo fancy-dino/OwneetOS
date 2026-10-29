@@ -11,6 +11,7 @@
   "BraveNewsDisabled": true,
   "BraveTalkDisabled": true,
   "BravePlaylistEnabled": false,
+  "BraveSpeedreaderEnabled": false,
   "TorDisabled": true,
   "SyncDisabled": true,
   "BrowserSignin": 0,

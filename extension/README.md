@@ -22,8 +22,8 @@ Files:
   controls, LT / RT ±10 s, Y search), Netflix's element names in one place; elsewhere the generic
   navigation (tested by `test/netflix.test.js`);
 - `content/spotify.js`: Spotify's own navigation in its desktop web player: the D-pad by position
-  only (its own geometry), A plays, Menu opens the page, X queue, Y the player bar, LT / RT ±5 s;
-  drawn bigger on a TV, its right panel folded; Spotify's element names in one place (tested by
+  only (its own geometry), A plays, Menu opens the page, X queue, Y the player bar, LT / RT ±5 s,
+  R3 its right panel; drawn bigger on a TV; Spotify's element names in one place (tested by
   `test/spotify.test.js`);
 - `background.js`: relays the page's messages to `owneet-bridge`, the native-messaging host that
   talks to owneetd (the console's keyboard, "Close {name}?"), and sets Brave's zoom for an app
