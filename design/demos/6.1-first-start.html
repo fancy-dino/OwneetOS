@@ -11,7 +11,8 @@
      Microsoft with consent, [[xbox-wireless-dongle]]; "Read the terms" shows Microsoft's terms as a
      code to read on a phone, owner 2026-10-29), ready. Without the internet the time screen also
      offers "Set the time" (the PC's own clock may be wrong). The console's name was chosen in the
-     installer. The five languages of Wave 1 are listed (English, Italian, German, French,
+     installer. "Set the time" is the same in every language: under the suggested city, and under the
+     list of cities, in the time of the city last selected (owner 2026-10-29). The five languages of Wave 1 are listed (English, Italian, German, French,
      Spanish); in the demo only English and Italian have their texts (step 7.9). Open in a browser; gamepad or keyboard (Enter = A, Esc = B). Demo keys: C a
      controller pairs, K network cable, D Xbox adapter plugged in, L language, P palette, N sounds.
      Networks and controllers are invented. Fonts come from Google Fonts for the demo only. -->
@@ -112,7 +113,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
   <div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
 </div></div>
 <p class="help"><b>Gamepad:</b> D-pad / stick move, A select, B back. <b>Keyboard:</b> arrows, Enter = A, Esc = B.<br>
-<b>New:</b> "Read the terms" shows a QR code; without the internet the time can be set by hand.<br><b>Demo only:</b> C a controller pairs, K network cable (<span id="cable-state">off</span>), D Xbox adapter plugged in (<span id="dongle-state">off</span>), L language, P palette, N sounds (<span id="snd-state">on</span>). Address: <code>#screen=time&amp;lang=en</code></p>
+<b>New:</b> "Read the terms" shows a QR code; without the internet the time can be set by hand, in every language (also under the list of cities: in the time of the city last selected).<br><b>Demo only:</b> C a controller pairs, K network cable (<span id="cable-state">off</span>), D Xbox adapter plugged in (<span id="dongle-state">off</span>), L language, P palette, N sounds (<span id="snd-state">on</span>). Address: <code>#screen=time&amp;lang=en</code></p>
 
 <script src="sounds.js"></script>
 <script>
@@ -229,7 +230,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
       ['Australia/Sydney', 'Sydney', 11], ['Pacific/Auckland', 'Auckland', 13], ['Africa/Johannesburg', 'Johannesburg', 2], ['Asia/Singapore', 'Singapore', 8]],
   };
   const ALL_ZONES = Object.values(ZONES).flat().filter((z, i, a) => a.findIndex(y => y[0] === z[0]) === i).sort((a, b) => a[2] - b[2] || a[1].localeCompare(b[1]));
-  const st = { screen: 'pair', cable: false, dongle: false, net: null, zone: null, choosing: false };
+  const st = { screen: 'pair', cable: false, dongle: false, net: null, zone: null, choosing: false, pointed: null };
   const ORDER = ['pair', 'language', 'network', 'time', 'dongle', 'ready'];
   const STEP_OF = { pair: 'controller', language: 'language', network: 'network', time: 'time', dongle: 'network', ready: 'ready' };
   const online = () => st.cable || !!st.net;
@@ -267,7 +268,8 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
       const list = st.choosing ? ALL_ZONES : zones;
       return `<div class="screen"><h1 class="disp t-l">${tr('time.choose')}</h1><p class="t-m muted">${st.choosing ? tr('time.suggested') : tr('time.choose.text')}</p>
         <div class="list scroll" id="zones">${list.map(z => `<button class="row" data-f data-k="zone" data-z="${z[0]}"><span class="t-m">${z[1]}</span>
-          <span class="right"><span class="clock">${clock(z[2])}</span><span class="t-s">${utc(z[2])}</span></span></button>`).join('')}</div></div>`;
+          <span class="right"><span class="clock">${clock(z[2])}</span><span class="t-s">${utc(z[2])}</span></span></button>`).join('')}</div>
+        ${online() ? '' : `<div class="buttons">${btn('clock', tr('clock.set'))}</div>`}</div>`;
     },
     dongle: () => `<div class="screen"><h1 class="disp t-l">${tr('dongle.title')}</h1><p class="t-m">${tr('dongle.text')}</p>
       <div class="buttons">${btn('download', tr('dongle.download'), true)}${btn('terms', tr('dongle.terms'))}${btn('dlater', tr('dongle.later'))}</div></div>`,
@@ -327,6 +329,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
     if (focused) focused.classList.remove('focus');
     focused = el || null;
     if (el) { el.classList.add('focus'); el.scrollIntoView({ block: 'nearest' }); if (!silent) feedback('move'); }
+    if (el && el.dataset.k === 'zone') st.pointed = ALL_ZONES.find(z => z[0] === el.dataset.z);
     renderPrompts();
   }
   function move(dir) {
@@ -347,7 +350,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
   function next() {
     let i = ORDER.indexOf(st.screen) + 1;
     if (ORDER[i] === 'dongle' && !(st.dongle && online())) i++;   // the adapter's firmware: only with an adapter and the internet
-    st.screen = ORDER[i]; st.choosing = false; feedback('confirm'); render();
+    st.screen = ORDER[i]; st.choosing = false; st.pointed = null; feedback('confirm'); render();
   }
 
   function accept() {
@@ -359,7 +362,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
     else if (k === 'net') { const nw = NETWORKS[+focused.dataset.i]; if (st.net === nw) return; nw.secured ? passwordSheet(nw) : join(nw); }
     else if (k === 'next') next();
     else if (k === 'later') { st.net = null; next(); }
-    else if (k === 'choose') { st.choosing = true; feedback('confirm'); render(); }
+    else if (k === 'choose') { st.choosing = true; st.pointed = null; feedback('confirm'); render(); }
     else if (k === 'zone') { st.zone = ALL_ZONES.find(z => z[0] === focused.dataset.z); st.choosing = false; next(); }
     else if (k === 'download') { feedback('notify'); toast(tr('dongle.done')); next(); }
     else if (k === 'terms') termsSheet();
@@ -389,9 +392,14 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
     $('#overlay').classList.add('open'); renderPrompts();
   }
   // Date and time by hand: left / right choose the field, up / down change it
-  let clockFields = [], clockAt = 0;
+  let clockFields = [], clockAt = 0, clockOff = 0;
+  // in the time of the city shown, or of the one last selected in the list (the zone is not set yet)
+  const clockZone = () => { const zones = ZONES[lang] || ZONES.en, list = st.choosing ? ALL_ZONES : zones;
+    return zones.length === 1 && !st.choosing ? (st.zone || zones[0]) : (st.pointed && list.includes(st.pointed) ? st.pointed : list[0]); };
+  const zoneNow = off => new Date(Date.now() + (off * 60 + new Date().getTimezoneOffset() + manual) * 60000);
   function clockSheet() {
-    const d = new Date(Date.now() + manual * 60000);
+    clockOff = clockZone()[2];
+    const d = zoneNow(clockOff);
     clockFields = [d.getDate(), d.getMonth() + 1, d.getFullYear(), d.getHours(), d.getMinutes()];
     clockAt = 3; sheetOpen = true; sheetKind = 'clock'; feedback('sheet-open'); drawClock();
     $('#overlay').classList.add('open'); renderPrompts();
@@ -416,7 +424,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
   }
   function saveClock() {
     const [dd, mo, yy, hh, mi] = clockFields;
-    manual = Math.round((new Date(yy, mo - 1, dd, hh, mi).getTime() - Date.now()) / 60000);
+    manual += Math.round((new Date(yy, mo - 1, dd, hh, mi).getTime() - zoneNow(clockOff).getTime()) / 60000);
     closeSheet(); feedback('notify'); toast(tr('clock.saved'));
   }
   function passwordSheet(nw) {
