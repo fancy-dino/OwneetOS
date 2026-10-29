@@ -1,0 +1,10 @@
+@owneetd
+@nogames
+# Installed ([[step-6.2-live-vs-installed-mode]]): no strip on Home, Settings → System as before.
+wait 3
+shot 01-home-installed
+pad rb rb
+wait 1
+pad down down down down down down down right
+wait 1
+shot 02-settings-system-installed

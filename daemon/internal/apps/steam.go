@@ -150,7 +150,7 @@ func (procFS) Parent(pid int) int {
 
 func (procFS) Signal(pid int, sig syscall.Signal) error { return syscall.Kill(pid, sig) }
 
-// steamAllowed: always in the installed system; in the live system (/run/archiso) with enough RAM.
+// steamAllowed: always in the installed system; in the live system (live.Mode) with enough RAM.
 func steamAllowed() bool { return live.Allowed(SteamLiveMinRAM) }
 
 // forward hands a steam:// address to the Steam already running (the command returns at once).

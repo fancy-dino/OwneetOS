@@ -13,7 +13,8 @@
 #   - optional web apps (5.0.0): none installed; the first install takes 3 s (the engine), the next
 #     ones and the removals are immediate; the last removal takes 1.5 s;
 #   - the time zone (6.1): set at once; an Xbox wireless adapter that needs its firmware, which
-#     installs in 3 s (FAKE_FIRSTSTART=1: a new console, not connected to any network).
+#     installs in 3 s (FAKE_FIRSTSTART=1: a new console, not connected to any network);
+#   - the system's mode (6.2): installed, or live with FAKE_MODE=live (started from the USB stick).
 #
 # Steps can send it events (tools/frontend-preview "event TYPE JSON"): one line each in the FIFO
 # given as second argument.
@@ -360,7 +361,8 @@ class Handler(BaseHTTPRequestHandler):
             answers = {
                 "/v1/time": time_status(),
                 "/v1/xone": state["xone"],
-                "/v1/status": {"session_mode": os.environ.get("FAKE_SESSION", "cage"), "owneetos_version": "preview"},
+                "/v1/status": {"session_mode": os.environ.get("FAKE_SESSION", "cage"), "owneetos_version": "preview",
+                               "mode": os.environ.get("FAKE_MODE", "installed")},
                 "/v1/apps": {"apps": state["apps"], "focus": "home"},
                 "/v1/steam": state["steam"],
                 "/v1/update": state["update"],

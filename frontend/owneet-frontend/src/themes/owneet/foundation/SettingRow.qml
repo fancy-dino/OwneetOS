@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A settings row: a label on the left and, on the right, a switch (kind "switch"), the current
 // value with an arrow that opens a picker (kind "picker"), or an action with an optional state
-// text and no arrow (kind "action", e.g. "Search again").
+// text and no arrow (kind "action", e.g. "Search again"); `badge` shows the action in an accent
+// pill (e.g. "Install").
 import QtQuick 2.15
 
 Rectangle {
@@ -12,6 +13,7 @@ Rectangle {
     property bool checked: false
     property string value: ""
     property var swatches: []          // small color strip shown before the value
+    property string badge: ""
     readonly property bool navigable: true
     readonly property string feedbackKind: kind === "switch" ? (checked ? "toggle-off" : "toggle-on") : "confirm"
     signal activated()
@@ -57,7 +59,24 @@ Rectangle {
                 Rectangle { width: Theme.px(12); height: Theme.px(16); color: modelData }
             }
         }
+        Rectangle {
+            visible: root.badge !== ""
+            anchors.verticalCenter: parent.verticalCenter
+            width: badgeText.implicitWidth + Theme.px(20)
+            height: badgeText.implicitHeight + Theme.px(4)
+            radius: height / 2
+            color: Theme.accent
+            Text {
+                id: badgeText
+                anchors.centerIn: parent
+                text: root.badge
+                color: Theme.onAccent
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(12.5)
+            }
+        }
         Text {
+            visible: text !== ""
             anchors.verticalCenter: parent.verticalCenter
             text: root.kind === "picker" ? root.value + "  ›" : root.value
             color: Theme.muted

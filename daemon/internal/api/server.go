@@ -17,6 +17,7 @@ import (
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/live"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/power"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
 )
@@ -206,6 +207,7 @@ type Status struct {
 	DaemonVersion   string `json:"daemon_version"`
 	OwneetOSVersion string `json:"owneetos_version"`
 	SessionMode     string `json:"session_mode"`
+	Mode            string `json:"mode"` // live (from the USB stick), tester or installed (live.Mode)
 	UptimeSeconds   int64  `json:"uptime_seconds"`
 }
 
@@ -214,6 +216,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
 		DaemonVersion:   version.Version,
 		OwneetOSVersion: osReleaseValue(s.OSRelease, "IMAGE_VERSION"),
 		SessionMode:     readTrimmed(s.SessionModeFile),
+		Mode:            live.Mode(),
 		UptimeSeconds:   int64(time.Since(s.started).Seconds()),
 	})
 }

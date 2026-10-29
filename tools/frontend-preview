@@ -32,6 +32,7 @@
 #                    folders with only an installer (GOG .sh, Inno Setup, too big, Galaxy, unknown)
 #   @gamescope       (with @owneetd) the pretend session is gamescope's (Resume, the pointer)
 #   @firststart      the first start (6.1) is shown, as on a new console (otherwise it counts as done)
+#   @live            (with @owneetd) started from the USB stick (6.2: owneetd's mode is "live")
 #   unplug / plug    (with @disk) the invented disk is unplugged / plugged in again
 #   event TYPE JSON  (with @owneetd) the pretend owneetd sends an event, e.g.
 #                    event controller.battery {"id":"aa:bb:cc:dd:ee:01","name":"Xbox","battery":12}
@@ -216,6 +217,7 @@ if grep -q '^@owneetd' /steps.txt; then
     grep -q '^@gamescope' /steps.txt && export FAKE_SESSION=gamescope
     mkfifo /tmp/owneetd-events
     if grep -q '^@firststart' /steps.txt; then export FAKE_FIRSTSTART=1; fi
+    if grep -q '^@live' /steps.txt; then export FAKE_MODE=live; fi
     python3 /fake-owneetd.py "$OWNEETD_SOCKET" /tmp/owneetd-events >> /out/log.txt 2>&1 &
     sleep 0.5
 fi

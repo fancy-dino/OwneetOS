@@ -16,6 +16,10 @@ NavArea {
     property var controllers: []        // connected controllers (from the shell)
     property bool updatesFromStick: false   // a tester's PC: updates from the USB stick (4.2b)
     property string windowsText: ""     // Windows games: getting ready, ready… (4.5); "" without any
+    // Started from the USB stick (6.2, approved demo 6.2-live-settings): System says so and offers
+    // to install OwneetOS in place of the updates, which need an installed system
+    property bool live: false
+    signal install()
     signal checkUpdates()
 
     signal openPalettes()
@@ -827,7 +831,22 @@ NavArea {
                     InfoRow {
                         width: parent.width
                         text: Tr.tr("system.version")
-                        value: systemInfo.version || "—"
+                        value: page.live ? Tr.tr("live.version", { v: systemInfo.version || "—" }) : (systemInfo.version || "—")
+                    }
+                    SettingRow {
+                        visible: page.live
+                        width: parent.width
+                        kind: "action"
+                        text: Tr.tr("live.install.pc")
+                        detail: Tr.tr("live.install.pc.detail")
+                        badge: Tr.tr("prompt.install")
+                        onActivated: page.install()
+                    }
+                    InfoRow {
+                        visible: page.live
+                        width: parent.width
+                        text: Tr.tr("live.updates")
+                        value: Tr.tr("live.updates.later")
                     }
                     InfoRow {                   // what Windows games need, downloaded once (4.5)
                         visible: page.windowsText !== ""
@@ -837,6 +856,7 @@ NavArea {
                         value: page.windowsText
                     }
                     SettingRow {
+                        visible: !page.live
                         width: parent.width
                         kind: "picker"
                         text: Tr.tr("system.updates")

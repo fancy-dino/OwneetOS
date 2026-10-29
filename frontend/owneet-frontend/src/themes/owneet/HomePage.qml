@@ -9,6 +9,9 @@
 // installs it, Menu opens its options (Open, Remove). An open web app takes the hero like a game
 // ([[step-5.1-brave-in-the-os]], approved demo design/demos/5.1-web-app-running.html): its letter
 // instead of art, Resume and Close; its tile shows a green dot.
+// Started from the USB stick ([[step-6.2-live-vs-installed-mode]], approved demo
+// design/demos/6.2-live-home.html): a strip above the hero, which gives it the room, says that
+// nothing is kept at power-off and offers to install OwneetOS; installed, Home is as above.
 // Still to come: real covers from Steam's local files (4.1).
 import QtQuick 2.15
 import "foundation"
@@ -68,6 +71,8 @@ NavArea {
     signal openNotice(var notice)              // the downloads notice: the game's details (4.2c)
     property bool steamRunning: false           // Steam runs (hidden or not): Menu on its tile closes it
     signal steamOptions()
+    property bool live: false                  // started from the USB stick (owneetd: mode)
+    signal install()                           // "Install OwneetOS" (the installer, 6.4)
     onCancelled: quickMenu()
     backFeedback: ""                           // the quick menu plays its own sound
 
@@ -96,6 +101,8 @@ NavArea {
             return [P("a", "prompt.open"), P("menu", "prompt.options")];
         if (k === "app" || k === "all" || k === "notice" || k === "store")
             return [P("a", "prompt.open")];
+        if (k === "install")
+            return [P("a", "live.install")];
         return k ? [P("a", "prompt.select")] : [];
     }
     function gameOf(item) { return item ? (item.game || null) : null; }
@@ -134,6 +141,7 @@ NavArea {
         else if (k === "store" || item.steamStore) openStore();
         else if (k === "app" && item.webApp) openWebApp(item.webApp);
         else if (k === "notice" && page.notices.length > 0) openNotice(page.notices[0]);
+        else if (k === "install") install();
         else notYet();                         // apps (later steps)
     }
     onOtherAction: {
@@ -152,9 +160,61 @@ NavArea {
         id: top
         anchors { left: parent.left; right: parent.right; top: parent.top; bottom: rowBlock.top; bottomMargin: Theme.px(20) }
 
+        NavGroup {                              // from the USB stick: above the hero (6.2)
+            id: liveGroup
+            visible: page.live
+            anchors { left: parent.left; top: parent.top }
+            width: heroGroup.width
+            height: visible ? liveStrip.height : 0
+            Rectangle {
+                id: liveStrip
+                readonly property bool navigable: true
+                readonly property string kind: "install"
+                width: parent.width
+                height: liveFlow.implicitHeight + Theme.px(16)
+                radius: Theme.radiusM - Theme.px(2)
+                color: Theme.surface
+                border.color: Theme.accent
+                border.width: Math.max(1, Theme.px(1))
+                Flow {
+                    id: liveFlow
+                    anchors { left: parent.left; right: parent.right; leftMargin: Theme.px(14); rightMargin: Theme.px(14); verticalCenter: parent.verticalCenter }
+                    spacing: Theme.px(12)
+                    Rectangle {
+                        width: Theme.fs(26); height: width
+                        radius: Theme.px(8)
+                        color: Theme.raised
+                        Icon {
+                            anchors.centerIn: parent
+                            width: parent.width * 0.64; height: width
+                            name: "stick"
+                            color: Theme.accent
+                        }
+                    }
+                    Text {
+                        height: Theme.fs(26)
+                        verticalAlignment: Text.AlignVCenter
+                        text: Tr.tr("live.install")
+                        color: Theme.accent
+                        font.family: Theme.textFont
+                        font.weight: Font.DemiBold
+                        font.pixelSize: Theme.fs(14.5)
+                    }
+                    Text {
+                        height: Theme.fs(26)
+                        verticalAlignment: Text.AlignVCenter
+                        text: Tr.tr("live.text")
+                        color: Theme.muted
+                        font.family: Theme.textFont
+                        font.pixelSize: Theme.fs(14.5)
+                    }
+                }
+                FocusFrame {}
+            }
+        }
         NavGroup {
             id: heroGroup
-            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+            anchors { left: parent.left; top: liveGroup.bottom; topMargin: page.live ? Theme.px(12) : 0; bottom: parent.bottom }
             width: (parent.width - Theme.px(20)) * 0.62
 
             GameArt {

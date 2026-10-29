@@ -250,6 +250,9 @@ FocusScope {
     property var apps: []                 // running games and apps: { id, name, kind, started }
     property string focusedApp: ""        // "home", an app id, or "" (cage)
     property string sessionMode: ""       // "gamescope" or "cage"
+    // live (from the USB stick), tester or installed (owneetd's /v1/status, 6.2)
+    property string systemMode: ""
+    readonly property bool liveSystem: systemMode === "live"
     property var controllers: []
     property var network: null
     readonly property var runningGame: {
@@ -332,7 +335,9 @@ FocusScope {
     }
 
     function refreshDaemon() {
-        owneetd.get("/v1/status", (status, data) => { if (status === 200) sessionMode = data.session_mode || ""; });
+        owneetd.get("/v1/status", (status, data) => {
+            if (status === 200) { sessionMode = data.session_mode || ""; systemMode = data.mode || ""; }
+        });
         owneetd.get("/v1/network", (status, data) => { if (status === 200) { network = data; lastNetwork = data; } });
         refreshApps();
         refreshControllers();
@@ -819,6 +824,8 @@ FocusScope {
         dialog.open();
     }
     function notYet() { toast.show(Tr.tr("toast.later")); }
+    // "Install OwneetOS" from the USB stick (6.2): the installer comes with step 6.4
+    function openInstaller() { notYet(); }
 
     // ---- Optional web apps (5.0.0, approved demo design/demos/5.0.0-optional-apps.html): installed
     // and removed from the home screen's Apps grid. The engine behind them is never named.
@@ -2347,6 +2354,8 @@ FocusScope {
             id: home
             anchors.fill: parent
             visible: root.section === "home"
+            live: root.liveSystem
+            onInstall: root.openInstaller()
             focus: visible
             games: root.homeGames
             notices: root.steamNotices.concat(root.installNotices).concat(root.windowsNotices)
@@ -2391,6 +2400,8 @@ FocusScope {
             id: settings
             anchors.fill: parent
             visible: root.section === "settings"
+            live: root.liveSystem
+            onInstall: root.openInstaller()
             focus: visible
             onOpenPalettes: palettes.openPicker()
             onOpenLanguages: languages.openPicker()
