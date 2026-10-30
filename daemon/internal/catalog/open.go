@@ -145,8 +145,9 @@ func (m *Manager) braveCommand(e Entry, profile string, sess apps.Session) []str
 		"--ozone-platform=" + platform,
 	}
 	// Brave's windows and pages that need a mouse ([[step-5.5-spotify]]): its performance alert
-	// ("Fix the tabs slowing your browser") and its reading views (Speedreader, and Chromium's
-	// Reading mode, which Alt+Shift+R on a keyboard opens: Spotify uses those keys too)
+	// ("Fix the tabs slowing your browser") and its reading views (Speedreader, Chromium's Reading
+	// mode). Alt+Shift+R pressed on a keyboard still opens a full-page reading view: a known limit,
+	// keyboard only (keys sent by the extension never reach Brave)
 	disabled := []string{"PerformanceInterventionUI", "Speedreader", "ReadAnything"}
 	if st, err := os.Stat(m.ExtensionDir); err == nil && st.IsDir() {
 		// The console's extension ([[step-5.2-extension-core]]), loaded from the system's files:
