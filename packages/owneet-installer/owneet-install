@@ -174,7 +174,12 @@ echo "Installing on $disk ($size bytes, ${model:-unknown model}, serial ${serial
 # ---- Partitions and file systems
 progress partitioning 2
 umount -R "$TARGET" 2>/dev/null
+# The console mounts the disks by itself (owneet-mount, [[step-6.5-automatic-disk-mounting]]): this
+# one is left alone from now on, its new partitions too, and what it mounted lets go
+mkdir -p /run/owneet-mount
+basename "$disk" > /run/owneet-mount/installing
 while read -r part; do
+    systemctl stop "owneet-mount@$(basename "$part").service" 2>/dev/null
     umount "$part" 2>/dev/null
 done < <(lsblk -nlpo NAME "$disk" | tail -n +2)
 swapoff -a 2>/dev/null

@@ -166,6 +166,8 @@
   "disk.free": "{name} · {free} frei",
   "disk.of": "{free} von {total} frei",
   "disk.note.readonly": "Nur lesen: Auf dieses Laufwerk können keine Spiele hinzugefügt werden.",
+  "disk.note.windows": "Nur lesen: Windows wurde nicht vollständig heruntergefahren. Fahre es aus Windows herunter (oder schalte den Schnellstart aus), um hier Spiele hinzuzufügen.",
+  "disk.note.ntfs": "Windows-Spiele auf diesem Laufwerk funktionieren vielleicht nicht gut: Verschiebe sie auf ein Linux-Laufwerk.",
   "prompt.resume": "Fortsetzen",
   "home.playing": "Läuft gerade",
   "home.resume": "Fortsetzen",

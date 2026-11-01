@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Mounting of the disks ([[step-6.5-automatic-disk-mounting]]): a file system on an internal or USB
+# disk starts owneet-mount@<kernel name>.service, which mounts it under /run/media/owneet (at start
+# too, when the disks are found). Not the OWNEETLOG stick (owneet-testlog, owneet-update), not EFI
+# system partitions, not Microsoft's reserved and recovery partitions, only file systems the
+# console can read; owneet-mount leaves the console's own disk and the USB stick it started from
+# alone.
+ACTION=="remove", GOTO="owneet_disks_end"
+SUBSYSTEM!="block", GOTO="owneet_disks_end"
+ENV{ID_FS_USAGE}!="filesystem", GOTO="owneet_disks_end"
+ENV{ID_FS_LABEL}=="OWNEETLOG", GOTO="owneet_disks_end"
+ENV{ID_PART_ENTRY_TYPE}=="c12a7328-f81f-11d2-ba4b-00a0c93ec93b|0xef|e3c9e316-0b5c-4db8-817d-f92df00215ae|de94bba4-06d1-4d40-a16a-bfd50179d6ac|0x27", GOTO="owneet_disks_end"
+KERNEL=="loop*|zram*|sr*", GOTO="owneet_disks_end"
+ENV{ID_FS_TYPE}=="ext2|ext3|ext4|btrfs|xfs|vfat|exfat|ntfs", TAG+="systemd", ENV{SYSTEMD_WANTS}+="owneet-mount@%k.service"
+LABEL="owneet_disks_end"

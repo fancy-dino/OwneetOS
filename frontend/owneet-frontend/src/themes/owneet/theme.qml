@@ -3208,14 +3208,17 @@ FocusScope {
                                 color: Theme.accent
                             }
                         }
-                        Text {
-                            visible: modelData.readOnly
-                            width: parent.width
-                            text: Tr.tr("disk.note.readonly")
-                            color: Theme.muted
-                            font.family: Theme.textFont
-                            font.pixelSize: Theme.fs(12.5)
-                            wrapMode: Text.Wrap
+                        Repeater {                 // why it is read only; Windows games on NTFS (6.5, demo 3.7)
+                            model: (modelData.readOnly ? [modelData.why === "windows" ? "disk.note.windows" : "disk.note.readonly"] : [])
+                                   .concat(modelData.ntfs ? ["disk.note.ntfs"] : [])
+                            Text {
+                                width: parent.width
+                                text: Tr.tr(modelData)
+                                color: Theme.muted
+                                font.family: Theme.textFont
+                                font.pixelSize: Theme.fs(12.5)
+                                wrapMode: Text.Wrap
+                            }
                         }
                     }
                 }

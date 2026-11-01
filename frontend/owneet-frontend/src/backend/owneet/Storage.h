@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The disks the console can store games on, with their free space ([[step-3.7-library-screen]], the
-// library's disks). USB disks are mounted read only by owneet-mount-ro (owneet-base,
-// [[step-4.3-local-drm-free-games]]); full mounting and the notices about Windows disks come with
-// [[step-6.5-automatic-disk-mounting]].
+// library's disks). The disks are mounted by owneet-mount (owneet-base,
+// [[step-6.5-automatic-disk-mounting]]), which says why one is read only.
 
 #pragma once
 
@@ -19,8 +18,10 @@ public:
     explicit Storage(QObject* parent = nullptr);
 
     /// The system disk and the mounted disks (/run/media, /media, /mnt): for each one
-    /// { key, name, free, total, readOnly }, sizes in bytes; key is "internal" for the system disk,
-    /// the mount folder for the others. OWNEET_DISKS ("path[:path…]") adds folders that act as
+    /// { key, name, free, total, readOnly, why, ntfs }, sizes in bytes; key is "internal" for the
+    /// system disk, the mount folder for the others; why: owneet-mount's reason when read only
+    /// ("windows": left dirty or hibernated by Windows, "windows-system": Windows's own partition,
+    /// "live": an internal disk from the USB stick, "error"); ntfs: an NTFS file system. OWNEET_DISKS ("path[:path…]") adds folders that act as
     /// disks while they exist (previews: plugging a disk is creating its folder).
     Q_INVOKABLE QVariantList volumes() const;
 

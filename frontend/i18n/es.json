@@ -166,6 +166,8 @@
   "disk.free": "{name} · {free} libres",
   "disk.of": "{free} libres de {total}",
   "disk.note.readonly": "Solo lectura: no se pueden añadir juegos a este disco.",
+  "disk.note.windows": "Solo lectura: Windows no se apagó del todo. Apágalo desde Windows (o desactiva el inicio rápido) para añadir juegos aquí.",
+  "disk.note.ntfs": "Puede que los juegos de Windows de este disco no funcionen bien: muévelos a un disco Linux.",
   "prompt.resume": "Reanudar",
   "home.playing": "Jugando ahora",
   "home.resume": "Reanudar",

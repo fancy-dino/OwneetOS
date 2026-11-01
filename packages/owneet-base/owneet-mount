@@ -1,0 +1,146 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Mounts the disks ([[step-6.5-automatic-disk-mounting]], [[disks]]): every file system of an
+# internal or USB disk (ext4, btrfs, xfs, NTFS, exFAT, FAT) at /run/media/owneet/<label>, at start
+# and when a disk is plugged in, so the console finds the games and media on it. Read-write when
+# the file system is clean; read only:
+#   windows         NTFS left dirty or hibernated by Windows (Fast Startup): never written, the
+#                   console explains why ([[user-data]])
+#   windows-system  the partition Windows itself is installed on (C:): always (owner, 2026-11-01)
+#   live            an internal disk while OwneetOS runs from its USB stick (the installer may
+#                   erase it; nothing is kept there anyway)
+#   error           a file system that could not be mounted read-write
+# Never: the console's own disk, the USB stick it started from, EFI system partitions, Microsoft's
+# reserved and recovery partitions, BitLocker (never touched, [[user-data]]), the OWNEETLOG stick.
+#
+#   owneet-mount start <kernel name>   mount /dev/<kernel name> (e.g. sdb1)
+#   owneet-mount stop <kernel name>    unmount it and remove its folder
+#
+# Runs as root, started by owneet-mount@<kernel name>.service, which the udev rule
+# 90-owneet-disks.rules pulls in when a file system appears (at start too) and which stops when it
+# goes. What it did is in /run/owneet-mount/<kernel name>: the folder, rw or ro, and why ro.
+# The disk OwneetOS is being installed on (/run/owneet-mount/installing, owneet-install) is left
+# alone.
+
+set -uo pipefail
+
+MODE="${1:-}"
+NAME="${2:-}"
+BASE=/run/media/owneet
+STATE=/run/owneet-mount
+[[ "$NAME" =~ ^[a-z0-9]+$ ]] || { echo "usage: owneet-mount start|stop <kernel name>" >&2; exit 2; }
+dev="/dev/$NAME"
+mkdir -p "$STATE"
+
+# Microsoft's reserved and recovery partitions, and EFI system partitions: never mounted
+SKIP_TYPES="e3c9e316-0b5c-4db8-817d-f92df00215ae de94bba4-06d1-4d40-a16a-bfd50179d6ac c12a7328-f81f-11d2-ba4b-00a0c93ec93b 0xef 0x27"
+
+# The disk a partition belongs to (e.g. sda for sda1, nvme0n1 for nvme0n1p2)
+disk_of() { lsblk -no PKNAME "$1" 2>/dev/null | head -1; }
+# The disk a mount point's file system is on ("" when nothing is mounted there)
+disk_at() {
+    local src
+    src="$(findmnt -no SOURCE "$1" 2>/dev/null | head -1)"
+    src="${src%%[*}"
+    [[ -b "$src" ]] && disk_of "$src"
+}
+
+# NTFS hibernated by Windows (Fast Startup or hibernation): hiberfil.sys starts with "hibr"
+hibernated() {
+    local file magic
+    file="$(find "$1" -maxdepth 1 -iname hiberfil.sys -print -quit 2>/dev/null)"
+    [[ -n "$file" ]] || return 1
+    magic="$(head -c 4 "$file" 2>/dev/null | tr -d '\0')"
+    [[ "${magic,,}" == hibr ]]
+}
+
+case "$MODE" in
+    start)
+        [[ -b "$dev" ]] || exit 0
+        # Already mounted (the console's own system, the OWNEETLOG stick): left alone
+        if findmnt -nS "$dev" >/dev/null 2>&1; then exit 0; fi
+        fstype="$(blkid -po value -s TYPE "$dev" 2>/dev/null)"
+        label="$(blkid -po value -s LABEL "$dev" 2>/dev/null)"
+        ptype="$(blkid -po value -s PART_ENTRY_TYPE "$dev" 2>/dev/null)"
+        [[ "$label" == OWNEETLOG ]] && exit 0
+        [[ -n "$ptype" && " $SKIP_TYPES " == *" ${ptype,,} "* ]] && exit 0
+        # Not the console's own disk, not the USB stick it started from
+        disk="$(disk_of "$dev")"
+        if [[ -n "$disk" ]]; then
+            [[ "$disk" == "$(disk_at /)" || "$disk" == "$(disk_at /run/archiso/bootmnt)" ]] && exit 0
+            # the disk OwneetOS is being installed on (owneet-install)
+            [[ "$disk" == "$(cat "$STATE/installing" 2>/dev/null)" ]] && exit 0
+        fi
+        usb=false
+        udevadm info -q property -n "$dev" 2>/dev/null | grep -q '^ID_PATH=.*-usb-' && usb=true
+
+        # Games start from the disk, so it is not noexec. Read only, journals left by an unclean
+        # removal are not replayed (that would write). The console user (uid/gid 1000) owns the
+        # files of file systems without owners
+        owner="uid=1000,gid=1000,umask=022"
+        case "$fstype" in
+            ext2) type="$fstype"; rw="rw,nosuid,nodev,noatime"; ro="ro,nosuid,nodev" ;;
+            ext3|ext4) type="$fstype"; rw="rw,nosuid,nodev,noatime"; ro="ro,nosuid,nodev,noload" ;;
+            btrfs) type="$fstype"; rw="rw,nosuid,nodev,noatime"; ro="ro,nosuid,nodev,rescue=nologreplay" ;;
+            xfs) type="$fstype"; rw="rw,nosuid,nodev,noatime"; ro="ro,nosuid,nodev,norecovery" ;;
+            vfat|exfat) type="$fstype"; rw="rw,nosuid,nodev,noatime,$owner"; ro="ro,nosuid,nodev,$owner" ;;
+            ntfs) type=ntfs3; rw="rw,nosuid,nodev,noatime,$owner"; ro="ro,nosuid,nodev,$owner" ;;
+            *) exit 0 ;;
+        esac
+        live=false
+        [[ "$(cat /run/owneet/mode 2>/dev/null)" == live || -d /run/archiso ]] && live=true
+
+        # The folder's name is the disk's label (what the user named it), otherwise the kernel
+        # name; "/" and leading dots are not allowed in a folder name
+        dir="$(printf '%s' "${label:-$NAME}" | tr '/' '_' | sed 's/^\.*//')"
+        [[ -n "$dir" ]] || dir="$NAME"
+        target="$BASE/$dir"
+        if mountpoint -q "$target"; then target="$BASE/$dir-$NAME"; fi
+        mkdir -p "$target"
+
+        # Read only first: what is on it decides whether it may be written
+        if ! mount -t "$type" -o "$ro" "$dev" "$target"; then
+            rmdir "$target" 2>/dev/null
+            exit 1
+        fi
+        how=ro why=""
+        windir=""
+        [[ "$type" == ntfs3 ]] && windir="$(find "$target" -maxdepth 1 -iname windows -type d -print -quit 2>/dev/null)"
+        if [[ "$live" == true && "$usb" == false ]]; then
+            why=live
+        elif [[ -n "$windir" ]] && find "$windir" -maxdepth 1 -iname system32 -type d -print -quit 2>/dev/null | grep -q .; then
+            why=windows-system
+        elif [[ "$type" == ntfs3 ]] && hibernated "$target"; then
+            why=windows
+        else
+            # ext and btrfs replay their journal now; NTFS left dirty by Windows is refused
+            umount "$target"
+            if mount -t "$type" -o "$rw" "$dev" "$target"; then
+                how=rw
+            else
+                why=error
+                [[ "$type" == ntfs3 ]] && why=windows
+                if ! mount -t "$type" -o "$ro" "$dev" "$target"; then
+                    rmdir "$target" 2>/dev/null
+                    exit 1
+                fi
+            fi
+        fi
+        printf '%s\n%s\n%s\n' "$target" "$how" "$why" > "$STATE/$NAME"
+        echo "owneet-mount: $dev ($fstype) mounted $how${why:+ ($why)} at $target"
+        ;;
+    stop)
+        [[ -f "$STATE/$NAME" ]] || exit 0
+        target="$(head -1 "$STATE/$NAME")"
+        # The disk may be gone already (unplugged): a lazy unmount always lets go of it
+        umount "$target" 2>/dev/null || umount -l "$target" 2>/dev/null
+        rmdir "$target" 2>/dev/null
+        rm -f "$STATE/$NAME"
+        ;;
+    *)
+        echo "usage: owneet-mount start|stop <kernel name>" >&2
+        exit 2
+        ;;
+esac
+exit 0

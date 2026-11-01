@@ -166,6 +166,8 @@
   "disk.free": "{name} · {free} free",
   "disk.of": "{free} free of {total}",
   "disk.note.readonly": "Read only: games cannot be added to this disk.",
+  "disk.note.windows": "Read only: Windows was not shut down completely. Shut it down from Windows (or turn off Fast Startup) to add games here.",
+  "disk.note.ntfs": "Windows games on this disk may not work well: move them to a Linux disk.",
   "prompt.resume": "Resume",
   "home.playing": "Now playing",
   "home.resume": "Resume",

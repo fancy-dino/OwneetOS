@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFileSystemWatcher>
+#include <QHash>
 #include <QSocketNotifier>
 #include <QStorageInfo>
 #include <QVariantMap>
@@ -14,6 +15,23 @@ namespace {
 QStringList pretend_disks()
 {
     return qEnvironmentVariable("OWNEET_DISKS").split(QChar(':'), Qt::SkipEmptyParts);
+}
+
+// Why owneet-mount mounted a disk read only, by its folder (/run/owneet-mount/<kernel name>: the
+// folder, rw or ro, the reason)
+QHash<QString, QString> mount_reasons()
+{
+    QHash<QString, QString> out;
+    const QDir dir(QStringLiteral("/run/owneet-mount"));
+    for (const QString& name : dir.entryList(QDir::Files)) {
+        QFile file(dir.filePath(name));
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+            continue;
+        const QStringList lines = QString::fromUtf8(file.readAll()).split(QChar('\n'));
+        if (lines.size() >= 3 && lines.at(1) == QLatin1String("ro"))
+            out.insert(lines.at(0), lines.at(2));
+    }
+    return out;
 }
 } // namespace
 
@@ -46,6 +64,7 @@ Storage::Storage(QObject* parent)
 QVariantList Storage::volumes() const
 {
     QVariantList out;
+    const QHash<QString, QString> reasons = mount_reasons();
     for (const QStorageInfo& info : QStorageInfo::mountedVolumes()) {
         if (!info.isValid() || !info.isReady() || info.bytesTotal() <= 0)
             continue;
@@ -61,6 +80,8 @@ QVariantList Storage::volumes() const
         volume.insert(QStringLiteral("free"), static_cast<double>(info.bytesAvailable()));
         volume.insert(QStringLiteral("total"), static_cast<double>(info.bytesTotal()));
         volume.insert(QStringLiteral("readOnly"), info.isReadOnly());
+        volume.insert(QStringLiteral("why"), info.isReadOnly() ? reasons.value(path) : QString());
+        volume.insert(QStringLiteral("ntfs"), info.fileSystemType().startsWith("ntfs"));
         if (system)
             out.prepend(volume);
         else
@@ -77,6 +98,8 @@ QVariantList Storage::volumes() const
         volume.insert(QStringLiteral("free"), static_cast<double>(info.bytesAvailable()));
         volume.insert(QStringLiteral("total"), static_cast<double>(info.bytesTotal()));
         volume.insert(QStringLiteral("readOnly"), true);
+        volume.insert(QStringLiteral("why"), QString());
+        volume.insert(QStringLiteral("ntfs"), false);
         out.append(volume);
     }
     return out;

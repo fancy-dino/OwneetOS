@@ -166,6 +166,8 @@
   "disk.free": "{name} · {free} libres",
   "disk.of": "{free} libres sur {total}",
   "disk.note.readonly": "Lecture seule : impossible d’ajouter des jeux sur ce disque.",
+  "disk.note.windows": "Lecture seule : Windows n’a pas été complètement arrêté. Arrêtez-le depuis Windows (ou désactivez le démarrage rapide) pour ajouter des jeux ici.",
+  "disk.note.ntfs": "Les jeux Windows de ce disque risquent de mal fonctionner : déplacez-les sur un disque Linux.",
   "prompt.resume": "Reprendre",
   "home.playing": "En cours",
   "home.resume": "Reprendre",

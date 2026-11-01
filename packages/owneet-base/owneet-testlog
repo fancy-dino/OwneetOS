@@ -59,7 +59,7 @@ report() {
     echo "--- /v1/steam"; owneetd_get /v1/steam
     echo "--- disks (games on a USB disk, 4.3)"
     lsblk -o NAME,TRAN,FSTYPE,LABEL,SIZE,RO,MOUNTPOINTS 2>&1
-    systemctl list-units --all --no-pager --plain 'owneet-mount-ro@*' 2>&1 | head -8
+    systemctl list-units --all --no-pager --plain 'owneet-mount@*' 2>&1 | head -8
     echo "--- disk reads (sectors read, ms reading)"; awk '$3 ~ /^sd[a-z]+$/ { print $3, $6, $7 }' /proc/diskstats
     # A game that does not show up (e.g. CAYNE, 4.3): what its processes are doing
     echo "--- the console user's busiest processes"

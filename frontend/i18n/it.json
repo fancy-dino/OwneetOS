@@ -166,6 +166,8 @@
   "disk.free": "{name} · {free} liberi",
   "disk.of": "{free} liberi su {total}",
   "disk.note.readonly": "Sola lettura: non si possono aggiungere giochi su questo disco.",
+  "disk.note.windows": "Sola lettura: Windows non è stato spento del tutto. Spegnilo da Windows (o disattiva l’avvio rapido) per aggiungere giochi qui.",
+  "disk.note.ntfs": "I giochi Windows su questo disco potrebbero non funzionare bene: spostali su un disco Linux.",
   "prompt.resume": "Riprendi",
   "home.playing": "In gioco",
   "home.resume": "Riprendi",

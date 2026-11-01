@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.52
+pkgver=0.0.53
 pkgrel=1
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
@@ -28,14 +28,14 @@ source=('owneet-base-src.tar.gz' 'owneet-release' 'owneet-diagnostics' 'owneet-d
         'getty-tty1-tester-install.conf' 'owneet-update' 'owneet-update@.service'
         'owneet-update-boot.service' '50-owneet-update.rules' 'apps.json' 'owneet-apps'
         'owneet-apps-install@.service' 'owneet-apps-remove@.service' '50-owneet-apps.rules'
-        'brave-policies.json' 'owneet-mount-ro' 'owneet-mount-ro@.service' '90-owneet-usb-disks.rules'
+        'brave-policies.json' 'owneet-mount' 'owneet-mount@.service' '90-owneet-disks.rules'
         'owneet-mode' 'owneet-mode.service')
 sha256sums=('SKIP'
             '74f473c3e5cec980798421ac667c84f3938a1e93160b37112300a25aa2ea0400'
             'e739678148442c4770b5c7cf793df180bc475cd33cf1bcb347affdb978f84fc3'
             'dfcdb91edaa6fd46121f8f3a2ce95b0a8e461c5f04c6f9325a1babe45e53cdea'
             '7aa102a2a26cc2ca15321aeaa244044df5077d6c3b75aff6d756982be8ac33a2'
-            '5ada10d2823e601b79510fdbef86025d4bd71c8a822cfadb96ceef14692a6397'
+            '787ea6a366a22a4d054c6baea22c13b331a5916e8ba4723b1b413e68f618a960'
             '21a26bf30666c8897ec0425f967e0a415352e22a92ba3a243e0d57fca3e55a9b'
             'c1380a518174ea5d23be5afa65ddb4d53ae89da705ac7a643f0587dec659579a'
             '9aa02524ad29c812ce67973e7f01c811b7e559a5ace44ad5e4418db58373b001'
@@ -50,9 +50,9 @@ sha256sums=('SKIP'
             '9fc9e8f3f152c33c5c8afd95795e496bd6df0a1464f2f438720d0d37c01c509a'
             '64e0f5f898a6d10d8d005e3244228efefe4c09ca2af8a5ca312a2a52c98ee231'
             '1f8dcc23da09d8f649ef63f11bd290e0b427e93c53fd129d76b3f071eeeb46ed'
-            '7735866ea379018ed106f4dc1b0f964376ddff2d4e7c922af8ea081a08b77131'
-            '25fd1c3c58527e17a0b9922fcb1b0966f10712719f372707b9176ddd1af127b1'
-            '43b9b5cd50a82ba2aa9dc7cd1adebde87675badeda14c98ee1a3993e3894cce0'
+            '8ed0a325bc7abf6177bd95ea48abcc8371039d5b69e3528f34934001bd910f5a'
+            '616e6460df0bf81a064c423fe4e2477e3e97a3d64691ed4d65911d6ea30f91f6'
+            '45571ee88b45a595744256e9f413269f19e28c521cd7cf83f3db299c2f18dada'
             '33dbc77bad7179e64888234d203fbe6ff41bddd109260322efabfda9cf6c2dd5'
             '9fdd68d620cf7729b3a37b455eb9e04910bd1525550247873782b7cfe3329544')
 
@@ -98,10 +98,10 @@ package() {
     return 1
   fi
   install -Dm644 extension/content/*.js -t "$ext/content/"
-  # USB disks mounted read only for the games on them ([[step-4.3-local-drm-free-games]])
-  install -Dm755 owneet-mount-ro "$pkgdir/usr/lib/owneet/owneet-mount-ro"
-  install -Dm644 owneet-mount-ro@.service -t "$pkgdir/usr/lib/systemd/system/"
-  install -Dm644 90-owneet-usb-disks.rules "$pkgdir/usr/lib/udev/rules.d/90-owneet-usb-disks.rules"
+  # The disks, mounted at start and when plugged in ([[step-6.5-automatic-disk-mounting]])
+  install -Dm755 owneet-mount "$pkgdir/usr/lib/owneet/owneet-mount"
+  install -Dm644 owneet-mount@.service -t "$pkgdir/usr/lib/systemd/system/"
+  install -Dm644 90-owneet-disks.rules "$pkgdir/usr/lib/udev/rules.d/90-owneet-disks.rules"
   # Live, installed or tester: /run/owneet/mode ([[step-6.2-live-vs-installed-mode]])
   install -Dm755 owneet-mode "$pkgdir/usr/lib/owneet/owneet-mode"
   install -Dm644 owneet-mode.service -t "$pkgdir/usr/lib/systemd/system/"

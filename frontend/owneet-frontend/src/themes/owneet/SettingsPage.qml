@@ -809,7 +809,7 @@ NavArea {
                             width: parent.width
                             text: modelData.name || Tr.tr("disk.internal")
                             value: Tr.tr("disk.of", { free: GameInfo.size(modelData.free), total: GameInfo.size(modelData.total) })
-                            detail: modelData.readOnly ? Tr.tr("disk.note.readonly") : ""
+                            detail: modelData.readOnly ? Tr.tr(modelData.why === "windows" ? "disk.note.windows" : "disk.note.readonly") : ""
                             Rectangle {
                                 width: parent.width; height: Theme.px(6); radius: height / 2
                                 color: Theme.raised
