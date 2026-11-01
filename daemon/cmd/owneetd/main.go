@@ -29,6 +29,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/installer"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/installs"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/live"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/moves"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/network"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/pointer"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/power"
@@ -333,6 +334,8 @@ func run(configPath string) error {
 		Clock:           clockAPI,
 		Xone:            xoneAPI,
 		Installer:       installerAPI,
+		Moves: &moves.Manager{Broker: broker, Log: log, Home: os.Getenv("HOME"),
+			Media: "/run/media/owneet"},
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

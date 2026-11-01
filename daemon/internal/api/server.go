@@ -66,6 +66,8 @@ type Server struct {
 	Xone Xone
 	// Installer installs OwneetOS from the USB stick (nil without a system bus).
 	Installer Installer
+	// Moves copies and moves games between disks.
+	Moves Moves
 
 	started time.Time
 }
@@ -138,6 +140,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /v1/time/now", s.handleTimeNow)
 	mux.HandleFunc("GET /v1/xone", s.handleXone)
 	mux.HandleFunc("POST /v1/xone/install", s.handleXoneInstall)
+	if s.Moves != nil {
+		mux.HandleFunc("GET /v1/moves", s.handleMoves)
+		mux.HandleFunc("POST /v1/moves", s.handleMovesStart)
+		mux.HandleFunc("POST /v1/moves/pause", s.handleMovesPause)
+		mux.HandleFunc("POST /v1/moves/resume", s.handleMovesResume)
+		mux.HandleFunc("POST /v1/moves/stop", s.handleMovesStop)
+	}
 	mux.HandleFunc("GET /v1/installer", s.handleInstaller)
 	mux.HandleFunc("GET /v1/installer/disks", s.handleInstallerDisks)
 	mux.HandleFunc("POST /v1/installer/start", s.handleInstallerStart)
