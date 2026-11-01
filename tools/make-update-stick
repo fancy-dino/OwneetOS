@@ -8,6 +8,11 @@
 #
 #   tools/make-update-stick /media/$USER/OWNEETLOG
 #
+# For the test VM ([[step-7.0-update-stick-image-for-the-test-vm]]), the same stick as an image in
+# out/, made anew each time in the builder VM, then plugged in with vm/test.sh boot --stick:
+#
+#   tools/build-in-vm tools/make-update-stick --image out/owneetlog.img
+#
 # Nothing is published: the packages go only onto the tester's stick.
 
 set -euo pipefail
@@ -22,7 +27,48 @@ fi
 
 die() { echo "error: $*" >&2; exit 1; }
 
-[[ $# -eq 1 ]] || { sed -n '4,12p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+usage() { sed -n '4,16p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+
+# fill DEST: DEST becomes a copy of the repository, as owneet-update reads it on the stick
+fill() {
+    mkdir -p "$1"
+    rm -f "$1"/*.pkg.tar.zst "$1"/owneet.db* "$1"/owneet.files*
+    # FAT32 / exFAT have no symbolic links: owneet.db is a copy of owneet.db.tar.gz
+    cp "$REPO"/*.pkg.tar.zst "$1/"
+    cp "$REPO/owneet.db.tar.gz" "$1/owneet.db.tar.gz"
+    cp "$REPO/owneet.db.tar.gz" "$1/owneet.db"
+}
+
+list() { find "$1" -maxdepth 1 -name '*.pkg.tar.zst' -printf '    %f\n' | sort; }
+
+if [[ "${1:-}" == --image ]]; then
+    [[ $# -eq 2 ]] || usage
+    if ! command -v mkfs.fat >/dev/null 2>&1 || ! command -v mcopy >/dev/null 2>&1; then
+        die "mkfs.fat and mcopy not found. Make the image inside the builder VM: tools/build-in-vm tools/make-update-stick --image out/owneetlog.img"
+    fi
+    image="$(realpath -m "$2")"
+    # In out/ only: tools/build-in-vm copies it back to the project from there
+    [[ "$image" == "$ROOT/out/"* ]] || die "the image must be in out/ (e.g. out/owneetlog.img)"
+    [[ -f "$REPO/owneet.db.tar.gz" ]] || die "no packages yet: tools/build-in-vm tools/build-packages"
+
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
+    fill "$work/owneet-updates"
+    # The packages plus a quarter, and room for the test VM's logs (owneet-testlog)
+    size=$(( $(du -sm "$work/owneet-updates" | cut -f1) * 5 / 4 + 64 ))
+    mkdir -p "$(dirname "$image")"
+    rm -f "$image"
+    truncate -s "${size}M" "$image"
+    # No partition table: the whole image is the FAT32 file system labelled OWNEETLOG
+    mkfs.fat -F 32 -n OWNEETLOG "$image" >/dev/null
+    MTOOLS_SKIP_CHECK=1 mcopy -s -Q -i "$image" "$work/owneet-updates" ::/
+    echo "==> ${image#"$ROOT/"} (${size} MiB) with:"
+    list "$work/owneet-updates"
+    echo "==> plug it into the test VM: vm/test.sh boot --disk --stick ${image#"$ROOT/"}"
+    exit 0
+fi
+
+[[ $# -eq 1 ]] || usage
 stick="$(realpath "$1")"
 [[ -d "$stick" ]] || die "$1 is not a folder"
 mountpoint -q "$stick" || die "$stick is not a mounted USB stick"
@@ -31,13 +77,8 @@ label="$(findmnt -no LABEL "$stick" 2>/dev/null || true)"
 [[ -f "$REPO/owneet.db.tar.gz" ]] || die "no packages yet: tools/build-in-vm tools/build-packages"
 
 dest="$stick/owneet-updates"
-mkdir -p "$dest"
-rm -f "$dest"/*.pkg.tar.zst "$dest"/owneet.db* "$dest"/owneet.files*
-# FAT32 / exFAT have no symbolic links: owneet.db is a copy of owneet.db.tar.gz
-cp "$REPO"/*.pkg.tar.zst "$dest/"
-cp "$REPO/owneet.db.tar.gz" "$dest/owneet.db.tar.gz"
-cp "$REPO/owneet.db.tar.gz" "$dest/owneet.db"
+fill "$dest"
 sync
 echo "==> copied to $dest:"
-find "$dest" -maxdepth 1 -name '*.pkg.tar.zst' -printf '    %f\n' | sort
+list "$dest"
 echo "==> unmount the stick, then plug it into the test PC: the update is installed at start-up"

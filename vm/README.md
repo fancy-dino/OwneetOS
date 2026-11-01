@@ -133,6 +133,18 @@ vm/test.sh stop | reset | destroy
   `tools/build-in-vm 'cd daemon && CGO_ENABLED=0 go build -o ../out/vm-tools/owneet-testpad ./cmd/owneet-testpad'`,
   then in the VM: mount the vfat disk (`mount -o ro /dev/vdc1 /mnt`) and run
   `/mnt/owneet-testpad -wait 4s a guide` (buttons a b x y lb rb view menu guide up down left right).
+- **New packages in the installed test VM** ([[step-7.0-update-stick-image-for-the-test-vm]]): no
+  new ISO and no reinstall. A system installed with the tester installer updates itself from the
+  OWNEETLOG stick at start-up ([[step-4.2b-updates-from-a-usb-stick]]); in the VM the stick is an
+  image made in the builder VM from `out/repo/x86_64`:
+
+  ```text
+  tools/build-in-vm 'tools/build-packages PKG... && tools/make-update-stick --image out/owneetlog.img'
+  vm/test.sh boot --disk --stick out/owneetlog.img
+  ```
+
+  Only packages with a higher version than the installed ones are installed (raise `pkgver` or
+  `pkgrel`). The image is made anew each time: the logs the VM wrote on it are lost.
 - **Extra kernel arguments:** `--kargs "..."` is passed through SMBIOS and appended by systemd-boot
   (e.g. `owneet.session=cage`); `--journal` sends the system journal to the serial log.
 - **Debug shell:** `--debug-shell` starts a root shell on a virtio console (`hvc0`, kernel argument
