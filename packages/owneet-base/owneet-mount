@@ -49,7 +49,7 @@ disk_at() {
 # NTFS hibernated by Windows (Fast Startup or hibernation): hiberfil.sys starts with "hibr"
 hibernated() {
     local file magic
-    file="$(find "$1" -maxdepth 1 -iname hiberfil.sys -print -quit 2>/dev/null)"
+    file="$(find "$1" -mindepth 1 -maxdepth 1 -iname hiberfil.sys -print -quit 2>/dev/null)"
     [[ -n "$file" ]] || return 1
     magic="$(head -c 4 "$file" 2>/dev/null | tr -d '\0')"
     [[ "${magic,,}" == hibr ]]
@@ -106,10 +106,10 @@ case "$MODE" in
         fi
         how=ro why=""
         windir=""
-        [[ "$type" == ntfs3 ]] && windir="$(find "$target" -maxdepth 1 -iname windows -type d -print -quit 2>/dev/null)"
+        [[ "$type" == ntfs3 ]] && windir="$(find "$target" -mindepth 1 -maxdepth 1 -iname windows -type d -print -quit 2>/dev/null)"
         if [[ "$live" == true && "$usb" == false ]]; then
             why=live
-        elif [[ -n "$windir" ]] && find "$windir" -maxdepth 1 -iname system32 -type d -print -quit 2>/dev/null | grep -q .; then
+        elif [[ -n "$windir" ]] && find "$windir" -mindepth 1 -maxdepth 1 -iname system32 -type d -print -quit 2>/dev/null | grep -q .; then
             why=windows-system
         elif [[ "$type" == ntfs3 ]] && hibernated "$target"; then
             why=windows
