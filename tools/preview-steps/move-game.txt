@@ -1,0 +1,32 @@
+@nogames
+@owneetd
+@disk
+# Moving a game ([[step-6.6-moving-games-and-media-between-disks]], approved demo 6.6): Menu on
+# Tyrian 2000 (on the USB disk) → Move to another disk: the disks; the confirmation with the switch;
+# the steps (copy with its percentage); B asks "Stop?" (Keep going selected), B keeps going; the
+# check and the removal; the notice.
+wait 2
+pad rb
+wait 1
+pad right right right right right right menu
+wait 1
+shot 01-options
+pad right right a
+wait 1
+shot 02-disks
+pad a
+wait 1
+shot 03-confirm
+pad a
+wait 1
+shot 04-copying
+pad b
+wait 0.5
+shot 05-stop-asked
+pad b
+wait 1
+shot 06-keep-going
+wait 3
+shot 07-check-or-remove
+wait 3
+shot 08-done

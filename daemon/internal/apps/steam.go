@@ -44,7 +44,7 @@ var ErrSteamNeedsInstall = errors.New("Steam needs the installed system: the liv
 // SteamRequest is the body of POST /v1/steam: open a page of Steam, run a game, or ask Steam to
 // install or uninstall one (Steam shows its confirmation; [[step-4.2c-steam-without-its-interface]]).
 type SteamRequest struct {
-	Open      string `json:"open,omitempty"`      // "library" or "store"
+	Open      string `json:"open,omitempty"`      // "library", "store" or "storage"
 	Run       string `json:"run,omitempty"`       // a Steam app id
 	Install   string `json:"install,omitempty"`   // a Steam app id
 	Uninstall string `json:"uninstall,omitempty"` // a Steam app id (also cancels its download)
@@ -266,9 +266,12 @@ func (m *Manager) Steam(req SteamRequest) error {
 		url = "steam://open/games"
 	case req.Open == "store":
 		url = "steam://store"
+	case req.Open == "storage":
+		// Steam moves its own games: its storage settings ([[step-6.6-moving-games-and-media-between-disks]])
+		url = "steam://settings/storage"
 	}
 	if url == "" {
-		return fmt.Errorf("%w: one of open (library, store), run, install, uninstall, ask, windows (a Steam app id)", ErrInvalid)
+		return fmt.Errorf("%w: one of open (library, store, storage), run, install, uninstall, ask, windows (a Steam app id)", ErrInvalid)
 	}
 	m.mu.Lock()
 	m.init()

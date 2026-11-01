@@ -15,6 +15,8 @@
 #   - the time zone (6.1): set at once; an Xbox wireless adapter that needs its firmware, which
 #     installs in 3 s (FAKE_FIRSTSTART=1: a new console, not connected to any network);
 #   - the system's mode (6.2): installed, or live with FAKE_MODE=live (started from the USB stick);
+#   - moving games (6.6): a copy in about 3 s, then the check and the removal (FAKE_MOVE_FAIL=1: the
+#     check fails); pause, resume and stop;
 #   - the installer (6.4): the disks of demo 6.4, an installation in about 5 s (FAKE_INSTALL_FAIL=CODE:
 #     it stops while copying with that error).
 #
@@ -46,6 +48,7 @@ state = {
     "xone": {"needed": True, "state": ""},
     # the installer (6.4): the disks of the approved demo 6.4-installer
     "installer": {"state": "", "percent": 0},
+    "moves": {"state": "", "paused": False, "index": 0, "count": 0, "percent": 0, "failed": [], "moved": []},
     "disks": [
         {"path": "/dev/nvme0n1", "serial": "S1", "size": 500107862016, "model": "Samsung SSD 980", "usable": True,
          "reason": "", "windows": True, "bitlocker": True, "linux": False, "partitions": [{"path": "/dev/nvme0n1p1"}]},
@@ -374,6 +377,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/v1/time": time_status(),
                 "/v1/xone": state["xone"],
                 "/v1/installer": state["installer"],
+                "/v1/moves": state["moves"],
                 "/v1/installer/disks": {"disks": state["disks"]},
                 "/v1/status": {"session_mode": os.environ.get("FAKE_SESSION", "cage"), "owneetos_version": "preview",
                                "mode": os.environ.get("FAKE_MODE", "installed")},
@@ -409,6 +413,60 @@ class Handler(BaseHTTPRequestHandler):
                     state["xone"] = {"needed": False, "state": "installed"}
                 publish("xone.changed", state["xone"])
             later(3, installed)
+            return self.reply(202)
+        if path == "/v1/moves":
+            games = body.get("games") or []
+            with lock:
+                state["moves"] = {"state": "copy", "paused": False, "index": 0, "count": len(games), "title": games[0]["title"],
+                                  "percent": 0, "remove": bool(body.get("remove")), "failed": [], "moved": [], "stop": False}
+
+            def run():
+                mv = state["moves"]
+                for i, g in enumerate(games):
+                    with lock:
+                        mv.update(state="copy", index=i, title=g["title"], percent=0)
+                    for pct in range(0, 101, 5):
+                        while mv["paused"] and not mv["stop"]:
+                            time.sleep(0.1)
+                        if mv["stop"]:
+                            with lock:
+                                mv["state"] = "cancelled"
+                            publish("moves.changed", {k: v for k, v in mv.items() if k != "stop"})
+                            return
+                        with lock:
+                            mv["percent"] = pct
+                        publish("moves.changed", {k: v for k, v in mv.items() if k != "stop"})
+                        time.sleep(0.15)
+                    with lock:
+                        mv["state"] = "check"
+                    publish("moves.changed", {k: v for k, v in mv.items() if k != "stop"})
+                    time.sleep(1.2)
+                    if os.environ.get("FAKE_MOVE_FAIL"):
+                        with lock:
+                            mv["failed"].append(g["title"])
+                        continue
+                    if mv["remove"]:
+                        with lock:
+                            mv["state"] = "remove"
+                        publish("moves.changed", {k: v for k, v in mv.items() if k != "stop"})
+                        time.sleep(0.8)
+                    with lock:
+                        mv["moved"].append(g["dir"])
+                with lock:
+                    mv["state"] = "done"
+                publish("moves.changed", {k: v for k, v in mv.items() if k != "stop"})
+            threading.Thread(target=run, daemon=True).start()
+            return self.reply(202)
+        if path in ("/v1/moves/pause", "/v1/moves/resume", "/v1/moves/stop"):
+            mv = state["moves"]
+            with lock:
+                if path.endswith("pause"):
+                    mv["paused"] = True
+                elif path.endswith("resume"):
+                    mv["paused"] = False
+                else:
+                    mv["stop"] = True
+            publish("moves.changed", {k: v for k, v in mv.items() if k != "stop"})
             return self.reply(202)
         if path == "/v1/installer/start":
             disk = next((d for d in state["disks"] if d["path"] == body.get("disk")), None)

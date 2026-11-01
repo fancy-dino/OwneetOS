@@ -216,7 +216,7 @@ FocusScope {
     readonly property bool modalOpen: firstStart.visible || installer.visible || windowOpen
     // a window over the pages (the first start is not one: the Wi-Fi window opens over it)
     readonly property bool windowOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
-                                       || zoneSheet.visible || clockSheet.visible
+                                       || zoneSheet.visible || clockSheet.visible || moveSheet.visible
                                        || notices.visible || quick.visible || controls.visible || steamPrep.visible || webPrep.visible
                                        || webKeys.shown
     function backToPage() {
@@ -794,6 +794,11 @@ FocusScope {
                 } }]
             : []).concat([
             { text: Tr.tr("home.details"), action: () => { dialog.close(true); root.showDetails(game); } },
+            // 6.6: a game on a disk moves with the console; a Steam game is moved by Steam
+            { text: Tr.tr("move.option"), action: () => {
+                dialog.close(true);
+                if (steam) moveSheet.openSteam(game); else moveSheet.openMove(game);
+            } },
             { text: Tr.tr(game.favorite ? "options.unfavorite" : "options.favorite"), action: () => {
                 game.favorite = !game.favorite;
                 library.favoritesRevision++;
@@ -3416,6 +3421,12 @@ FocusScope {
 
     // ---- The first start (6.1): over the pages, under the windows (the Wi-Fi password, the
     // keyboard) and the start-up animation
+    MoveSheet {
+        id: moveSheet
+        theme: root
+        toast: toast
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
     Installer {
         id: installer
         theme: root
