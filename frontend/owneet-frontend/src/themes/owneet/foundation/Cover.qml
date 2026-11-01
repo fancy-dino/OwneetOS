@@ -4,7 +4,8 @@
 // a game owned but not installed is dimmed, with a download mark; a Steam game being downloaded
 // shows its state and progress under its title (4.2c); so does a game being installed from its
 // installer (4.6: a moving bar when the installer tells no percentage), and one that cannot be
-// installed yet has an "info" mark.
+// installed yet has an "info" mark. With more than one disk, the disk it is on under the title
+// (6.6, approved demo 6.6).
 import QtQuick 2.15
 
 Item {
@@ -14,6 +15,7 @@ Item {
     readonly property string kind: "game"
     property real radius: Theme.radiusM
     property bool running: false                // this game runs now
+    property string disk: ""                    // the disk's name, when the console has several
     signal activated()
 
     // Steam (4.2c): not installed, downloading, or on a disk that is not connected
@@ -55,6 +57,18 @@ Item {
             maximumLineCount: 3
             elide: Text.ElideRight
             lineHeight: 0.95
+        }
+        Text {               // the disk it is on (6.6)
+            visible: root.disk !== ""
+            width: parent.width
+            text: root.disk
+            color: "#FFFFFF"
+            opacity: 0.85
+            style: Text.Raised
+            styleColor: "#80000000"
+            font.family: Theme.textFont
+            font.pixelSize: Theme.fs(12.5)
+            elide: Text.ElideRight
         }
         Text {               // the state: "Not installed", "Downloading · 45%"…
             visible: root.stateText !== ""

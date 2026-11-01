@@ -57,6 +57,12 @@ FocusScope {
     // [[step-6.5-automatic-disk-mounting]])
     property var volumes: []
     function refreshVolumes() { volumes = storage.volumes(); }
+    function diskName(key) {
+        if (key === "internal")
+            return Tr.tr("disk.internal");
+        const v = volumes.find(v => v.key === key);
+        return v && v.name ? v.name : key.split("/").pop();
+    }
     onVisibleChanged: if (visible) refreshVolumes()
     Component.onCompleted: refreshVolumes()
 
@@ -288,7 +294,12 @@ FocusScope {
         }
         Component {
             id: coverComponent
-            Cover { game: parent ? parent.game : null; focus: true }
+            Cover {
+                game: parent ? parent.game : null
+                focus: true
+                // with more than one disk, the disk a game on a disk is on (6.6); Steam keeps its own
+                disk: page.volumes.length > 1 && game && GameInfo.diskRoot(game) !== "" ? page.diskName(GameInfo.diskRoot(game)) : ""
+            }
         }
         Component {
             id: addTileComponent
