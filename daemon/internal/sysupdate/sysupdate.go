@@ -2,19 +2,24 @@
 
 // Package sysupdate is Settings → System's updates of an installed OwneetOS ([[step-7.1-updates]],
 // [[distribution-and-updates]]): checking, installing when the player asks, going back to the
-// previous version, and the notice after the console went back by itself. The work is done by root
-// units that polkit allows to the console user (owneet-updates-check / -apply.service,
-// owneet-rollback-now.service); they write their state to /run/owneet/system-update.json and
-// /run/owneet/rollback.json, which owneetd follows and sends as "system-update.changed". Testers'
-// PCs update from a USB stick instead (package update).
+// previous version, going back to any older version ([[step-7.1b-going-back-to-any-version]]), and
+// the notice after the console went back by itself. The work is done by root units that polkit
+// allows to the console user (owneet-updates-check / -apply.service, owneet-rollback-now.service,
+// owneet-updates-size@ / -goto@VERSION.service); they write their state to
+// /run/owneet/system-update.json, /run/owneet/system-goto.json and /run/owneet/rollback.json, which
+// owneetd follows and sends as "system-update.changed". Testers' PCs update from a USB stick instead
+// (package update).
 package sysupdate
 
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +33,9 @@ const (
 	CheckUnit = "owneet-updates-check.service"
 	ApplyUnit = "owneet-updates-apply.service"
 	BackUnit  = "owneet-rollback-now.service"
+	// templates, with the older version as instance
+	SizeUnit = "owneet-updates-size@%s.service"
+	GotoUnit = "owneet-updates-goto@%s.service"
 )
 
 // Errors returned to the API.
@@ -37,6 +45,7 @@ var (
 	ErrNothing      = errors.New("there is no update to install")
 	ErrOnPrevious   = errors.New("the console was started from the previous version")
 	ErrNoPrevious   = errors.New("there is no previous version")
+	ErrNotListed    = errors.New("that version is not an older release in the list")
 )
 
 // Package is an OwneetOS or Arch Linux package the update changes ("Details").
@@ -50,6 +59,21 @@ type Package struct {
 type Previous struct {
 	Version string `json:"version"`
 	Since   string `json:"since"` // when it was kept (RFC 3339)
+}
+
+// Release is a version of OwneetOS in the signed list of releases.
+type Release struct {
+	Version string `json:"version"`
+	Date    string `json:"date"`
+}
+
+// Goto is the size of going back to an older version, for the warning.
+type Goto struct {
+	Version string `json:"version"`
+	Size    int64  `json:"size"`
+	// Sizing: still working it out; Error (when it could not): offline, not_listed
+	Sizing bool   `json:"sizing"`
+	Error  string `json:"error,omitempty"`
 }
 
 // Status is the body of GET /v1/system-update.
@@ -79,6 +103,12 @@ type Status struct {
 	RolledBack string `json:"rolled_back,omitempty"`
 	// Back: going back from Settings: working, done (restart now), failed
 	Back string `json:"back,omitempty"`
+	// Listed: the signed list of releases was downloaded since the start-up; Releases: the current
+	// version and the older ones in it, newest first ("Other versions")
+	Listed   bool      `json:"listed"`
+	Releases []Release `json:"releases"`
+	// Goto: the size of going back to the version chosen in "Other versions"
+	Goto *Goto `json:"goto"`
 }
 
 // Starter starts a systemd unit of the system manager.
@@ -94,6 +124,7 @@ type Manager struct {
 	StateFile     string // /run/owneet/system-update.json
 	ReleasesFile  string // /run/owneet/releases.json
 	RollbackFile  string // /run/owneet/rollback.json
+	GotoFile      string // /run/owneet/system-goto.json
 	VersionFile   string // /usr/share/owneet/version
 	InstalledMark string // /etc/owneet/installed
 	SeenFile      string // owneetd's own: the last check, the notice already shown
@@ -101,6 +132,7 @@ type Manager struct {
 
 	mu       sync.Mutex
 	checking bool
+	sizing   string
 	back     string
 	last     []byte
 }
@@ -123,6 +155,12 @@ type rollbackFile struct {
 	SpareVersion string `json:"spare_version"`
 	Previous     bool   `json:"previous"`
 	RolledBack   string `json:"rolled_back"`
+}
+
+type gotoFile struct {
+	Version string `json:"version"`
+	Size    int64  `json:"size"`
+	Error   string `json:"error"`
 }
 
 type seenFile struct {
@@ -163,14 +201,17 @@ func (m *Manager) saveSeen(s seenFile) {
 	}
 }
 
+type releaseList struct {
+	Releases []struct {
+		Version string            `json:"version"`
+		Date    string            `json:"date"`
+		Notes   map[string]string `json:"notes"`
+	} `json:"releases"`
+}
+
 // notes returns the notes of a release, per language, from the verified list.
 func (m *Manager) notes(version string) map[string]string {
-	var list struct {
-		Releases []struct {
-			Version string            `json:"version"`
-			Notes   map[string]string `json:"notes"`
-		} `json:"releases"`
-	}
+	var list releaseList
 	if _, ok := readJSON(m.ReleasesFile, &list); !ok {
 		return nil
 	}
@@ -180,6 +221,58 @@ func (m *Manager) notes(version string) map[string]string {
 		}
 	}
 	return nil
+}
+
+var versionRe = regexp.MustCompile(`^[0-9]+(\.[0-9]+)*$`)
+
+// compare compares two versions made of numbers and dots: -1, 0 or 1.
+func compare(a, b string) int {
+	pa, pb := strings.Split(a, "."), strings.Split(b, ".")
+	for i := 0; i < len(pa) || i < len(pb); i++ {
+		var x, y int
+		if i < len(pa) {
+			x, _ = strconv.Atoi(pa[i])
+		}
+		if i < len(pb) {
+			y, _ = strconv.Atoi(pb[i])
+		}
+		if x != y {
+			if x < y {
+				return -1
+			}
+			return 1
+		}
+	}
+	return 0
+}
+
+// releases returns whether the verified list is there, and the current version and the older ones
+// in it, newest first.
+func (m *Manager) releases(current string) (bool, []Release) {
+	var list releaseList
+	out := []Release{}
+	if _, ok := readJSON(m.ReleasesFile, &list); !ok {
+		return false, out
+	}
+	for _, r := range list.Releases {
+		if versionRe.MatchString(r.Version) && compare(r.Version, current) <= 0 {
+			out = append(out, Release{Version: r.Version, Date: r.Date})
+		}
+	}
+	return true, out
+}
+
+// older: version is in the list and older than the current one.
+func older(st Status, version string) bool {
+	if !versionRe.MatchString(version) || compare(version, st.Current) >= 0 {
+		return false
+	}
+	for _, r := range st.Releases {
+		if r.Version == version {
+			return true
+		}
+	}
+	return false
 }
 
 // Status reads what the units last wrote.
@@ -216,8 +309,16 @@ func (m *Manager) Status() Status {
 			st.RolledBack = r.RolledBack
 		}
 	}
+	st.Listed, st.Releases = m.releases(st.Current)
+	var g gotoFile
+	if _, ok := readJSON(m.GotoFile, &g); ok && g.Version != "" {
+		st.Goto = &Goto{Version: g.Version, Size: g.Size, Error: g.Error}
+	}
 	m.mu.Lock()
 	st.Checking, st.Back = m.checking, m.back
+	if m.sizing != "" {
+		st.Goto = &Goto{Version: m.sizing, Sizing: true}
+	}
 	m.mu.Unlock()
 	return st
 }
@@ -284,6 +385,69 @@ func (m *Manager) Install() error {
 		return err
 	}
 	m.Log.Info("system update: installation started", "version", st.Version)
+	return nil
+}
+
+// Size works out the download size of going back to an older version; Goto follows.
+func (m *Manager) Size(version string) error {
+	st := m.Status()
+	switch {
+	case !st.Installed:
+		return ErrNotInstalled
+	case !older(st, version):
+		return ErrNotListed
+	}
+	m.mu.Lock()
+	if m.sizing != "" {
+		m.mu.Unlock()
+		return ErrBusy
+	}
+	m.sizing = version
+	m.mu.Unlock()
+	before, _ := readJSON(m.GotoFile, &gotoFile{})
+	if err := m.Units.Start(fmt.Sprintf(SizeUnit, version)); err != nil {
+		m.mu.Lock()
+		m.sizing = ""
+		m.mu.Unlock()
+		return err
+	}
+	m.publish()
+	go m.waitSize(before)
+	return nil
+}
+
+// waitSize ends "sizing" once the unit has written the size (5 minutes at most, its own limit).
+func (m *Manager) waitSize(before time.Time) {
+	deadline := time.Now().Add(6 * time.Minute)
+	for time.Now().Before(deadline) {
+		time.Sleep(m.poll())
+		if written, ok := readJSON(m.GotoFile, &gotoFile{}); ok && written.After(before) {
+			break
+		}
+	}
+	m.mu.Lock()
+	m.sizing = ""
+	m.mu.Unlock()
+	m.publish()
+}
+
+// GoTo goes back to an older version of the list: an update in reverse, followed like Install.
+func (m *Manager) GoTo(version string) error {
+	st := m.Status()
+	switch {
+	case !st.Installed:
+		return ErrNotInstalled
+	case busy(st):
+		return ErrBusy
+	case st.OnPrevious:
+		return ErrOnPrevious
+	case !older(st, version):
+		return ErrNotListed
+	}
+	if err := m.Units.Start(fmt.Sprintf(GotoUnit, version)); err != nil {
+		return err
+	}
+	m.Log.Info("system update: going back to an older version", "version", version)
 	return nil
 }
 

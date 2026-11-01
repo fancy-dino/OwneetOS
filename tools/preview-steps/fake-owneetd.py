@@ -22,7 +22,9 @@
 #   - the updates of an installed system (7.1), with FAKE_SYSUPDATE (otherwise a tester's PC that
 #     updates from the USB stick): uptodate (checked yesterday; a check finds 0.4.0), available,
 #     ready, fellback (went back by itself), installfail, backfail; a download and installation in
-#     about 6 s, going back in 1 s.
+#     about 6 s, going back in 1 s. The older versions of demo 7.1-updates (7.1b): their list comes
+#     with a check (already there, except with uptodate), the size of going back to one in about
+#     2.5 s, going back to it like an installation.
 #
 # Steps can send it events (tools/frontend-preview "event TYPE JSON"): one line each in the FIFO
 # given as second argument.
@@ -114,7 +116,8 @@ state = {
     "update": {"tester": not os.environ.get("FAKE_SYSUPDATE"), "state": "", "packages": [], "running": False},
     "system_update": {"installed": True, "state": "none", "current": "0.3.0", "size": 0, "packages": [], "percent": 0,
                       "checked": "", "checking": False, "on_previous": False,
-                      "previous": {"version": "0.2.1", "since": "2026-10-12T08:00:00Z"}},
+                      "previous": {"version": "0.2.1", "since": "2026-10-12T08:00:00Z"},
+                      "listed": False, "releases": [], "goto": None},
     # Windows games (4.5): nothing until the interface says the library has one; then about
     # 20 seconds of "getting ready"
     "windows": {"state": "none", "percent": 0, "needed": False},
@@ -162,6 +165,14 @@ NEW_RELEASE = {"version": "0.4.0", "size": 412000000,
                             {"name": "brave-bin", "from": "1:1.97.57-1", "to": "1:1.98.10-1"}]}
 
 
+# this version and the older ones (demo 7.1-updates)
+RELEASES = [{"version": v, "date": d} for v, d in (
+    ("0.3.0", "2026-10-18"), ("0.2.1", "2026-10-04"), ("0.2.0", "2026-09-27"), ("0.1.9", "2026-09-20"),
+    ("0.1.8", "2026-09-13"), ("0.1.7", "2026-09-06"), ("0.1.6", "2026-08-30"), ("0.1.5", "2026-08-23"),
+    ("0.1.4", "2026-08-16"), ("0.1.3", "2026-08-09"), ("0.1.2", "2026-08-02"), ("0.1.1", "2026-07-26"),
+    ("0.1.0", "2026-07-19"))]
+
+
 def sysupdate(**changes):
     with lock:
         state["system_update"].update(changes)
@@ -172,6 +183,8 @@ def sysupdate(**changes):
 def sysupdate_start():
     st = state["system_update"]
     now = datetime.datetime.now(datetime.timezone.utc)
+    if SYSUPDATE != "uptodate":
+        st.update(listed=True, releases=RELEASES)
     if SYSUPDATE == "uptodate":
         st["checked"] = (now - datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
     elif SYSUPDATE in ("available", "installfail"):
@@ -600,7 +613,17 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/v1/system-update/check":
             sysupdate(checking=True)
             now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-            later(1.5, lambda: sysupdate(**dict(NEW_RELEASE, state="available", checking=False, checked=now)))
+            later(1.5, lambda: sysupdate(**dict(NEW_RELEASE, state="available", checking=False, checked=now,
+                                                listed=True, releases=RELEASES)))
+            return self.reply(202)
+        if path == "/v1/system-update/size":
+            version = body.get("version", "")
+            sysupdate(goto={"version": version, "size": 0, "sizing": True})
+            later(2.5, lambda: sysupdate(goto={"version": version, "size": 1503238553, "sizing": False}))
+            return self.reply(202)
+        if path == "/v1/system-update/go-to":
+            sysupdate(version=body.get("version", ""), size=1503238553, packages=[], notes={})
+            sysupdate_install()
             return self.reply(202)
         if path == "/v1/system-update/install":
             sysupdate_install()

@@ -12,6 +12,7 @@
         <file>owneet/FirstStart.qml</file>
         <file>owneet/Installer.qml</file>
         <file>owneet/MoveSheet.qml</file>
+        <file>owneet/VersionsSheet.qml</file>
         <file>owneet/Intro.qml</file>
         <file>owneet/NotificationsSheet.qml</file>
         <file>owneet/QuickMenu.qml</file>

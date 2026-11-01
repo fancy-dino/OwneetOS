@@ -32,7 +32,8 @@ func newManager(t *testing.T, units *fakeUnits) *Manager {
 	dir := t.TempDir()
 	m := &Manager{Broker: events.NewBroker(), Log: slog.New(slog.NewTextHandler(io.Discard, nil)), Units: units,
 		StateFile: filepath.Join(dir, "system-update.json"), ReleasesFile: filepath.Join(dir, "releases.json"),
-		RollbackFile: filepath.Join(dir, "rollback.json"), VersionFile: filepath.Join(dir, "version"),
+		RollbackFile: filepath.Join(dir, "rollback.json"), GotoFile: filepath.Join(dir, "system-goto.json"),
+		VersionFile:   filepath.Join(dir, "version"),
 		InstalledMark: filepath.Join(dir, "installed"), SeenFile: filepath.Join(dir, "state", "seen.json"),
 		Poll: 5 * time.Millisecond}
 	write(t, m.VersionFile, "0.3.0\n")
@@ -207,5 +208,91 @@ func TestRolledBackNotice(t *testing.T) {
 	write(t, m.RollbackFile, `{"spare":false,"previous":false,"rolled_back":"2026-11-05T08:30:00Z"}`)
 	if st := m.Status(); st.RolledBack != "2026-11-05T08:30:00Z" {
 		t.Errorf("second fall back: %+v", st)
+	}
+}
+
+const fourReleases = `{"releases": [
+{"version": "0.4.0", "date": "2026-11-01", "archive": "2026/10/28", "notes": {"en": "Newer."}},
+{"version": "0.3.0", "date": "2026-10-18", "archive": "2026/10/15", "notes": {"en": "This one."}},
+{"version": "0.2.10", "date": "2026-10-04", "archive": "2026/10/01", "notes": {"en": "Older."}},
+{"version": "0.2.9", "date": "2026-09-27", "archive": "2026/09/24", "notes": {"en": "Oldest."}}
+]}`
+
+func TestReleases(t *testing.T) {
+	m := newManager(t, &fakeUnits{})
+	if st := m.Status(); st.Listed || len(st.Releases) != 0 {
+		t.Errorf("no list yet: %+v", st)
+	}
+	write(t, m.ReleasesFile, fourReleases)
+	st := m.Status()
+	want := []Release{{"0.3.0", "2026-10-18"}, {"0.2.10", "2026-10-04"}, {"0.2.9", "2026-09-27"}}
+	if !st.Listed || len(st.Releases) != len(want) {
+		t.Fatalf("releases %+v", st.Releases)
+	}
+	for i := range want {
+		if st.Releases[i] != want[i] {
+			t.Errorf("release %d = %+v, want %+v", i, st.Releases[i], want[i])
+		}
+	}
+	if compare("0.2.10", "0.2.9") != 1 || compare("0.3", "0.3.0") != 0 || compare("1.0.0", "0.10.0") != 1 {
+		t.Error("versions compared as text")
+	}
+}
+
+func TestSize(t *testing.T) {
+	units := &fakeUnits{}
+	m := newManager(t, units)
+	write(t, m.ReleasesFile, fourReleases)
+	units.onStart = func(string) {
+		go func() {
+			time.Sleep(20 * time.Millisecond)
+			write(t, m.GotoFile, `{"version":"0.2.9","size":1503238553,"error":"","time":"2026-11-01T12:00:00Z"}`)
+		}()
+	}
+	ch, cancel := m.Broker.Subscribe(16)
+	defer cancel()
+	if err := m.Size("0.2.9"); err != nil {
+		t.Fatal(err)
+	}
+	if len(units.started) != 1 || units.started[0] != "owneet-updates-size@0.2.9.service" {
+		t.Errorf("started %v", units.started)
+	}
+	waitFor(t, ch, "sizing", func(st Status) bool { return st.Goto != nil && st.Goto.Sizing })
+	st := waitFor(t, ch, "sized", func(st Status) bool { return st.Goto != nil && !st.Goto.Sizing })
+	if st.Goto.Version != "0.2.9" || st.Goto.Size != 1503238553 || st.Goto.Error != "" {
+		t.Errorf("size: %+v", st.Goto)
+	}
+}
+
+func TestGoTo(t *testing.T) {
+	units := &fakeUnits{}
+	m := newManager(t, units)
+	write(t, m.ReleasesFile, fourReleases)
+	for _, v := range []string{"0.4.0", "0.3.0", "0.1.0", "0.2.9;reboot", ""} {
+		if err := m.GoTo(v); !errors.Is(err, ErrNotListed) {
+			t.Errorf("GoTo(%q) = %v, want ErrNotListed", v, err)
+		}
+		if err := m.Size(v); !errors.Is(err, ErrNotListed) {
+			t.Errorf("Size(%q) = %v, want ErrNotListed", v, err)
+		}
+	}
+	write(t, m.StateFile, `{"state":"downloading","version":"0.4.0","percent":40}`)
+	if err := m.GoTo("0.2.10"); !errors.Is(err, ErrBusy) {
+		t.Errorf("GoTo() while downloading = %v", err)
+	}
+	write(t, m.StateFile, `{"state":"none"}`)
+	write(t, m.RollbackFile, `{"spare":true,"spare_version":"0.2.1","previous":true}`)
+	if err := m.GoTo("0.2.10"); !errors.Is(err, ErrOnPrevious) {
+		t.Errorf("GoTo() on the previous version = %v", err)
+	}
+	if len(units.started) != 0 {
+		t.Errorf("units started: %v", units.started)
+	}
+	write(t, m.RollbackFile, `{"spare":true,"spare_version":"0.2.1","previous":false}`)
+	if err := m.GoTo("0.2.10"); err != nil {
+		t.Fatal(err)
+	}
+	if len(units.started) != 1 || units.started[0] != "owneet-updates-goto@0.2.10.service" {
+		t.Errorf("started %v", units.started)
 	}
 }

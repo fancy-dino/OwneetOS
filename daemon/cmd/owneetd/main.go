@@ -222,10 +222,12 @@ func run(configPath string) error {
 		if stateDir == "" {
 			stateDir = filepath.Join(os.Getenv("HOME"), ".local", "state")
 		}
-		// The updates of an installed OwneetOS, from Settings → System ([[step-7.1-updates]])
+		// The updates of an installed OwneetOS, from Settings → System ([[step-7.1-updates]],
+		// [[step-7.1b-going-back-to-any-version]])
 		updates := &sysupdate.Manager{Broker: broker, Log: log, Units: starter,
 			StateFile: "/run/owneet/system-update.json", ReleasesFile: "/run/owneet/releases.json",
-			RollbackFile: "/run/owneet/rollback.json", VersionFile: "/usr/share/owneet/version",
+			RollbackFile: "/run/owneet/rollback.json", GotoFile: "/run/owneet/system-goto.json",
+			VersionFile:   "/usr/share/owneet/version",
 			InstalledMark: "/etc/owneet/installed", SeenFile: filepath.Join(stateDir, "owneetd", "system-update.json")}
 		go updates.Run(ctx.Done())
 		systemUpdateAPI = updates

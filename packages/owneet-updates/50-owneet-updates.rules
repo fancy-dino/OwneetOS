@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Settings → System (owneetd, the console user): check for updates, install one, go back to the
-// previous version ([[step-7.1-updates]]). Only these units, only start, only the console user in
+// previous version ([[step-7.1-updates]]), the size of an older version and going back to it
+// ([[step-7.1b-going-back-to-any-version]]). Only these units, only start, only the console user in
 // the active local session.
 polkit.addRule(function (action, subject) {
     if (action.id === "org.freedesktop.systemd1.manage-units" &&
             subject.user === "owneet" && subject.local && subject.active &&
-            /^owneet-(updates-check|updates-apply|rollback-now)\.service$/.test(action.lookup("unit")) &&
+            (/^owneet-(updates-check|updates-apply|rollback-now)\.service$/.test(action.lookup("unit")) ||
+             /^owneet-updates-(size|goto)@[0-9]+(\.[0-9]+)*\.service$/.test(action.lookup("unit"))) &&
             action.lookup("verb") === "start") {
         return polkit.Result.YES;
     }

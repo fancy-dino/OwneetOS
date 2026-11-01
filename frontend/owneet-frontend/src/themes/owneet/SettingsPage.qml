@@ -26,6 +26,7 @@ NavArea {
     readonly property bool updatesOnline: !live && !updatesFromStick && systemUpdate !== null && systemUpdate.installed === true
     signal openSystemUpdate()
     signal goBackVersion()
+    signal otherVersions()              // any older version (7.1b)
     function updateRow() {
         const st = systemUpdate;
         const v = { v: st.version, size: GameInfo.sizeAuto(st.size) };
@@ -915,6 +916,14 @@ NavArea {
                         text: Tr.tr("upd.prev")
                         detail: page.updatesOnline ? page.previousDetail() : ""
                         onActivated: page.goBackVersion()
+                    }
+                    SettingRow {                // any older version (7.1b)
+                        visible: page.updatesOnline
+                        width: parent.width
+                        kind: "picker"
+                        text: Tr.tr("upd.other")
+                        detail: Tr.tr("upd.other.sub")
+                        onActivated: page.otherVersions()
                     }
                     SettingRow {
                         visible: !page.live && !page.updatesOnline

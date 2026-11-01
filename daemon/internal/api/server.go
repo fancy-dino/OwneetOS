@@ -140,6 +140,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/system-update/check", s.handleSystemUpdateAction(SystemUpdate.Check))
 	mux.HandleFunc("POST /v1/system-update/install", s.handleSystemUpdateAction(SystemUpdate.Install))
 	mux.HandleFunc("POST /v1/system-update/go-back", s.handleSystemUpdateAction(SystemUpdate.GoBack))
+	mux.HandleFunc("POST /v1/system-update/size", s.handleSystemUpdateVersion(SystemUpdate.Size))
+	mux.HandleFunc("POST /v1/system-update/go-to", s.handleSystemUpdateVersion(SystemUpdate.GoTo))
 	mux.HandleFunc("POST /v1/system-update/notice-seen", s.handleSystemUpdateNoticeSeen)
 	mux.HandleFunc("GET /v1/time", s.handleTime)
 	mux.HandleFunc("PUT /v1/time/zone", s.handleTimeZone)

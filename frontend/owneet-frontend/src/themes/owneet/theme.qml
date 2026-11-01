@@ -216,7 +216,7 @@ FocusScope {
     readonly property bool modalOpen: firstStart.visible || installer.visible || windowOpen
     // a window over the pages (the first start is not one: the Wi-Fi window opens over it)
     readonly property bool windowOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
-                                       || zoneSheet.visible || clockSheet.visible || moveSheet.visible
+                                       || zoneSheet.visible || clockSheet.visible || moveSheet.visible || versionsSheet.visible
                                        || notices.visible || quick.visible || controls.visible || steamPrep.visible || webPrep.visible
                                        || webKeys.shown
     function backToPage() {
@@ -1515,10 +1515,12 @@ FocusScope {
     // ---- Updates of an installed OwneetOS (7.1, approved demo design/demos/7.1-updates.html):
     // Settings → System. The console checks by itself (a notification when it finds one), installs
     // only when the player asks, then "Restart now" or "Later"; "Go back to the previous version";
-    // after going back by itself it says so once. GET /v1/system-update, "system-update.changed".
+    // "Other versions" (7.1b, VersionsSheet); after going back by itself it says so once.
+    // GET /v1/system-update, "system-update.changed".
     property var systemUpdate: null
     property string updateAnnounced: ""        // the version a notification was given for
     property bool updateAsked: false            // "Check for updates" chosen: its answer is shown
+    property bool versionsAsked: false          // "Other versions" chosen before the list was there
     property bool updateDetails: false          // the window lists the packages that change
     property bool updateDetailsFocus: false     // Details was just chosen: it keeps the selection
     property string fellBackShown: ""           // the going back by itself already told
@@ -1574,6 +1576,19 @@ FocusScope {
             showSystemUpdate(st, true);
             return;
         }
+        checkSystemUpdate(false);
+    }
+    // "Other versions": the list comes with the signed list of releases, downloaded by a check
+    function otherVersions() {
+        const st = systemUpdate;
+        if (!st) return;
+        if (!online) { toast.show(Tr.tr("upd.offline")); return; }
+        if (st.listed) { versionsSheet.openList(); return; }
+        checkSystemUpdate(true);
+    }
+    // the "Checking…" window; `forVersions`: then the list of versions, not the update found
+    function checkSystemUpdate(forVersions) {
+        versionsAsked = forVersions;
         updateAsked = true;
         dialog.game = null;
         dialog.mode = "sysUpdate";
@@ -1603,6 +1618,14 @@ FocusScope {
         if (dialog.sysView === "checking" && open) {
             if (st.checking) return;
             updateAsked = false;
+            if (versionsAsked) {
+                versionsAsked = false;
+                dialog.close(true);
+                if (st.listed) versionsSheet.openList();
+                else if (st.state === "failed" && st.error === "offline") toast.show(Tr.tr("upd.offline"));
+                else updateError("upd.error.download");
+                return;
+            }
             if (st.state !== "available") {
                 dialog.close(true);
                 if (st.state === "none") toast.show(Tr.tr("upd.uptodate"));
@@ -2690,6 +2713,7 @@ FocusScope {
             systemUpdate: root.systemUpdate
             onOpenSystemUpdate: root.openSystemUpdate()
             onGoBackVersion: root.goBackVersion()
+            onOtherVersions: root.otherVersions()
             onQuickMenu: quick.openMenu()
         }
     }
@@ -3765,6 +3789,11 @@ FocusScope {
         id: moveSheet
         theme: root
         toast: toast
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
+    VersionsSheet {
+        id: versionsSheet
+        theme: root
         onVisibleChanged: if (!visible) root.backToPage()
     }
     Installer {

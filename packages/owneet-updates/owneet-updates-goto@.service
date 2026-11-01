@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Goes back to the older release %i when the player asks (owneet-updates goto,
+# [[step-7.1b-going-back-to-any-version]]): an update in reverse; started by owneetd from Settings →
+# System (polkit rule 50-owneet-updates.rules).
+[Unit]
+Description=OwneetOS: go back to %i
+ConditionPathExists=/etc/owneet/installed
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/owneet/owneet-updates goto %i
+TimeoutStartSec=2h
