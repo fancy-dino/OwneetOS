@@ -1,0 +1,36 @@
+@owneetd
+@nogames
+@live
+# Pictures for the user guide ([[step-7.3-user-guide]]): started from the USB stick (6.2), then the
+# installer (6.4) as in installer.txt: the welcome, the disks, the warning, the final confirmation
+# held, the progress, installed.
+wait 3
+shot 01-live-home
+pad up a
+wait 1
+shot 02-welcome
+pad a
+wait 1
+shot 03-disks
+pad a
+wait 1
+pad a
+wait 1
+pad menu
+wait 1
+pad down left a
+wait 1
+shot 04-warn
+pad a
+wait 0.5
+pad down left a
+wait 1
+press a
+wait 1.2
+shot 05-confirm-holding
+wait 2.5
+release a
+wait 0.5
+shot 06-progress
+wait 5
+shot 07-done
