@@ -60,7 +60,7 @@ OwneetOS test VM (${MEM_MB} MB RAM, ${CPUS} CPUs, UEFI, Secure Boot off)
   vm/test.sh log                   Print the serial console log (escape codes removed)
   vm/test.sh screenshot [FILE]     Save the VM screen as PNG (default: vm/run/test/screen.png)
   vm/test.sh run 'CMD' [SECONDS]   Run CMD in the VM's debug shell and print its output (boot --debug-shell)
-  vm/test.sh keys COMBO            Press keys in the VM, e.g. ctrl-alt-f9
+  vm/test.sh keys COMBO[@MS]      Press keys in the VM, e.g. ctrl-alt-f9; ret@3500 holds Enter 3.5 s
   vm/test.sh stop                  Power the VM off
   vm/test.sh reset                 Bring every disk back to the blank state
   vm/test.sh destroy               Delete the test VM

@@ -45,7 +45,8 @@ OwneetOS VM manager
   vm/vm.sh revert   NAME TAG          Bring all disks back to a saved state (VM stopped)
   vm/vm.sh snapshots NAME             List saved states
   vm/vm.sh screenshot NAME FILE.png   Save what the VM's screen shows
-  vm/vm.sh keys NAME COMBO            Press a key combination, e.g. ctrl-alt-f9 (QEMU key names)
+  vm/vm.sh keys NAME COMBO[@MS]       Press a key combination, e.g. ctrl-alt-f9 (QEMU key names);
+                                      @MS holds it for MS milliseconds (e.g. ret@3500)
   vm/vm.sh reset-firmware NAME        Fresh UEFI variables (lost boot entries); disks untouched
   vm/vm.sh status  NAME               Show whether a VM is running
   vm/vm.sh list                       List VMs
@@ -122,8 +123,12 @@ s.settimeout(10)
 s.connect(sys.argv[1])
 f = s.makefile("rw")
 f.readline()  # greeting
-keys = [{"type": "qcode", "data": k} for k in sys.argv[2].split("-")]
-for cmd in ({"execute": "qmp_capabilities"}, {"execute": "send-key", "arguments": {"keys": keys}}):
+combo, _, hold = sys.argv[2].partition("@")
+keys = [{"type": "qcode", "data": k} for k in combo.split("-")]
+args = {"keys": keys}
+if hold:
+    args["hold-time"] = int(hold)
+for cmd in ({"execute": "qmp_capabilities"}, {"execute": "send-key", "arguments": args}):
     f.write(json.dumps(cmd) + "\n"); f.flush()
     while True:
         msg = json.loads(f.readline())
@@ -414,7 +419,7 @@ cmd_screenshot() {
 cmd_keys() {
     local name="${1:-}" combo="${2:-}"
     check_name "$name"
-    [[ "$combo" =~ ^[a-z0-9_]+(-[a-z0-9_]+)*$ ]] || die "usage: vm/vm.sh keys NAME COMBO (e.g. ctrl-alt-f9)"
+    [[ "$combo" =~ ^[a-z0-9_]+(-[a-z0-9_]+)*(@[0-9]{1,5})?$ ]] || die "usage: vm/vm.sh keys NAME COMBO[@MS] (e.g. ctrl-alt-f9, ret@3500)"
     vm_pid "$name" >/dev/null || die "VM '$name' is not running."
     qmp_keys "$(vm_run_dir "$name")/qmp.sock" "$combo" || die "could not send keys '$combo'"
 }

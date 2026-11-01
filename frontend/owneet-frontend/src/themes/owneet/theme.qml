@@ -213,7 +213,7 @@ FocusScope {
         Nav.feedback("section");
         page.focusStart();
     }
-    readonly property bool modalOpen: firstStart.visible || windowOpen
+    readonly property bool modalOpen: firstStart.visible || installer.visible || windowOpen
     // a window over the pages (the first start is not one: the Wi-Fi window opens over it)
     readonly property bool windowOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
                                        || zoneSheet.visible || clockSheet.visible
@@ -223,7 +223,9 @@ FocusScope {
         Qt.callLater(() => {
             if (root.windowOpen)
                 return;
-            if (firstStart.visible)
+            if (installer.visible)
+                installer.refocus();
+            else if (firstStart.visible)
                 firstStart.refocus();
             else
                 root.page.forceActiveFocus();
@@ -824,8 +826,35 @@ FocusScope {
         dialog.open();
     }
     function notYet() { toast.show(Tr.tr("toast.later")); }
-    // "Install OwneetOS" from the USB stick (6.2): the installer comes with step 6.4
-    function openInstaller() { notYet(); }
+    // "Install OwneetOS" from the USB stick (6.2): the installer (6.4)
+    function openInstaller() {
+        Nav.feedback("sheet-open");
+        installer.open();
+    }
+    // The installer's "Change the name" (6.4, approved demo 6.4-installer): the console's keyboard
+    // opens under the field; Done (or Enter) keeps the name, B goes back without it
+    property var consoleNameDone: null
+    function renameConsole(name, done) {
+        dialog.game = null;
+        dialog.mode = "consoleName";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.title = Tr.tr("installer.name.change");
+        dialog.text = "";
+        dialog.buttons = [];
+        consoleNameInput.text = name;
+        consoleNameDone = done;
+        dialog.initialItem = consoleNameField;
+        dialog.open();
+        dialog.backAction = () => { osk.close(true); dialog.close(); };
+        Qt.callLater(() => { if (dialog.visible && dialog.mode === "consoleName") osk.open(consoleNameInput, false); });
+    }
+    function keepConsoleName() {
+        const name = consoleNameInput.text.trim();
+        if (consoleNameDone) consoleNameDone(name !== "" ? name : "OwneetOS");
+        osk.close(true);
+        dialog.close();
+    }
 
     // ---- Optional web apps (5.0.0, approved demo design/demos/5.0.0-optional-apps.html): installed
     // and removed from the home screen's Apps grid. The engine behind them is never named.
@@ -2887,6 +2916,43 @@ FocusScope {
                 }
             }
         }
+        Column {                          // consoleName: the installer's console name (6.4)
+            visible: dialog.mode === "consoleName"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(480)
+            FocusScope {
+                id: consoleNameField
+                // A opens the on-screen keyboard; a keyboard plugged in types here, Enter keeps it
+                readonly property bool navigable: true
+                signal activated()
+                onActivated: osk.open(consoleNameInput, false)
+                width: parent.width
+                height: Theme.px(52)
+                Rectangle {
+                    anchors.fill: parent
+                    radius: Theme.radiusS + Theme.px(2)
+                    color: Theme.surface
+                    border.color: osk.visible && osk.target === consoleNameInput ? Theme.accent : Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                }
+                TextInput {
+                    id: consoleNameInput
+                    focus: true
+                    anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: Theme.px(16) }
+                    color: Theme.fg
+                    selectionColor: Theme.accent
+                    selectedTextColor: Theme.onAccent
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(20)
+                    maximumLength: 40
+                    clip: true
+                    cursorVisible: consoleNameField.activeFocus || (osk.visible && osk.target === consoleNameInput)
+                    Keys.onReturnPressed: root.keepConsoleName()
+                    Keys.onEnterPressed: root.keepConsoleName()
+                }
+                FocusFrame { shown: consoleNameField.activeFocus }
+            }
+        }
         Column {                          // pointerType: what goes to the window (4.7)
             visible: dialog.mode === "pointerType"
             anchors.horizontalCenter: parent.horizontalCenter
@@ -3208,14 +3274,18 @@ FocusScope {
         showPassword: showPassword.checked
         onTogglePassword: showPassword.checked = !showPassword.checked
         onDone: {
-            if (dialog.visible && (dialog.mode === "connect" || dialog.mode === "pointerType") && dialog.buttons.length > 0)
+            if (dialog.visible && dialog.mode === "consoleName")
+                root.keepConsoleName();      // Done = keep the name
+            else if (dialog.visible && (dialog.mode === "connect" || dialog.mode === "pointerType") && dialog.buttons.length > 0)
                 dialog.buttons[0].action();      // Done = Connect
             else
                 close(true);
         }
         onClosed: {
             close();
-            if (dialog.visible)
+            if (dialog.visible && dialog.mode === "consoleName")
+                dialog.close();              // B: the name as it was
+            else if (dialog.visible)
                 Qt.callLater(() => dialog.focusButton(0));
             else
                 root.backToPage();
@@ -3336,6 +3406,11 @@ FocusScope {
 
     // ---- The first start (6.1): over the pages, under the windows (the Wi-Fi password, the
     // keyboard) and the start-up animation
+    Installer {
+        id: installer
+        theme: root
+        onClosed: root.backToPage()
+    }
     FirstStart {
         id: firstStart
         pads: root.pads

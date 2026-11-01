@@ -1,0 +1,45 @@
+@owneetd
+@nogames
+@live
+# The installer ([[step-6.4-installer-ui]], approved demo 6.4-installer) from Home's strip (6.2):
+# the welcome, the disks (Windows and BitLocker marked, the too small one off), the name with the
+# console's keyboard, the warning with its switch, the final confirmation (A let go too early, then
+# held three seconds), the progress, installed.
+wait 3
+pad up a
+wait 1
+shot 01-welcome
+pad a
+wait 1
+shot 02-disks
+pad a
+wait 1
+shot 03-name
+pad a
+wait 1
+shot 04-rename
+pad menu
+wait 1
+shot 05-name-kept
+pad down left a
+wait 1
+shot 06-warn
+pad a
+wait 0.5
+shot 07-understood
+pad down left a
+wait 1
+shot 08-confirm
+press a
+wait 0.8
+release a
+shot 09-let-go
+press a
+wait 1.2
+shot 10-holding
+wait 2.5
+release a
+wait 0.5
+shot 11-progress
+wait 5
+shot 12-done

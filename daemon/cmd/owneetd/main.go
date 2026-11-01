@@ -26,6 +26,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/display"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/installer"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/installs"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/live"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/network"
@@ -200,6 +201,7 @@ func run(configPath string) error {
 	var updateAPI api.Update
 	var catalogAPI api.Catalog
 	var xoneAPI api.Xone
+	var installerAPI api.Installer
 	if starter, err := update.NewSystemdStarter(); err == nil {
 		defer starter.Close()
 		// The Xbox wireless adapter's firmware, after the player's consent ([[step-6.1-first-boot-flow]])
@@ -207,6 +209,10 @@ func run(configPath string) error {
 			NeededFile: "/run/owneet/xone-firmware-needed", StateFile: "/run/owneet/xone-firmware.json"}
 		go adapter.Run(ctx.Done())
 		xoneAPI = adapter
+		// Installing OwneetOS from the USB stick ([[step-6.4-installer-ui]])
+		installerAPI = &installer.Manager{Broker: broker, Log: log, Units: starter,
+			Command: "/usr/lib/owneet/owneet-install", RequestFile: "/run/owneet-install/request",
+			StateFile: "/run/owneet/install.json", Live: func() bool { return live.Mode() == live.ModeLive }}
 		updateAPI = &update.Manager{Broker: broker, Log: log, Units: starter,
 			StateFile: "/run/owneet/update.json", TesterMark: "/etc/owneet/tester"}
 		stateDir := os.Getenv("XDG_STATE_HOME")
@@ -326,6 +332,7 @@ func run(configPath string) error {
 		Pointer:         pointerAPI,
 		Clock:           clockAPI,
 		Xone:            xoneAPI,
+		Installer:       installerAPI,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

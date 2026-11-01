@@ -14,7 +14,9 @@
 #     ones and the removals are immediate; the last removal takes 1.5 s;
 #   - the time zone (6.1): set at once; an Xbox wireless adapter that needs its firmware, which
 #     installs in 3 s (FAKE_FIRSTSTART=1: a new console, not connected to any network);
-#   - the system's mode (6.2): installed, or live with FAKE_MODE=live (started from the USB stick).
+#   - the system's mode (6.2): installed, or live with FAKE_MODE=live (started from the USB stick);
+#   - the installer (6.4): the disks of demo 6.4, an installation in about 5 s (FAKE_INSTALL_FAIL=CODE:
+#     it stops while copying with that error).
 #
 # Steps can send it events (tools/frontend-preview "event TYPE JSON"): one line each in the FIFO
 # given as second argument.
@@ -42,6 +44,16 @@ listeners = []
 state = {
     "time": {"zone": "UTC", "synchronized": True},
     "xone": {"needed": True, "state": ""},
+    # the installer (6.4): the disks of the approved demo 6.4-installer
+    "installer": {"state": "", "percent": 0},
+    "disks": [
+        {"path": "/dev/nvme0n1", "serial": "S1", "size": 500107862016, "model": "Samsung SSD 980", "usable": True,
+         "reason": "", "windows": True, "bitlocker": True, "linux": False, "partitions": [{"path": "/dev/nvme0n1p1"}]},
+        {"path": "/dev/sda", "serial": "S2", "size": 1000204886016, "model": "Crucial MX500", "usable": True,
+         "reason": "", "windows": False, "bitlocker": False, "linux": False, "partitions": []},
+        {"path": "/dev/sdb", "serial": "S3", "size": 16008609792, "model": "Kingston SSD", "usable": False,
+         "reason": "too_small", "windows": False, "bitlocker": False, "linux": False, "partitions": [{"path": "/dev/sdb1"}]},
+    ],
     "network": {
         "available": True, "state": "connected", "connectivity": "full",
         "wifi": {"present": True, "enabled": True, "hardware_enabled": True, "state": "connected",
@@ -361,6 +373,8 @@ class Handler(BaseHTTPRequestHandler):
             answers = {
                 "/v1/time": time_status(),
                 "/v1/xone": state["xone"],
+                "/v1/installer": state["installer"],
+                "/v1/installer/disks": {"disks": state["disks"]},
                 "/v1/status": {"session_mode": os.environ.get("FAKE_SESSION", "cage"), "owneetos_version": "preview",
                                "mode": os.environ.get("FAKE_MODE", "installed")},
                 "/v1/apps": {"apps": state["apps"], "focus": "home"},
@@ -395,6 +409,26 @@ class Handler(BaseHTTPRequestHandler):
                     state["xone"] = {"needed": False, "state": "installed"}
                 publish("xone.changed", state["xone"])
             later(3, installed)
+            return self.reply(202)
+        if path == "/v1/installer/start":
+            disk = next((d for d in state["disks"] if d["path"] == body.get("disk")), None)
+            if not disk or disk["size"] != body.get("size") or disk["serial"] != body.get("serial"):
+                return self.error(409, "installer.disk_changed")
+            if (disk["windows"] or disk["bitlocker"]) and not body.get("erase_windows"):
+                return self.error(400, "installer.windows_not_confirmed")
+            fail = os.environ.get("FAKE_INSTALL_FAIL", "")
+
+            def progress(st, pct, err=""):
+                with lock:
+                    state["installer"] = {"state": st, "percent": pct, "error": err}
+                publish("installer.changed", state["installer"])
+            steps = [("preparing", 0), ("partitioning", 3), ("copying", 10), ("copying", 45), ("copying", 80),
+                     ("setting_up", 90), ("boot", 97), ("done", 100)]
+            for i, (st, pct) in enumerate(steps):
+                if fail and st == "copying" and pct == 45:
+                    later(0.6 * i, lambda: progress("failed", 0, fail))
+                    break
+                later(0.6 * i, lambda st=st, pct=pct: progress(st, pct))
             return self.reply(202)
         if path == "/v1/network/wifi/scan":
             later(1.5, lambda: publish("wifi.scan_done"))

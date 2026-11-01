@@ -64,6 +64,8 @@ type Server struct {
 	Clock Clock
 	// Xone installs the Xbox wireless adapter's firmware (nil without a system bus).
 	Xone Xone
+	// Installer installs OwneetOS from the USB stick (nil without a system bus).
+	Installer Installer
 
 	started time.Time
 }
@@ -136,6 +138,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /v1/time/now", s.handleTimeNow)
 	mux.HandleFunc("GET /v1/xone", s.handleXone)
 	mux.HandleFunc("POST /v1/xone/install", s.handleXoneInstall)
+	mux.HandleFunc("GET /v1/installer", s.handleInstaller)
+	mux.HandleFunc("GET /v1/installer/disks", s.handleInstallerDisks)
+	mux.HandleFunc("POST /v1/installer/start", s.handleInstallerStart)
 	mux.HandleFunc("GET /v1/windows", s.handleWindows)
 	mux.HandleFunc("POST /v1/windows/needed", s.handleWindowsNeeded)
 	mux.HandleFunc("GET /v1/installs", s.handleInstalls)
