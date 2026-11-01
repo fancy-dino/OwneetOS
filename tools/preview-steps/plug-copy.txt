@@ -1,0 +1,18 @@
+@nogames
+@owneetd
+@disk
+# A USB disk with games plugged in ([[step-6.6-moving-games-and-media-between-disks]], approved demo
+# 6.6): "Play from here / Copy to the console"; copying asks which disk (the originals stay), then
+# the games one after the other.
+wait 2
+unplug
+wait 3
+plug
+wait 4
+shot 01-plugged
+pad right a
+wait 1
+shot 02-which-disk
+pad a
+wait 1.5
+shot 03-copying

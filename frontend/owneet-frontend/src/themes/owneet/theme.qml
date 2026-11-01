@@ -1422,9 +1422,15 @@ FocusScope {
         if (Date.now() - d.time > 600000)
             return;
         d.plugged.forEach(k => {
-            const n = games.filter(g => GameInfo.diskRoot(g) === k).length;
-            if (n > 0)
-                notify({ key: "notices.disk.plugged", args: { n: n }, icon: "usb", kind: "info" });
+            const list = games.filter(g => GameInfo.diskRoot(g) === k);
+            if (list.length === 0)
+                return;
+            // 6.6, approved demo 6.6: "Play from here / Copy to the console" (the notice when the
+            // question cannot come now: another window, or a game on screen)
+            if (!windowOpen && !firstStart.visible && !installer.visible && !gameOnScreen && d.plugged.length === 1)
+                moveSheet.openPlug(k, list);
+            else
+                notify({ key: "notices.disk.plugged", args: { n: list.length }, icon: "usb", kind: "info" });
         });
         if (d.unplugged.length > 0)
             notify({ key: "notices.disk.unplugged", args: {}, icon: "usb", crossed: true, kind: "info" });
