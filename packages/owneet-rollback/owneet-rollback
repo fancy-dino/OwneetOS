@@ -6,8 +6,10 @@
 # worked, booted back with the controller (Settings) or by itself when a new version does not work.
 # No snapper: btrfs's own snapshots. Runs as root.
 #
-#   owneet-rollback status    JSON for the console: {"spare", "spare_date", "previous", "good",
-#                             "fell_back"}
+#   owneet-rollback status    JSON for the console: {"spare", "spare_date", "spare_version",
+#                             "previous", "good", "fell_back", "rolled_back"}; every other mode also
+#                             writes it to /run/owneet/rollback.json for owneetd, which cannot read
+#                             the boot partition ([[step-7.1-updates]])
 #   owneet-rollback prepare   before an update: if the running system has worked, it becomes the
 #                             spare copy (with its kernel and a boot entry "previous version");
 #                             otherwise the spare copy stays the last version that worked
@@ -28,6 +30,9 @@
 # owneetos-fallback.conf; their sort keys keep that order, and systemd-boot moves an entry out of
 # tries to the end, so the spare copy starts instead.
 #
+# The spare copy's OwneetOS version is kept next to its kernel (/previous/version); "rolled_back" is
+# when the console last went back by itself (keep), for the notice in Settings.
+#
 # "Working" (for now): the console's interface (owneet-frontend) and owneetd running together for a
 # minute without a restart. The flag lives inside the system it describes: /etc/owneet/system-good.
 
@@ -38,6 +43,8 @@ ESP=/boot
 ENTRIES="$ESP/loader/entries"
 GOOD=/etc/owneet/system-good
 NOTICE=/var/lib/owneet/rolled-back
+PUBLISHED=/run/owneet/rollback.json
+VERSION_FILE=/usr/share/owneet/version
 TOP=/run/owneet-top
 TRIES=3
 CONSOLE_USER=owneet
@@ -102,7 +109,7 @@ restore_kernel() {
     for f in vmlinuz-linux initramfs-linux.img; do
         mv "$ESP/previous/$f" "$ESP/$f" || die "cannot put the previous kernel back"
     done
-    rm -f "$ENTRIES/owneetos-previous.conf"
+    rm -f "$ENTRIES/owneetos-previous.conf" "$ESP/previous/version"
     rmdir "$ESP/previous" 2>/dev/null
     uncount
 }
@@ -115,18 +122,32 @@ uncount() {
     true
 }
 
-case "$MODE" in
-status)
-    spare=false spare_date=""
+status_json() {
+    local spare=false spare_date="" spare_version="" previous=false good=false fallen=false rolled=""
     if [[ -f "$ENTRIES/owneetos-previous.conf" && -f "$ESP/previous/vmlinuz-linux" ]]; then
         spare=true
         spare_date="$(date -u -r "$ESP/previous/vmlinuz-linux" +%FT%TZ)"
+        spare_version="$(tr -cd '0-9.' < "$ESP/previous/version" 2>/dev/null)"
     fi
-    previous=false; booted_previous && previous=true
-    good=false; [[ -f "$GOOD" ]] && good=true
-    fallen=false; fell_back && fallen=true
-    printf '{"spare":%s,"spare_date":"%s","previous":%s,"good":%s,"fell_back":%s}\n' \
-        "$spare" "$spare_date" "$previous" "$good" "$fallen"
+    booted_previous && previous=true
+    [[ -f "$GOOD" ]] && good=true
+    fell_back && fallen=true
+    [[ -f "$NOTICE" ]] && rolled="$(tr -cd '0-9TZ:-' < "$NOTICE")"
+    printf '{"spare":%s,"spare_date":"%s","spare_version":"%s","previous":%s,"good":%s,"fell_back":%s,"rolled_back":"%s"}\n' \
+        "$spare" "$spare_date" "$spare_version" "$previous" "$good" "$fallen" "$rolled"
+}
+
+# The status for owneetd (readable by the console user), after every change
+publish() {
+    mkdir -p "$(dirname "$PUBLISHED")"
+    status_json > "$PUBLISHED.tmp" && chmod 644 "$PUBLISHED.tmp" && mv "$PUBLISHED.tmp" "$PUBLISHED"
+}
+# the modes that change something publish the result, whatever it is
+[[ "$MODE" == status ]] || trap publish EXIT
+
+case "$MODE" in
+status)
+    status_json
     ;;
 
 prepare)
@@ -141,6 +162,7 @@ prepare)
         umount_top
         mkdir -p "$ESP/previous"
         cp "$ESP/vmlinuz-linux" "$ESP/initramfs-linux.img" "$ESP/previous/" || die "cannot copy the kernel"
+        cp "$VERSION_FILE" "$ESP/previous/version" 2>/dev/null
         write_previous_entry
         sync
     else
@@ -159,6 +181,7 @@ arm)
     ;;
 
 check)
+    publish                     # at every start-up, before waiting: Settings knows at once
     # wait (5 minutes at most) for the console, then for a minute of it running unchanged
     for _ in $(seq 1 60); do
         pid="$(pgrep -u "$CONSOLE_USER" -x owneet-frontend | head -1)"

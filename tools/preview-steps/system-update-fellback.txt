@@ -1,0 +1,14 @@
+@owneetd
+@nogames
+@sysupdate fellback
+# The console went back by itself after an update that did not work ([[step-7.1-updates]]): it
+# says so once, at the start; Settings → System has no previous version any more.
+wait 4
+shot 01-fellback
+pad a
+wait 0.6
+pad rb rb
+wait 1
+pad down down down down down down down right
+wait 1
+shot 02-system

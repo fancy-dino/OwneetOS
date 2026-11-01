@@ -21,6 +21,41 @@ NavArea {
     property bool live: false
     signal install()
     signal checkUpdates()
+    // An installed system's updates (7.1, approved demo 7.1-updates): owneetd's GET /v1/system-update
+    property var systemUpdate: null
+    readonly property bool updatesOnline: !live && !updatesFromStick && systemUpdate !== null && systemUpdate.installed === true
+    signal openSystemUpdate()
+    signal goBackVersion()
+    function updateRow() {
+        const st = systemUpdate;
+        const v = { v: st.version, size: GameInfo.sizeAuto(st.size) };
+        if (!online)
+            return { text: Tr.tr("upd.check"), detail: Tr.tr("upd.offline"), value: "", badge: "" };
+        if (st.state === "available")
+            return { text: Tr.tr("upd.available", v), detail: Tr.tr("upd.size", v), value: "", badge: Tr.tr("upd.install") };
+        if (st.state === "downloading" || st.state === "installing")
+            return { text: Tr.tr("upd.available", v), value: "", badge: "",
+                     detail: st.state === "downloading" && st.percent < 100 ? Tr.tr("upd.downloading", { p: st.percent }) : Tr.tr("upd.installing") };
+        if (st.state === "ready")
+            return { text: Tr.tr("upd.ready", v), detail: Tr.tr("upd.ready.sub"), value: "", badge: Tr.tr("upd.restartnow") };
+        if (!st.checked)
+            return { text: Tr.tr("upd.check"), detail: "", value: "", badge: "" };
+        const d = new Date(st.checked);
+        const today = d.toDateString() === new Date().toDateString();
+        return { text: Tr.tr("upd.uptodate"), value: Tr.tr("upd.check"), badge: "",
+                 detail: today ? Tr.tr("upd.checked", { time: Qt.formatTime(d, "hh:mm") })
+                               : Tr.tr("upd.checked.on", { date: shortDate(d) }) };
+    }
+    function shortDate(d) {             // the language's short date, with the whole year (12/10/2026)
+        return Qt.formatDate(d, Qt.locale(Tr.language).dateFormat(Locale.ShortFormat).replace(/y+/, "yyyy"));
+    }
+    function previousDetail() {
+        const p = systemUpdate.previous;
+        if (!p)
+            return Tr.tr("upd.prev.none");
+        return Tr.tr("upd.prev.sub", { v: p.version || "—",
+                                       date: shortDate(new Date(p.since)) });
+    }
 
     signal openPalettes()
     signal openLanguages()
@@ -290,6 +325,13 @@ NavArea {
                         font.family: Theme.textFont
                         font.weight: parent.shown ? Font.Medium : Font.Normal
                         font.pixelSize: Theme.fs(17)
+                    }
+                    Rectangle {             // System: an update is available (7.1)
+                        visible: modelData === "system" && page.updatesOnline && page.online && page.systemUpdate.state === "available"
+                        anchors { right: parent.right; rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
+                        width: Theme.px(9); height: width
+                        radius: width / 2
+                        color: Theme.accent
                     }
                     FocusFrame {}
                 }
@@ -855,8 +897,27 @@ NavArea {
                         detail: Tr.tr("system.windows.detail")
                         value: page.windowsText
                     }
+                    SettingRow {                // the update: check, install, restart (7.1)
+                        readonly property var row: page.updatesOnline ? page.updateRow() : ({})
+                        visible: page.updatesOnline
+                        width: parent.width
+                        kind: "action"
+                        text: row.text || ""
+                        detail: row.detail || ""
+                        value: row.value || ""
+                        badge: row.badge || ""
+                        onActivated: page.openSystemUpdate()
+                    }
                     SettingRow {
-                        visible: !page.live
+                        visible: page.updatesOnline
+                        width: parent.width
+                        kind: "action"
+                        text: Tr.tr("upd.prev")
+                        detail: page.updatesOnline ? page.previousDetail() : ""
+                        onActivated: page.goBackVersion()
+                    }
+                    SettingRow {
+                        visible: !page.live && !page.updatesOnline
                         width: parent.width
                         kind: "picker"
                         text: Tr.tr("system.updates")

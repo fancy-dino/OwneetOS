@@ -50,6 +50,8 @@ type Server struct {
 	Display Display
 	// Update is the testers' update from a USB stick (nil without a system bus).
 	Update Update
+	// SystemUpdate is the updates of an installed OwneetOS (nil without a system bus).
+	SystemUpdate SystemUpdate
 	// Catalog installs and removes the optional apps (nil without a system bus).
 	Catalog Catalog
 	// WebApps connects the console's Brave extension with the interface (nil: not available).
@@ -134,6 +136,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/update", s.handleUpdate)
 	mux.HandleFunc("POST /v1/update/check", s.handleUpdateAction(Update.Check))
 	mux.HandleFunc("POST /v1/update/apply", s.handleUpdateAction(Update.Apply))
+	mux.HandleFunc("GET /v1/system-update", s.handleSystemUpdate)
+	mux.HandleFunc("POST /v1/system-update/check", s.handleSystemUpdateAction(SystemUpdate.Check))
+	mux.HandleFunc("POST /v1/system-update/install", s.handleSystemUpdateAction(SystemUpdate.Install))
+	mux.HandleFunc("POST /v1/system-update/go-back", s.handleSystemUpdateAction(SystemUpdate.GoBack))
+	mux.HandleFunc("POST /v1/system-update/notice-seen", s.handleSystemUpdateNoticeSeen)
 	mux.HandleFunc("GET /v1/time", s.handleTime)
 	mux.HandleFunc("PUT /v1/time/zone", s.handleTimeZone)
 	mux.HandleFunc("GET /v1/time/zones", s.handleTimeZones)

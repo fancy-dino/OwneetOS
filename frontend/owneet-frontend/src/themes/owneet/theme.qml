@@ -349,6 +349,7 @@ FocusScope {
         refreshInstalls();
         owneetd.get("/v1/pointer", (status, data) => { if (status === 200) root.pointerStatus = data; });
         owneetd.get("/v1/update", (status, data) => { if (status === 200) root.updateStatus = data; });
+        owneetd.get("/v1/system-update", (status, data) => { if (status === 200) root.systemUpdateReceived(data, true); });
         refreshCatalog();
         refreshTime();
         checkDisplayPending();
@@ -409,6 +410,8 @@ FocusScope {
             } else if (type === "update.changed") {
                 root.updateStatus = data;
                 root.showUpdate(data);
+            } else if (type === "system-update.changed") {
+                root.systemUpdateReceived(data, false);
             } else if (type === "apps.catalog.changed") {
                 root.catalogChanged(data);
             } else if (type === "webapp.keyboard") {
@@ -654,7 +657,7 @@ FocusScope {
     }
     function openNotice(n) {
         notices.close(true);
-        if (n.action === "controllers" || n.action === "network") {
+        if (n.action === "controllers" || n.action === "network" || n.action === "system") {
             settings.section = n.action;
             goSection("settings");
         } else if (n.action === "play") {
@@ -1507,6 +1510,217 @@ FocusScope {
             dialog.defaultIndex = 0;
         }
         Qt.callLater(dialog.focusDefault);
+    }
+
+    // ---- Updates of an installed OwneetOS (7.1, approved demo design/demos/7.1-updates.html):
+    // Settings → System. The console checks by itself (a notification when it finds one), installs
+    // only when the player asks, then "Restart now" or "Later"; "Go back to the previous version";
+    // after going back by itself it says so once. GET /v1/system-update, "system-update.changed".
+    property var systemUpdate: null
+    property string updateAnnounced: ""        // the version a notification was given for
+    property bool updateAsked: false            // "Check for updates" chosen: its answer is shown
+    property bool updateDetails: false          // the window lists the packages that change
+    property bool updateDetailsFocus: false     // Details was just chosen: it keeps the selection
+    property string fellBackShown: ""           // the going back by itself already told
+    function updateNotes(st) {
+        const notes = st.notes || {};
+        return notes[Tr.language] || notes.en || "";
+    }
+    function systemUpdateReceived(st, quiet) {
+        const before = systemUpdate;
+        systemUpdate = st;
+        if (!st || !st.installed)
+            return;
+        const open = dialog.visible && dialog.mode === "sysUpdate";
+        if (st.state === "available" && st.version !== updateAnnounced) {
+            updateAnnounced = st.version;           // found by the console: told once per version
+            if (!quiet && !updateAsked && !open)
+                notify({ key: "upd.notice", args: { v: st.version }, detailKey: "", icon: "download", kind: "info", action: "system" });
+        }
+        if (st.back === "done") {                   // the previous version starts at the restart
+            owneetd.post("/v1/power/restart", {}, status => {
+                if (status >= 300 || status === 0) toast.show(Tr.tr("error.power"));
+            });
+            return;
+        }
+        if (st.back === "failed") {
+            owneetd.post("/v1/system-update/notice-seen", {});
+            updateError("upd.error.back");
+            return;
+        }
+        if (st.rolled_back && st.rolled_back !== fellBackShown && !dialog.visible) {
+            fellBackShown = st.rolled_back;
+            showFellBack(st);
+            return;
+        }
+        const was = before ? before.state : "";
+        if (open) {
+            showSystemUpdate(st);
+        } else if (!quiet && st.state === "ready" && was !== "ready") {
+            notify({ key: "upd.ready", args: { v: st.version }, detailKey: "upd.ready.sub", icon: "download", kind: "info", action: "system" });
+        } else if (!quiet && st.state === "failed" && (was === "downloading" || was === "installing") && !dialog.visible) {
+            updateError(st.error === "install_failed" ? "upd.error.install" : "upd.error.download");
+        }
+    }
+    // Settings → System's update row: the window for what the console knows, or a check now
+    function openSystemUpdate() {
+        const st = systemUpdate;
+        if (!st) return;
+        if (!online) { toast.show(Tr.tr("upd.offline")); return; }
+        if (st.state === "ready") { restartForUpdate(); return; }
+        updateDetails = false;
+        updateDetailsFocus = false;
+        if (st.state === "available" || st.state === "downloading" || st.state === "installing") {
+            showSystemUpdate(st, true);
+            return;
+        }
+        updateAsked = true;
+        dialog.game = null;
+        dialog.mode = "sysUpdate";
+        dialog.sysView = "checking";
+        dialog.sysPackages = [];
+        dialog.sysNotes = "";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("upd.check");
+        dialog.text = "";
+        dialog.buttons = [];
+        dialog.prompts = [{ buttons: ["b"], label: Tr.tr("prompt.back") }];
+        dialog.open();
+        owneetd.post("/v1/system-update/check", {}, (status, data) => {
+            const code = data && data.error ? data.error.code : "";
+            if (status === 202 || code === "system_update.busy") return;
+            updateAsked = false;
+            dialog.close(true);
+            updateError("upd.error.download");
+        });
+    }
+    // The window open on the update follows what owneetd says
+    function showSystemUpdate(st, opening) {
+        const open = dialog.visible && dialog.mode === "sysUpdate";
+        if (!open && !opening)
+            return;
+        const v = { v: st.version, size: GameInfo.sizeAuto(st.size) };
+        if (dialog.sysView === "checking" && open) {
+            if (st.checking) return;
+            updateAsked = false;
+            if (st.state !== "available") {
+                dialog.close(true);
+                if (st.state === "none") toast.show(Tr.tr("upd.uptodate"));
+                else if (st.state === "failed" && st.error === "offline") toast.show(Tr.tr("upd.offline"));
+                else if (st.state === "failed") updateError("upd.error.download");
+                return;
+            }
+        }
+        dialog.game = null;
+        dialog.mode = "sysUpdate";
+        dialog.contentWidth = 0;
+        dialog.icon = "";
+        dialog.sysPackages = [];
+        dialog.sysNotes = "";
+        if (st.state === "available") {
+            const details = updateDetails;
+            dialog.sysView = "available";
+            dialog.contentWidth = Theme.px(details ? 900 : 860);
+            dialog.title = Tr.tr("upd.available", v);
+            dialog.text = Tr.tr("upd.size", v);
+            dialog.sysNotes = updateNotes(st);
+            dialog.sysPackages = details ? st.packages : [];
+            dialog.buttons = [
+                { text: Tr.tr("upd.install"), style: "primary", action: () => {
+                    owneetd.post("/v1/system-update/install", {}, (status, data) => {
+                        const code = data && data.error ? data.error.code : "";
+                        if (status === 202 || code === "system_update.busy") return;
+                        dialog.close(true);
+                        updateError("upd.error.download");
+                    });
+                    showSystemUpdate(Object.assign({}, st, { state: "downloading", percent: 0 }));
+                } },
+                { text: details ? Tr.tr("upd.details.hide") : Tr.tr("upd.details") + " · " + Tr.tr("upd.details.sub"), action: () => {
+                    updateDetails = !details;
+                    updateDetailsFocus = true;
+                    showSystemUpdate(systemUpdate);
+                } },
+                { text: Tr.tr("upd.later"), action: () => dialog.close() }];
+            dialog.defaultIndex = updateDetailsFocus ? 1 : 0;
+            dialog.prompts = [{ buttons: ["a"], label: Tr.tr("prompt.select") }, { buttons: ["b"], label: Tr.tr("prompt.back") }]
+                .concat(details ? [{ buttons: ["rs"], label: Tr.tr("prompt.scroll") }] : []);
+        } else if (st.state === "downloading" || st.state === "installing") {
+            const downloading = st.state === "downloading" && st.percent < 100;
+            dialog.sysView = "progress";
+            dialog.contentWidth = Theme.px(640);
+            dialog.title = Tr.tr("upd.available", v);
+            dialog.text = "";
+            dialog.sysMessage = downloading ? Tr.tr("upd.downloading", { p: st.percent }) : Tr.tr("upd.installing");
+            dialog.sysPercent = downloading ? st.percent : 100;
+            dialog.buttons = [];
+            dialog.prompts = [];
+        } else if (st.state === "ready") {
+            Nav.feedback("notify");
+            dialog.sysView = "ready";
+            dialog.contentWidth = Theme.px(640);
+            dialog.title = Tr.tr("upd.ready", v);
+            dialog.text = Tr.tr("upd.ready.sub");
+            dialog.sysNotes = Tr.tr("upd.ready.text");
+            dialog.buttons = [
+                { text: Tr.tr("upd.restartnow"), style: "primary", action: () => { dialog.close(true); restartForUpdate(); } },
+                { text: Tr.tr("upd.later"), action: () => dialog.close() }];
+            dialog.defaultIndex = 0;
+            dialog.prompts = [{ buttons: ["a"], label: Tr.tr("prompt.select") }, { buttons: ["b"], label: Tr.tr("prompt.back") }];
+        } else {
+            dialog.close(true);
+            if (st.state === "failed")
+                updateError(st.error === "install_failed" ? "upd.error.install" : "upd.error.download");
+            return;
+        }
+        if (!dialog.visible) dialog.open();
+        else Qt.callLater(dialog.focusDefault);
+    }
+    function restartForUpdate() {
+        owneetd.post("/v1/power/restart", {}, status => {
+            if (status >= 300 || status === 0) toast.show(Tr.tr("error.power"));
+        });
+    }
+    // "Go back to the previous version": Cancel first; the console restarts once it is ready
+    function goBackVersion() {
+        const st = systemUpdate;
+        if (!st || !st.previous) { toast.show(Tr.tr("upd.prev.none")); return; }
+        dialog.game = null;
+        dialog.mode = "sysUpdateBack";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("upd.prev.confirm", { v: st.previous.version || "—" });
+        dialog.text = Tr.tr("upd.prev.text");
+        dialog.buttons = [
+            { text: Tr.tr("upd.goback"), action: () => {
+                dialog.close();
+                owneetd.post("/v1/system-update/go-back", {}, status => { if (status !== 202) updateError("upd.error.back"); });
+            } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 1;
+        dialog.prompts = [{ buttons: ["a"], label: Tr.tr("prompt.select") }, { buttons: ["b"], label: Tr.tr("prompt.cancel") }];
+        dialog.open();
+    }
+    function showFellBack(st) {
+        dialog.game = null;
+        dialog.mode = "sysUpdateBack";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("upd.fellback");
+        dialog.text = Tr.tr("upd.fellback.text", { v: st.current });
+        dialog.buttons = [{ text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.prompts = [{ buttons: ["a"], label: Tr.tr("prompt.ok") }];
+        dialog.open();
+        owneetd.post("/v1/system-update/notice-seen", {});
+    }
+    function updateError(key) {
+        Nav.feedback("error");
+        dialog.game = null;
+        dialog.mode = "sysUpdateError";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("update.title");
+        dialog.text = Tr.tr(key);
+        dialog.buttons = [{ text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open(true);
     }
 
     // ---- Steam (4.2, 4.2c): its store, installing and uninstalling; owneetd starts Steam when
@@ -2473,6 +2687,9 @@ FocusScope {
             onChooseDisplay: root.chooseDisplay(what, state)
             updatesFromStick: root.updateStatus !== null && root.updateStatus.tester === true
             onCheckUpdates: root.checkUpdates()
+            systemUpdate: root.systemUpdate
+            onOpenSystemUpdate: root.openSystemUpdate()
+            onGoBackVersion: root.goBackVersion()
             onQuickMenu: quick.openMenu()
         }
     }
@@ -2522,11 +2739,17 @@ FocusScope {
         property bool updateBusy: false     // update: checking or installing
         property var updateLines: []        // update: "name  from  →  to"
         property string updateNote: ""
+        property string sysView: ""         // sysUpdate: checking, available, progress, ready (7.1)
+        property string sysNotes: ""        // sysUpdate: what's new, or the ready window's note
+        property var sysPackages: []        // sysUpdate: the packages that change, when Details is open
+        property string sysMessage: ""      // sysUpdate: downloading or installing
+        property int sysPercent: 0
         property var facts: []              // app: [label, value] lines
         property string note: ""            // app: Google's terms for Widevine come at the first opening
         property string agreementUrl: ""    // agreement: the licence agreement's address (4.2c)
         property string licence: ""         // licence: an installer's licence text (4.6)
-        scrollTarget: mode === "licence" && licence !== "" ? licenceFlick : null
+        scrollTarget: mode === "licence" && licence !== "" ? licenceFlick
+                      : mode === "sysUpdate" && sysPackages.length > 0 ? updateFlick : null
         property string appId: ""           // close: the app it asks about
         property var files: []              // chooseFile: what the game on a disk can start (4.3)
         property bool thenStart: false      // chooseFile: the game starts once chosen
@@ -2576,6 +2799,117 @@ FocusScope {
                     font.family: Theme.textFont
                     font.pixelSize: Theme.fs(14.5)
                     elide: Text.ElideRight
+                }
+            }
+        }
+        Column {                          // sysUpdate: an update of OwneetOS (7.1, demo 7.1-updates)
+            visible: dialog.mode === "sysUpdate"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(12)
+            Row {                         // checking, downloading or installing
+                visible: dialog.sysView === "checking" || dialog.sysView === "progress"
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Theme.px(10)
+                Spinner { anchors.verticalCenter: parent.verticalCenter }
+                Text {
+                    text: dialog.sysView === "checking" ? Tr.tr("upd.checking") : dialog.sysMessage
+                    color: Theme.muted
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(17)
+                }
+            }
+            Rectangle {                   // the progress bar
+                visible: dialog.sysView === "progress"
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Theme.px(640); height: Theme.px(6)
+                radius: height / 2
+                color: Theme.raised
+                Rectangle {
+                    width: parent.width * Math.min(dialog.sysPercent, 100) / 100
+                    height: parent.height
+                    radius: height / 2
+                    color: Theme.accent
+                }
+            }
+            Text {
+                visible: dialog.sysView === "progress"
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: Tr.tr("upd.bg")
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(14.5)
+            }
+            Text {                        // "What's new"
+                visible: dialog.sysView === "available" && dialog.sysNotes !== ""
+                width: notesText.width
+                text: Tr.tr("upd.new")
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.weight: Font.Medium
+                font.pixelSize: Theme.fs(14.5)
+            }
+            Text {                        // the release's notes, or the ready window's note
+                id: notesText
+                visible: (dialog.sysView === "available" || dialog.sysView === "ready") && dialog.sysNotes !== ""
+                width: Math.min(implicitWidth, Math.min(dialog.contentWidth, Theme.px(860)))
+                text: dialog.sysNotes
+                color: dialog.sysView === "ready" ? Theme.muted : Theme.fg
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(17)
+                wrapMode: Text.Wrap
+            }
+            Flickable {                   // Details: the packages that change, scrolled with the right stick
+                id: updateFlick
+                visible: dialog.sysView === "available" && dialog.sysPackages.length > 0
+                width: Theme.px(900)
+                height: Math.min(contentHeight, Theme.px(330))
+                clip: true
+                contentHeight: packagesColumn.height
+                boundsBehavior: Flickable.StopAtBounds
+                Behavior on contentY { enabled: !Theme.reduceMotion; NumberAnimation { duration: Theme.motionMs; easing.type: Easing.OutCubic } }
+                Column {
+                    id: packagesColumn
+                    width: updateFlick.width
+                    spacing: Theme.px(8)
+                    Repeater {
+                        model: dialog.sysPackages
+                        Rectangle {
+                            width: packagesColumn.width
+                            height: Theme.px(34)
+                            radius: Theme.radiusS
+                            color: Theme.surface
+                            Text {
+                                anchors { left: parent.left; leftMargin: Theme.px(12); right: fromText.left; rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
+                                text: modelData.name
+                                color: Theme.fg
+                                font.family: Theme.textFont
+                                font.weight: Font.Medium
+                                font.pixelSize: Theme.fs(14.5)
+                                elide: Text.ElideRight
+                            }
+                            Text {
+                                id: fromText
+                                x: parent.width - Theme.px(428)
+                                width: Theme.px(200)
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: modelData.from
+                                color: Theme.muted
+                                font.family: Theme.textFont
+                                font.pixelSize: Theme.fs(14.5)
+                                elide: Text.ElideRight
+                            }
+                            Text {
+                                x: parent.width - Theme.px(212)
+                                width: Theme.px(200)
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: modelData.to
+                                color: Theme.fg
+                                font.family: Theme.textFont
+                                font.pixelSize: Theme.fs(14.5)
+                                elide: Text.ElideRight
+                            }
+                        }
+                    }
                 }
             }
         }

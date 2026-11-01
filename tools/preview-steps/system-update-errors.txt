@@ -1,0 +1,15 @@
+@owneetd
+@nogames
+@sysupdate installfail
+# What goes wrong ([[step-7.1-updates]]): an installation that fails, with the approved text.
+wait 3
+pad rb rb
+wait 1
+pad down down down down down down down right
+wait 1
+shot 01-system-available
+pad a
+wait 0.6
+pad a
+wait 7
+shot 02-install-failed

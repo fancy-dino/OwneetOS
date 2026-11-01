@@ -1,0 +1,14 @@
+@owneetd
+@nogames
+@sysupdate backfail
+# Going back to the previous version fails ([[step-7.1-updates]]): the approved text.
+wait 3
+pad rb rb
+wait 1
+pad down down down down down down down right
+wait 1
+pad down a
+wait 0.6
+pad left a
+wait 2
+shot 01-goback-failed

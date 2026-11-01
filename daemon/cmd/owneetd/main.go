@@ -34,6 +34,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/pointer"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/power"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/sdldb"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/sysupdate"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/update"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/vinput"
@@ -200,6 +201,7 @@ func run(configPath string) error {
 	// and the optional apps, installed from the ISO's bundled repository
 	// ([[step-5.0.0-optional-web-apps]]): both start root units that polkit allows
 	var updateAPI api.Update
+	var systemUpdateAPI api.SystemUpdate
 	var catalogAPI api.Catalog
 	var xoneAPI api.Xone
 	var installerAPI api.Installer
@@ -220,6 +222,13 @@ func run(configPath string) error {
 		if stateDir == "" {
 			stateDir = filepath.Join(os.Getenv("HOME"), ".local", "state")
 		}
+		// The updates of an installed OwneetOS, from Settings → System ([[step-7.1-updates]])
+		updates := &sysupdate.Manager{Broker: broker, Log: log, Units: starter,
+			StateFile: "/run/owneet/system-update.json", ReleasesFile: "/run/owneet/releases.json",
+			RollbackFile: "/run/owneet/rollback.json", VersionFile: "/usr/share/owneet/version",
+			InstalledMark: "/etc/owneet/installed", SeenFile: filepath.Join(stateDir, "owneetd", "system-update.json")}
+		go updates.Run(ctx.Done())
+		systemUpdateAPI = updates
 		dataDir := os.Getenv("XDG_DATA_HOME")
 		if dataDir == "" {
 			dataDir = filepath.Join(os.Getenv("HOME"), ".local", "share")
@@ -326,6 +335,7 @@ func run(configPath string) error {
 		Apps:            appsAPI,
 		Display:         screen,
 		Update:          updateAPI,
+		SystemUpdate:    systemUpdateAPI,
 		Catalog:         catalogAPI,
 		WebApps:         hub,
 		Windows:         winMgr,

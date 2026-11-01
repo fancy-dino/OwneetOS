@@ -19,9 +19,11 @@ ARCHIVE="${2:-$(grep -m1 -oE 'repos/[0-9]{4}/[0-9]{2}/[0-9]{2}' "$ROOT/iso/pacma
 OUT="$ROOT/out/test-release"
 mkdir -p "$OUT/updates" "$OUT/v$VERSION"
 
-# The throwaway test key: made once in the builder VM, never the project's, never copied out
+# The throwaway test key: made in the builder VM, never the project's, never copied out; made again
+# once it has expired (it lasts a day: trust test-key.asc again in the test VM)
 export GNUPGHOME="$HOME/.owneet-test-gnupg"
-if [[ ! -d "$GNUPGHOME" ]]; then
+if [[ ! -d "$GNUPGHOME" ]] || ! gpg --batch --with-colons --list-secret-keys 2>/dev/null | grep -q '^sec:[-qmfu]:'; then
+    rm -rf "$GNUPGHOME"
     mkdir -m 700 "$GNUPGHOME"
     gpg --batch --quiet --pinentry-mode loopback --passphrase '' \
         --quick-gen-key "OwneetOS TEST KEY (never for releases) <test@invalid>" ed25519 sign 1d

@@ -1,0 +1,36 @@
+@owneetd
+@nogames
+@sysupdate uptodate
+# Updates of an installed system ([[step-7.1-updates]], approved demo 7.1-updates): Settings →
+# System checked yesterday; "Check for updates" finds 0.4.0; its window, Details scrolled, the
+# download and the installation, "Restart now" / "Later"; the row ready; "Go back to the previous
+# version" with Cancel first.
+wait 3
+pad rb rb
+wait 1
+pad down down down down down down down right
+wait 1
+shot 01-system-uptodate
+pad a
+shot 02-checking
+wait 2
+shot 03-available
+pad right a
+wait 0.5
+shot 04-details
+stick rs-down 700
+shot 05-details-scrolled
+pad left a
+wait 1
+shot 06-downloading
+wait 3.2
+shot 07-installing
+wait 3
+shot 08-ready
+pad right a
+wait 0.6
+shot 09-system-ready
+pad down a
+wait 0.6
+shot 10-goback-confirm
+pad b

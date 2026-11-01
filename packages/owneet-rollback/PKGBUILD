@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-rollback
-pkgver=0.0.1
+pkgver=0.0.2
 pkgrel=1
 pkgdesc="OwneetOS rollback: one spare copy of the system, the last version that worked"
 arch=('any')
@@ -11,7 +11,7 @@ license=('GPL-3.0-or-later')
 depends=('bash' 'coreutils' 'util-linux' 'procps-ng' 'btrfs-progs' 'systemd')
 install=owneet-rollback.install
 source=('owneet-rollback' 'owneet-boot-check.service' '50-owneet-rollback.preset')
-sha256sums=('a6812f2723ca87745387481414aa5b38d1ef13f854709b583ab6bd35b65137fc'
+sha256sums=('9640917a76ad96bbe44914edcebf3ba776ce4d9564a1bacbac69ca42e95eaf69'
             '052ab71231785efa9abcd04c193610164a451383abc0a63d6a9056b26f978790'
             'f5fbbc8c6c62d4c27f68e1ebee65d8ca5d6ca49e4427cb135da8b1e16e347a09')
 

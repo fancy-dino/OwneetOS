@@ -18,7 +18,11 @@
 #   - moving games (6.6): a copy in about 3 s, then the check and the removal (FAKE_MOVE_FAIL=1: the
 #     check fails); pause, resume and stop;
 #   - the installer (6.4): the disks of demo 6.4, an installation in about 5 s (FAKE_INSTALL_FAIL=CODE:
-#     it stops while copying with that error).
+#     it stops while copying with that error);
+#   - the updates of an installed system (7.1), with FAKE_SYSUPDATE (otherwise a tester's PC that
+#     updates from the USB stick): uptodate (checked yesterday; a check finds 0.4.0), available,
+#     ready, fellback (went back by itself), installfail, backfail; a download and installation in
+#     about 6 s, going back in 1 s.
 #
 # Steps can send it events (tools/frontend-preview "event TYPE JSON"): one line each in the FIFO
 # given as second argument.
@@ -107,7 +111,10 @@ state = {
     "apps": [],
     # Steam (4.2): change it with the event line "fake.steam {...}" (e.g. {"allowed": false})
     # testers' updates from a USB stick (4.2b)
-    "update": {"tester": True, "state": "", "packages": [], "running": False},
+    "update": {"tester": not os.environ.get("FAKE_SYSUPDATE"), "state": "", "packages": [], "running": False},
+    "system_update": {"installed": True, "state": "none", "current": "0.3.0", "size": 0, "packages": [], "percent": 0,
+                      "checked": "", "checking": False, "on_previous": False,
+                      "previous": {"version": "0.2.1", "since": "2026-10-12T08:00:00Z"}},
     # Windows games (4.5): nothing until the interface says the library has one; then about
     # 20 seconds of "getting ready"
     "windows": {"state": "none", "percent": 0, "needed": False},
@@ -134,6 +141,58 @@ def publish(kind, data=None):
 
 def later(seconds, fn):
     threading.Timer(seconds, fn).start()
+
+
+# The updates of an installed system (7.1)
+SYSUPDATE = os.environ.get("FAKE_SYSUPDATE", "")
+NEW_RELEASE = {"version": "0.4.0", "size": 412000000,
+               "notes": {"en": "Games on USB disks start faster, the library remembers where you were, and Bluetooth "
+                               "controllers reconnect more quickly.",
+                         "it": "I giochi sui dischi USB partono prima, la libreria ricorda dov’eri e i controller "
+                               "Bluetooth si ricollegano più in fretta."},
+               "packages": [{"name": "owneetd", "from": "0.22.0-1", "to": "0.23.0-1"},
+                            {"name": "owneet-frontend", "from": "0.31.0-1", "to": "0.32.0-1"},
+                            {"name": "linux", "from": "7.2.8.arch1-2", "to": "7.2.9.arch1-1"},
+                            {"name": "mesa", "from": "1:26.0.1-1", "to": "1:26.0.2-1"},
+                            {"name": "pipewire", "from": "1:1.6.0-1", "to": "1:1.6.1-1"},
+                            {"name": "networkmanager", "from": "1.56.0-1", "to": "1.56.2-1"},
+                            {"name": "bluez", "from": "5.84-1", "to": "5.85-1"},
+                            {"name": "systemd", "from": "259.1-1", "to": "259.2-1"},
+                            {"name": "steam", "from": "1.0.0.85-1", "to": "1.0.0.86-1"},
+                            {"name": "brave-bin", "from": "1:1.97.57-1", "to": "1:1.98.10-1"}]}
+
+
+def sysupdate(**changes):
+    with lock:
+        state["system_update"].update(changes)
+        data = json.loads(json.dumps(state["system_update"]))
+    publish("system-update.changed", data)
+
+
+def sysupdate_start():
+    st = state["system_update"]
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if SYSUPDATE == "uptodate":
+        st["checked"] = (now - datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    elif SYSUPDATE in ("available", "installfail"):
+        st.update(NEW_RELEASE, state="available", checked=now.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    elif SYSUPDATE == "ready":
+        st.update(NEW_RELEASE, state="ready", packages=[])
+    elif SYSUPDATE == "fellback":
+        st.update(previous=None, rolled_back=now.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    else:
+        st["checked"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def sysupdate_install():
+    for i in range(1, 11):
+        later(i * 0.3, lambda i=i: sysupdate(state="downloading", percent=i * 10))
+    for i in range(1, 6):
+        later(3 + i * 0.5, lambda i=i: sysupdate(state="installing", percent=i * 20))
+    if SYSUPDATE == "installfail":
+        later(6, lambda: sysupdate(state="failed", error="install_failed", percent=0))
+    else:
+        later(6, lambda: sysupdate(state="ready", percent=0, packages=[]))
 
 
 # Steam's downloads (4.2c): the first one moves, the others wait; about 20 seconds a game
@@ -384,6 +443,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/v1/apps": {"apps": state["apps"], "focus": "home"},
                 "/v1/steam": state["steam"],
                 "/v1/update": state["update"],
+                "/v1/system-update": state["system_update"],
                 "/v1/apps/catalog": state["catalog"],
                 "/v1/windows": state["windows"],
                 "/v1/installs": {"installs": state["installs"]},
@@ -536,6 +596,21 @@ class Handler(BaseHTTPRequestHandler):
             display_revert()
             return self.reply(204)
         if path.startswith("/v1/power/"):
+            return self.reply(204)
+        if path == "/v1/system-update/check":
+            sysupdate(checking=True)
+            now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            later(1.5, lambda: sysupdate(**dict(NEW_RELEASE, state="available", checking=False, checked=now)))
+            return self.reply(202)
+        if path == "/v1/system-update/install":
+            sysupdate_install()
+            return self.reply(202)
+        if path == "/v1/system-update/go-back":
+            sysupdate(back="working")
+            later(1, lambda: sysupdate(back="failed" if SYSUPDATE == "backfail" else "done"))
+            return self.reply(202)
+        if path == "/v1/system-update/notice-seen":
+            sysupdate(rolled_back="", back="")
             return self.reply(204)
         if path in ("/v1/update/check", "/v1/update/apply"):
             pkgs = [{"name": "owneetd", "from": "0.11.7-1", "to": "0.11.8-1"},
@@ -798,6 +873,7 @@ def read_events(path):
 
 if __name__ == "__main__":
     sock = sys.argv[1]
+    sysupdate_start()
     if os.environ.get("FAKE_FIRSTSTART"):   # a new console: no network joined yet
         state["time"]["synchronized"] = False
         state["network"]["state"] = "disconnected"
