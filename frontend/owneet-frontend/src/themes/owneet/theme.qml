@@ -769,6 +769,13 @@ FocusScope {
                    [Tr.tr("details.time"), GameInfo.played(game) ? GameInfo.playTime(game) : "\u2014"]);
         if (GameInfo.onDisk(game))
             facts.push([Tr.tr("details.disk"), diskName(GameInfo.diskRoot(game))]);
+        // a GOG DOS game on a disk left read only keeps its saves on the console (6.5, approved demo
+        // 6.5-saves-read-only); on a writable disk they go with it, and nothing is said
+        if (GameInfo.onDisk(game) && game.extra["disk.dos"] === true) {
+            const v = storage.volumes().find(v => v.key === GameInfo.diskRoot(game));
+            if (v && v.readOnly)
+                facts.push([Tr.tr("details.saves"), Tr.tr("details.saves.console")]);
+        }
         return facts;
     }
     function showOptions(game) {

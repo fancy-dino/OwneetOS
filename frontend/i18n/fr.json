@@ -535,6 +535,8 @@
   "steam.return.title": "Comment revenir de Steam",
   "steam.return.text": "Dans Steam, maintenez Accueil à tout moment pour revenir à la console. Si une page de Steam charge sans fin, maintenez Accueil, puis fermez Steam : appuyez sur Menu sur la tuile Steam et choisissez « Fermer Steam ».",
   "details.disk": "Installé sur",
+  "details.saves": "Sauvegardes",
+  "details.saves.console": "Sur la console : ce disque est en lecture seule",
   "options.choose_file": "Choisir le fichier à lancer",
   "choose.title": "Quel fichier lance {title} ?",
   "choose.text": "La console en a trouvé plusieurs. Elle se souvient de votre choix ; Options permet de le changer.",

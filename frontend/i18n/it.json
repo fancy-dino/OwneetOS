@@ -535,6 +535,8 @@
   "steam.return.title": "Come tornare da Steam",
   "steam.return.text": "In Steam, tieni premuto Home in qualsiasi momento per tornare alla console. Se una pagina di Steam resta in caricamento, tieni premuto Home e chiudi Steam: premi Menu sul riquadro Steam e scegli “Chiudi Steam”.",
   "details.disk": "Installato su",
+  "details.saves": "Salvataggi",
+  "details.saves.console": "Sulla console: questo disco è in sola lettura",
   "options.choose_file": "Scegli il file da avviare",
   "choose.title": "Quale file avvia {title}?",
   "choose.text": "La console ne ha trovati diversi. Ricorda la tua scelta; puoi cambiarla dalle Opzioni.",

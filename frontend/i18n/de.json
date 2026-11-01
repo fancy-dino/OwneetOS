@@ -535,6 +535,8 @@
   "steam.return.title": "So kommst du aus Steam zurück",
   "steam.return.text": "Halte in Steam jederzeit Home, um zur Konsole zurückzukehren. Wenn eine Seite von Steam immer weiter lädt, halte Home und schließe dann Steam: Drücke auf der Kachel von Steam auf Menü und wähle „Steam schließen“.",
   "details.disk": "Installiert auf",
+  "details.saves": "Spielstände",
+  "details.saves.console": "Auf der Konsole: Dieses Laufwerk ist schreibgeschützt",
   "options.choose_file": "Startdatei wählen",
   "choose.title": "Welche Datei startet {title}?",
   "choose.text": "Die Konsole hat mehrere gefunden. Sie merkt sich deine Wahl; in den Optionen kannst du sie ändern.",

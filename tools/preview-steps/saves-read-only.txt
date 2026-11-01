@@ -1,0 +1,18 @@
+@nogames
+@owneetd
+@disk
+# A GOG DOS game on a disk left read only ([[step-6.5-automatic-disk-mounting]], approved demo
+# 6.5-saves-read-only): its details say "Saves: On the console: this disk is read only" (the
+# preview's invented disk counts as read only).
+wait 2
+pad rb
+wait 1
+shot 01-library
+pad right right right right right right x
+wait 1
+shot 02-tyrian-details
+pad b
+wait 1
+pad left x
+wait 1
+shot 03-starfall-details-no-saves

@@ -535,6 +535,8 @@
   "steam.return.title": "Cómo volver de Steam",
   "steam.return.text": "En Steam, mantén Inicio en cualquier momento para volver a la consola. Si una página de Steam no termina de cargar, mantén Inicio y cierra Steam: pulsa Menú en el mosaico de Steam y elige «Cerrar Steam».",
   "details.disk": "Instalado en",
+  "details.saves": "Partidas guardadas",
+  "details.saves.console": "En la consola: este disco es de solo lectura",
   "options.choose_file": "Elegir el archivo de inicio",
   "choose.title": "¿Qué archivo inicia {title}?",
   "choose.text": "La consola ha encontrado varios. Recuerda tu elección; puedes cambiarla en Opciones.",
