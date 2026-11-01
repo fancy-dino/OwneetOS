@@ -756,7 +756,7 @@
   "installer.err.note": "Solo se ha modificado el disco elegido.",
   "installer.err.note.none": "No se ha modificado nada.",
   "installer.err.not_live": "OwneetOS solo se puede instalar cuando arranca desde su memoria USB.",
-  "installer.err.not_uefi": "Este PC ha arrancado en su modo antiguo: OwneetOS necesita UEFI. Activa UEFI en la configuración del PC y vuelve a arrancar desde la memoria USB.",
+  "installer.err.not_uefi": "Este PC ha arrancado en modo legacy: OwneetOS necesita UEFI. Activa UEFI en la configuración del PC y vuelve a arrancar desde la memoria USB.",
   "installer.err.disk_changed": "El disco ya no es el que elegiste: quizá se ha desconectado. Elígelo de nuevo.",
   "installer.err.not_usable": "Este disco no puede alojar OwneetOS: necesita al menos 32 GB.",
   "installer.err.not_confirmed": "No se ha confirmado el borrado del disco.",

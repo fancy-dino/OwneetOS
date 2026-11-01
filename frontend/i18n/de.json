@@ -756,7 +756,7 @@
   "installer.err.note": "Nur das gewählte Laufwerk wurde verändert.",
   "installer.err.note.none": "Es wurde nichts verändert.",
   "installer.err.not_live": "OwneetOS lässt sich nur installieren, wenn es von seinem USB-Stick startet.",
-  "installer.err.not_uefi": "Dieser PC ist im alten Modus gestartet: OwneetOS braucht UEFI. Schalte UEFI in den Einstellungen des PCs ein und starte dann wieder vom USB-Stick.",
+  "installer.err.not_uefi": "Dieser PC ist im Legacy-Modus gestartet: OwneetOS braucht UEFI. Schalte UEFI in den Einstellungen des PCs ein und starte dann wieder vom USB-Stick.",
   "installer.err.disk_changed": "Das Laufwerk ist nicht mehr das, das du gewählt hast: Vielleicht wurde es getrennt. Wähle es erneut.",
   "installer.err.not_usable": "Dieses Laufwerk ist zu klein für OwneetOS: Es braucht mindestens 32 GB.",
   "installer.err.not_confirmed": "Das Löschen des Laufwerks wurde nicht bestätigt.",

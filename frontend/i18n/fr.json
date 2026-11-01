@@ -756,7 +756,7 @@
   "installer.err.note": "Seul le disque choisi a été modifié.",
   "installer.err.note.none": "Rien n’a été modifié.",
   "installer.err.not_live": "OwneetOS ne peut être installé que lorsqu’il démarre depuis sa clé USB.",
-  "installer.err.not_uefi": "Ce PC a démarré dans son ancien mode : OwneetOS a besoin de l’UEFI. Activez l’UEFI dans les réglages du PC, puis redémarrez depuis la clé USB.",
+  "installer.err.not_uefi": "Ce PC a démarré en mode legacy : OwneetOS a besoin de l’UEFI. Activez l’UEFI dans les réglages du PC, puis redémarrez depuis la clé USB.",
   "installer.err.disk_changed": "Le disque n’est plus celui que vous avez choisi : il a peut-être été débranché. Choisissez-le de nouveau.",
   "installer.err.not_usable": "Ce disque ne peut pas accueillir OwneetOS : il faut au moins 32 Go.",
   "installer.err.not_confirmed": "L’effacement du disque n’a pas été confirmé.",

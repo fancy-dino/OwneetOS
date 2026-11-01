@@ -756,7 +756,7 @@
   "installer.err.note": "Only the chosen disk was changed.",
   "installer.err.note.none": "Nothing was changed.",
   "installer.err.not_live": "OwneetOS can be installed only when it starts from its USB stick.",
-  "installer.err.not_uefi": "This PC started in its old mode: OwneetOS needs UEFI. Turn UEFI on in the PC's setup, then start from the USB stick again.",
+  "installer.err.not_uefi": "This PC started in legacy mode: OwneetOS needs UEFI. Turn UEFI on in the PC's setup, then start from the USB stick again.",
   "installer.err.disk_changed": "The disk is not the one you chose any more: it may have been disconnected. Choose it again.",
   "installer.err.not_usable": "This disk cannot hold OwneetOS: it needs at least 32 GB.",
   "installer.err.not_confirmed": "Erasing the disk was not confirmed.",
