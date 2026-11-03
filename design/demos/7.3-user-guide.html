@@ -1049,22 +1049,22 @@ const GUIDE = {
             <li><b>Legacy</b>: the PC starts the old way. Most PCs from 2012 on can switch to UEFI in their firmware settings: step 4 shows how. A PC that cannot switch is not suited for OwneetOS.</li></ul></li></ol></div>
         <p class="warn">Installing erases the whole disk you choose, Windows included. Copy what you want to keep to another disk first.</p>`],
       ['download', 'Download OwneetOS', `<p>OwneetOS is one file, an <b>ISO image</b> of about 2 GB: in step 3 you write it to the USB stick.</p>
-        <div class="check"><h3>Get the file</h3><ol>
-          <li>Press <b>Get OwneetOS</b> at the top of this site (it comes with the first release). The file is kept for us by SourceForge, so the download starts from there.</li>
-          <li>Save it on your computer, for example in Downloads. Its name is like <code>owneetos-0.1.0-x86_64.iso</code>.</li></ol></div>
+        <div class="check"><h3>Download the file</h3><ol>
+          <li>Press <b>Get OwneetOS</b> at the top right (it comes with the first release). The link takes you to SourceForge, where the download starts.</li>
+          <li>The downloaded file’s name will be like <code>owneetos-X.Y.Z-x86_64.iso</code>, where X, Y and Z are the version number.</li></ol></div>
         <details><summary>Check the download (optional)</summary>
         <p>Two checks, for whoever wants them. They are not needed to install OwneetOS.</p>
         <div class="check"><h3>Is the file complete?</h3><ol>
-          <li>From the same page, download also <code>owneetos-0.1.0-x86_64.iso.sha256</code>, into the same folder as the ISO.</li>
+          <li>From the same page, download also <code>owneetos-X.Y.Z-x86_64.iso.sha256</code>, into the same folder as the ISO.</li>
           <li>Work out the file's code:<ul>
-            <li><b>Windows</b>: in that folder, open PowerShell and type <code>Get-FileHash owneetos-0.1.0-x86_64.iso</code></li>
-            <li><b>macOS</b>: in Terminal, in that folder, type <code>shasum -a 256 owneetos-0.1.0-x86_64.iso</code></li>
-            <li><b>Linux</b>: in a terminal, in that folder, type <code>sha256sum -c owneetos-0.1.0-x86_64.iso.sha256</code>: it must say <b>OK</b>, and you are done.</li></ul></li>
+            <li><b>Windows</b>: in that folder, open PowerShell and type <code>Get-FileHash owneetos-X.Y.Z-x86_64.iso</code></li>
+            <li><b>macOS</b>: in Terminal, in that folder, type <code>shasum -a 256 owneetos-X.Y.Z-x86_64.iso</code></li>
+            <li><b>Linux</b>: in a terminal, in that folder, type <code>sha256sum -c owneetos-X.Y.Z-x86_64.iso.sha256</code>: it must say <b>OK</b>, and you are done.</li></ul></li>
           <li>On Windows and macOS, open the <code>.sha256</code> file with a text editor: its long code must be the same as the one you got (capital or small letters do not matter). If it is not, download the ISO again.</li></ol></div>
         <div class="check"><h3>Is it really ours?</h3><ol>
-          <li>You need GnuPG (on Windows, Gpg4win). Download also <code>owneetos-0.1.0-x86_64.iso.sig</code>, our signature, and <a href="#">our public key</a>, into the same folder.</li>
+          <li>You need GnuPG (on Windows, Gpg4win). Download also <code>owneetos-X.Y.Z-x86_64.iso.sig</code>, our signature, and <a href="#">our public key</a>, into the same folder.</li>
           <li>Import the key once: <code>gpg --import owneetos.asc</code></li>
-          <li>Check the signature: <code>gpg --verify owneetos-0.1.0-x86_64.iso.sig</code></li>
+          <li>Check the signature: <code>gpg --verify owneetos-X.Y.Z-x86_64.iso.sig</code></li>
           <li>It must say <b>Good signature from “OwneetOS &lt;owneet@proton.me&gt;”</b>, with the primary key fingerprint <code>B3BD F4E3 E477 2D3F 7E86 1A87 8D02 23BC EE51 456E</code>. A warning that the key “is not certified with a trusted signature” is normal: it only means you have not certified our key yourself; the fingerprint is what counts.</li></ol></div></details>`],
       ['stick', 'Write it to a USB stick', `<figure class="draw">${DRAW.write}</figure>
         <p>Everything on the stick is erased. Two free programs do it:</p>
@@ -1121,16 +1121,16 @@ const GUIDE = {
         <details><summary>Controlla il download (facoltativo)</summary>
         <p>Due controlli, per chi li vuole fare. Non servono per installare OwneetOS.</p>
         <div class="check"><h3>Il file è completo?</h3><ol>
-          <li>Dalla stessa pagina scarica anche <code>owneetos-0.1.0-x86_64.iso.sha256</code>, nella stessa cartella dell’ISO.</li>
+          <li>Dalla stessa pagina scarica anche <code>owneetos-X.Y.Z-x86_64.iso.sha256</code>, nella stessa cartella dell’ISO.</li>
           <li>Calcola il codice del file:<ul>
-            <li><b>Windows</b>: in quella cartella apri PowerShell e scrivi <code>Get-FileHash owneetos-0.1.0-x86_64.iso</code></li>
-            <li><b>macOS</b>: nel Terminale, in quella cartella, scrivi <code>shasum -a 256 owneetos-0.1.0-x86_64.iso</code></li>
-            <li><b>Linux</b>: in un terminale, in quella cartella, scrivi <code>sha256sum -c owneetos-0.1.0-x86_64.iso.sha256</code>: deve dire <b>OK</b>, e hai finito.</li></ul></li>
+            <li><b>Windows</b>: in quella cartella apri PowerShell e scrivi <code>Get-FileHash owneetos-X.Y.Z-x86_64.iso</code></li>
+            <li><b>macOS</b>: nel Terminale, in quella cartella, scrivi <code>shasum -a 256 owneetos-X.Y.Z-x86_64.iso</code></li>
+            <li><b>Linux</b>: in un terminale, in quella cartella, scrivi <code>sha256sum -c owneetos-X.Y.Z-x86_64.iso.sha256</code>: deve dire <b>OK</b>, e hai finito.</li></ul></li>
           <li>Su Windows e macOS apri il file <code>.sha256</code> con un editor di testo: il suo codice lungo deve essere uguale a quello che hai ottenuto (maiuscole o minuscole non contano). Se non lo è, scarica di nuovo l’ISO.</li></ol></div>
         <div class="check"><h3>È davvero nostro?</h3><ol>
-          <li>Ti serve GnuPG (su Windows, Gpg4win). Scarica anche <code>owneetos-0.1.0-x86_64.iso.sig</code>, la nostra firma, e <a href="#">la nostra chiave pubblica</a>, nella stessa cartella.</li>
+          <li>Ti serve GnuPG (su Windows, Gpg4win). Scarica anche <code>owneetos-X.Y.Z-x86_64.iso.sig</code>, la nostra firma, e <a href="#">la nostra chiave pubblica</a>, nella stessa cartella.</li>
           <li>Importa la chiave, una volta sola: <code>gpg --import owneetos.asc</code></li>
-          <li>Controlla la firma: <code>gpg --verify owneetos-0.1.0-x86_64.iso.sig</code></li>
+          <li>Controlla la firma: <code>gpg --verify owneetos-X.Y.Z-x86_64.iso.sig</code></li>
           <li>Deve dire <b>Good signature from “OwneetOS &lt;owneet@proton.me&gt;”</b>, con l’impronta della chiave primaria <code>B3BD F4E3 E477 2D3F 7E86 1A87 8D02 23BC EE51 456E</code>. Un avviso che la chiave “is not certified with a trusted signature” è normale: vuol dire solo che non hai certificato tu la nostra chiave; conta l’impronta.</li></ol></div></details>`],
       ['stick', 'Scrivila su una chiavetta USB', `<figure class="draw">${DRAW.write}</figure>
         <p>Tutto quello che c'è sulla chiavetta viene cancellato. Lo fanno due programmi gratuiti:</p>
