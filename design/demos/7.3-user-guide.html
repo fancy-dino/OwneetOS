@@ -319,6 +319,9 @@ figure.draw svg { width: 100%; height: auto; display: block; }
 .d-text { fill: var(--fg); font: 400 15px var(--text); }
 .d-small { fill: var(--muted); font: 400 14px var(--text); }
 .d-pick-text { fill: var(--on-accent); font: 500 15px var(--text); }
+.req { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; margin: 0 0 18px; }
+.req h3 { font-size: 13px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--fg); margin: 0 0 10px; }
+.gsec .req ul { list-style: none; padding: 0; margin: 0; gap: 8px; }
 .keys { overflow-x: auto; margin: 4px 0 12px; border: 1px solid var(--line); border-radius: 16px; }
 .keys table { width: 100%; border-collapse: collapse; font-size: 15px; }
 .keys th, .keys td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -326,7 +329,7 @@ figure.draw svg { width: 100%; height: auto; display: block; }
 .keys td:first-child { color: var(--fg); font-weight: 500; white-space: nowrap; }
 .keys td { color: var(--muted); }
 .keys tr:last-child td { border-bottom: 0; }
-@media (max-width: 640px) { .pics { grid-template-columns: 1fr; } .toc ol { columns: 1; } .gsec h2 { font-size: 24px; } }
+@media (max-width: 640px) { .pics, .req { grid-template-columns: 1fr; } .toc ol { columns: 1; } .gsec h2 { font-size: 24px; } }
 
 /* The start-up animation: the logo from transparent over INTRO.fade ms, then the three words, one
    by one, at once; then the site shows. The words are laid out at once (hidden), so the line
@@ -1005,15 +1008,26 @@ const DRAW = {
     <text x="40" y="144" class="d-text">Boot Mode</text><text x="405" y="144" text-anchor="middle" class="d-text">UEFI</text>
     <text x="40" y="186" class="d-small">F10: Save &amp; Exit</text></svg>`,
 };
+const REQ = {   // the two columns, as on Steam's store pages: [title, [label, value]...]
+  en: [['Minimum', [['Processor', '64-bit (x86-64)'], ['Firmware', 'UEFI'], ['Memory', '4 GB RAM'],
+        ['Graphics', 'any card (Attention! Without Vulkan the interface goes into “reduced mode”: the Home screen cannot open over a running game, so a short press of Guide does nothing and holding it for 2 seconds closes the game; games that need Vulkan do not start)'],
+        ['Storage', '32 GB'], ['To install', 'a USB stick of 4 GB or more (everything on it is erased)'], ['Controller', 'Bluetooth, or with a cable']]],
+       ['Recommended', [['Processor', '64-bit (x86-64)'], ['Firmware', 'UEFI'], ['Memory', '8 GB RAM'], ['Graphics', 'with Vulkan support'],
+        ['Storage', '32 GB + the space your games need'], ['To install', 'a USB stick of 4 GB or more (everything on it is erased)'], ['Controller', 'Bluetooth, or with a cable']]]],
+  it: [['Minimi', [['Processore', '64 bit (x86-64)'], ['Firmware', 'UEFI'], ['Memoria', '4 GB di RAM'],
+        ['Grafica', 'qualsiasi scheda (Attenzione! Senza Vulkan l’interfaccia entrerà in “modalità ridotta”: la Home non può aprirsi sopra un gioco in corso, quindi una pressione breve di Guide non fa nulla e tenerlo premuto per 2 secondi chiude il gioco; i giochi che richiedono Vulkan non partono)'],
+        ['Disco', '32 GB'], ['Per installare', 'una chiavetta USB da 4 GB o più (tutto quello che contiene viene cancellato)'], ['Controller', 'Bluetooth o con il cavo']]],
+       ['Consigliati', [['Processore', '64 bit (x86-64)'], ['Firmware', 'UEFI'], ['Memoria', '8 GB di RAM'], ['Grafica', 'con supporto Vulkan'],
+        ['Disco', '32 GB + lo spazio necessario per i giochi'], ['Per installare', 'una chiavetta USB da 4 GB o più (tutto quello che contiene viene cancellato)'], ['Controller', 'Bluetooth o con il cavo']]]],
+};
 const GUIDE = {
   en: {
-    title: 'Install OwneetOS', lede: 'A USB stick of 4 GB or more and a controller are all you need.',
+    title: 'Install OwneetOS', lede: '',
     contents: 'In this guide', figure: 'On the console',
     keysHead: ['PC maker', 'Boot menu', 'Firmware settings'],
     sections: [
-      ['pc', 'Check your PC', `<p>A 64-bit processor, UEFI firmware, 4 GB of RAM (8 GB better) and a disk of 32 GB or more: most PCs from the last ten years. Graphics with Vulkan get the full experience.</p>
+      ['pc', 'Requirements', `@REQ@
         <p><b>UEFI or Legacy?</b> In Windows, type <code>msinfo32</code> in Start and open System Information: “BIOS Mode” says UEFI or Legacy. Legacy is fine too if the PC can switch to UEFI (step 4).</p>
-        <p>You also need a USB stick of 4 GB or more (everything on it is erased) and a controller: a Bluetooth one, or one with a cable.</p>
         <p class="warn">Installing erases the whole disk you choose, Windows included. Copy what you want to keep to another disk first.</p>`],
       ['download', 'Download OwneetOS', `<p>One file, the ISO (about 2 GB), from SourceForge. Coming with the first release.</p>
         <details><summary>Check the download (optional)</summary>
@@ -1057,13 +1071,12 @@ const GUIDE = {
     ],
   },
   it: {
-    title: 'Installa OwneetOS', lede: 'Bastano una chiavetta USB da 4 GB o più e un controller.',
+    title: 'Installa OwneetOS', lede: '',
     contents: 'In questa guida', figure: 'Sulla console',
     keysHead: ['Marca del PC', 'Menu di avvio', 'Impostazioni del firmware'],
     sections: [
-      ['pc', 'Controlla il PC', `<p>Processore a 64 bit, firmware UEFI, 4 GB di RAM (meglio 8) e un disco da 32 GB o più: quasi tutti i PC degli ultimi dieci anni. Con una grafica Vulkan l'esperienza è completa.</p>
+      ['pc', 'Requisiti', `@REQ@
         <p><b>UEFI o Legacy?</b> In Windows scrivi <code>msinfo32</code> in Start e apri Informazioni di sistema: “Modalità BIOS” dice UEFI o Legacy. Va bene anche Legacy, se il PC può passare a UEFI (passo 4).</p>
-        <p>Servono anche una chiavetta USB da 4 GB o più (tutto quello che contiene viene cancellato) e un controller: Bluetooth o con il cavo.</p>
         <p class="warn">L'installazione cancella tutto il disco che scegli, Windows compreso. Prima copia su un altro disco quello che vuoi tenere.</p>`],
       ['download', 'Scarica OwneetOS', `<p>Un solo file, l'ISO (circa 2 GB), da SourceForge. Arriva con la prima release.</p>
         <details><summary>Controlla il download (facoltativo)</summary>
@@ -1113,7 +1126,9 @@ function guideHtml(lang) {
     KEYS.map(([m, b, f]) => `<tr><td>${m}</td><td>${b[li]}</td><td>${f[li]}</td></tr>`).join('') + '</tbody></table></div>';
   const pics = list => `<div class="pics">${list.split('¦').map(p => { const [n, c] = p.split('|');
     return `<figure><a href="${PIC(n)}" target="_blank"><img src="${PIC(n)}" alt="${c}" loading="lazy" width="1280" height="720"></a><figcaption>${c}</figcaption></figure>`; }).join('')}</div>`;
-  const body = h => h.replace('@KEYS@', keys).replace(/@PICS:([^@]+)@/g, (_, l) => pics(l));
+  const req = `<div class="req">${(REQ[lang] || REQ.en).map(([h, rows]) => `<div><h3>${h}</h3><ul>${rows.map(([l, v]) =>
+    `<li><b>${l}:</b> ${v}</li>`).join('')}</ul></div>`).join('')}</div>`;
+  const body = h => h.replace('@REQ@', req).replace('@KEYS@', keys).replace(/@PICS:([^@]+)@/g, (_, l) => pics(l));
   const toc = `<nav class="toc" aria-label="${G.contents}"><b>${G.contents}</b><ol>${G.sections.map(([id, h]) =>
     `<li><a href="#/guide" data-go="${id}">${h}</a></li>`).join('')}</ol></nav>`;
   return toc + G.sections.map(([id, h, b], i) =>
@@ -1141,7 +1156,7 @@ function pageHtml(name) {
     `<p><a class="more" href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement">${P.statement}</a></p></div>`;
   if (name === 'contribute') body = `<div class="cards">${P.cards.map(([ic, h, p, l, u]) => `<div><span class="icon">${ICONS[ic]}</span><h3>${h}</h3><p>${p}</p><a href="${u}">${l}</a></div>`).join('')}</div>`;
   return `<div class="wrap narrow"><a class="back" href="#home"><span class="ic">${ICONS.arrowLeft}</span>${tr('back')}</a>` +
-    `<h1 class="disp">${P.title}</h1><p class="lede">${P.lede}</p>${body}</div>` +
+    `<h1 class="disp">${P.title}</h1>${P.lede ? `<p class="lede">${P.lede}</p>` : ''}${body}</div>` +
     `<footer class="page-foot">${$('main footer').innerHTML.replace('id="logoFoot"', '')}</footer>`;
 }
 function showPage(name, toTop = true) {
