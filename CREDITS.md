@@ -5,9 +5,9 @@ that makes it boot, draw, play sound, talk to controllers and run games was writ
 software community, often by volunteers, over decades. **Thank you.**
 
 This page names the projects OwneetOS is built on and how they are licensed. The complete list of
-every package in an OwneetOS image, with its licence, is generated from the system itself
-([[step-3.9-settings]], "About → Credits and licences"); every package's licence texts are installed
-in `/usr/share/licenses`.
+every package in an OwneetOS image, with its licence, is generated from the system itself (on the
+console: Settings → System → Credits and licences); every package's licence texts are installed in
+`/usr/share/licenses`.
 
 Licences are given as [SPDX](https://spdx.org/licenses/) identifiers, as declared by each package.
 "And contributors" is meant literally: these projects are the work of many people.
@@ -41,7 +41,7 @@ Licences are given as [SPDX](https://spdx.org/licenses/) identifiers, as declare
 
 ## Windows games
 
-DRM-free games for Windows run with Proton ([[step-4.5-windows-games-proton]]). Only umu-launcher
+DRM-free games for Windows run with Proton. Only umu-launcher
 is part of OwneetOS; GE-Proton and the Steam Linux Runtime are downloaded once by the user's own
 console from their authors' official releases, the first time a Windows game is in the library.
 
@@ -88,7 +88,7 @@ console from their authors' official releases, the first time a Windows game is 
 | [jfreymuth/pulse](https://github.com/jfreymuth/pulse) | Johann Freymuth | MIT | Talks to PipeWire for volume and outputs |
 | [jezek/xgb](https://github.com/jezek/xgb) | The XGB Authors (originally by Andrew Gallant), maintained by jezek | BSD-3-Clause | Talks to gamescope to choose what is on screen |
 
-## The console interface (from [[phase-3-frontend]])
+## The console interface
 
 | Project | Who | Licence | What it does in OwneetOS |
 |---|---|---|---|
@@ -101,7 +101,7 @@ OwneetOS's interface is a modified version of Pegasus Frontend. As its licence r
 not use the names "Pegasus Frontend", "Pegasus Launcher" or "Pegasus" as its title, nor Pegasus's
 logos; Pegasus's copyright notices are kept in its source code.
 
-## Web apps (from [[phase-5-streaming-apps-and-media]])
+## Web apps
 
 | Project | Who | Licence | What it does in OwneetOS |
 |---|---|---|---|
