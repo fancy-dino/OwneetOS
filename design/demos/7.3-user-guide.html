@@ -319,9 +319,16 @@ figure.draw svg { width: 100%; height: auto; display: block; }
 .d-text { fill: var(--fg); font: 400 15px var(--text); }
 .d-small { fill: var(--muted); font: 400 14px var(--text); }
 .d-pick-text { fill: var(--on-accent); font: 500 15px var(--text); }
-.req { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; margin: 0 0 18px; }
-.req h3 { font-size: 13px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--fg); margin: 0 0 10px; }
-.gsec .req ul { list-style: none; padding: 0; margin: 0; gap: 8px; }
+.req { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0 0 22px; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.gsec .req > * { padding: 10px 16px; border-bottom: 1px solid var(--line); margin: 0; color: var(--muted); }
+.req > :nth-child(odd) { border-right: 1px solid var(--line); }
+.req > :nth-last-child(-n+2) { border-bottom: 0; }
+.req h3 { font-size: 13px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: var(--surface); }
+.req b { color: var(--fg); font-weight: 500; }
+.check { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 20px; margin: 0 0 16px; }
+.check h3 { font-size: 17px; font-weight: 500; color: var(--fg); margin: 0 0 8px; }
+.gsec .check ol { margin: 0; padding-left: 22px; display: grid; gap: 6px; color: var(--muted); }
+.gsec .check ul { margin: 6px 0 0; }
 .keys { overflow-x: auto; margin: 4px 0 12px; border: 1px solid var(--line); border-radius: 16px; }
 .keys table { width: 100%; border-collapse: collapse; font-size: 15px; }
 .keys th, .keys td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -329,7 +336,13 @@ figure.draw svg { width: 100%; height: auto; display: block; }
 .keys td:first-child { color: var(--fg); font-weight: 500; white-space: nowrap; }
 .keys td { color: var(--muted); }
 .keys tr:last-child td { border-bottom: 0; }
-@media (max-width: 640px) { .pics, .req { grid-template-columns: 1fr; } .toc ol { columns: 1; } .gsec h2 { font-size: 24px; } }
+@media (max-width: 640px) {
+  .req { grid-template-columns: 1fr; }
+  .req > :nth-child(odd) { border-right: 0; order: 1; }
+  .req > :nth-child(even) { order: 2; }
+  .req > :nth-child(odd):nth-last-child(2) { border-bottom: 1px solid var(--line); }
+}
+@media (max-width: 640px) { .pics { grid-template-columns: 1fr; } .toc ol { columns: 1; } .gsec h2 { font-size: 24px; } }
 
 /* The start-up animation: the logo from transparent over INTRO.fade ms, then the three words, one
    by one, at once; then the site shows. The words are laid out at once (hidden), so the line
@@ -1027,7 +1040,11 @@ const GUIDE = {
     keysHead: ['PC maker', 'Boot menu', 'Firmware settings'],
     sections: [
       ['pc', 'Requirements', `@REQ@
-        <p><b>UEFI or Legacy?</b> In Windows, type <code>msinfo32</code> in Start and open System Information: “BIOS Mode” says UEFI or Legacy. Legacy is fine too if the PC can switch to UEFI (step 4).</p>
+        <div class="check"><h3>Does your PC start in UEFI?</h3><ol>
+          <li>In Windows, open Start, type <code>msinfo32</code> and open <b>System Information</b>.</li>
+          <li>Find the line <b>BIOS Mode</b>:<ul>
+            <li><b>UEFI</b>: fine, nothing to do.</li>
+            <li><b>Legacy</b>: the PC starts the old way. Most PCs from 2012 on can switch to UEFI in their firmware settings: step 4 shows how. A PC that cannot switch does not run OwneetOS.</li></ul></li></ol></div>
         <p class="warn">Installing erases the whole disk you choose, Windows included. Copy what you want to keep to another disk first.</p>`],
       ['download', 'Download OwneetOS', `<p>One file, the ISO (about 2 GB), from SourceForge. Coming with the first release.</p>
         <details><summary>Check the download (optional)</summary>
@@ -1076,7 +1093,11 @@ const GUIDE = {
     keysHead: ['Marca del PC', 'Menu di avvio', 'Impostazioni del firmware'],
     sections: [
       ['pc', 'Requisiti', `@REQ@
-        <p><b>UEFI o Legacy?</b> In Windows scrivi <code>msinfo32</code> in Start e apri Informazioni di sistema: “Modalità BIOS” dice UEFI o Legacy. Va bene anche Legacy, se il PC può passare a UEFI (passo 4).</p>
+        <div class="check"><h3>Il tuo PC si avvia in UEFI?</h3><ol>
+          <li>In Windows apri Start, scrivi <code>msinfo32</code> e apri <b>Informazioni di sistema</b>.</li>
+          <li>Cerca la riga <b>Modalità BIOS</b>:<ul>
+            <li><b>UEFI</b>: va bene, non devi fare niente.</li>
+            <li><b>Legacy</b>: il PC si avvia alla vecchia maniera. Quasi tutti i PC dal 2012 in poi possono passare a UEFI nelle impostazioni del firmware: il passo 4 spiega come. Un PC che non può passare a UEFI non fa girare OwneetOS.</li></ul></li></ol></div>
         <p class="warn">L'installazione cancella tutto il disco che scegli, Windows compreso. Prima copia su un altro disco quello che vuoi tenere.</p>`],
       ['download', 'Scarica OwneetOS', `<p>Un solo file, l'ISO (circa 2 GB), da SourceForge. Arriva con la prima release.</p>
         <details><summary>Controlla il download (facoltativo)</summary>
@@ -1126,8 +1147,10 @@ function guideHtml(lang) {
     KEYS.map(([m, b, f]) => `<tr><td>${m}</td><td>${b[li]}</td><td>${f[li]}</td></tr>`).join('') + '</tbody></table></div>';
   const pics = list => `<div class="pics">${list.split('¦').map(p => { const [n, c] = p.split('|');
     return `<figure><a href="${PIC(n)}" target="_blank"><img src="${PIC(n)}" alt="${c}" loading="lazy" width="1280" height="720"></a><figcaption>${c}</figcaption></figure>`; }).join('')}</div>`;
-  const req = `<div class="req">${(REQ[lang] || REQ.en).map(([h, rows]) => `<div><h3>${h}</h3><ul>${rows.map(([l, v]) =>
-    `<li><b>${l}:</b> ${v}</li>`).join('')}</ul></div>`).join('')}</div>`;
+  // one row per requirement, the minimum and the recommended value side by side
+  const [[minH, minRows], [recH, recRows]] = REQ[lang] || REQ.en;
+  const req = `<div class="req" role="table"><h3 role="columnheader">${minH}</h3><h3 role="columnheader">${recH}</h3>` +
+    minRows.map(([l, v], i) => `<p role="cell"><b>${l}:</b> ${v}</p><p role="cell"><b>${recRows[i][0]}:</b> ${recRows[i][1]}</p>`).join('') + '</div>';
   const body = h => h.replace('@REQ@', req).replace('@KEYS@', keys).replace(/@PICS:([^@]+)@/g, (_, l) => pics(l));
   const toc = `<nav class="toc" aria-label="${G.contents}"><b>${G.contents}</b><ol>${G.sections.map(([id, h]) =>
     `<li><a href="#/guide" data-go="${id}">${h}</a></li>`).join('')}</ol></nav>`;
