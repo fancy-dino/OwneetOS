@@ -13,16 +13,16 @@ QtObject {
     property string dir: ""
     property bool muted: false
 
-    // What Nav.feedback reports → the file that plays (eleven sounds; one "click" for many events)
+    // What Nav.feedback reports → the file that plays (ten sounds; one "click" for many events)
     readonly property var fileOf: ({
         move: "nav-move", edge: "nav-edge",
         confirm: "nav-confirm", back: "nav-confirm", tab: "nav-confirm", "toggle-on": "nav-confirm", "toggle-off": "nav-confirm",
         section: "nav-section", "sheet-open": "sheet-open", "sheet-close": "sheet-close",
-        notify: "notify", "notify-error": "notify-error", error: "error",
+        notify: "notify", error: "error",
         launch: "game-launch", startup: "startup"
     })
     readonly property var files: ["nav-move", "nav-edge", "nav-confirm", "nav-section", "sheet-open", "sheet-close",
-                                  "notify", "notify-error", "error", "game-launch", "startup"]
+                                  "notify", "error", "game-launch", "startup"]
     // The slider is in steps of what the ear hears, not of the signal
     readonly property real gain: QtMultimedia.convertVolume(Theme.uiSoundsVolume / 100,
                                                             QtMultimedia.LogarithmicVolumeScale,

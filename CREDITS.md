@@ -120,10 +120,8 @@ Both fonts are bundled in `owneet-frontend` as static instances generated from t
 by `tools/branding/make-fonts` (Qt 5 cannot select variation axes); their licence texts are
 installed in `/usr/share/licenses/owneet-frontend/`.
 
-Interface sounds: made by the OwneetOS project owner with FL Studio (GPL-3.0-or-later). Sounds
-still to be delivered use placeholders (until [[step-7.7-final-interface-sounds]]) by
-[Kenney](https://kenney.nl) (Kenney Vleugels), "Interface Sounds" and "Music Jingles" packs, CC0 1.0
-(public domain); sources listed in `frontend/sounds/SOURCES.md`.
+Interface sounds: all ten made by the OwneetOS project owner with FL Studio (GPL-3.0-or-later);
+listed in `frontend/sounds/SOURCES.md`.
 
 ## Inspiration
 

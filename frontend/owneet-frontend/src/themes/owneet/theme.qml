@@ -561,7 +561,7 @@ FocusScope {
 
     // ---- Notifications (3.11, approved demo design/demos/3.11-notifications.html): banners at the top
     // right, the bell in the top bar, the list on Y from the home screen. "attention": something to
-    // act on (notify-error sound); "info": news (notify). Kept until the console restarts (30 at most).
+    // act on (in the accent); "info": news. Both play "notify" (owner, 2026-11-03). Kept until the console restarts (30 at most).
     property var noticeList: []
     property int unseen: 0
     property var quietPads: ({})              // controllers turned off from Settings: id → time
@@ -582,7 +582,7 @@ FocusScope {
         unseen++;
         if (gameOnScreen)
             return;
-        Nav.feedback(n.kind === "attention" ? "notify-error" : "notify");
+        Nav.feedback("notify");
         const detailKey = n.detailKey !== undefined ? n.detailKey : n.key + ".detail";
         banners.show({ title: Tr.tr(n.key, n.args), detail: detailKey ? Tr.tr(detailKey, n.args) : "",
                        icon: n.icon, crossed: n.crossed, kind: n.kind });
@@ -1814,7 +1814,7 @@ FocusScope {
             } },
             { text: Tr.tr("prompt.close"), action: () => dialog.close() }];
         dialog.defaultIndex = 0;
-        Nav.feedback("notify-error");
+        Nav.feedback("error");
         dialog.open(true);
         return true;
     }
