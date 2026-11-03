@@ -76,7 +76,6 @@ console from their authors' official releases, the first time a Windows game is 
 |---|---|---|---|
 | [SDL](https://www.libsdl.org) | Sam Lantinga and contributors | Zlib | Game controller support for games and the frontend |
 | [SDL_GameControllerDB](https://github.com/mdqinc/SDL_GameControllerDB) | Gabriel Jacobo and contributors | Zlib | Button layouts of hundreds of controllers (owneetd uses it to find the Guide button) |
-| [xone](https://github.com/dlundqvist/xone) | medusalix (original author), dlundqvist (maintainer) and contributors | GPL-2.0-or-later | Driver for the Xbox wireless dongle |
 
 ## The OwneetOS daemon (`owneetd`)
 

@@ -2,8 +2,8 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-hardware
-pkgver=0.0.5
-pkgrel=2
+pkgver=0.0.6
+pkgrel=1
 pkgdesc="OwneetOS hardware support: firmware, GPU drivers (AMD, Intel, NVIDIA), audio, network, Bluetooth"
 arch=('any')
 url="https://github.com/fancy-dino/OwneetOS"
@@ -19,8 +19,7 @@ depends=(
   'pipewire' 'wireplumber' 'pipewire-pulse' 'pipewire-alsa'
   # Network and Bluetooth
   'networkmanager' 'wireless-regdb' 'bluez'
-  # Xbox wireless dongle (driver only; Microsoft's firmware is downloaded with the user's consent)
-  'owneet-xone'
+  # (the Xbox wireless dongle's driver, owneet-xone, waits in packages/wave-2/)
 )
 install=owneet-hardware.install
 source=('owneet-gpu-select' 'owneet-gpu-select.service' 'nvidia-utils.modprobe.conf' 'owneet-nvidia-i2c.conf' '51-owneet-audio-awake.conf'

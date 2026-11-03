@@ -2,7 +2,8 @@
 
 **PKGBUILDs** for the `[owneet]` pacman repository: every OwneetOS component (daemon, frontend,
 theme, extension, installer, session files) and third-party software not in the official Arch
-repositories (for example `xone`, `brave-bin`).
+repositories (for example `brave-bin`). Packages that wait for a later wave are in
+[`wave-2/`](wave-2/README.md), outside the build.
 
 ## Build
 
@@ -25,7 +26,6 @@ first if it is missing.
 | [`owneet-keyring`](owneet-keyring/) | The OwneetOS public key for pacman (`pacman-key --populate owneet`). |
 | [`owneet-branding`](owneet-branding/) | OwneetOS wordmark ("Owneet" + coral "OS", SVG outlines) and the Plymouth boot splash `owneet` (wordmark + coral spinner on deep navy). |
 | [`owneetd`](owneetd/) | The system daemon and `owneetctl`, built from [`daemon/`](../daemon/); systemd **user** service enabled for the console user. |
-| [`owneet-xone`](owneet-xone/) | Xbox wireless dongle driver ([xone](https://github.com/dlundqvist/xone) 0.5.8) built for the ISO's exact kernel, without `xone_wired` (wired controllers stay on the kernel's `xpad`); loads before `mt76x2u` so USB Wi-Fi adapters keep working; `owneet-xone-firmware` downloads Microsoft's firmware only with consent. **Rebuilt for every kernel change.** |
 | [`brave-bin`](brave-bin/) | Brave's official Linux build (unmodified), the hidden engine behind the web apps. Not installed by default: the ISO carries it, with the dependencies the system lacks, in the offline repository `/usr/share/owneet/bundled/`, installed when the user picks a web app ([[step-5.0.0-optional-web-apps]]). |
 | [`owneet-session`](owneet-session/) | Console user `owneet`, autologin on tty1, `owneet-session` (gamescope or cage, restarts, fallback) and the fullscreen placeholder shown until the real UI exists. |
 | [`owneet-installer`](owneet-installer/) | The installer's backend: `owneet-install disks` (the internal disks as JSON, with Windows and BitLocker found) and `owneet-install install` (offline, the stick's own image on a whole disk; started by the console through `owneet-install.service`, its progress in `/run/owneet/install.json`). Runs only on the live stick. |
