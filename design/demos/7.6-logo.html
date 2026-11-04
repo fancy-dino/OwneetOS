@@ -1,12 +1,12 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
-<!-- OwneetOS - interactive demo for [[step-7.6-final-logo-and-brand]], first round: the people who
-     saw the gamepad "O" read "wneetOS" (owner, 2026-11-04), so the wordmark gets its letter "O" back
-     and the gamepad becomes a symbol next to it. Two layouts to compare: the symbol on the left and
-     the symbol above, large, on the boot splash and in the top bar. The letters are the outlines of
+<!-- OwneetOS - interactive demo for [[step-7.6-final-logo-and-brand]]: the people who saw the gamepad
+     "O" read "wneetOS" (owner, 2026-11-04), so the wordmark gets its letter "O" back and the gamepad
+     becomes a symbol next to it. The owner's combination: the symbol above on the full screen, with
+     the slogan under it, and the symbol on the left in the top bar. The letters are the outlines of
      the current wordmark (packages/owneet-branding, Bricolage Grotesque, SIL Open Font License 1.1);
-     the symbol is the one of logo-gamepad-o.html, drawn for OwneetOS. Open in a browser; left /
-     right change the palette. -->
+     the symbol is the one of logo-gamepad-o.html, drawn for OwneetOS. Fonts come from Google Fonts
+     for the demo only. Open in a browser; left / right change the palette. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -30,18 +30,13 @@ p { margin: 0; color: var(--muted); line-height: 1.45; max-width: 75ch; }
   border-radius: 999px; padding: 6px 14px; cursor: pointer; }
 .cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 24px; min-width: 0; }
-.stage { display: grid; place-items: center; min-height: 300px; }
-.stage svg { display: block; height: auto; }
-.left .stage svg { width: min(460px, 100%); }
-.above .stage svg { width: min(340px, 100%); }
-.boot { background: #000; border-radius: 12px; display: grid; place-items: center; min-height: 220px; padding: 16px; }
-.boot svg { display: block; height: auto; }
-.left .boot svg { width: min(340px, 100%); }
-.above .boot svg { width: min(240px, 100%); }
+.screen { border-radius: 12px; overflow: hidden; aspect-ratio: 16 / 9; }
+.screen svg { display: block; width: 100%; height: 100%; }
+#full { background: var(--bg); border: 1px solid var(--line); }
+#boot { background: #000; }
 .topbar { display: flex; align-items: center; gap: 22px; background: var(--bg); border-radius: 12px; padding: 12px 18px; height: 76px; overflow: hidden; }
 .topbar svg { width: auto; display: block; flex: none; }
-.left .topbar svg { height: 32px; }
-.above .topbar svg { height: 52px; }
+.topbar svg { height: 32px; }
 .tabs { display: flex; gap: 6px; color: var(--muted); font-size: 14px; min-width: 0; }
 .tabs b { background: var(--fg); color: var(--bg); font-weight: 500; border-radius: 999px; padding: 5px 14px; }
 .tabs i { font-style: normal; padding: 5px 8px; }
@@ -55,21 +50,17 @@ p { margin: 0; color: var(--muted); line-height: 1.45; max-width: 75ch; }
 <main>
   <header class="top">
     <div style="display:grid; gap:8px">
-      <h1>Final logo: the symbol on the left or above?</h1>
-      <p>The word is complete again, with its “O”; the gamepad stays as a symbol of its own.</p>
+      <h1>Final logo</h1>
+      <p>The symbol above on the full screen, with the slogan; the symbol on the left in the top bar.</p>
     </div>
     <button class="chip" id="pal" type="button"></button>
   </header>
 
   <div class="cols">
-    <section class="card left"><h2>Symbol on the left</h2><div class="stage" id="leftBig"></div></section>
-    <section class="card above"><h2>Symbol above</h2><div class="stage" id="aboveBig"></div></section>
-    <section class="card left"><h2>Boot splash</h2><div class="boot" id="leftBoot"></div></section>
-    <section class="card above"><h2>Boot splash</h2><div class="boot" id="aboveBoot"></div></section>
-    <section class="card left"><h2>Top bar</h2><div class="topbar"><div id="leftBar"></div><div class="tabs"><b>Home</b><i>Library</i><i>Settings</i></div></div></section>
-    <section class="card above"><h2>Top bar</h2><div class="topbar"><div id="aboveBar"></div><div class="tabs"><b>Home</b><i>Library</i><i>Settings</i></div></div></section>
+    <section class="card"><h2>Full screen</h2><div class="screen" id="full"></div></section>
+    <section class="card"><h2>Boot splash</h2><div class="screen" id="boot"></div></section>
   </div>
-
+  <section class="card"><h2>Top bar</h2><div class="topbar"><div id="bar"></div><div class="tabs"><b>Home</b><i>Library</i><i>Settings</i></div></div></section>
   <section class="card">
     <h2>The symbol alone</h2>
     <div class="sizes" id="sizes"></div>
@@ -158,15 +149,22 @@ const svg = (w, h, inner) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="$
 
 // the symbol on the left: both on the word's middle line
 function logoLeft(cText, cOS) {
-  const wordW = WORD.right - WORD.left, h = LEFT.size;
+  const h = LEFT.size;
   return svg(LEFT.size + LEFT.gap + wordW, h, symbol(cOS, 0, 0, LEFT.size) +
     word(cText, cOS, LEFT.size + LEFT.gap - WORD.left, h / 2 - WORD.middle));
 }
 // the symbol above: centred over the word
-function logoAbove(cText, cOS) {
-  const wordW = WORD.right - WORD.left, wordH = WORD.bottom - WORD.top;
-  return svg(wordW, ABOVE.size + ABOVE.gap + wordH, symbol(cOS, (wordW - ABOVE.size) / 2, 0, ABOVE.size) +
-    word(cText, cOS, -WORD.left, ABOVE.size + ABOVE.gap - WORD.top));
+const wordW = WORD.right - WORD.left, aboveH = ABOVE.size + ABOVE.gap + WORD.bottom - WORD.top;
+const logoAbove = (cText, cOS) => symbol(cOS, (wordW - ABOVE.size) / 2, 0, ABOVE.size) +
+  word(cText, cOS, -WORD.left, ABOVE.size + ABOVE.gap - WORD.top);
+// a screen of 1600 x 900: the word 800 wide, the whole in the middle; with the slogan under it
+const SLOGAN = { text: 'Plug it. Play it. Own it!', size: 40, gap: 32, ascent: 0.72 };
+function screen(cText, cOS, cSlogan) {
+  const k = 800 / wordW, logoH = aboveH * k, h = logoH + (cSlogan ? SLOGAN.gap + SLOGAN.size : 0), top = (900 - h) / 2;
+  const line = cSlogan ? `<text x="800" y="${(top + logoH + SLOGAN.gap + SLOGAN.size * SLOGAN.ascent).toFixed(1)}" text-anchor="middle"` +
+    ` font-family="Lexend, system-ui, sans-serif" font-size="${SLOGAN.size}" font-weight="350" fill="${cSlogan}">${SLOGAN.text}</text>` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="OwneetOS">` +
+    `<g transform="translate(400 ${top.toFixed(1)}) scale(${k.toFixed(5)})">${logoAbove(cText, cOS)}</g>${line}</svg>`;
 }
 const markSvg = (px, colour) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${px}" height="${px}">${markPath(colour)}</svg>`;
@@ -178,12 +176,9 @@ function render() {
   const p = PALETTES[state.pal], t = tok(p);
   for (const name of TOKENS) document.documentElement.style.setProperty('--' + name, t[name]);
   $('#pal').textContent = 'Palette: ' + p[1];
-  $('#leftBig').innerHTML = logoLeft(t.fg, t.accent);
-  $('#aboveBig').innerHTML = logoAbove(t.fg, t.accent);
-  $('#leftBoot').innerHTML = logoLeft(SPLASH.fg, SPLASH.accent);
-  $('#aboveBoot').innerHTML = logoAbove(SPLASH.fg, SPLASH.accent);
-  $('#leftBar').innerHTML = logoLeft(t.fg, t.accent);
-  $('#aboveBar').innerHTML = logoAbove(t.fg, t.accent);
+  $('#full').innerHTML = screen(t.fg, t.accent, t.muted);
+  $('#boot').innerHTML = screen(SPLASH.fg, SPLASH.accent);
+  $('#bar').innerHTML = logoLeft(t.fg, t.accent);
   $('#sizes').innerHTML = [192, 128, 64, 48, 32, 24, 16]
     .map(px => `<figure>${markSvg(px, t.accent)}<figcaption>${px} px</figcaption></figure>`).join('');
 }
