@@ -27,6 +27,15 @@ Mockups and design assets.
     mark, A installs (size, usage requirements, progress on the tile), Menu → Remove, and what can go
     wrong (live system under 12 GB of RAM, disk full, failed install; W cycles them). The engine
     behind the web apps is never named. Start state: `#installed=netflix&sim=ram&focus=apps`.
+  - [`5.6-videos-and-music.html`](demos/5.6-videos-and-music.html): the Videos and Music pages
+    ([[step-5.6-local-videos-and-music]], [[local-media]]), opened from their Apps tiles: the
+    Videos / Music folders of every disk together, Continue watching, a folder's videos with their
+    progress, Menu → Resume / Watch from the start, Y Autoplay; Music by folder or by artist and
+    album (LT / RT; the songs read on the first visit, with a spinner); the empty pages; the player
+    (the video's on-screen display, music's now-playing screen) with its buttons; Guide showing the
+    console while it plays (Resume on Home), holding it in cage. Demo keys: S session, U the USB
+    disk, W no media folders, J near the end, R read the songs again, K a game running. Start
+    state: `#page=music&view=artists&play=video|song&session=cage&open=options&lang=it`.
   - [`6.1-first-start.html`](demos/6.1-first-start.html): the first start
     ([[step-6.1-first-boot-flow]]): the mockup's pairing screen, the language, the network (or
     later), the time zone (suggested, or a list of cities), the Xbox adapter's firmware with
