@@ -6,7 +6,9 @@
      the slogan under it, and the symbol on the left in the top bar. The two start-up animations, as
      approved in logo-gamepad-o.html (four beats): the logo appears over 2 s (website: from transparent;
      console: from the boot splash's colours, already on screen), then the slogan's words 0.5 s apart,
-     each at once. The letters are the outlines of
+     each at once. The start-up sound (startup.wav, from sounds.js) starts with them, without the silence
+     before it, as on the console; browsers allow sound only after a press, so it plays from "Play
+     again" (or Enter), not when the page opens. The letters are the outlines of
      the current wordmark (packages/owneet-branding, Bricolage Grotesque, SIL Open Font License 1.1);
      the symbol is the one of logo-gamepad-o.html, drawn for OwneetOS. Fonts come from Google Fonts
      for the demo only. Open in a browser; Enter plays the animations again, left / right change the palette. -->
@@ -61,7 +63,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 10px; }
   </header>
 
   <section class="card">
-    <div class="top" style="margin-bottom:12px"><h2 style="margin:0">Start-up animations</h2><button class="chip" id="replay" type="button">Play again</button></div>
+    <div class="top" style="margin-bottom:12px"><h2 style="margin:0">Start-up animations</h2><button class="chip" id="replay" type="button">Play again, with sound</button></div>
     <div class="cols">
       <div><h3>Website: the logo from transparent</h3><div class="screen" id="animWebsite"></div></div>
       <div><h3>Console: the logo from the boot splash's colours</h3><div class="screen" id="animConsole"></div></div>
@@ -79,6 +81,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 10px; }
   </section>
 </main>
 
+<script src="sounds.js"></script>
 <script>
 const OLD_O = "M234.8 12.3Q177.3 12.3 136.1 -9.5Q94.9 -31.3 69.2 -74.3Q43.4 -117.2 31.5 -180.4Q19.6 -243.6 19.6 -326.3Q19.6 -444.5 42 -520.8Q64.3 -597.2 113 -634.7Q161.6 -672.3 238 -672.3Q296.2 -672.3 337.6 -651.2Q379 -630.2 405.6 -588Q432.1 -545.7 444.8 -481Q457.5 -416.3 457.5 -329.8Q457.5 -245.4 444.7 -181.5Q431.8 -117.5 404.7 -74.6Q377.7 -31.7 335.7 -9.7Q293.7 12.3 234.8 12.3ZM238.2 -103.2Q262.9 -103.2 278.2 -125.6Q293.5 -148 300.5 -197.1Q307.6 -246.2 307.6 -325.9Q307.6 -408.2 300.2 -459Q292.8 -509.7 277.2 -532.9Q261.7 -556.1 237 -556.1Q213.5 -556.1 198.4 -532.8Q183.4 -509.4 176.6 -459Q169.7 -408.5 169.7 -326.9Q169.7 -267 173.5 -224.4Q177.4 -181.7 185.2 -155.1Q193.1 -128.4 206.5 -115.8Q219.9 -103.2 238.2 -103.2Z";
 const WNEET = [
@@ -224,14 +227,40 @@ function draw(a, ms) {
 }
 function frame(now, mine = run) {
   if (mine !== run) return;
-  const ms = FROZEN ? +FROZEN[1] : now - start;
+  const ms = FROZEN ? +FROZEN[1] : Math.max(0, now - start);
   anims.forEach(a => draw(a, ms));
   if (!FROZEN && ms < FIRST_BEAT + 2 * BEAT + 100) requestAnimationFrame(n => frame(n, mine));
 }
-function play() {
+// The start-up sound: from its first sound on (the package removes the silence before it, -60 dB),
+// the animations starting exactly with it. Browsers allow sound only after a press.
+let audio = null, startupBuffer = null, startupOffset = 0, voice = null;
+function prepareSound() {
+  if (audio || !window.OWNEET_SOUNDS) return;
+  audio = new AudioContext();
+  const bytes = Uint8Array.from(atob(window.OWNEET_SOUNDS.startup.split(',')[1]), c => c.charCodeAt(0));
+  audio.decodeAudioData(bytes.buffer).then(buffer => {
+    startupBuffer = buffer;
+    const left = buffer.getChannelData(0), first = left.findIndex(v => Math.abs(v) > 0.001);
+    startupOffset = Math.max(0, first) / buffer.sampleRate;
+    if (pressed) play(true);
+  });
+}
+let pressed = false;
+function play(withSound = false) {
   run++;
   anims = [build($('#animWebsite'), true), build($('#animConsole'), false)];
+  if (voice) { voice.stop(); voice = null; }
   start = performance.now();
+  if (withSound && startupBuffer) {
+    pressed = false;
+    audio.resume();
+    voice = audio.createBufferSource();
+    voice.buffer = startupBuffer;
+    voice.connect(audio.destination);
+    const delay = 0.08;                 // the sound and the picture start together, a moment from now
+    voice.start(audio.currentTime + delay, startupOffset);
+    start += (delay + (audio.outputLatency || audio.baseLatency || 0)) * 1000;
+  }
   if (FROZEN) frame(0); else requestAnimationFrame(n => frame(n));
 }
 
@@ -240,7 +269,9 @@ function act(a) {
   else if (a === 'right') state.pal = (state.pal + 1) % PALETTES.length;
   else if (a !== 'play') return;
   render();
-  play();
+  // a press: the sound can play (when it is not decoded yet, it starts as soon as it is)
+  if (a === 'play') { prepareSound(); pressed = !startupBuffer; }
+  play(a === 'play');
 }
 $('#pal').onclick = () => act('right');
 $('#replay').onclick = () => act('play');
