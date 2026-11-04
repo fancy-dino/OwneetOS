@@ -12,7 +12,8 @@
      again" (or Enter), not when the page opens. The letters are the outlines of
      the current wordmark (packages/owneet-branding, Bricolage Grotesque, SIL Open Font License 1.1);
      the symbol is the one of logo-gamepad-o.html, drawn for OwneetOS. Fonts come from Google Fonts
-     for the demo only. Open in a browser; Enter plays the animations again, left / right change the palette. -->
+     for the demo only. Open in a browser; Enter plays the animations again, left / right change the palette, B compares
+     the light blue buttons with the ones in the symbol's colour. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -61,7 +62,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 10px; }
       <h1>Final logo</h1>
       <p>The symbol above on the full screen, with the slogan; the symbol on the left in the top bar.</p>
     </div>
-    <button class="chip" id="pal" type="button"></button>
+    <div style="display:flex; gap:8px; flex-wrap:wrap"><button class="chip" id="azure" type="button"></button><button class="chip" id="pal" type="button"></button></div>
   </header>
 
   <section class="card">
@@ -121,7 +122,7 @@ const PALETTES = [
 const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
 // The boot splash (a still picture): white letters, the symbol and "OS" light grey.
 const SPLASH = { bg: '#000000', fg: '#FFFFFF', accent: '#B0B0B0' };
-const state = { pal: 0 };
+const state = { pal: 0, azure: true };
 
 // ---- The symbol, in a 100 x 100 box: the disc, the gamepad cut out of it, the buttons back in the
 // disc's colour (the same drawing as logo-gamepad-o.html).
@@ -148,10 +149,13 @@ function markData() {
     .map(([x, y]) => P(x, y)).join('L') + 'Z';
   const fx = 68, fy = 48.5, o = 5.8, br = 2.7;
   const face = [[fx, fy - o], [fx + o, fy], [fx, fy + o], [fx - o, fy]].map(([x, y]) => circle(x, y, br)).join('');
-  return 'M0,50a50,50 0 1,0 100,0a50,50 0 1,0 -100,0Z' + body + cross + face;
+  return ['M0,50a50,50 0 1,0 100,0a50,50 0 1,0 -100,0Z' + body, cross + face];
 }
-const MARK = markData();
-const markPath = colour => `<path fill="${colour}" fill-rule="evenodd" d="${MARK}"/>`;
+const [SHELL, BUTTONS] = markData();
+// A try (owner, 2026-11-04): the D-pad and the buttons light blue, for more contrast; B compares.
+const AZURE = '#6FD3FF';
+const markPath = colour => `<path fill="${colour}" fill-rule="evenodd" d="${SHELL}"/>` +
+  `<path class="buttons" fill="${state.azure ? AZURE : colour}" d="${BUTTONS}"/>`;
 
 // ---- The word, in the outlines' units: x 19.6..3401, y -672..12, its middle at y -330. The symbol's
 // size and distance are in these units too.
@@ -198,6 +202,7 @@ function render() {
   const p = PALETTES[state.pal], t = tok(p);
   for (const name of TOKENS) document.documentElement.style.setProperty('--' + name, t[name]);
   $('#pal').textContent = 'Palette: ' + p[1];
+  $('#azure').textContent = state.azure ? 'Buttons: light blue' : 'Buttons: as before';
   $('#full').innerHTML = screen(t.fg, t.accent, t.muted);
   $('#boot').innerHTML = screen(SPLASH.fg, SPLASH.accent);
   $('#bar').innerHTML = logoLeft(t.fg, t.accent);
@@ -217,7 +222,7 @@ function build(root, website) {
   root.innerHTML = screen(t.fg, t.accent, t.muted, true);
   const logo = root.querySelector('.logo');
   // each outline with its colours, from the splash's to the palette's
-  const parts = [...logo.querySelectorAll('path')].map(path => path.getAttribute('fill') === t.accent
+  const parts = [...logo.querySelectorAll(state.azure ? 'path:not(.buttons)' : 'path')].map(path => path.getAttribute('fill') === t.accent
     ? [path, SPLASH.accent, t.accent] : [path, SPLASH.fg, t.fg]);
   return { website, root, bg: t.bg, logo, parts, words: [...root.querySelectorAll('tspan')] };
 }
@@ -272,6 +277,7 @@ function play(withSound = false) {
 function act(a) {
   if (a === 'left') state.pal = (state.pal + PALETTES.length - 1) % PALETTES.length;
   else if (a === 'right') state.pal = (state.pal + 1) % PALETTES.length;
+  else if (a === 'buttons') state.azure = !state.azure;
   else if (a !== 'play') return;
   render();
   // a press: the sound can play (when it is not decoded yet, it starts as soon as it is)
@@ -280,8 +286,9 @@ function act(a) {
 }
 $('#pal').onclick = () => act('right');
 $('#replay').onclick = () => act('play');
+$('#azure').onclick = () => act('buttons');
 addEventListener('keydown', e => {
-  const a = { ArrowLeft: 'left', ArrowRight: 'right', Enter: 'play' }[e.key];
+  const a = { ArrowLeft: 'left', ArrowRight: 'right', Enter: 'play', b: 'buttons' }[e.key];
   if (a) { e.preventDefault(); act(a); }
 });
 const pal = /pal=([\w-]+)/.exec(location.hash);
