@@ -1,0 +1,9 @@
+@owneetd
+@steam
+@gamescope
+# Pictures for the website's new home ([[step-7.8m-website-simpler-home]]): the home screen while a
+# game is running, as the Home button shows it.
+wait 22
+event app.started {"id":"steam:2001","name":"Glass Canyon","kind":"game","started":"2026-11-04T13:20:00Z"}
+wait 2
+shot 01-game-running

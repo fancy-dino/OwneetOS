@@ -1,0 +1,565 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS: interactive demo for [[step-7.8m-website-simpler-home]], the website's simpler home
+     (owner, 2026-11-04). Five sections: Home (a carousel, a sentence beside a screen of the console,
+     and the link to the credits), Plug it. (the guide and the questions), Play it. (a short tour of
+     the buttons), Own it! (it belongs to everyone), Download (reached by scrolling to the end or
+     with "Get OwneetOS"). The header has the three middle sections; the name leads to Home.
+     English and Italian (the real site takes its texts from translation files, in every language).
+     The start-up animation is left out. The screens are real ones from the preview
+     (tools/preview-steps/site-home.txt, site-home-game.txt), in English and in Dusk for now, with
+     invented games; they are taken again after step 5.7. Icons: Lucide 1.52.0 (ISC License; some
+     derived from Feather, MIT License; CREDITS.md). Fonts come from Google Fonts for the demo only:
+     the real site serves its own. Open in a browser; mouse, keyboard and touch. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS: new home (demo 7.8m)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@400;500&display=swap">
+<style>
+:root { --bg: #0e1424; --surface: #172036; --raised: #222d4a; --line: #2e3a5c; --fg: #eef1f8;
+  --muted: #8f9ab5; --accent: #ff8a5b; --on-accent: #1e0e06;
+  --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif;
+  --wrap: 1160px; --head: 68px; color-scheme: dark; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef0f5; --surface: #fff; --raised: #e2e6ef; --line: #c9cfdc; --fg: #121826;
+  --muted: #5a6378; --accent: #2f5bea; --on-accent: #fff; color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #eef0f5; --surface: #fff; --raised: #e2e6ef; --line: #c9cfdc; --fg: #121826;
+  --muted: #5a6378; --accent: #2f5bea; --on-accent: #fff; color-scheme: light; }
+* { box-sizing: border-box; }
+html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--text); font-weight: 400; line-height: 1.5; overflow-x: clip; }
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px; width: 100%; }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 80; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+.ic { display: inline-flex; width: 18px; height: 18px; }
+.ic svg { width: 100%; height: 100%; display: block; }
+.wordmark { display: block; height: 30px; width: auto; fill: var(--fg); }
+.wordmark .accent { fill: var(--accent); }
+
+.btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; border: 1px solid transparent; cursor: pointer;
+  border-radius: 999px; padding: 12px 24px; font-size: 16px; font-weight: 500; transition: transform .15s ease; background: none; white-space: nowrap; }
+.btn:hover { transform: translateY(-1px); }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+.btn.small { padding: 8px 16px; font-size: 14px; }
+
+/* Header */
+header.site { position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: var(--head);
+  background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(10px); }
+.nav { display: flex; align-items: center; gap: 28px; height: 100%; }
+.logo { display: flex; align-items: center; }
+.nav ul { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.nav ul a { display: block; text-decoration: none; color: var(--muted); padding: 8px 12px; border-radius: 999px; font-size: 15px; }
+.nav ul a:hover, .nav ul a[aria-current="true"] { color: var(--fg); }
+.nav ul a[aria-current="true"] { background: var(--surface); }
+.end { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.hdr-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: none; font-size: 14px; cursor: pointer; }
+.hdr-btn:hover { background: var(--surface); }
+.hdr-btn .chev { width: 14px; height: 14px; color: var(--muted); }
+.langmenu { position: relative; }
+.nav ul.lang-list { display: block; position: absolute; right: 0; top: calc(100% + 8px); min-width: 190px; padding: 6px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 32px rgb(0 0 0 / .25); z-index: 30; }
+.nav ul.lang-list[hidden] { display: none; }
+.nav ul.lang-list a { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-radius: 10px; color: var(--fg); }
+.nav ul.lang-list a:hover, .nav ul.lang-list a[aria-current="true"] { background: var(--raised); }
+.lang-list .ic { width: 16px; height: 16px; color: var(--accent); }
+.theme-btn { width: 36px; padding: 0; justify-content: center; }
+.menu-btn { display: none; align-items: center; gap: 6px; background: none; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 14px; cursor: pointer; }
+
+/* Sections: one screen each, snapped */
+.snap { min-height: 100svh; scroll-snap-align: start; padding: calc(var(--head) + 32px) 0 48px; display: flex; align-items: center; }
+.snap > .wrap { display: grid; gap: 36px; }
+.snap > .wrap > * { min-width: 0; }
+.head { text-align: center; display: grid; gap: 12px; justify-items: center; }
+.head h2 { font-size: clamp(38px, 6vw, 72px); margin: 0; }
+.head p { color: var(--muted); font-size: 18px; margin: 0; max-width: 30em; }
+.icon { width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.icon .ic { width: 30px; height: 30px; }
+
+/* Where we are: one dot per section, on the right */
+.side { position: fixed; right: 20px; top: 50%; transform: translateY(-50%); z-index: 15; display: grid; gap: 12px; }
+.side a { width: 10px; height: 10px; border-radius: 50%; background: var(--line); display: block; transition: transform .2s ease, background .2s ease; }
+.side a[aria-current="true"] { background: var(--accent); transform: scale(1.35); }
+
+/* Pictures of the console */
+.shot { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 16px; border: 1px solid var(--line); background: #0e1424; }
+
+/* Home: the carousel. The strip spans the whole screen, one slide on it at rest */
+#home > .wrap { gap: 24px; }
+.carousel { margin: 0 calc(50% - 50vw); --card: min(1112px, 88vw); }
+.track { position: relative; display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none;
+  padding: 8px calc(50vw - var(--card) / 2) 28px; gap: calc(50vw - var(--card) / 2); }
+.track::-webkit-scrollbar { display: none; }
+.slide { flex: 0 0 var(--card); scroll-snap-align: center; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 8fr); gap: 56px; align-items: center; }
+.slide .say { margin: 0; font-size: clamp(32px, 4.3vw, 56px); }
+.slide .shot { justify-self: end; max-width: calc((100svh - 310px) * 16 / 9); }
+.controls { display: flex; justify-content: center; align-items: center; gap: 18px; }
+.arrow { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); cursor: pointer; display: grid; place-items: center; }
+.pips { display: flex; gap: 8px; }
+.pips button { width: 9px; height: 9px; border-radius: 50%; border: 0; padding: 0; background: var(--line); cursor: pointer; }
+.pips button[aria-current="true"] { background: var(--accent); width: 24px; border-radius: 999px; }
+.made { text-align: center; margin: 0; font-size: 15px; color: var(--muted); }
+.made a:hover { color: var(--fg); }
+
+/* Plug it. */
+.infos { display: grid; grid-template-columns: repeat(2, minmax(0, 340px)); gap: 20px; justify-content: center; }
+.info { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 32px 24px; text-decoration: none;
+  display: grid; justify-items: center; text-align: center; gap: 10px; transition: transform .15s ease, border-color .15s ease; }
+.info:hover { transform: translateY(-2px); border-color: var(--accent); }
+.info b { font-family: var(--display); font-variation-settings: "wdth" 80; font-weight: 800; font-size: 24px; }
+.info span:last-child { color: var(--muted); font-size: 15.5px; }
+
+/* Play it.: the buttons on the left, the console's screen following them; the selected one wears
+   the console's own selection ring */
+.tour { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 8fr); gap: 40px; align-items: center; }
+.moves { display: grid; gap: 10px; list-style: none; margin: 0; padding: 0; }
+.move { width: 100%; display: grid; grid-template-columns: 76px 1fr; gap: 12px; align-items: center; text-align: left; cursor: pointer;
+  background: none; border: 0; border-radius: 16px; padding: 12px 14px; color: var(--muted); font-size: 15.5px; line-height: 1.35;
+  outline: 3px solid transparent; outline-offset: 2px; transition: background .2s ease, color .2s ease, outline-color .2s ease; }
+.move:hover { color: var(--fg); }
+.move[aria-current="true"] { background: var(--surface); color: var(--fg); outline-color: var(--accent); }
+.glyphs { display: flex; gap: 5px; justify-content: center; color: var(--fg); }
+.glyph { min-width: 34px; height: 34px; border-radius: 50%; border: 2px solid currentColor; display: grid; place-items: center; font-size: 15px; font-weight: 500; }
+.glyph.pill { min-width: 34px; height: 26px; border-radius: 7px; font-size: 11.5px; font-weight: 600; padding: 0 4px; }
+.glyph .ic { width: 18px; height: 18px; }
+.screens { position: relative; aspect-ratio: 16 / 9; justify-self: end; width: 100%; max-width: calc((100svh - 300px) * 16 / 9); }
+.screens .shot { position: absolute; inset: 0; opacity: 0; transition: opacity .35s ease; }
+.screens .shot.on { opacity: 1; }
+
+/* Own it! */
+.facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.fact { display: grid; justify-items: center; text-align: center; gap: 12px; padding: 12px; }
+.fact b { font-weight: 500; font-size: 17px; }
+
+/* Download, and the footer */
+.last { flex-direction: column; justify-content: space-between; padding-bottom: 0; }
+.box { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, var(--surface)), var(--surface));
+  border: 1px solid var(--line); border-radius: 28px; padding: 64px 24px; text-align: center; display: grid; gap: 28px; justify-items: center; margin: auto 0; }
+.box h2 { font-size: clamp(36px, 5vw, 60px); margin: 0; }
+footer { width: 100%; border-top: 1px solid var(--line); padding: 22px 0 26px; font-size: 13.5px; color: var(--muted); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; }
+footer .wordmark { height: 22px; }
+footer a { text-decoration: none; }
+footer a:hover { color: var(--fg); text-decoration: underline; }
+.marks { flex-basis: 100%; font-size: 12.5px; }
+
+.notice { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 160%); visibility: hidden; opacity: 0; z-index: 40;
+  background: var(--raised); color: var(--fg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 18px;
+  font-size: 14px; max-width: calc(100% - 32px); transition: transform .25s ease, opacity .25s ease, visibility .25s; }
+.notice.on { transform: translate(-50%, 0); visibility: visible; opacity: 1; }
+
+/* Below this the links no longer fit: the Menu button opens them under the header */
+@media (max-width: 820px) {
+  .menu-btn { display: inline-flex; }
+  .nav ul#menu { display: none; position: absolute; top: var(--head); left: 0; right: 0; flex-direction: column; gap: 0;
+    background: var(--bg); border-bottom: 1px solid var(--line); padding: 8px 16px 16px; }
+  .nav ul#menu.open { display: flex; }
+  .nav ul#menu a { padding: 12px; }
+  .get { display: none; }
+}
+@media (max-width: 960px) {
+  .side { display: none; }
+  .slide { grid-template-columns: minmax(0, 1fr); gap: 24px; text-align: center; }
+  .slide .shot { justify-self: center; }
+  .tour { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .screens { order: -1; justify-self: center; max-width: 640px; }
+  .facts { grid-template-columns: repeat(2, 1fr); }
+  .infos { grid-template-columns: minmax(0, 420px); }
+}
+@media (max-width: 640px) {
+  .wrap { padding: 0 16px; }
+  .hdr-btn .code { display: none; }
+  .snap { padding-top: calc(var(--head) + 20px); }
+  .nav { gap: 12px; }
+  .move { grid-template-columns: 70px 1fr; padding: 8px 10px; font-size: 14.5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html, .track { scroll-behavior: auto; }
+  .btn, .info, .side a, .move, .screens .shot, .notice { transition: none; }
+}
+</style>
+</head>
+<body>
+<header class="site">
+  <nav class="wrap nav" aria-label="Main">
+    <a class="logo" href="#home" aria-label="OwneetOS" id="logo"></a>
+    <ul id="menu"></ul>
+    <div class="end">
+      <div class="langmenu">
+        <button class="hdr-btn" type="button" id="langBtn" aria-haspopup="true" aria-expanded="false"></button>
+        <ul class="lang-list" id="langList" hidden></ul>
+      </div>
+      <button class="hdr-btn theme-btn" type="button" id="themeBtn"></button>
+      <a class="btn primary small get" href="#download" id="get"></a>
+      <button class="menu-btn" type="button" id="menuBtn" aria-controls="menu" aria-expanded="false"></button>
+    </div>
+  </nav>
+</header>
+
+<nav class="side" id="side"></nav>
+
+<main>
+  <section class="snap" id="home">
+    <div class="wrap">
+      <div class="carousel" id="carousel">
+        <div class="track" id="track" tabindex="0" role="region" aria-roledescription="carousel"></div>
+        <div class="controls">
+          <button class="arrow" type="button" id="prev"></button>
+          <div class="pips" id="pips"></div>
+          <button class="arrow" type="button" id="next"></button>
+        </div>
+      </div>
+      <p class="made"><a href="#" id="made" data-page="credits"></a></p>
+    </div>
+  </section>
+
+  <section class="snap" id="plug">
+    <div class="wrap">
+      <div class="head"><h2 class="disp" id="plugTitle"></h2><p id="plugLede"></p></div>
+      <div class="infos" id="infos"></div>
+    </div>
+  </section>
+
+  <section class="snap" id="play">
+    <div class="wrap">
+      <div class="head"><h2 class="disp" id="playTitle"></h2><p id="playLede"></p></div>
+      <div class="tour" id="tour">
+        <ul class="moves" id="moves"></ul>
+        <div class="screens" id="screens"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="snap" id="own">
+    <div class="wrap">
+      <div class="head"><h2 class="disp" id="ownTitle"></h2><p id="ownLede"></p></div>
+      <div class="facts" id="facts"></div>
+    </div>
+  </section>
+
+  <section class="snap last" id="download">
+    <div class="wrap">
+      <div class="box">
+        <h2 class="disp" id="dlTitle"></h2>
+        <a class="btn primary" href="#download" id="dlBtn"></a>
+      </div>
+    </div>
+    <footer><div class="wrap" id="foot"></div></footer>
+  </section>
+</main>
+<div class="notice" id="notice" role="status"></div>
+
+<script>
+const LOGO = `<svg class="wordmark" viewBox="0 0 4471.8 960" role="img" aria-label="OwneetOS"><path class="accent" fill-rule="evenodd" d="M0,50a50,50 0 1,0 100,0a50,50 0 1,0 -100,0ZM28.40,30.20L71.60,30.20A19.20,19.20 0 0,1 90.80,49.40L90.80,49.40A19.20,19.20 0 0,1 58.02,62.98Q50.00,55.40 41.98,62.98A19.20,19.20 0 0,1 9.20,49.40L9.20,49.40A19.20,19.20 0 0,1 28.40,30.20ZM25.28,39.32L31.52,39.32L31.52,45.08L37.28,45.08L37.28,51.32L31.52,51.32L31.52,57.08L25.28,57.08L25.28,51.32L19.52,51.32L19.52,45.08L25.28,45.08ZM68.36,41.24a3.24,3.24 0 1,0 6.48,0a3.24,3.24 0 1,0 -6.48,0ZM75.32,48.20a3.24,3.24 0 1,0 6.48,0a3.24,3.24 0 1,0 -6.48,0ZM68.36,55.16a3.24,3.24 0 1,0 6.48,0a3.24,3.24 0 1,0 -6.48,0ZM61.40,48.20a3.24,3.24 0 1,0 6.48,0a3.24,3.24 0 1,0 -6.48,0Z" transform="scale(9.6)"/><g transform="translate(1090.4 810)"><path d="M234.83562315627933 12.266725666821003Q177.2686584368348 12.266725666821003 136.08490345440805 -9.51647237315774Q94.90114847198129 -31.299670413136482 69.15907439775765 -74.2745824214071Q43.41700032353401 -117.24949442967772 31.500064086169004 -180.44960174895823Q19.583127848803997 -243.64970906823874 19.583127848803997 -326.316842649132Q19.583127848803997 -444.51698099449277 41.95859781652689 -520.8335988335311Q64.33406778424978 -597.1502166725695 112.95136005803943 -634.700139362365Q161.56865233182907 -672.2500620521605 238.03575845062733 -672.2500620521605Q296.21941628679633 -672.2500620521605 337.62817788124084 -651.2168004345149Q379.03693947568536 -630.1835388168693 405.5706720780581 -587.9502970352769Q432.1044046804309 -545.7170552536845 444.79633837379515 -481.008775325492Q457.4882720671594 -416.3004953972995 457.4882720671594 -329.8171600289643Q457.4882720671594 -245.41656494140625 444.65464881807566 -181.46639404445887Q431.8210255689919 -117.51622314751148 404.7372456640005 -74.61629232019186Q377.6534657590091 -31.716361492872238 335.6696909405291 -9.724817913025618Q293.6859161220491 12.266725666821003 234.83562315627933 12.266725666821003ZM238.16905211284757 -103.16813558340073Q262.91907346993685 -103.16813558340073 278.2108398228884 -125.60130615532398Q293.5026061758399 -148.03447672724724 300.5360336024314 -197.11739298701286Q307.56946102902293 -246.2003092467785 307.56946102902293 -325.8828511610627Q307.56946102902293 -408.2324005179107 300.18605903349817 -458.9738652575761Q292.8026570379734 -509.7153299972415 277.2442316468805 -532.9236211124808Q261.6858062557876 -556.13191222772 236.9857167415321 -556.13191222772Q213.4523122049868 -556.13191222772 198.4355407655239 -532.7819569893181Q183.418769326061 -509.43200175091624 176.55202840268612 -458.982191471383Q169.68528747931123 -408.5323811918497 169.68528747931123 -326.88283997401595Q169.68528747931123 -267.0000986792147 173.52699890360236 -224.35880585201085Q177.3687103278935 -181.71751302480698 185.2187861111015 -155.07606506720185Q193.06886189430952 -128.43461710959673 206.46059620566666 -115.80137634649873Q219.8523305170238 -103.16813558340073 238.16905211284757 -103.16813558340073Z"/><path d="M550.7507934421301 0.0 451.433289591223 -527.700054936111H607.352226767689L643.7687174379826 -120.73503825068474H648.1186920069158L701.3684966824949 -527.700054936111H864.6038268879056L918.8369659148157 -120.73503825068474H923.9702646620572L960.6368194185197 -527.700054936111H1110.8222442232072L1011.8047780133784 0.0H822.5857523307204L781.9361104145646 -393.8479146286845H777.1027363911271L736.653104647994 0.0Z"/><path d="M1108.9331634528935 0.0V-312.6510437056422L1108.6998881027102 -527.700054936111H1235.4514699317515L1233.6852335631847 -334.50020346045494H1241.8518595397472Q1243.5851277709007 -409.46669821068645 1258.943497724831 -454.40002340450883Q1274.3018676787615 -499.3333485983312 1302.3103907275945 -519.6167399138212Q1330.3189137764275 -539.9001312293112 1369.802690628916 -539.9001312293112Q1435.3199869692326 -539.9001312293112 1465.778672778979 -488.25000153295696Q1496.2373585887253 -436.5998718366027 1496.2373585887253 -326.88310040161014V0.0H1348.2019042819738V-292.3991974107921Q1348.2019042819738 -350.13202414289117 1340.0268773268908 -376.42351380363107Q1331.8518503718078 -402.71500346437097 1309.4684610962868 -402.71500346437097Q1288.0852020271122 -402.71500346437097 1276.5269083678722 -380.1237274222076Q1264.9686147086322 -357.5324513800442 1260.6019470244646 -318.37458547391Q1256.235279340297 -279.2167195677757 1256.235279340297 -228.46696167439222V0.0Z"/><path d="M1708.6688191592693 12.250062052160501Q1649.351431261748 12.250062052160501 1609.9926574602723 -6.858398946002126Q1570.6338836587965 -25.966859944164753 1547.4002934712917 -61.07532094232738Q1524.1667032837868 -96.18378194049001 1514.3749491348863 -144.90045928768814Q1504.5831949859858 -193.61713663488626 1504.5831949859858 -252.11689452826977Q1504.5831949859858 -308.7168029770255 1513.9583531673998 -360.07510426826775Q1523.3335113488138 -411.43340555951 1545.583794651553 -452.24175211787224Q1567.8340779542923 -493.0500986762345 1606.1761265974492 -516.4751149527729Q1644.518175240606 -539.9001312293112 1703.118645209819 -539.9001312293112Q1757.919114165008 -539.9001312293112 1795.3278711829334 -519.2167597468942Q1832.7366282008588 -498.53338826447725 1854.1785934288055 -460.041606137529Q1875.620558656752 -421.5498240105808 1881.8206746205688 -368.38298491947353Q1888.0207905843854 -315.2161458283663 1879.1039855703712 -250.74921467900276L1601.0678100585938 -241.93249613419175V-314.61662801355124L1758.2687682881951 -319.49999288097024L1742.3021657057106 -270.14978942647576Q1747.4688455983996 -323.16620483249426 1744.9854690339416 -357.19928181916475Q1742.5020924694836 -391.23235880583525 1732.4103774856776 -407.6655217502266Q1722.3186625018716 -424.098684694618 1703.118645209819 -424.098684694618Q1682.6186391077936 -424.098684694618 1671.2019398920238 -405.2905838023871Q1659.785240676254 -386.48248291015625 1655.32688649185 -352.10782267153263Q1650.868532307446 -317.733162432909 1650.868532307446 -270.20014241337776Q1650.868532307446 -176.75080871209502 1664.8269556630403 -137.29269765131176Q1678.7853790186346 -97.83458659052849 1708.8521728366613 -97.83458659052849Q1723.9021799527109 -97.83458659052849 1732.8521723207086 -106.82617289200425Q1741.8021646887064 -115.81775919348001 1746.1605061590672 -131.02592772990465Q1750.518847629428 -146.2340962663293 1751.427204867825 -166.01717528700829Q1752.335562106222 -185.80025430768728 1750.3856119513512 -207.2999267578125L1885.504135105759 -195.6665618903935Q1891.5707824453712 -159.766905721277 1886.7207392137498 -123.00863596610725Q1881.8706959821284 -86.2503662109375 1862.5788472294807 -55.500274149701Q1843.286998476833 -24.7501820884645 1805.8866012413055 -6.2500600181519985Q1768.4862040057778 12.250062052160501 1708.6688191592693 12.250062052160501Z"/><path d="M2094.6688191592693 12.250062052160501Q2035.351431261748 12.250062052160501 1995.9926574602723 -6.858398946002126Q1956.6338836587965 -25.966859944164753 1933.4002934712917 -61.07532094232738Q1910.1667032837868 -96.18378194049001 1900.3749491348863 -144.90045928768814Q1890.5831949859858 -193.61713663488626 1890.5831949859858 -252.11689452826977Q1890.5831949859858 -308.7168029770255 1899.9583531673998 -360.07510426826775Q1909.3335113488138 -411.43340555951 1931.583794651553 -452.24175211787224Q1953.8340779542923 -493.0500986762345 1992.1761265974492 -516.4751149527729Q2030.518175240606 -539.9001312293112 2089.118645209819 -539.9001312293112Q2143.919114165008 -539.9001312293112 2181.3278711829334 -519.2167597468942Q2218.736628200859 -498.53338826447725 2240.1785934288055 -460.041606137529Q2261.620558656752 -421.5498240105808 2267.8206746205688 -368.38298491947353Q2274.0207905843854 -315.2161458283663 2265.103985570371 -250.74921467900276L1987.0678100585938 -241.93249613419175V-314.61662801355124L2144.268768288195 -319.49999288097024L2128.3021657057106 -270.14978942647576Q2133.4688455983996 -323.16620483249426 2130.9854690339416 -357.19928181916475Q2128.5020924694836 -391.23235880583525 2118.4103774856776 -407.6655217502266Q2108.3186625018716 -424.098684694618 2089.118645209819 -424.098684694618Q2068.6186391077936 -424.098684694618 2057.201939892024 -405.2905838023871Q2045.785240676254 -386.48248291015625 2041.32688649185 -352.10782267153263Q2036.868532307446 -317.733162432909 2036.868532307446 -270.20014241337776Q2036.868532307446 -176.75080871209502 2050.8269556630403 -137.29269765131176Q2064.7853790186346 -97.83458659052849 2094.8521728366613 -97.83458659052849Q2109.902179952711 -97.83458659052849 2118.8521723207086 -106.82617289200425Q2127.8021646887064 -115.81775919348001 2132.160506159067 -131.02592772990465Q2136.518847629428 -146.2340962663293 2137.427204867825 -166.01717528700829Q2138.335562106222 -185.80025430768728 2136.385611951351 -207.2999267578125L2271.504135105759 -195.6665618903935Q2277.570782445371 -159.766905721277 2272.7207392137498 -123.00863596610725Q2267.8706959821284 -86.2503662109375 2248.5788472294807 -55.500274149701Q2229.286998476833 -24.7501820884645 2191.8866012413055 -6.2500600181519985Q2154.486204005778 12.250062052160501 2094.6688191592693 12.250062052160501Z"/><path d="M2461.1018920838833 8.600095622241497Q2383.417559809983 8.600095622241497 2341.433721413836 -36.692030331119895Q2299.449883017689 -81.98415628448129 2299.449883017689 -174.78539223968983V-412.9985850043595H2263.2832041420043V-510.8162719756365H2274.999607332051Q2311.7002573646605 -512.2830607146025 2325.1922180205584 -531.2501464933157Q2338.684178676456 -550.2172322720289 2342.8675862699747 -589.0347636118531L2347.917457077652 -631.2502655126154H2443.451948042959V-527.700054936111H2522.7026509568095V-410.0651753768325H2443.451948042959V-202.53538613766432Q2443.451948042959 -165.3018513917923 2455.9104807563126 -147.43507791683078Q2468.3690134696662 -129.56830444186926 2488.6858601868153 -129.56830444186926Q2497.769303381443 -129.56830444186926 2506.3276545163244 -132.73499450460076Q2514.886005651206 -135.90168456733227 2522.7693003304303 -142.20167846232653V-0.5833190903067589Q2506.5356699563563 4.383414715528488 2491.4271855596453 6.491755168884993Q2476.3187011629343 8.600095622241497 2461.1018920838833 8.600095622241497Z"/><path d="M2742.8356231562793 12.266725666821003Q2685.268658436835 12.266725666821003 2644.084903454408 -9.51647237315774Q2602.9011484719813 -31.299670413136482 2577.1590743977576 -74.2745824214071Q2551.417000323534 -117.24949442967772 2539.500064086169 -180.44960174895823Q2527.583127848804 -243.64970906823874 2527.583127848804 -326.316842649132Q2527.583127848804 -444.51698099449277 2549.958597816527 -520.8335988335311Q2572.33406778425 -597.1502166725695 2620.9513600580394 -634.700139362365Q2669.568652331829 -672.2500620521605 2746.0357584506273 -672.2500620521605Q2804.2194162867963 -672.2500620521605 2845.628177881241 -651.2168004345149Q2887.0369394756854 -630.1835388168693 2913.570672078058 -587.9502970352769Q2940.104404680431 -545.7170552536845 2952.796338373795 -481.008775325492Q2965.4882720671594 -416.3004953972995 2965.4882720671594 -329.8171600289643Q2965.4882720671594 -245.41656494140625 2952.6546488180757 -181.46639404445887Q2939.821025568992 -117.51622314751148 2912.7372456640005 -74.61629232019186Q2885.653465759009 -31.716361492872238 2843.669690940529 -9.724817913025618Q2801.685916122049 12.266725666821003 2742.8356231562793 12.266725666821003ZM2746.1690521128476 -103.16813558340073Q2770.919073469937 -103.16813558340073 2786.2108398228884 -125.60130615532398Q2801.50260617584 -148.03447672724724 2808.5360336024314 -197.11739298701286Q2815.569461029023 -246.2003092467785 2815.569461029023 -325.8828511610627Q2815.569461029023 -408.2324005179107 2808.186059033498 -458.9738652575761Q2800.8026570379734 -509.7153299972415 2785.2442316468805 -532.9236211124808Q2769.6858062557876 -556.13191222772 2744.985716741532 -556.13191222772Q2721.452312204987 -556.13191222772 2706.435540765524 -532.7819569893181Q2691.418769326061 -509.43200175091624 2684.552028402686 -458.982191471383Q2677.6852874793112 -408.5323811918497 2677.6852874793112 -326.88283997401595Q2677.6852874793112 -267.0000986792147 2681.5269989036024 -224.35880585201085Q2685.3687103278935 -181.71751302480698 2693.2187861111015 -155.07606506720185Q2701.0688618943095 -128.43461710959673 2714.4605962056667 -115.80137634649873Q2727.852330517024 -103.16813558340073 2746.1690521128476 -103.16813558340073Z" class="accent"/><path d="M3177.052170805633 12.250062052160501Q3118.21849770844 12.250062052160501 3075.9347666315734 -4.874838259071112Q3033.651035554707 -21.999738570302725 3008.367331435904 -54.21631470322609Q2983.0836273171008 -86.43289083614945 2975.841706847772 -131.1828918531537Q2968.5997863784432 -175.93289287015796 2980.5664093010128 -231.016409303993L3116.6849965415895 -251.60019735246897Q3112.0018229186535 -210.56711019575596 3116.4186721798033 -175.64239756949246Q3120.835521440953 -140.71768494322896 3136.243949884549 -119.68454539589584Q3151.6523783281446 -98.65140584856272 3180.3022196367383 -98.65140584856272Q3197.1188272982836 -98.65140584856272 3209.268833907321 -105.45130463130772Q3221.4188405163586 -112.25120341405272 3228.0355463456362 -125.60930023528636Q3234.652252174914 -138.96739705651999 3234.652252174914 -159.35033671185374Q3234.652252174914 -195.466428630054 3218.6772018242627 -220.3244949337095Q3202.7021514736116 -245.182561237365 3177.2270375452936 -263.424110410735Q3151.7519236169755 -281.665659584105 3123.701744582504 -297.4322591125965Q3097.3681894876063 -312.64886881411076 3070.7095560655 -330.24051157571375Q3044.0509226433933 -347.83215433731675 3022.158981319517 -370.7905288692564Q3000.2670399956405 -393.748903401196 2987.0501790344715 -424.46570078469813Q2973.8333180733025 -455.18249816820025 2973.8333180733025 -496.4494049064815Q2973.8333180733025 -549.4663675948977 2997.308601377532 -589.0081761684269Q3020.7838846817613 -628.549984741956 3065.184345494956 -650.4000233970582Q3109.5848063081503 -672.2500620521605 3171.168624866754 -672.2500620521605Q3239.5524881854653 -672.2500620521605 3285.361332178116 -645.5583531688899Q3331.1701761707664 -618.8666442856193 3351.86219785735 -568.7081985455006Q3372.554219543934 -518.549752805382 3364.6875874623656 -448.382880654186L3231.152376279235 -429.99927876517177Q3233.8190063238144 -455.14937641844153 3232.0022582784295 -478.1576181985438Q3230.1855102330446 -501.16585997864604 3223.1187581196427 -519.2657109517604Q3216.052006006241 -537.3655619248748 3202.851954128593 -547.8904291745275Q3189.6519022509456 -558.4152964241803 3170.101914457977 -558.4152964241803Q3154.1852172762156 -558.4152964241803 3142.568568414077 -551.5153915379196Q3130.9519195519388 -544.615486651659 3124.8436055481434 -532.4406784046441Q3118.735291544348 -520.2658701576293 3118.735291544348 -503.31615702435374Q3118.735291544348 -477.549912519753 3131.8769343029708 -459.1918162070215Q3145.0185770615935 -440.83371989428997 3166.860327647999 -426.9338180590421Q3188.7020782344043 -413.0339162237942 3213.4690571948886 -399.8505645804107Q3245.2858917079866 -382.300640873611 3275.1528696529567 -362.2090606726706Q3305.019847597927 -342.11748047173023 3329.1118321549147 -315.95082702860236Q3353.2038167119026 -289.7841735854745 3367.2957081906497 -254.63409067876637Q3381.387599669397 -219.48400777205825 3381.387599669397 -171.76709289476275Q3381.387599669397 -117.30017903447151 3359.437280252576 -75.60007324069738Q3337.486960835755 -33.899967446923256 3292.444806907326 -10.824952697381377Q3247.402652978897 12.250062052160501 3177.052170805633 12.250062052160501Z" class="accent"/></g></svg>`;
+const ICONS = {"globe": [["circle", {"cx": "12", "cy": "12", "r": "10"}], ["path", {"d": "M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"}], ["path", {"d": "M2 12h20"}]], "chevron-down": [["path", {"d": "m6 9 6 6 6-6"}]], "chevron-left": [["path", {"d": "m15 18-6-6 6-6"}]], "chevron-right": [["path", {"d": "m9 18 6-6-6-6"}]], "sun": [["circle", {"cx": "12", "cy": "12", "r": "4"}], ["path", {"d": "M12 2v2"}], ["path", {"d": "M12 20v2"}], ["path", {"d": "m4.93 4.93 1.41 1.41"}], ["path", {"d": "m17.66 17.66 1.41 1.41"}], ["path", {"d": "M2 12h2"}], ["path", {"d": "M20 12h2"}], ["path", {"d": "m6.34 17.66-1.41 1.41"}], ["path", {"d": "m19.07 4.93-1.41 1.41"}]], "moon": [["path", {"d": "M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"}]], "menu": [["path", {"d": "M4 5h16"}], ["path", {"d": "M4 12h16"}], ["path", {"d": "M4 19h16"}]], "x": [["path", {"d": "M18 6 6 18"}], ["path", {"d": "m6 6 12 12"}]], "check": [["path", {"d": "M20 6 9 17l-5-5"}]], "book-open": [["path", {"d": "M12 5v16"}], ["path", {"d": "M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"}]], "circle-help": [["circle", {"cx": "12", "cy": "12", "r": "10"}], ["path", {"d": "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"}], ["path", {"d": "M12 17h.01"}]], "code-xml": [["path", {"d": "m18 16 4-4-4-4"}], ["path", {"d": "m6 8-4 4 4 4"}], ["path", {"d": "m14.5 4-5 16"}]], "shield-check": [["path", {"d": "M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"}], ["path", {"d": "m9 12 2 2 4-4"}]], "wifi-off": [["path", {"d": "M12 20h.01"}], ["path", {"d": "M8.5 16.429a5 5 0 0 1 7 0"}], ["path", {"d": "M5 12.859a10 10 0 0 1 5.17-2.69"}], ["path", {"d": "M19 12.859a10 10 0 0 0-2.007-1.523"}], ["path", {"d": "M2 8.82a15 15 0 0 1 4.177-2.643"}], ["path", {"d": "M22 8.82a15 15 0 0 0-11.288-3.764"}], ["path", {"d": "m2 2 20 20"}]], "users": [["path", {"d": "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"}], ["path", {"d": "M16 3.128a4 4 0 0 1 0 7.744"}], ["path", {"d": "M22 21v-2a4 4 0 0 0-3-3.87"}], ["circle", {"cx": "9", "cy": "7", "r": "4"}]], "house": [["path", {"d": "M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"}], ["path", {"d": "M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"}]]};
+const PICS = "7.8m-website-home/";
+const AUTOPLAY = 5000;
+
+const SLIDES = ["home", "controls", "library", "disk", "home-apps", "controllers", "versions", "palettes", "storage"];
+const MOVES = [
+  { pic: "library", glyphs: '<span class="glyph pill">LB</span><span class="glyph pill">RB</span>' },
+  { pic: "home", glyphs: '<span class="glyph">A</span>' },
+  { pic: "game-running", glyphs: () => `<span class="glyph">${ic("house")}</span>` },
+  { pic: "quick-menu", glyphs: '<span class="glyph">B</span>' },
+];
+const FACTS = ["code-xml", "shield-check", "wifi-off", "users"];
+const SECTIONS = ["home", "plug", "play", "own", "download"];
+
+const T = {
+  en: {
+    slides: [
+      "Turn your PC into a game console.",
+      "Just a controller. Mouse and keyboard optional.",
+      "One library for Steam and DRM-free games.",
+      "Games on a disk? Plug it in and play.",
+      "Films, series, music. Stream them or play your own.",
+      "Your controllers, paired from the couch.",
+      "Safe updates. Something wrong? Roll back.",
+      "Your style: 21 palettes, multiple languages supported.",
+      "Light: it runs on low-end PCs.",
+    ],
+    made: "Made by a couple of fed-up players, thanks to a lot of amazing people.",
+    home: "Home", previous: "Previous", next: "Next", card: "{n} of {total}",
+    plugLede: "Everything about installing and using OwneetOS.",
+    guide: "Guide", guideText: "From the USB stick to your first game.",
+    faq: "FAQ", faqText: "Answers to the common questions.",
+    playLede: "Four buttons and you're playing.",
+    moves: [
+      "Move between Home, Library and Settings.",
+      "Found your game? Press A and play.",
+      "In a game, Home takes you back and the game keeps running. With Steam, hold it for a second.",
+      "On the home screen, B opens the quick menu: power options and what every button does.",
+    ],
+    ownLede: "OwneetOS belongs to everyone.",
+    facts: ["Free and open source", "No telemetry", "DRM-free games offline", "Made together"],
+    get: "Get OwneetOS", menu: "Menu", language: "Language", theme: "Light or dark theme",
+    dlTitle: "Coming soon.", dlBtn: "Download - coming soon", soon: "The download opens with the first release.",
+    contribute: "Contribute and translate", source: "Source code", credits: "Credits and licences", privacy: "Privacy: no data collected",
+    licence: "GPL-3.0-or-later · texts CC BY-SA 4.0",
+    marks: "Steam is a trademark of Valve Corporation, Xbox of Microsoft Corporation, PlayStation of Sony Interactive Entertainment. They only say what works with OwneetOS, which is not affiliated with or endorsed by them.",
+    opens: "(demo) The real site opens this page: {page}", other: "(demo) The real site opens {name} at /{code}",
+  },
+  it: {
+    slides: [
+      "Trasforma il tuo PC in una console.",
+      "Basta il controller. Mouse e tastiera facoltativi.",
+      "Una sola libreria per Steam e i giochi senza DRM.",
+      "Giochi su disco? Collegalo e gioca.",
+      "Film, serie, musica. In streaming o dai tuoi file.",
+      "I tuoi controller, associati dal divano.",
+      "Aggiornamenti sicuri. Qualcosa non va? Torni indietro.",
+      "Il tuo stile: 21 palette, più lingue supportate.",
+      "Leggero: gira anche su PC poco potenti.",
+    ],
+    made: "Fatto da un paio di giocatori stufi, grazie a tante persone straordinarie.",
+    home: "Home", previous: "Precedente", next: "Successiva", card: "{n} di {total}",
+    plugLede: "Tutto su come installare e usare OwneetOS.",
+    guide: "Guida", guideText: "Dalla chiavetta USB al primo gioco.",
+    faq: "Domande", faqText: "Le risposte alle domande più comuni.",
+    playLede: "Quattro tasti e stai già giocando.",
+    moves: [
+      "Passa tra Home, Libreria e Impostazioni.",
+      "Trovato il gioco? Premi A e gioca.",
+      "In un gioco, Home ti riporta indietro e il gioco resta aperto. Con Steam, tienilo premuto per un secondo.",
+      "Nella schermata Home, B apre il menu rapido: opzioni di spegnimento e cosa fa ogni tasto.",
+    ],
+    ownLede: "OwneetOS è di tutti.",
+    facts: ["Gratuito e open source", "Nessuna telemetria", "Giochi senza DRM offline", "Fatto insieme"],
+    get: "Scarica OwneetOS", menu: "Menu", language: "Lingua", theme: "Tema chiaro o scuro",
+    dlTitle: "In arrivo.", dlBtn: "Download - in arrivo", soon: "Il download si apre con la prima versione.",
+    contribute: "Contribuisci e traduci", source: "Codice sorgente", credits: "Crediti e licenze", privacy: "Privacy: nessun dato raccolto",
+    licence: "GPL-3.0-or-later · testi CC BY-SA 4.0",
+    marks: "Steam è un marchio di Valve Corporation, Xbox di Microsoft Corporation, PlayStation di Sony Interactive Entertainment. Indicano solo cosa funziona con OwneetOS, che non è affiliato né approvato da loro.",
+    opens: "(demo) Il sito vero apre questa pagina: {page}", other: "(demo) Il sito vero apre {name} su /{code}",
+  },
+};
+const LANGS = [["en", "English"], ["it", "Italiano"], ["de", "Deutsch"], ["fr", "Français"], ["es", "Español"]];
+const SLOGAN = { plug: "Plug it.", play: "Play it.", own: "Own it!" };   // never translated
+
+const $ = (s) => document.querySelector(s);
+function ic(name, cls = "") {
+  const nodes = (ICONS[name] || []).map(([tag, a]) => `<${tag} ${Object.entries(a).map(([k, v]) => `${k}="${v}"`).join(" ")}/>`).join("");
+  return `<span class="ic ${cls}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${nodes}</svg></span>`;
+}
+const params = new URLSearchParams(location.search);
+const state = { lang: T[params.get("lang")] ? params.get("lang") : "en", section: "home", slide: 0, move: 0 };
+const tr = () => T[state.lang];
+
+// ---- Notices
+let noticeTimer;
+function notice(text) {
+  const n = $("#notice");
+  n.textContent = text;
+  n.classList.add("on");
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => n.classList.remove("on"), 3200);
+}
+document.addEventListener("click", (e) => {
+  const a = e.target.closest("[data-page]");
+  if (a) {
+    e.preventDefault();
+    notice(tr().opens.replace("{page}", a.dataset.page));
+  }
+});
+
+// ---- The carousel: as on the site, it plays by itself every 5 s and loops, and stops only while
+// pointed at (or focused from the keyboard) and off screen
+const track = $("#track");
+const carousel = $("#carousel");
+let paused = false, onScreen = false, slideTimer;
+const n = SLIDES.length;
+function slideHtml(i, copy) {
+  const say = tr().slides[i];
+  const text = i === 0 && !copy ? `<h1 class="disp say">${say}</h1>` : `<p class="disp say">${say}</p>`;
+  return `<div class="slide"${copy ? ' aria-hidden="true"' : ` role="group" aria-roledescription="slide"`}>${text}<img class="shot" src="${PICS}${SLIDES[i]}.webp" alt="" loading="${i < 2 ? "eager" : "lazy"}"></div>`;
+}
+function place(pos) {
+  const card = track.children[pos];
+  return card.offsetLeft - (track.clientWidth - card.clientWidth) / 2;
+}
+function jump(pos) {
+  track.style.scrollBehavior = "auto";
+  track.style.scrollSnapType = "none";
+  track.scrollLeft = place(pos);
+  void track.offsetWidth;
+  track.style.scrollBehavior = "";
+  track.style.scrollSnapType = "";
+}
+function setSlide(i) {
+  state.slide = i;
+  $("#pips").querySelectorAll("button").forEach((b, j) => b.setAttribute("aria-current", j === i));
+}
+function go(i, again = true) {
+  setSlide((i + n) % n);
+  track.scrollTo({ left: place(i + 1) });
+  if (i < 0 || i >= n) setTimeout(settle, 900);
+  if (again) restart();
+}
+function settle() {
+  const middle = track.scrollLeft + track.clientWidth / 2;
+  let best = 0, distance = Infinity;
+  [...track.children].forEach((card, pos) => {
+    const d = Math.abs(card.offsetLeft + card.clientWidth / 2 - middle);
+    if (d < distance) { distance = d; best = pos; }
+  });
+  if (distance > 4) return;
+  if (best === 0) { setSlide(n - 1); jump(n); }
+  else if (best === n + 1) { setSlide(0); jump(1); }
+  else setSlide(best - 1);
+}
+function restart() {
+  clearInterval(slideTimer);
+  if (!paused && onScreen && !document.hidden) slideTimer = setInterval(() => go(state.slide + 1, false), AUTOPLAY);
+}
+let settleTimer;
+track.addEventListener("scroll", () => { clearTimeout(settleTimer); settleTimer = setTimeout(settle, 120); });
+track.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft") { e.preventDefault(); go(state.slide - 1); }
+  if (e.key === "ArrowRight") { e.preventDefault(); go(state.slide + 1); }
+});
+$("#prev").onclick = () => go(state.slide - 1);
+$("#next").onclick = () => go(state.slide + 1);
+carousel.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") { paused = true; restart(); } });
+carousel.addEventListener("pointerleave", () => { paused = false; restart(); });
+carousel.addEventListener("focusin", (e) => { if (e.target.matches(":focus-visible")) { paused = true; restart(); } });
+carousel.addEventListener("focusout", (e) => { if (!carousel.contains(e.relatedTarget)) { paused = false; restart(); } });
+
+// ---- Play it.: the buttons take turns by themselves, by the same rules; a click chooses one
+const tour = $("#tour");
+let tourPaused = false, tourOn = false, tourTimer;
+function setMove(i) {
+  state.move = i;
+  $("#moves").querySelectorAll(".move").forEach((b, j) => b.setAttribute("aria-current", j === i));
+  $("#screens").querySelectorAll(".shot").forEach((s, j) => s.classList.toggle("on", j === i));
+}
+function tourRestart() {
+  clearInterval(tourTimer);
+  if (!tourPaused && tourOn && !document.hidden) tourTimer = setInterval(() => setMove((state.move + 1) % MOVES.length), AUTOPLAY);
+}
+tour.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") { tourPaused = true; tourRestart(); } });
+tour.addEventListener("pointerleave", () => { tourPaused = false; tourRestart(); });
+tour.addEventListener("focusin", (e) => { if (e.target.matches(":focus-visible")) { tourPaused = true; tourRestart(); } });
+tour.addEventListener("focusout", (e) => { if (!tour.contains(e.relatedTarget)) { tourPaused = false; tourRestart(); } });
+
+// ---- The header's parts that never change with the language
+$("#logo").innerHTML = LOGO;
+$("#prev").innerHTML = ic("chevron-left");
+$("#next").innerHTML = ic("chevron-right");
+$("#menuBtn").onclick = () => setMenu(!$("#menu").classList.contains("open"));
+function setMenu(open) {
+  $("#menu").classList.toggle("open", open);
+  $("#menuBtn").setAttribute("aria-expanded", open);
+  $("#menuBtn").innerHTML = ic(open ? "x" : "menu") + tr().menu;
+}
+$("#langBtn").onclick = (e) => {
+  e.stopPropagation();
+  const list = $("#langList");
+  list.hidden = !list.hidden;
+  $("#langBtn").setAttribute("aria-expanded", !list.hidden);
+};
+document.addEventListener("click", () => { $("#langList").hidden = true; $("#langBtn").setAttribute("aria-expanded", false); });
+
+// ---- Light or dark: the switch shows the theme it leads to
+const isLight = () => (document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")) === "light";
+function themeIcon() { $("#themeBtn").innerHTML = ic(isLight() ? "moon" : "sun"); }
+$("#themeBtn").onclick = () => { document.documentElement.dataset.theme = isLight() ? "dark" : "light"; themeIcon(); };
+
+// ---- Everything with text
+function render() {
+  const t = tr();
+  document.documentElement.lang = state.lang;
+  $("#menu").innerHTML = ["plug", "play", "own"].map((s) => `<li><a href="#${s}" data-section="${s}">${SLOGAN[s]}</a></li>`).join("");
+  $("#menu").querySelectorAll("a").forEach((a) => a.addEventListener("click", () => setMenu(false)));
+  $("#side").innerHTML = SECTIONS.map((s) => {
+    const name = s === "home" ? t.home : s === "download" ? "Download" : SLOGAN[s];
+    return `<a href="#${s}" data-section="${s}" aria-label="${name}" title="${name}"></a>`;
+  }).join("");
+  $("#get").textContent = t.get;
+  setMenu($("#menu").classList.contains("open"));
+  $("#langBtn").innerHTML = ic("globe") + `<span class="code">${state.lang.toUpperCase()}</span>` + ic("chevron-down", "chev");
+  $("#langBtn").setAttribute("aria-label", t.language);
+  $("#themeBtn").setAttribute("aria-label", t.theme);
+  $("#themeBtn").title = t.theme;
+  $("#langList").innerHTML = LANGS.map(([c, name]) => `<li><a href="#" data-lang="${c}" lang="${c}"${c === state.lang ? ' aria-current="true"' : ""}>${name}${c === state.lang ? ic("check") : ""}</a></li>`).join("");
+  $("#langList").querySelectorAll("[data-lang]").forEach((a) => a.onclick = (e) => {
+    e.preventDefault();
+    const code = a.dataset.lang;
+    if (!T[code]) { notice(t.other.replace("{name}", a.textContent).replace("{code}", code)); return; }
+    state.lang = code;
+    const url = new URL(location.href);
+    url.searchParams.set("lang", code);
+    history.replaceState(null, "", url);
+    render();
+  });
+
+  // Home
+  track.innerHTML = slideHtml(n - 1, true) + SLIDES.map((_, i) => slideHtml(i, false)).join("") + slideHtml(0, true);
+  $("#pips").innerHTML = SLIDES.map((_, i) => `<button type="button" aria-label="${t.card.replace("{n}", i + 1).replace("{total}", n)}"></button>`).join("");
+  $("#pips").querySelectorAll("button").forEach((b, i) => b.onclick = () => go(i));
+  $("#prev").setAttribute("aria-label", t.previous);
+  $("#next").setAttribute("aria-label", t.next);
+  $("#made").textContent = t.made;
+  $("#made").dataset.page = t.credits;
+  setSlide(state.slide);
+  jump(state.slide + 1);
+
+  // Plug it.
+  $("#plugTitle").textContent = SLOGAN.plug;
+  $("#plugLede").textContent = t.plugLede;
+  $("#infos").innerHTML = [["book-open", t.guide, t.guideText], ["circle-help", t.faq, t.faqText]].map(([icon, name, text]) =>
+    `<a class="info" href="#" data-page="${name}"><span class="icon">${ic(icon)}</span><b>${name}</b><span>${text}</span></a>`).join("");
+
+  // Play it.
+  $("#playTitle").textContent = SLOGAN.play;
+  $("#playLede").textContent = t.playLede;
+  $("#moves").innerHTML = MOVES.map((m, i) => `<li><button class="move" type="button"><span class="glyphs">${typeof m.glyphs === "function" ? m.glyphs() : m.glyphs}</span><span>${t.moves[i]}</span></button></li>`).join("");
+  $("#moves").querySelectorAll(".move").forEach((b, i) => b.onclick = () => { setMove(i); tourRestart(); });
+  $("#screens").innerHTML = MOVES.map((m) => `<img class="shot" src="${PICS}${m.pic}.webp" alt="">`).join("");
+  setMove(state.move);
+
+  // Own it!
+  $("#ownTitle").textContent = SLOGAN.own;
+  $("#ownLede").textContent = t.ownLede;
+  $("#facts").innerHTML = FACTS.map((icon, i) => `<div class="fact"><span class="icon">${ic(icon)}</span><b>${t.facts[i]}</b></div>`).join("");
+
+  // Download and the footer
+  $("#dlTitle").textContent = t.dlTitle;
+  $("#dlBtn").textContent = t.dlBtn;
+  $("#dlBtn").onclick = (e) => { e.preventDefault(); notice(t.soon); };
+  $("#foot").innerHTML = `<a href="#home" aria-label="OwneetOS">${LOGO}</a>` +
+    [t.guide, t.faq, t.contribute, t.source, t.credits, t.privacy].map((name) => `<a href="#" data-page="${name}">${name}</a>`).join("") +
+    `<span>${t.licence}</span><span class="marks">${t.marks}</span>`;
+  markSection();
+}
+
+// ---- The address and the header follow the section on screen
+function markSection() {
+  document.querySelectorAll("[data-section]").forEach((a) => a.setAttribute("aria-current", a.dataset.section === state.section));
+}
+const follow = new IntersectionObserver((entries) => {
+  for (const entry of entries) {
+    if (!entry.isIntersecting) continue;
+    state.section = entry.target.id;
+    markSection();
+    history.replaceState(null, "", location.pathname + location.search + (state.section === "home" ? "" : "#" + state.section));
+  }
+}, { threshold: 0.55 });
+SECTIONS.forEach((s) => follow.observe(document.getElementById(s)));
+new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; restart(); }, { threshold: 0.5 }).observe(carousel);
+new IntersectionObserver(([e]) => { tourOn = e.isIntersecting; tourRestart(); }, { threshold: 0.5 }).observe(tour);
+document.addEventListener("visibilitychange", () => { restart(); tourRestart(); });
+
+themeIcon();
+render();
+addEventListener("resize", () => jump(state.slide + 1));
+</script>
+</body>
+</html>

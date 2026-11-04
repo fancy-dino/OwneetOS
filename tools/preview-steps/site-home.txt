@@ -1,0 +1,59 @@
+@owneetd
+@steam
+@disk
+@sysupdate uptodate
+# Pictures for the website's new home ([[step-7.8m-website-simpler-home]]): the carousel's screens
+# and the moves of "Play it". The long wait lets the "Windows games" notice come and go.
+wait 22
+shot 01-home
+pad right right down
+wait 1
+shot 02-home-apps
+pad rb
+wait 1
+shot 03-library
+pad rb
+wait 1
+pad down
+wait 1
+shot 04-controllers
+pad down down down
+wait 1
+pad right
+wait 0.5
+pad a
+wait 1.5
+shot 05-palettes
+pad b
+wait 1
+pad left
+wait 0.5
+pad down down
+wait 1
+shot 06-storage
+pad down right down down
+wait 0.5
+pad a
+wait 3
+shot 07-other-versions
+pad b
+wait 1
+pad left
+wait 0.5
+pad lb lb
+wait 1
+pad b
+wait 1
+shot 08-quick-menu
+pad down a
+wait 1
+shot 09-controls
+pad b
+wait 1
+pad b
+wait 1
+unplug
+wait 3
+plug
+wait 4
+shot 10-disk-plugged
