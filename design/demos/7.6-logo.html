@@ -13,7 +13,7 @@
      the current wordmark (packages/owneet-branding, Bricolage Grotesque, SIL Open Font License 1.1);
      the symbol is the one of logo-gamepad-o.html, drawn for OwneetOS. Fonts come from Google Fonts
      for the demo only. Open in a browser; Enter plays the animations again, left / right change the palette, B compares
-     the light blue buttons with the ones in the symbol's colour. -->
+     the buttons in their own colour with the ones in the symbol's colour. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -52,6 +52,12 @@ h3 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 10px; }
 .sizes { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 24px; }
 .sizes figure { margin: 0; display: grid; justify-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
 .sizes svg { display: block; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.pal { border-radius: 14px; padding: 16px 18px; display: grid; gap: 10px; border: 1px solid transparent; }
+.pal.on { border-color: var(--accent); }
+.pal header { font-size: 13px; }
+.pal .row { display: flex; align-items: center; gap: 12px; }
+.pal .row svg:first-of-type { width: 170px; height: auto; }
 @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } .tabs i:last-child { display: none; } }
 </style>
 </head>
@@ -81,6 +87,10 @@ h3 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 10px; }
   <section class="card">
     <h2>The symbol alone</h2>
     <div class="sizes" id="sizes"></div>
+  </section>
+  <section>
+    <h2>Every palette</h2>
+    <div class="grid" id="grid"></div>
   </section>
 </main>
 
@@ -122,7 +132,7 @@ const PALETTES = [
 const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
 // The boot splash (a still picture): white letters, the symbol and "OS" light grey.
 const SPLASH = { bg: '#000000', fg: '#FFFFFF', accent: '#B0B0B0' };
-const state = { pal: 0, azure: true };
+const state = { pal: 0, coloured: true };
 
 // ---- The symbol, in a 100 x 100 box: the disc, the gamepad cut out of it, the buttons back in the
 // disc's colour (the same drawing as logo-gamepad-o.html).
@@ -152,10 +162,15 @@ function markData() {
   return ['M0,50a50,50 0 1,0 100,0a50,50 0 1,0 -100,0Z' + body, cross + face];
 }
 const [SHELL, BUTTONS] = markData();
-// A try (owner, 2026-11-04): the D-pad and the buttons light blue, for more contrast; B compares.
-const AZURE = '#6FD3FF';
-const markPath = colour => `<path fill="${colour}" fill-rule="evenodd" d="${SHELL}"/>` +
-  `<path class="buttons" fill="${state.azure ? AZURE : colour}" d="${BUTTONS}"/>`;
+// The D-pad and the buttons in a colour of their own, for contrast in every palette (owner, 2026-11-04):
+// opposite the symbol's colour, at least 4.5:1 on the palette's background. In the black and white
+// versions (graphite, the high contrasts, the boot splash) they stay in the symbol's colour. B compares.
+const BUTTONS_COLOUR = { dusk: '#6FD3FF', tide: '#FF9E8A', bloom: '#7FE8C8', ember: '#7CCBFF', espresso: '#8AD0E8', harbor: '#8FC4F5',
+  forest: '#FFA8C8', lagoon: '#FFC56B', amethyst: '#FFD66B', crimson: '#7FE3EE', synthwave: '#6FE8FF', amber: '#8CBEFF', olive: '#CDB2FF',
+  daylight: '#B8400B', arctic: '#B8400B', sand: '#0B6A85', latte: '#0B6A85', sakura: '#0A6F6A' };
+const buttonsOf = (p, t) => (state.coloured && BUTTONS_COLOUR[p[0]]) || t.accent;
+const markPath = (colour, buttons = colour) => `<path fill="${colour}" fill-rule="evenodd" d="${SHELL}"/>` +
+  `<path class="buttons" fill="${buttons}" d="${BUTTONS}"/>`;
 
 // ---- The word, in the outlines' units: x 19.6..3401, y -672..12, its middle at y -330. The symbol's
 // size and distance are in these units too.
@@ -165,24 +180,24 @@ const ABOVE = { size: 1250, gap: 100 };    // the symbol's diameter, the space d
 const PAD = 40;
 const word = (cText, cOS, dx = 0, dy = 0) => `<g transform="translate(${dx} ${dy})"><path fill="${cText}" d="${OLD_O}"/>` +
   WNEET.map(d => `<path fill="${cText}" d="${d}"/>`).join('') + OS.map(d => `<path fill="${cOS}" d="${d}"/>`).join('') + '</g>';
-const symbol = (colour, x, y, size) => `<g transform="translate(${x} ${y}) scale(${size / 100})">${markPath(colour)}</g>`;
+const symbol = (colour, x, y, size, buttons) => `<g transform="translate(${x} ${y}) scale(${size / 100})">${markPath(colour, buttons)}</g>`;
 const svg = (w, h, inner) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-PAD} ${-PAD} ${w + 2 * PAD} ${h + 2 * PAD}" role="img" aria-label="OwneetOS">${inner}</svg>`;
 
 // the symbol on the left: both on the word's middle line
-function logoLeft(cText, cOS) {
+function logoLeft(cText, cOS, cButtons = cOS) {
   const h = LEFT.size;
-  return svg(LEFT.size + LEFT.gap + wordW, h, symbol(cOS, 0, 0, LEFT.size) +
+  return svg(LEFT.size + LEFT.gap + wordW, h, symbol(cOS, 0, 0, LEFT.size, cButtons) +
     word(cText, cOS, LEFT.size + LEFT.gap - WORD.left, h / 2 - WORD.middle));
 }
 // the symbol above: centred over the word
 const wordW = WORD.right - WORD.left, aboveH = ABOVE.size + ABOVE.gap + WORD.bottom - WORD.top;
-const logoAbove = (cText, cOS) => symbol(cOS, (wordW - ABOVE.size) / 2, 0, ABOVE.size) +
+const logoAbove = (cText, cOS, cButtons = cOS) => symbol(cOS, (wordW - ABOVE.size) / 2, 0, ABOVE.size, cButtons) +
   word(cText, cOS, -WORD.left, ABOVE.size + ABOVE.gap - WORD.top);
 // a screen of 1600 x 900: the word 800 wide, the whole in the middle; with the slogan under it, as
 // far from the word as the symbol looks: the symbol's bottom to the small letters right under it
 const SLOGAN = { words: ['Plug it.', 'Play it.', 'Own it!'], size: 40, ascent: 0.72 };
 const SMALL_LETTERS_TOP = -527.7;
-function screen(cText, cOS, cSlogan, hidden = false) {
+function screen(cText, cOS, cSlogan, hidden = false, cButtons = cOS) {
   // the slogan's room is always kept: the logo stays in the same place from the boot splash on
   const k = 800 / wordW, logoH = aboveH * k, gap = (ABOVE.gap + SMALL_LETTERS_TOP - WORD.top) * k;
   const h = logoH + gap + SLOGAN.size, top = (900 - h) / 2;
@@ -190,10 +205,10 @@ function screen(cText, cOS, cSlogan, hidden = false) {
   const line = cSlogan ? `<text x="800" y="${(top + logoH + gap + SLOGAN.size * SLOGAN.ascent).toFixed(1)}" text-anchor="middle"` +
     ` font-family="Lexend, system-ui, sans-serif" font-size="${SLOGAN.size}" font-weight="350" fill="${cSlogan}">${words}</text>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="OwneetOS">` +
-    `<g class="logo" transform="translate(400 ${top.toFixed(1)}) scale(${k.toFixed(5)})">${logoAbove(cText, cOS)}</g>${line}</svg>`;
+    `<g class="logo" transform="translate(400 ${top.toFixed(1)}) scale(${k.toFixed(5)})">${logoAbove(cText, cOS, cButtons)}</g>${line}</svg>`;
 }
-const markSvg = (px, colour) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${px}" height="${px}">${markPath(colour)}</svg>`;
+const markSvg = (px, colour, buttons) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${px}" height="${px}">${markPath(colour, buttons)}</svg>`;
 
 const $ = s => document.querySelector(s);
 const tok = p => Object.fromEntries(TOKENS.map((t, i) => [t, p[i + 2]]));
@@ -202,12 +217,16 @@ function render() {
   const p = PALETTES[state.pal], t = tok(p);
   for (const name of TOKENS) document.documentElement.style.setProperty('--' + name, t[name]);
   $('#pal').textContent = 'Palette: ' + p[1];
-  $('#azure').textContent = state.azure ? 'Buttons: light blue' : 'Buttons: as before';
-  $('#full').innerHTML = screen(t.fg, t.accent, t.muted);
+  $('#azure').textContent = state.coloured ? 'Buttons: their own colour' : 'Buttons: the symbol\'s colour';
+  const b = buttonsOf(p, t);
+  $('#full').innerHTML = screen(t.fg, t.accent, t.muted, false, b);
   $('#boot').innerHTML = screen(SPLASH.fg, SPLASH.accent);
-  $('#bar').innerHTML = logoLeft(t.fg, t.accent);
+  $('#bar').innerHTML = logoLeft(t.fg, t.accent, b);
   $('#sizes').innerHTML = [192, 128, 64, 48, 32, 24, 16]
-    .map(px => `<figure>${markSvg(px, t.accent)}<figcaption>${px} px</figcaption></figure>`).join('');
+    .map(px => `<figure>${markSvg(px, t.accent, b)}<figcaption>${px} px</figcaption></figure>`).join('');
+  $('#grid').innerHTML = PALETTES.map((q, i) => { const u = tok(q), c = buttonsOf(q, u);
+    return `<div class="pal${i === state.pal ? ' on' : ''}" style="background:${u.bg}; color:${u.fg}"><header>${q[1]}</header>` +
+      `<div class="row">${logoLeft(u.fg, u.accent, c)}${markSvg(36, u.accent, c)}</div></div>`; }).join('');
 }
 // ---- The animations, in four beats: 1, the logo appears over the first beat; 2-4, one word each, at
 // once. "#t=1500" in the address shows them stopped at that time (ms), to look at one frame.
@@ -219,11 +238,12 @@ const FROZEN = /t=(\d+)/.exec(location.hash);
 let anims = [], start = 0, run = 0;
 function build(root, website) {
   const t = tok(PALETTES[state.pal]);
-  root.innerHTML = screen(t.fg, t.accent, t.muted, true);
+  const b = buttonsOf(PALETTES[state.pal], t);
+  root.innerHTML = screen(t.fg, t.accent, t.muted, true, b);
   const logo = root.querySelector('.logo');
   // each outline with its colours, from the splash's to the palette's
-  const parts = [...logo.querySelectorAll(state.azure ? 'path:not(.buttons)' : 'path')].map(path => path.getAttribute('fill') === t.accent
-    ? [path, SPLASH.accent, t.accent] : [path, SPLASH.fg, t.fg]);
+  const parts = [...logo.querySelectorAll('path')].map(path => path.classList.contains('buttons') ? [path, SPLASH.accent, b]
+    : path.getAttribute('fill') === t.accent ? [path, SPLASH.accent, t.accent] : [path, SPLASH.fg, t.fg]);
   return { website, root, bg: t.bg, logo, parts, words: [...root.querySelectorAll('tspan')] };
 }
 function draw(a, ms) {
@@ -277,7 +297,7 @@ function play(withSound = false) {
 function act(a) {
   if (a === 'left') state.pal = (state.pal + PALETTES.length - 1) % PALETTES.length;
   else if (a === 'right') state.pal = (state.pal + 1) % PALETTES.length;
-  else if (a === 'buttons') state.azure = !state.azure;
+  else if (a === 'buttons') state.coloured = !state.coloured;
   else if (a !== 'play') return;
   render();
   // a press: the sound can play (when it is not decoded yet, it starts as soon as it is)
