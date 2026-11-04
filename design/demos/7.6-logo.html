@@ -157,11 +157,14 @@ function logoLeft(cText, cOS) {
 const wordW = WORD.right - WORD.left, aboveH = ABOVE.size + ABOVE.gap + WORD.bottom - WORD.top;
 const logoAbove = (cText, cOS) => symbol(cOS, (wordW - ABOVE.size) / 2, 0, ABOVE.size) +
   word(cText, cOS, -WORD.left, ABOVE.size + ABOVE.gap - WORD.top);
-// a screen of 1600 x 900: the word 800 wide, the whole in the middle; with the slogan under it
-const SLOGAN = { text: 'Plug it. Play it. Own it!', size: 40, gap: 32, ascent: 0.72 };
+// a screen of 1600 x 900: the word 800 wide, the whole in the middle; with the slogan under it, as
+// far from the word as the symbol looks: the symbol's bottom to the small letters right under it
+const SLOGAN = { text: 'Plug it. Play it. Own it!', size: 40, ascent: 0.72 };
+const SMALL_LETTERS_TOP = -527.7;
 function screen(cText, cOS, cSlogan) {
-  const k = 800 / wordW, logoH = aboveH * k, h = logoH + (cSlogan ? SLOGAN.gap + SLOGAN.size : 0), top = (900 - h) / 2;
-  const line = cSlogan ? `<text x="800" y="${(top + logoH + SLOGAN.gap + SLOGAN.size * SLOGAN.ascent).toFixed(1)}" text-anchor="middle"` +
+  const k = 800 / wordW, logoH = aboveH * k, gap = (ABOVE.gap + SMALL_LETTERS_TOP - WORD.top) * k;
+  const h = logoH + (cSlogan ? gap + SLOGAN.size : 0), top = (900 - h) / 2;
+  const line = cSlogan ? `<text x="800" y="${(top + logoH + gap + SLOGAN.size * SLOGAN.ascent).toFixed(1)}" text-anchor="middle"` +
     ` font-family="Lexend, system-ui, sans-serif" font-size="${SLOGAN.size}" font-weight="350" fill="${cSlogan}">${SLOGAN.text}</text>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="OwneetOS">` +
     `<g transform="translate(400 ${top.toFixed(1)}) scale(${k.toFixed(5)})">${logoAbove(cText, cOS)}</g>${line}</svg>`;
