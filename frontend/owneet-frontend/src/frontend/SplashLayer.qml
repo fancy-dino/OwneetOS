@@ -15,7 +15,7 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 // OwneetOS: the loading screen looks exactly like the boot splash (Plymouth theme "owneet",
-// package owneet-branding): same background, wordmark and spinner at the same places, so the
+// package owneet-branding): same background, logo and spinner at the same places, so the
 // handover from the boot splash to the interface is invisible. White on black, neutral for every
 // palette (owner, 2026-10-15): the palette's colours come with the start-up animation.
 
@@ -35,11 +35,11 @@ Rectangle {
 
     // Plymouth places images by their top-left corner: (screen - image) * alignment.
     Image {
-        id: wordmark
-        source: "file:///usr/share/owneet/branding/owneetos-wordmark.svg"
-        sourceSize.width: 420
+        id: logo
+        source: "file:///usr/share/owneet/branding/owneetos-splash.svg"
+        sourceSize.width: 800
         x: Math.round((root.width - width) * 0.5)
-        y: Math.round((root.height - height) * 0.46)
+        y: Math.round((root.height - height) * 0.5)
     }
 
     Shape {
@@ -47,7 +47,7 @@ Rectangle {
         width: 48
         height: 48
         x: Math.round((root.width - width) * 0.5)
-        y: Math.round((root.height - height) * 0.64)
+        y: Math.round((root.height - height) * 0.92)
         layer.enabled: true
         layer.samples: 4
 

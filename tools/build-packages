@@ -18,7 +18,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CHROOT_DIR="/var/tmp/owneet-chroot"
+# Not under /var/tmp: systemd empties what is older than 30 days there, the chroot included.
+CHROOT_DIR="/var/lib/owneet-chroot"
 REPO_NAME="owneet"
 REPO_DIR="$ROOT/out/repo/x86_64"
 

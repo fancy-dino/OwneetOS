@@ -32,6 +32,7 @@
 #                    folders with only an installer (GOG .sh, Inno Setup, too big, Galaxy, unknown)
 #   @gamescope       (with @owneetd) the pretend session is gamescope's (Resume, the pointer)
 #   @firststart      the first start (6.1) is shown, as on a new console (otherwise it counts as done)
+#   @startup         the first shots come at once, during the start-up animation
 #   @live            (with @owneetd) started from the USB stick (6.2: owneetd's mode is "live")
 #   @installfail     (with @owneetd) the installation (6.4) stops while copying (copy_failed)
 #   @movefail        (with @owneetd) moving a game (6.6): its copy does not pass the check
@@ -46,7 +47,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CHROOT="/var/tmp/owneet-chroot/root"
+CHROOT="/var/lib/owneet-chroot/root"
 BOX="/var/tmp/owneet-preview"
 OUT="$ROOT/out/frontend-preview"
 
@@ -234,7 +235,10 @@ mkfifo /tmp/vpad.in
 python3 /vpad.py /tmp/vpad.in > /tmp/vpad.out 2>&1 &
 exec 3>/tmp/vpad.in
 sleep 1
-start() { owneet-frontend >> /out/log.txt 2>&1 & FE=$!; sleep 7; }
+# @startup: the first picture at once, to see the start-up animation (otherwise it is over by then)
+START_WAIT=7
+if grep -q '^@startup' /steps.txt; then START_WAIT=1; fi
+start() { owneet-frontend >> /out/log.txt 2>&1 & FE=$!; sleep "$START_WAIT"; }
 start
 while IFS= read -r line; do
     set -- $line

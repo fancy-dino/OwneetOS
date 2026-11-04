@@ -2479,17 +2479,9 @@ FocusScope {
         }
         height: Math.max(mark.height, tabs.height)
 
-        Text {
+        Logo {
             id: mark
             anchors.verticalCenter: parent.verticalCenter
-            opacity: intro.visible ? 0 : 1      // the start-up animation brings it here
-            textFormat: Text.StyledText
-            text: "Owneet<font color=\"" + Theme.accent + "\">OS</font>"
-            color: Theme.fg
-            font.family: Theme.displayFont
-            font.weight: Font.ExtraBold
-            font.pixelSize: Theme.px(23)
-            font.letterSpacing: -Theme.px(0.7)
         }
         Row {
             id: tabs
@@ -3814,7 +3806,6 @@ FocusScope {
     // output not ready), on its own after a while
     Intro {
         id: intro
-        target: mark
         pages: pages
     }
     Connections {

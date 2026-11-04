@@ -21,6 +21,8 @@
         <file>owneet/SettingsPage.qml</file>
         <file>owneet/TimeZoneSheet.qml</file>
         <file>owneet/foundation/qmldir</file>
+        <file>owneet/foundation/Logo.qml</file>
+        <file>owneet/foundation/LogoData.qml</file>
         <file>owneet/foundation/SettingSlider.qml</file>
         <file>owneet/foundation/InfoRow.qml</file>
         <file>owneet/foundation/QrCode.qml</file>

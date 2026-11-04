@@ -133,23 +133,16 @@ Rectangle {
     readonly property int phase: Math.max(0, phases.indexOf(status.state))
 
     // ================= Layout =================
-    Item {                                // the wordmark and the steps
+    Item {                                // the logo and the steps
         id: top
         anchors {
             left: parent.left; right: parent.right; top: parent.top
             leftMargin: Theme.safeX; rightMargin: Theme.safeX; topMargin: Theme.safeTop
         }
         height: Math.max(mark.height, stepRow.height)
-        Text {
+        Logo {
             id: mark
             anchors.verticalCenter: parent.verticalCenter
-            textFormat: Text.StyledText
-            text: "Owneet<font color=\"" + Theme.accent + "\">OS</font>"
-            color: Theme.fg
-            font.family: Theme.displayFont
-            font.weight: Font.ExtraBold
-            font.pixelSize: Theme.px(23)
-            font.letterSpacing: -Theme.px(0.7)
         }
         Row {
             id: stepRow

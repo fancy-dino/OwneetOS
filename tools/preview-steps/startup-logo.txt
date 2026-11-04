@@ -1,0 +1,39 @@
+@owneetd
+@startup
+# The final logo ([[step-7.6-final-logo-and-brand]], approved demo 7.6-logo): the start-up animation
+# from the boot splash's picture, its colours, the slogan's words, the fade into the pages, the logo
+# in the top bar. The animation waits for the sound, or starts by itself after a moment: the frames
+# are taken one after the other.
+shot 01
+wait 0.5
+shot 02
+wait 0.5
+shot 03
+wait 0.5
+shot 04
+wait 0.5
+shot 05
+wait 0.5
+shot 06
+wait 0.5
+shot 07
+wait 0.5
+shot 08
+wait 0.5
+shot 09
+wait 0.5
+shot 10
+wait 0.5
+shot 11
+wait 0.5
+shot 12
+wait 0.5
+shot 13
+wait 0.5
+shot 14
+wait 0.5
+shot 15
+wait 0.5
+shot 16
+wait 3
+shot 17-home
