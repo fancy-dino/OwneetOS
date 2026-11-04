@@ -3,10 +3,13 @@
 <!-- OwneetOS - interactive demo for [[step-7.6-final-logo-and-brand]]: the people who saw the gamepad
      "O" read "wneetOS" (owner, 2026-11-04), so the wordmark gets its letter "O" back and the gamepad
      becomes a symbol next to it. The owner's combination: the symbol above on the full screen, with
-     the slogan under it, and the symbol on the left in the top bar. The letters are the outlines of
+     the slogan under it, and the symbol on the left in the top bar. The two start-up animations, as
+     approved in logo-gamepad-o.html (four beats): the logo appears over 2 s (website: from transparent;
+     console: from the boot splash's colours, already on screen), then the slogan's words 0.5 s apart,
+     each at once. The letters are the outlines of
      the current wordmark (packages/owneet-branding, Bricolage Grotesque, SIL Open Font License 1.1);
      the symbol is the one of logo-gamepad-o.html, drawn for OwneetOS. Fonts come from Google Fonts
-     for the demo only. Open in a browser; left / right change the palette. -->
+     for the demo only. Open in a browser; Enter plays the animations again, left / right change the palette. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -30,9 +33,10 @@ p { margin: 0; color: var(--muted); line-height: 1.45; max-width: 75ch; }
   border-radius: 999px; padding: 6px 14px; cursor: pointer; }
 .cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 24px; min-width: 0; }
+h3 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 10px; }
 .screen { border-radius: 12px; overflow: hidden; aspect-ratio: 16 / 9; }
 .screen svg { display: block; width: 100%; height: 100%; }
-#full { background: var(--bg); border: 1px solid var(--line); }
+#full, #animWebsite, #animConsole { background: var(--bg); border: 1px solid var(--line); }
 #boot { background: #000; }
 .topbar { display: flex; align-items: center; gap: 22px; background: var(--bg); border-radius: 12px; padding: 12px 18px; height: 76px; overflow: hidden; }
 .topbar svg { width: auto; display: block; flex: none; }
@@ -55,6 +59,14 @@ p { margin: 0; color: var(--muted); line-height: 1.45; max-width: 75ch; }
     </div>
     <button class="chip" id="pal" type="button"></button>
   </header>
+
+  <section class="card">
+    <div class="top" style="margin-bottom:12px"><h2 style="margin:0">Start-up animations</h2><button class="chip" id="replay" type="button">Play again</button></div>
+    <div class="cols">
+      <div><h3>Website: the logo from transparent</h3><div class="screen" id="animWebsite"></div></div>
+      <div><h3>Console: the logo from the boot splash's colours</h3><div class="screen" id="animConsole"></div></div>
+    </div>
+  </section>
 
   <div class="cols">
     <section class="card"><h2>Full screen</h2><div class="screen" id="full"></div></section>
@@ -159,15 +171,17 @@ const logoAbove = (cText, cOS) => symbol(cOS, (wordW - ABOVE.size) / 2, 0, ABOVE
   word(cText, cOS, -WORD.left, ABOVE.size + ABOVE.gap - WORD.top);
 // a screen of 1600 x 900: the word 800 wide, the whole in the middle; with the slogan under it, as
 // far from the word as the symbol looks: the symbol's bottom to the small letters right under it
-const SLOGAN = { text: 'Plug it. Play it. Own it!', size: 40, ascent: 0.72 };
+const SLOGAN = { words: ['Plug it.', 'Play it.', 'Own it!'], size: 40, ascent: 0.72 };
 const SMALL_LETTERS_TOP = -527.7;
-function screen(cText, cOS, cSlogan) {
+function screen(cText, cOS, cSlogan, hidden = false) {
+  // the slogan's room is always kept: the logo stays in the same place from the boot splash on
   const k = 800 / wordW, logoH = aboveH * k, gap = (ABOVE.gap + SMALL_LETTERS_TOP - WORD.top) * k;
-  const h = logoH + (cSlogan ? gap + SLOGAN.size : 0), top = (900 - h) / 2;
+  const h = logoH + gap + SLOGAN.size, top = (900 - h) / 2;
+  const words = SLOGAN.words.map((w, i) => `<tspan${hidden ? ' visibility="hidden"' : ''}>${i ? ' ' : ''}${w}</tspan>`).join('');
   const line = cSlogan ? `<text x="800" y="${(top + logoH + gap + SLOGAN.size * SLOGAN.ascent).toFixed(1)}" text-anchor="middle"` +
-    ` font-family="Lexend, system-ui, sans-serif" font-size="${SLOGAN.size}" font-weight="350" fill="${cSlogan}">${SLOGAN.text}</text>` : '';
+    ` font-family="Lexend, system-ui, sans-serif" font-size="${SLOGAN.size}" font-weight="350" fill="${cSlogan}">${words}</text>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="OwneetOS">` +
-    `<g transform="translate(400 ${top.toFixed(1)}) scale(${k.toFixed(5)})">${logoAbove(cText, cOS)}</g>${line}</svg>`;
+    `<g class="logo" transform="translate(400 ${top.toFixed(1)}) scale(${k.toFixed(5)})">${logoAbove(cText, cOS)}</g>${line}</svg>`;
 }
 const markSvg = (px, colour) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${px}" height="${px}">${markPath(colour)}</svg>`;
@@ -185,20 +199,59 @@ function render() {
   $('#sizes').innerHTML = [192, 128, 64, 48, 32, 24, 16]
     .map(px => `<figure>${markSvg(px, t.accent)}<figcaption>${px} px</figcaption></figure>`).join('');
 }
+// ---- The animations, in four beats: 1, the logo appears over the first beat; 2-4, one word each, at
+// once. "#t=1500" in the address shows them stopped at that time (ms), to look at one frame.
+const FIRST_BEAT = 2000, BEAT = 500;
+const easeOut = x => 1 - Math.pow(1 - x, 3);
+const rgb = h => h.replace('#', '').match(/../g).map(v => parseInt(v, 16));
+const mix = (a, b, x) => '#' + rgb(a).map((v, i) => Math.round(v + (rgb(b)[i] - v) * x).toString(16).padStart(2, '0')).join('');
+const FROZEN = /t=(\d+)/.exec(location.hash);
+let anims = [], start = 0, run = 0;
+function build(root, website) {
+  const t = tok(PALETTES[state.pal]);
+  root.innerHTML = screen(t.fg, t.accent, t.muted, true);
+  const logo = root.querySelector('.logo');
+  // each outline with its colours, from the splash's to the palette's
+  const parts = [...logo.querySelectorAll('path')].map(path => path.getAttribute('fill') === t.accent
+    ? [path, SPLASH.accent, t.accent] : [path, SPLASH.fg, t.fg]);
+  return { website, logo, parts, words: [...root.querySelectorAll('tspan')] };
+}
+function draw(a, ms) {
+  const x = easeOut(Math.min(1, ms / FIRST_BEAT));
+  if (a.website) a.logo.setAttribute('opacity', x.toFixed(3));
+  else a.parts.forEach(([path, from, to]) => path.setAttribute('fill', mix(from, to, x)));
+  a.words.forEach((w, i) => w.setAttribute('visibility', ms >= FIRST_BEAT + i * BEAT ? 'visible' : 'hidden'));
+}
+function frame(now, mine = run) {
+  if (mine !== run) return;
+  const ms = FROZEN ? +FROZEN[1] : now - start;
+  anims.forEach(a => draw(a, ms));
+  if (!FROZEN && ms < FIRST_BEAT + 2 * BEAT + 100) requestAnimationFrame(n => frame(n, mine));
+}
+function play() {
+  run++;
+  anims = [build($('#animWebsite'), true), build($('#animConsole'), false)];
+  start = performance.now();
+  if (FROZEN) frame(0); else requestAnimationFrame(n => frame(n));
+}
+
 function act(a) {
   if (a === 'left') state.pal = (state.pal + PALETTES.length - 1) % PALETTES.length;
   else if (a === 'right') state.pal = (state.pal + 1) % PALETTES.length;
-  else return;
+  else if (a !== 'play') return;
   render();
+  play();
 }
 $('#pal').onclick = () => act('right');
+$('#replay').onclick = () => act('play');
 addEventListener('keydown', e => {
-  const a = { ArrowLeft: 'left', ArrowRight: 'right' }[e.key];
+  const a = { ArrowLeft: 'left', ArrowRight: 'right', Enter: 'play' }[e.key];
   if (a) { e.preventDefault(); act(a); }
 });
 const pal = /pal=([\w-]+)/.exec(location.hash);
 if (pal) state.pal = Math.max(0, PALETTES.findIndex(q => q[0] === pal[1]));
 render();
+play();
 </script>
 </body>
 </html>
