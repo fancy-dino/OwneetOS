@@ -164,10 +164,12 @@ function markData() {
 const [SHELL, BUTTONS] = markData();
 // The D-pad and the buttons in a colour of their own, for contrast in every palette (owner, 2026-11-04):
 // opposite the symbol's colour, at least 4.5:1 on the palette's background. In the black and white
-// versions (graphite, the high contrasts, the boot splash) they stay in the symbol's colour. B compares.
+// versions (Graphite, the boot splash) they stay in the symbol's colour. The two high contrasts have each
+// other's colour (owner): the blue lighter and the yellow darker, to keep their contrast. B compares.
 const BUTTONS_COLOUR = { dusk: '#6FD3FF', tide: '#FF9E8A', bloom: '#7FE8C8', ember: '#7CCBFF', espresso: '#8AD0E8', harbor: '#8FC4F5',
   forest: '#FFA8C8', lagoon: '#FFC56B', amethyst: '#FFD66B', crimson: '#7FE3EE', synthwave: '#6FE8FF', amber: '#8CBEFF', olive: '#CDB2FF',
-  daylight: '#B8400B', arctic: '#B8400B', sand: '#0B6A85', latte: '#0B6A85', sakura: '#0A6F6A' };
+  daylight: '#B8400B', arctic: '#B8400B', sand: '#0B6A85', latte: '#0B6A85', sakura: '#0A6F6A',
+  contrast: '#8AB4FF', 'contrast-light': '#6E5200' };
 const buttonsOf = (p, t) => (state.coloured && BUTTONS_COLOUR[p[0]]) || t.accent;
 const markPath = (colour, buttons = colour) => `<path fill="${colour}" fill-rule="evenodd" d="${SHELL}"/>` +
   `<path class="buttons" fill="${buttons}" d="${BUTTONS}"/>`;
