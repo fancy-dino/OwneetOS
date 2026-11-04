@@ -40,7 +40,8 @@ button { font: inherit; color: inherit; }
 .disp { font-family: var(--display); font-variation-settings: "wdth" 80; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
 .ic { display: inline-flex; width: 18px; height: 18px; }
 .ic svg { width: 100%; height: 100%; display: block; }
-.wordmark { display: block; height: 30px; width: auto; fill: var(--fg); }
+/* the outlines reach the viewBox's edges: never clip them on a fractional pixel */
+.wordmark { display: block; height: 30px; width: auto; fill: var(--fg); overflow: visible; }
 .wordmark .accent { fill: var(--accent); }
 
 .btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; border: 1px solid transparent; cursor: pointer;
@@ -286,22 +287,22 @@ const T = {
       "Your style: 21 palettes, multiple languages supported.",
       "Light: it runs on low-end PCs.",
     ],
-    made: "Made by a couple of fed-up players, thanks to a lot of amazing people.",
+    made: "Made by two really fed-up players, thanks to a lot of amazing people.",
     home: "Home", previous: "Previous", next: "Next", card: "{n} of {total}",
     plugLede: "Everything about installing and using OwneetOS.",
     guide: "Guide", guideText: "From the USB stick to your first game.",
     faq: "FAQ", faqText: "Answers to the common questions.",
-    playLede: "Four buttons and you're playing.",
+    playLede: "Five buttons and you're playing.",
     moves: [
       "Move between Home, Library and Settings.",
       "Found your game? Press A and play.",
       "In a game, Home takes you back and the game keeps running. With Steam, hold it for a second.",
-      "On the home screen, B opens the quick menu: power options and what every button does.",
+      "On the home screen, B opens the quick menu: power options and a quick tutorial.",
     ],
     ownLede: "OwneetOS belongs to everyone.",
-    facts: ["Free and open source", "No telemetry", "DRM-free games offline", "Made together"],
+    facts: ["Completely free and open source", "No forced telemetry, we respect your privacy", "You can use it offline, we'll NEVER force updates on you", "A community driven, ever growing project"],
     get: "Get OwneetOS", menu: "Menu", language: "Language", theme: "Light or dark theme",
-    dlTitle: "Coming soon.", dlBtn: "Download - coming soon", soon: "The download opens with the first release.",
+    dlTitle: "Almost here!", dlBtn: "Download - coming soon", soon: "The download opens with the first release.",
     contribute: "Contribute and translate", source: "Source code", credits: "Credits and licences", privacy: "Privacy: no data collected",
     licence: "GPL-3.0-or-later · texts CC BY-SA 4.0",
     marks: "Steam is a trademark of Valve Corporation, Xbox of Microsoft Corporation, PlayStation of Sony Interactive Entertainment. They only say what works with OwneetOS, which is not affiliated with or endorsed by them.",
@@ -319,22 +320,22 @@ const T = {
       "Il tuo stile: 21 palette, più lingue supportate.",
       "Leggero: gira anche su PC poco potenti.",
     ],
-    made: "Fatto da un paio di giocatori stufi, grazie a tante persone straordinarie.",
+    made: "Fatto da due giocatori davvero stufi, grazie a tante persone straordinarie.",
     home: "Home", previous: "Precedente", next: "Successiva", card: "{n} di {total}",
     plugLede: "Tutto su come installare e usare OwneetOS.",
     guide: "Guida", guideText: "Dalla chiavetta USB al primo gioco.",
     faq: "Domande", faqText: "Le risposte alle domande più comuni.",
-    playLede: "Quattro tasti e stai già giocando.",
+    playLede: "Cinque tasti e stai già giocando.",
     moves: [
       "Passa tra Home, Libreria e Impostazioni.",
       "Trovato il gioco? Premi A e gioca.",
       "In un gioco, Home ti riporta indietro e il gioco resta aperto. Con Steam, tienilo premuto per un secondo.",
-      "Nella schermata Home, B apre il menu rapido: opzioni di spegnimento e cosa fa ogni tasto.",
+      "Nella schermata Home, B apre il menu rapido: opzioni di spegnimento e un rapido tutorial.",
     ],
     ownLede: "OwneetOS è di tutti.",
-    facts: ["Gratuito e open source", "Nessuna telemetria", "Giochi senza DRM offline", "Fatto insieme"],
+    facts: ["Completamente gratuito e open source", "Nessuna telemetria forzata, rispettiamo la tua privacy", "Puoi usarlo offline, non ti imporremo MAI gli aggiornamenti", "Un progetto guidato dalla community, in continua crescita"],
     get: "Scarica OwneetOS", menu: "Menu", language: "Lingua", theme: "Tema chiaro o scuro",
-    dlTitle: "In arrivo.", dlBtn: "Download - in arrivo", soon: "Il download si apre con la prima versione.",
+    dlTitle: "Ci siamo quasi!", dlBtn: "Download - in arrivo", soon: "Il download si apre con la prima versione.",
     contribute: "Contribuisci e traduci", source: "Codice sorgente", credits: "Crediti e licenze", privacy: "Privacy: nessun dato raccolto",
     licence: "GPL-3.0-or-later · testi CC BY-SA 4.0",
     marks: "Steam è un marchio di Valve Corporation, Xbox di Microsoft Corporation, PlayStation di Sony Interactive Entertainment. Indicano solo cosa funziona con OwneetOS, che non è affiliato né approvato da loro.",
