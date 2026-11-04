@@ -16,7 +16,6 @@ pad rb
 wait 1
 pad down
 wait 1
-shot 04-controllers
 pad down down down
 wait 1
 pad right
@@ -30,7 +29,6 @@ pad left
 wait 0.5
 pad down down
 wait 1
-shot 06-storage
 pad down right down down
 wait 0.5
 pad a
