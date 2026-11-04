@@ -686,7 +686,7 @@
   "first.pair.switch": "Tieni premuto il piccolo tasto sync in alto per 3 secondi.",
   "first.pair.cable.title": "Cavo USB",
   "first.pair.cable": "Collegalo. Funziona subito, senza abbinamento.",
-  "first.pair.note": "La prima configurazione richiede un controller Bluetooth o con cavo. La chiavetta wireless Xbox funziona dopo aver scaricato il suo firmware, tra qualche passo.",
+  "first.pair.note": "La prima configurazione richiede un controller Bluetooth o con cavo.",
   "first.pair.found": "{name} collegato",
   "first.lang.title": "Scegli la lingua",
   "first.lang.text": "La tastiera segue la lingua; puoi cambiarle entrambe nelle Impostazioni.",

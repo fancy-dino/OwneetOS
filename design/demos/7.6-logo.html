@@ -12,8 +12,7 @@
      again" (or Enter), not when the page opens. The letters are the outlines of
      the current wordmark (packages/owneet-branding, Bricolage Grotesque, SIL Open Font License 1.1);
      the symbol is the one of logo-gamepad-o.html, drawn for OwneetOS. Fonts come from Google Fonts
-     for the demo only. Open in a browser; Enter plays the animations again, left / right change the palette, B compares
-     the buttons in their own colour with the ones in the symbol's colour. -->
+     for the demo only. Open in a browser; Enter plays the animations again, left / right change the palette. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -68,7 +67,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 10px; }
       <h1>Final logo</h1>
       <p>The symbol above on the full screen, with the slogan; the symbol on the left in the top bar.</p>
     </div>
-    <div style="display:flex; gap:8px; flex-wrap:wrap"><button class="chip" id="azure" type="button"></button><button class="chip" id="pal" type="button"></button></div>
+    <button class="chip" id="pal" type="button"></button>
   </header>
 
   <section class="card">
@@ -132,7 +131,7 @@ const PALETTES = [
 const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
 // The boot splash (a still picture): white letters, the symbol and "OS" light grey.
 const SPLASH = { bg: '#000000', fg: '#FFFFFF', accent: '#B0B0B0' };
-const state = { pal: 0, coloured: true };
+const state = { pal: 0 };
 
 // ---- The symbol, in a 100 x 100 box: the disc, the gamepad cut out of it, the buttons back in the
 // disc's colour (the same drawing as logo-gamepad-o.html).
@@ -162,15 +161,6 @@ function markData() {
   return ['M0,50a50,50 0 1,0 100,0a50,50 0 1,0 -100,0Z' + body, cross + face];
 }
 const [SHELL, BUTTONS] = markData();
-// The D-pad and the buttons in a colour of their own, for contrast in every palette (owner, 2026-11-04):
-// opposite the symbol's colour, at least 4.5:1 on the palette's background. In the black and white
-// versions (Graphite, the boot splash) they stay in the symbol's colour. The two high contrasts have each
-// other's colour (owner): the blue lighter and the yellow darker, to keep their contrast. B compares.
-const BUTTONS_COLOUR = { dusk: '#6FD3FF', tide: '#FF9E8A', bloom: '#7FE8C8', ember: '#7CCBFF', espresso: '#8AD0E8', harbor: '#8FC4F5',
-  forest: '#FFA8C8', lagoon: '#FFC56B', amethyst: '#FFD66B', crimson: '#7FE3EE', synthwave: '#6FE8FF', amber: '#8CBEFF', olive: '#CDB2FF',
-  daylight: '#B8400B', arctic: '#B8400B', sand: '#0B6A85', latte: '#0B6A85', sakura: '#0A6F6A',
-  contrast: '#8AB4FF', 'contrast-light': '#6E5200' };
-const buttonsOf = (p, t) => (state.coloured && BUTTONS_COLOUR[p[0]]) || t.accent;
 const markPath = (colour, buttons = colour) => `<path fill="${colour}" fill-rule="evenodd" d="${SHELL}"/>` +
   `<path class="buttons" fill="${buttons}" d="${BUTTONS}"/>`;
 
@@ -219,14 +209,13 @@ function render() {
   const p = PALETTES[state.pal], t = tok(p);
   for (const name of TOKENS) document.documentElement.style.setProperty('--' + name, t[name]);
   $('#pal').textContent = 'Palette: ' + p[1];
-  $('#azure').textContent = state.coloured ? 'Buttons: their own colour' : 'Buttons: the symbol\'s colour';
-  const b = buttonsOf(p, t);
+  const b = t.accent;
   $('#full').innerHTML = screen(t.fg, t.accent, t.muted, false, b);
   $('#boot').innerHTML = screen(SPLASH.fg, SPLASH.accent);
   $('#bar').innerHTML = logoLeft(t.fg, t.accent, b);
   $('#sizes').innerHTML = [192, 128, 64, 48, 32, 24, 16]
     .map(px => `<figure>${markSvg(px, t.accent, b)}<figcaption>${px} px</figcaption></figure>`).join('');
-  $('#grid').innerHTML = PALETTES.map((q, i) => { const u = tok(q), c = buttonsOf(q, u);
+  $('#grid').innerHTML = PALETTES.map((q, i) => { const u = tok(q), c = u.accent;
     return `<div class="pal${i === state.pal ? ' on' : ''}" style="background:${u.bg}; color:${u.fg}"><header>${q[1]}</header>` +
       `<div class="row">${logoLeft(u.fg, u.accent, c)}${markSvg(36, u.accent, c)}</div></div>`; }).join('');
 }
@@ -240,7 +229,7 @@ const FROZEN = /t=(\d+)/.exec(location.hash);
 let anims = [], start = 0, run = 0;
 function build(root, website) {
   const t = tok(PALETTES[state.pal]);
-  const b = buttonsOf(PALETTES[state.pal], t);
+  const b = t.accent;
   root.innerHTML = screen(t.fg, t.accent, t.muted, true, b);
   const logo = root.querySelector('.logo');
   // each outline with its colours, from the splash's to the palette's
@@ -299,7 +288,6 @@ function play(withSound = false) {
 function act(a) {
   if (a === 'left') state.pal = (state.pal + PALETTES.length - 1) % PALETTES.length;
   else if (a === 'right') state.pal = (state.pal + 1) % PALETTES.length;
-  else if (a === 'buttons') state.coloured = !state.coloured;
   else if (a !== 'play') return;
   render();
   // a press: the sound can play (when it is not decoded yet, it starts as soon as it is)
@@ -308,9 +296,8 @@ function act(a) {
 }
 $('#pal').onclick = () => act('right');
 $('#replay').onclick = () => act('play');
-$('#azure').onclick = () => act('buttons');
 addEventListener('keydown', e => {
-  const a = { ArrowLeft: 'left', ArrowRight: 'right', Enter: 'play', b: 'buttons' }[e.key];
+  const a = { ArrowLeft: 'left', ArrowRight: 'right', Enter: 'play' }[e.key];
   if (a) { e.preventDefault(); act(a); }
 });
 const pal = /pal=([\w-]+)/.exec(location.hash);

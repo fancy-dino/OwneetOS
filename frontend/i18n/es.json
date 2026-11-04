@@ -686,7 +686,7 @@
   "first.pair.switch": "Mantén pulsado el pequeño botón de sincronización de arriba durante 3 segundos.",
   "first.pair.cable.title": "Cable USB",
   "first.pair.cable": "Conéctalo. Funciona al momento, sin emparejar.",
-  "first.pair.note": "La primera configuración necesita un mando Bluetooth o con cable. El adaptador inalámbrico de Xbox funciona cuando se descargue su firmware, unos pasos más adelante.",
+  "first.pair.note": "La primera configuración necesita un mando Bluetooth o con cable.",
   "first.pair.found": "{name} conectado",
   "first.lang.title": "Elige tu idioma",
   "first.lang.text": "El teclado sigue al idioma; puedes cambiar ambos en Ajustes.",

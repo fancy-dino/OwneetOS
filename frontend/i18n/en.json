@@ -686,7 +686,7 @@
   "first.pair.switch": "Hold the small sync button on top for 3 seconds.",
   "first.pair.cable.title": "USB cable",
   "first.pair.cable": "Plug it in. It works right away, no pairing needed.",
-  "first.pair.note": "The first set-up needs a Bluetooth controller or one with a cable. An Xbox wireless adapter works once its firmware is downloaded, a few steps from now.",
+  "first.pair.note": "The first set-up needs a Bluetooth controller or one with a cable.",
   "first.pair.found": "{name} connected",
   "first.lang.title": "Choose your language",
   "first.lang.text": "The keyboard follows the language; you can change both in Settings.",

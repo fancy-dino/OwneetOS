@@ -12,7 +12,6 @@ Canvas {
     property color letters: Theme.fg
     property color os: Theme.accent
     property color symbol: Theme.accent
-    property color buttons: Theme.logoButtons
 
     readonly property bool above: layout === "above"
     width: above ? size : size * (LogoData.leftSize + LogoData.leftGap + LogoData.wordWidth) / LogoData.leftSize
@@ -22,7 +21,6 @@ Canvas {
     onLettersChanged: requestPaint()
     onOsChanged: requestPaint()
     onSymbolChanged: requestPaint()
-    onButtonsChanged: requestPaint()
 
     onPaint: {
         const ctx = getContext("2d");
@@ -41,7 +39,6 @@ Canvas {
         ctx.path = LogoData.shell;
         ctx.fill();
         ctx.fillRule = Qt.WindingFill;
-        ctx.fillStyle = buttons;
         ctx.path = LogoData.buttons;
         ctx.fill();
         ctx.restore();

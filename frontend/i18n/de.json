@@ -686,7 +686,7 @@
   "first.pair.switch": "Halte die kleine Sync-Taste oben 3 Sekunden lang gedrückt.",
   "first.pair.cable.title": "USB-Kabel",
   "first.pair.cable": "Einstecken. Es funktioniert sofort, ohne Kopplung.",
-  "first.pair.note": "Für die erste Einrichtung brauchst du einen Bluetooth-Controller oder einen mit Kabel. Ein Xbox-Wireless-Adapter funktioniert, sobald seine Firmware heruntergeladen ist, ein paar Schritte weiter.",
+  "first.pair.note": "Für die erste Einrichtung brauchst du einen Bluetooth-Controller oder einen mit Kabel.",
   "first.pair.found": "{name} verbunden",
   "first.lang.title": "Wähle deine Sprache",
   "first.lang.text": "Die Tastatur folgt der Sprache; du kannst beides in den Einstellungen ändern.",

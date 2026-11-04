@@ -686,7 +686,7 @@
   "first.pair.switch": "Maintenez le petit bouton de synchronisation en haut pendant 3 secondes.",
   "first.pair.cable.title": "Câble USB",
   "first.pair.cable": "Branchez-la. Elle fonctionne tout de suite, sans appairage.",
-  "first.pair.note": "La première configuration demande une manette Bluetooth ou filaire. Un adaptateur sans fil Xbox fonctionne une fois son firmware téléchargé, quelques étapes plus loin.",
+  "first.pair.note": "La première configuration demande une manette Bluetooth ou filaire.",
   "first.pair.found": "{name} connectée",
   "first.lang.title": "Choisissez votre langue",
   "first.lang.text": "Le clavier suit la langue ; vous pouvez changer les deux dans les Paramètres.",

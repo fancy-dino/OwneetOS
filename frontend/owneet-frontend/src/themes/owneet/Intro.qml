@@ -72,7 +72,6 @@ Item {
                 letters: Theme.splashFg
                 os: Theme.splashAccent
                 symbol: Theme.splashAccent
-                buttons: Theme.splashAccent
             }
             Logo {
                 id: paletteLogo
