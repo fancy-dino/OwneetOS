@@ -1,0 +1,206 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS - interactive demo for [[step-7.6-final-logo-and-brand]], first round: the people who
+     saw the gamepad "O" read "wneetOS" (owner, 2026-11-04), so the wordmark gets its letter "O" back
+     and the gamepad becomes a symbol next to it. Two layouts to compare: the symbol on the left and
+     the symbol above, large, on the boot splash and in the top bar. The letters are the outlines of
+     the current wordmark (packages/owneet-branding, Bricolage Grotesque, SIL Open Font License 1.1);
+     the symbol is the one of logo-gamepad-o.html, drawn for OwneetOS. Open in a browser; left /
+     right change the palette. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS - Final logo (demo 7.6)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --bg: #0E1424; --surface: #172036; --raised: #222D4A; --line: #2E3A5C; --fg: #EEF1F8;
+  --muted: #8F9AB5; --accent: #FF8A5B; --on-accent: #1E0E06; --text: "Lexend", system-ui, sans-serif; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--text); font-weight: 350; }
+body { padding: 28px 16px 48px; }
+main { max-width: 1180px; margin: 0 auto; display: grid; gap: 22px; }
+h1 { font-size: 22px; font-weight: 500; margin: 0; }
+h2 { font-size: 13px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+p { margin: 0; color: var(--muted); line-height: 1.45; max-width: 75ch; }
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.chip { font: inherit; font-size: 14px; color: var(--fg); background: var(--raised); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 24px; min-width: 0; }
+.stage { display: grid; place-items: center; min-height: 300px; }
+.stage svg { display: block; height: auto; }
+.left .stage svg { width: min(460px, 100%); }
+.above .stage svg { width: min(340px, 100%); }
+.boot { background: #000; border-radius: 12px; display: grid; place-items: center; min-height: 220px; padding: 16px; }
+.boot svg { display: block; height: auto; }
+.left .boot svg { width: min(340px, 100%); }
+.above .boot svg { width: min(240px, 100%); }
+.topbar { display: flex; align-items: center; gap: 22px; background: var(--bg); border-radius: 12px; padding: 12px 18px; height: 76px; overflow: hidden; }
+.topbar svg { width: auto; display: block; flex: none; }
+.left .topbar svg { height: 32px; }
+.above .topbar svg { height: 52px; }
+.tabs { display: flex; gap: 6px; color: var(--muted); font-size: 14px; min-width: 0; }
+.tabs b { background: var(--fg); color: var(--bg); font-weight: 500; border-radius: 999px; padding: 5px 14px; }
+.tabs i { font-style: normal; padding: 5px 8px; }
+.sizes { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 24px; }
+.sizes figure { margin: 0; display: grid; justify-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.sizes svg { display: block; }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr; } .tabs i:last-child { display: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <div style="display:grid; gap:8px">
+      <h1>Final logo: the symbol on the left or above?</h1>
+      <p>The word is complete again, with its “O”; the gamepad stays as a symbol of its own.</p>
+    </div>
+    <button class="chip" id="pal" type="button"></button>
+  </header>
+
+  <div class="cols">
+    <section class="card left"><h2>Symbol on the left</h2><div class="stage" id="leftBig"></div></section>
+    <section class="card above"><h2>Symbol above</h2><div class="stage" id="aboveBig"></div></section>
+    <section class="card left"><h2>Boot splash</h2><div class="boot" id="leftBoot"></div></section>
+    <section class="card above"><h2>Boot splash</h2><div class="boot" id="aboveBoot"></div></section>
+    <section class="card left"><h2>Top bar</h2><div class="topbar"><div id="leftBar"></div><div class="tabs"><b>Home</b><i>Library</i><i>Settings</i></div></div></section>
+    <section class="card above"><h2>Top bar</h2><div class="topbar"><div id="aboveBar"></div><div class="tabs"><b>Home</b><i>Library</i><i>Settings</i></div></div></section>
+  </div>
+
+  <section class="card">
+    <h2>The symbol alone</h2>
+    <div class="sizes" id="sizes"></div>
+  </section>
+</main>
+
+<script>
+const OLD_O = "M234.8 12.3Q177.3 12.3 136.1 -9.5Q94.9 -31.3 69.2 -74.3Q43.4 -117.2 31.5 -180.4Q19.6 -243.6 19.6 -326.3Q19.6 -444.5 42 -520.8Q64.3 -597.2 113 -634.7Q161.6 -672.3 238 -672.3Q296.2 -672.3 337.6 -651.2Q379 -630.2 405.6 -588Q432.1 -545.7 444.8 -481Q457.5 -416.3 457.5 -329.8Q457.5 -245.4 444.7 -181.5Q431.8 -117.5 404.7 -74.6Q377.7 -31.7 335.7 -9.7Q293.7 12.3 234.8 12.3ZM238.2 -103.2Q262.9 -103.2 278.2 -125.6Q293.5 -148 300.5 -197.1Q307.6 -246.2 307.6 -325.9Q307.6 -408.2 300.2 -459Q292.8 -509.7 277.2 -532.9Q261.7 -556.1 237 -556.1Q213.5 -556.1 198.4 -532.8Q183.4 -509.4 176.6 -459Q169.7 -408.5 169.7 -326.9Q169.7 -267 173.5 -224.4Q177.4 -181.7 185.2 -155.1Q193.1 -128.4 206.5 -115.8Q219.9 -103.2 238.2 -103.2Z";
+const WNEET = [
+  "M550.8 0 451.4 -527.7H607.4L643.8 -120.7H648.1L701.4 -527.7H864.6L918.8 -120.7H924L960.6 -527.7H1110.8L1011.8 0H822.6L781.9 -393.8H777.1L736.7 0Z",
+  "M1108.9 0V-312.7L1108.7 -527.7H1235.5L1233.7 -334.5H1241.9Q1243.6 -409.5 1258.9 -454.4Q1274.3 -499.3 1302.3 -519.6Q1330.3 -539.9 1369.8 -539.9Q1435.3 -539.9 1465.8 -488.3Q1496.2 -436.6 1496.2 -326.9V0H1348.2V-292.4Q1348.2 -350.1 1340 -376.4Q1331.9 -402.7 1309.5 -402.7Q1288.1 -402.7 1276.5 -380.1Q1265 -357.5 1260.6 -318.4Q1256.2 -279.2 1256.2 -228.5V0Z",
+  "M1708.7 12.3Q1649.4 12.3 1610 -6.9Q1570.6 -26 1547.4 -61.1Q1524.2 -96.2 1514.4 -144.9Q1504.6 -193.6 1504.6 -252.1Q1504.6 -308.7 1514 -360.1Q1523.3 -411.4 1545.6 -452.2Q1567.8 -493.1 1606.2 -516.5Q1644.5 -539.9 1703.1 -539.9Q1757.9 -539.9 1795.3 -519.2Q1832.7 -498.5 1854.2 -460Q1875.6 -421.5 1881.8 -368.4Q1888 -315.2 1879.1 -250.7L1601.1 -241.9V-314.6L1758.3 -319.5L1742.3 -270.1Q1747.5 -323.2 1745 -357.2Q1742.5 -391.2 1732.4 -407.7Q1722.3 -424.1 1703.1 -424.1Q1682.6 -424.1 1671.2 -405.3Q1659.8 -386.5 1655.3 -352.1Q1650.9 -317.7 1650.9 -270.2Q1650.9 -176.8 1664.8 -137.3Q1678.8 -97.8 1708.9 -97.8Q1723.9 -97.8 1732.9 -106.8Q1741.8 -115.8 1746.2 -131Q1750.5 -146.2 1751.4 -166Q1752.3 -185.8 1750.4 -207.3L1885.5 -195.7Q1891.6 -159.8 1886.7 -123Q1881.9 -86.3 1862.6 -55.5Q1843.3 -24.8 1805.9 -6.3Q1768.5 12.3 1708.7 12.3Z",
+  "M2094.7 12.3Q2035.4 12.3 1996 -6.9Q1956.6 -26 1933.4 -61.1Q1910.2 -96.2 1900.4 -144.9Q1890.6 -193.6 1890.6 -252.1Q1890.6 -308.7 1900 -360.1Q1909.3 -411.4 1931.6 -452.2Q1953.8 -493.1 1992.2 -516.5Q2030.5 -539.9 2089.1 -539.9Q2143.9 -539.9 2181.3 -519.2Q2218.7 -498.5 2240.2 -460Q2261.6 -421.5 2267.8 -368.4Q2274 -315.2 2265.1 -250.7L1987.1 -241.9V-314.6L2144.3 -319.5L2128.3 -270.1Q2133.5 -323.2 2131 -357.2Q2128.5 -391.2 2118.4 -407.7Q2108.3 -424.1 2089.1 -424.1Q2068.6 -424.1 2057.2 -405.3Q2045.8 -386.5 2041.3 -352.1Q2036.9 -317.7 2036.9 -270.2Q2036.9 -176.8 2050.8 -137.3Q2064.8 -97.8 2094.9 -97.8Q2109.9 -97.8 2118.9 -106.8Q2127.8 -115.8 2132.2 -131Q2136.5 -146.2 2137.4 -166Q2138.3 -185.8 2136.4 -207.3L2271.5 -195.7Q2277.6 -159.8 2272.7 -123Q2267.9 -86.3 2248.6 -55.5Q2229.3 -24.8 2191.9 -6.3Q2154.5 12.3 2094.7 12.3Z",
+  "M2461.1 8.6Q2383.4 8.6 2341.4 -36.7Q2299.4 -82 2299.4 -174.8V-413H2263.3V-510.8H2275Q2311.7 -512.3 2325.2 -531.3Q2338.7 -550.2 2342.9 -589L2347.9 -631.3H2443.5V-527.7H2522.7V-410.1H2443.5V-202.5Q2443.5 -165.3 2455.9 -147.4Q2468.4 -129.6 2488.7 -129.6Q2497.8 -129.6 2506.3 -132.7Q2514.9 -135.9 2522.8 -142.2V-0.6Q2506.5 4.4 2491.4 6.5Q2476.3 8.6 2461.1 8.6Z"];
+const OS = [
+  "M2742.8 12.3Q2685.3 12.3 2644.1 -9.5Q2602.9 -31.3 2577.2 -74.3Q2551.4 -117.2 2539.5 -180.4Q2527.6 -243.6 2527.6 -326.3Q2527.6 -444.5 2550 -520.8Q2572.3 -597.2 2621 -634.7Q2669.6 -672.3 2746 -672.3Q2804.2 -672.3 2845.6 -651.2Q2887 -630.2 2913.6 -588Q2940.1 -545.7 2952.8 -481Q2965.5 -416.3 2965.5 -329.8Q2965.5 -245.4 2952.7 -181.5Q2939.8 -117.5 2912.7 -74.6Q2885.7 -31.7 2843.7 -9.7Q2801.7 12.3 2742.8 12.3ZM2746.2 -103.2Q2770.9 -103.2 2786.2 -125.6Q2801.5 -148 2808.5 -197.1Q2815.6 -246.2 2815.6 -325.9Q2815.6 -408.2 2808.2 -459Q2800.8 -509.7 2785.2 -532.9Q2769.7 -556.1 2745 -556.1Q2721.5 -556.1 2706.4 -532.8Q2691.4 -509.4 2684.6 -459Q2677.7 -408.5 2677.7 -326.9Q2677.7 -267 2681.5 -224.4Q2685.4 -181.7 2693.2 -155.1Q2701.1 -128.4 2714.5 -115.8Q2727.9 -103.2 2746.2 -103.2Z",
+  "M3177.1 12.3Q3118.2 12.3 3075.9 -4.9Q3033.7 -22 3008.4 -54.2Q2983.1 -86.4 2975.8 -131.2Q2968.6 -175.9 2980.6 -231L3116.7 -251.6Q3112 -210.6 3116.4 -175.6Q3120.8 -140.7 3136.2 -119.7Q3151.7 -98.7 3180.3 -98.7Q3197.1 -98.7 3209.3 -105.5Q3221.4 -112.3 3228 -125.6Q3234.7 -139 3234.7 -159.4Q3234.7 -195.5 3218.7 -220.3Q3202.7 -245.2 3177.2 -263.4Q3151.8 -281.7 3123.7 -297.4Q3097.4 -312.6 3070.7 -330.2Q3044.1 -347.8 3022.2 -370.8Q3000.3 -393.7 2987.1 -424.5Q2973.8 -455.2 2973.8 -496.4Q2973.8 -549.5 2997.3 -589Q3020.8 -628.5 3065.2 -650.4Q3109.6 -672.3 3171.2 -672.3Q3239.6 -672.3 3285.4 -645.6Q3331.2 -618.9 3351.9 -568.7Q3372.6 -518.5 3364.7 -448.4L3231.2 -430Q3233.8 -455.1 3232 -478.2Q3230.2 -501.2 3223.1 -519.3Q3216.1 -537.4 3202.9 -547.9Q3189.7 -558.4 3170.1 -558.4Q3154.2 -558.4 3142.6 -551.5Q3131 -544.6 3124.8 -532.4Q3118.7 -520.3 3118.7 -503.3Q3118.7 -477.5 3131.9 -459.2Q3145 -440.8 3166.9 -426.9Q3188.7 -413 3213.5 -399.9Q3245.3 -382.3 3275.2 -362.2Q3305 -342.1 3329.1 -316Q3353.2 -289.8 3367.3 -254.6Q3381.4 -219.5 3381.4 -171.8Q3381.4 -117.3 3359.4 -75.6Q3337.5 -33.9 3292.4 -10.8Q3247.4 12.3 3177.1 12.3Z"];
+const PALETTES = [
+  ['dusk', 'Dusk', '#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+  ['tide', 'Tide', '#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+  ['bloom', 'Bloom', '#1A1020', '#25182D', '#33223D', '#45304F', '#F7EEF6', '#AE93AE', '#FF7AA8', '#2A0614'],
+  ['ember', 'Ember', '#1C0F0C', '#2A1713', '#3A201A', '#4E2C24', '#FBEDE9', '#C49C93', '#FF6B47', '#2A0A03'],
+  ['espresso', 'Espresso', '#1A1310', '#261C17', '#33261F', '#47362C', '#F5ECE4', '#BBA693', '#D9A066', '#2A1707'],
+  ['harbor', 'Harbor', '#0D1B2E', '#14263D', '#1D3350', '#2A4566', '#F3EAD8', '#B7AE99', '#E8D3A8', '#142033'],
+  ['forest', 'Forest', '#0E1A14', '#15261D', '#1E3428', '#2B4636', '#ECF5EE', '#95B2A0', '#7BD88F', '#072012'],
+  ['lagoon', 'Lagoon', '#0A1426', '#101E38', '#182A4B', '#23395F', '#EAF1FF', '#90A4C9', '#4DA3FF', '#03162E'],
+  ['amethyst', 'Amethyst', '#15121F', '#1F1A2E', '#2A2340', '#3A3155', '#F1EDFA', '#A99FC4', '#B69CFF', '#1B0E3A'],
+  ['crimson', 'Crimson', '#170A0E', '#241018', '#321722', '#47202F', '#FCECEF', '#C597A1', '#FF4D6D', '#2B0510'],
+  ['synthwave', 'Synthwave', '#140B24', '#1F1236', '#2B1A4A', '#3D2563', '#FBEFFF', '#B99DD8', '#FF4FD8', '#2B0326'],
+  ['amber', 'Amber', '#0F0B05', '#1A1409', '#251C0D', '#3A2C14', '#FFE8C2', '#C9AA78', '#FFB000', '#241700'],
+  ['olive', 'Olive', '#14160E', '#1E2116', '#292D1F', '#3A402B', '#F1F3E6', '#ABB092', '#C5D86D', '#1C2306'],
+  ['graphite', 'Graphite', '#121212', '#1C1C1C', '#262626', '#383838', '#F2F2F2', '#A6A6A6', '#DADADA', '#121212'],
+  ['daylight', 'Daylight', '#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+  ['arctic', 'Arctic', '#EEF5FA', '#FFFFFF', '#DCE9F3', '#C3D5E4', '#0F1E2B', '#4E6577', '#0A78B8', '#FFFFFF'],
+  ['sand', 'Sand', '#F4EEE3', '#FFFBF4', '#E8DFD0', '#D3C6B1', '#2A2117', '#6A5C49', '#B04A28', '#FFFFFF'],
+  ['latte', 'Latte', '#F3ECE4', '#FFFAF5', '#E6DACD', '#D2C1AF', '#2B1E14', '#6B5746', '#8B5A2B', '#FFFFFF'],
+  ['sakura', 'Sakura', '#FBEFF3', '#FFFFFF', '#F3DDE5', '#E3C3CF', '#2A1420', '#76505F', '#C92A62', '#FFFFFF'],
+  ['contrast', 'High contrast', '#000000', '#000000', '#161616', '#FFFFFF', '#FFFFFF', '#E0E0E0', '#FFE14D', '#000000'],
+  ['contrast-light', 'High contrast light', '#FFFFFF', '#FFFFFF', '#EDEDED', '#000000', '#000000', '#262626', '#0038B8', '#FFFFFF'],
+];
+const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
+// The boot splash (a still picture): white letters, the symbol and "OS" light grey.
+const SPLASH = { fg: '#FFFFFF', accent: '#B0B0B0' };
+const state = { pal: 0 };
+
+// ---- The symbol, in a 100 x 100 box: the disc, the gamepad cut out of it, the buttons back in the
+// disc's colour (the same drawing as logo-gamepad-o.html).
+function markData() {
+  const k = 1.2, c = 50, rc = 16;
+  const T = (x, y) => [c + (x - c) * k, c + (y - c) * k];
+  const P = (x, y) => T(x, y).map(v => v.toFixed(2)).join(',');
+  const a = r => (r * k).toFixed(2);
+  const circle = (x, y, r) => { const [u, v] = T(x, y), R = r * k;
+    return `M${(u - R).toFixed(2)},${v.toFixed(2)}a${a(r)},${a(r)} 0 1,0 ${(2 * R).toFixed(2)},0` +
+      `a${a(r)},${a(r)} 0 1,0 ${(-2 * R).toFixed(2)},0Z`; };
+  // body: one straight top edge (y 33.5, x 16..84) whose corners are as round as the grips; the
+  // sides end in two round ends (centres (32, 49.5) and (68, 49.5), radius 16), the short grips;
+  // the middle's bottom curves inwards between them
+  const top = 33.5, r = 16, cy = 49.5, d = r * Math.SQRT1_2;
+  const lb = [32 + d, cy + d], rb = [68 - d, cy + d];
+  const body = `M${P(16 + rc, top)}L${P(84 - rc, top)}A${a(rc)},${a(rc)} 0 0,1 ${P(84, top + rc)}L${P(84, cy)}` +
+    `A${a(r)},${a(r)} 0 0,1 ${P(...rb)}Q${P(50, 54.5)} ${P(...lb)}A${a(r)},${a(r)} 0 0,1 ${P(16, cy)}` +
+    `L${P(16, top + rc)}A${a(rc)},${a(rc)} 0 0,1 ${P(16 + rc, top)}Z`;
+  // D-pad: a cross on the left end; four face buttons on the right end
+  const dx = 32, dy = 48.5, w = 2.6, l = 7.4;
+  const cross = 'M' + [[dx - w, dy - l], [dx + w, dy - l], [dx + w, dy - w], [dx + l, dy - w], [dx + l, dy + w], [dx + w, dy + w],
+    [dx + w, dy + l], [dx - w, dy + l], [dx - w, dy + w], [dx - l, dy + w], [dx - l, dy - w], [dx - w, dy - w]]
+    .map(([x, y]) => P(x, y)).join('L') + 'Z';
+  const fx = 68, fy = 48.5, o = 5.8, br = 2.7;
+  const face = [[fx, fy - o], [fx + o, fy], [fx, fy + o], [fx - o, fy]].map(([x, y]) => circle(x, y, br)).join('');
+  return 'M0,50a50,50 0 1,0 100,0a50,50 0 1,0 -100,0Z' + body + cross + face;
+}
+const MARK = markData();
+const markPath = colour => `<path fill="${colour}" fill-rule="evenodd" d="${MARK}"/>`;
+
+// ---- The word, in the outlines' units: x 19.6..3401, y -672..12, its middle at y -330. The symbol's
+// size and distance are in these units too.
+const WORD = { left: 19.6, right: 3401, top: -672, bottom: 12, middle: -330 };
+const LEFT = { size: 960, gap: 250 };      // the symbol's diameter, the space up to the word's "O"
+const ABOVE = { size: 1250, gap: 190 };    // the symbol's diameter, the space down to the word
+const PAD = 40;
+const word = (cText, cOS, dx = 0, dy = 0) => `<g transform="translate(${dx} ${dy})"><path fill="${cText}" d="${OLD_O}"/>` +
+  WNEET.map(d => `<path fill="${cText}" d="${d}"/>`).join('') + OS.map(d => `<path fill="${cOS}" d="${d}"/>`).join('') + '</g>';
+const symbol = (colour, x, y, size) => `<g transform="translate(${x} ${y}) scale(${size / 100})">${markPath(colour)}</g>`;
+const svg = (w, h, inner) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-PAD} ${-PAD} ${w + 2 * PAD} ${h + 2 * PAD}" role="img" aria-label="OwneetOS">${inner}</svg>`;
+
+// the symbol on the left: both on the word's middle line
+function logoLeft(cText, cOS) {
+  const wordW = WORD.right - WORD.left, h = LEFT.size;
+  return svg(LEFT.size + LEFT.gap + wordW, h, symbol(cOS, 0, 0, LEFT.size) +
+    word(cText, cOS, LEFT.size + LEFT.gap - WORD.left, h / 2 - WORD.middle));
+}
+// the symbol above: centred over the word
+function logoAbove(cText, cOS) {
+  const wordW = WORD.right - WORD.left, wordH = WORD.bottom - WORD.top;
+  return svg(wordW, ABOVE.size + ABOVE.gap + wordH, symbol(cOS, (wordW - ABOVE.size) / 2, 0, ABOVE.size) +
+    word(cText, cOS, -WORD.left, ABOVE.size + ABOVE.gap - WORD.top));
+}
+const markSvg = (px, colour) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${px}" height="${px}">${markPath(colour)}</svg>`;
+
+const $ = s => document.querySelector(s);
+const tok = p => Object.fromEntries(TOKENS.map((t, i) => [t, p[i + 2]]));
+
+function render() {
+  const p = PALETTES[state.pal], t = tok(p);
+  for (const name of TOKENS) document.documentElement.style.setProperty('--' + name, t[name]);
+  $('#pal').textContent = 'Palette: ' + p[1];
+  $('#leftBig').innerHTML = logoLeft(t.fg, t.accent);
+  $('#aboveBig').innerHTML = logoAbove(t.fg, t.accent);
+  $('#leftBoot').innerHTML = logoLeft(SPLASH.fg, SPLASH.accent);
+  $('#aboveBoot').innerHTML = logoAbove(SPLASH.fg, SPLASH.accent);
+  $('#leftBar').innerHTML = logoLeft(t.fg, t.accent);
+  $('#aboveBar').innerHTML = logoAbove(t.fg, t.accent);
+  $('#sizes').innerHTML = [192, 128, 64, 48, 32, 24, 16]
+    .map(px => `<figure>${markSvg(px, t.accent)}<figcaption>${px} px</figcaption></figure>`).join('');
+}
+function act(a) {
+  if (a === 'left') state.pal = (state.pal + PALETTES.length - 1) % PALETTES.length;
+  else if (a === 'right') state.pal = (state.pal + 1) % PALETTES.length;
+  else return;
+  render();
+}
+$('#pal').onclick = () => act('right');
+addEventListener('keydown', e => {
+  const a = { ArrowLeft: 'left', ArrowRight: 'right' }[e.key];
+  if (a) { e.preventDefault(); act(a); }
+});
+const pal = /pal=([\w-]+)/.exec(location.hash);
+if (pal) state.pal = Math.max(0, PALETTES.findIndex(q => q[0] === pal[1]));
+render();
+</script>
+</body>
+</html>
