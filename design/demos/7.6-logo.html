@@ -148,8 +148,8 @@ const markPath = colour => `<path fill="${colour}" fill-rule="evenodd" d="${MARK
 // ---- The word, in the outlines' units: x 19.6..3401, y -672..12, its middle at y -330. The symbol's
 // size and distance are in these units too.
 const WORD = { left: 19.6, right: 3401, top: -672, bottom: 12, middle: -330 };
-const LEFT = { size: 960, gap: 250 };      // the symbol's diameter, the space up to the word's "O"
-const ABOVE = { size: 1250, gap: 190 };    // the symbol's diameter, the space down to the word
+const LEFT = { size: 960, gap: 150 };      // the symbol's diameter, the space up to the word's "O"
+const ABOVE = { size: 1250, gap: 100 };    // the symbol's diameter, the space down to the word
 const PAD = 40;
 const word = (cText, cOS, dx = 0, dy = 0) => `<g transform="translate(${dx} ${dy})"><path fill="${cText}" d="${OLD_O}"/>` +
   WNEET.map(d => `<path fill="${cText}" d="${d}"/>`).join('') + OS.map(d => `<path fill="${cOS}" d="${d}"/>`).join('') + '</g>';
