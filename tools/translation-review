@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# The texts in a spreadsheet for the people who review a language ([[languages]]), and their corrections
-# back into the message files. One workbook per language, for Excel, LibreOffice or Google Sheets:
-# reviewers need no JSON and cannot break a file. Only the Python standard library.
+# The texts of the website and the console in a spreadsheet for the people who review a language
+# ([[languages]]), and their corrections back into the message files. One workbook per language, for
+# Excel, LibreOffice or Google Sheets: reviewers need no JSON and cannot break a file. Only the Python
+# standard library.
 #
 #   tools/translation-review export [DIR]        write the workbooks (default: out/translation-review)
 #   tools/translation-review import FILE         check a returned workbook, change nothing
@@ -22,6 +23,7 @@ from xml.sax.saxutils import escape
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WEBSITE = ROOT.parent / "OwneetOS-website" / "src" / "i18n"
+CONSOLE = ROOT / "frontend" / "i18n"
 LANGUAGES = {
     "en": ("English", "plain, natural English. It is the language the others are translated from"),
     "de": ("German", 'address the reader as "du"'),
@@ -50,6 +52,29 @@ WEBSITE_PARTS = {
     "privacy": ("Privacy (legal text: keep its meaning exact)", "privacy"),
     "not-found": ("Page not found", "404"),
 }
+# Which screen of the console a message belongs to
+CONSOLE_PARTS = {
+    "add": "Library: adding games", "app": "Names of the apps", "appearance": "Settings: Appearance",
+    "apps": "Apps: installing and opening them", "cancelinst": "Question: cancel a game's installation",
+    "choose": "A game: which file starts it", "city": "Time zone: names of cities", "clock": "Settings: Date and time",
+    "close": "Question: close a game", "closeapp": "Question: close an app", "controls": "Quick menu: Controls and features",
+    "copy": "A game: copying it from a disk", "credits": "Settings: Credits", "details": "A game's details page",
+    "disk": "Disks: lists and messages", "disks": "Settings: Disks", "display": "Settings: Display", "error": "Error messages",
+    "eula": "A game's licence agreement", "first": "First start of the console", "game": "A game's details page",
+    "games": "Library", "home": "Home screen", "how": "Library: how to add games", "install": "Question: install a game",
+    "installer": "Installing OwneetOS on the PC", "keyboard": "On-screen keyboard: names of the layouts",
+    "language": "Settings: Language", "library": "Library", "live": "Started from the USB stick, not installed",
+    "move": "Moving games between disks", "network": "Settings: Network", "notices": "Notifications",
+    "offline": "Messages without internet", "options": "A game's options menu", "pad": "Settings: Controllers",
+    "pair": "Pairing a controller", "palette": "Colour palettes (their names are free: they may also stay as they are)",
+    "pointer": "The controller used as a mouse", "prompt": "Button hints at the bottom of the screen (very short)",
+    "quick": "Quick menu", "settings": "Settings: the list of sections", "sound": "Settings: Sound",
+    "splash": "Black screen at start and at shutdown", "startup": "Start-up animation", "steam": "Messages about Steam",
+    "system": "Settings: System", "tab": "Sections at the top of the screen (very short)", "toast": "Short messages at the top right",
+    "uninstall": "Question: uninstall a game", "upd": "Settings: System, updates", "update": "Updates from a USB stick",
+    "webapp": "Opening a web app for the first time", "widevine": "Protected videos and music: the first time",
+    "windows": "Windows games: preparing them",
+}
 ID, WHERE, ENGLISH, CURRENT, CORRECTION, NOTES, KEEP = (
     "ID (do not change)", "Where", "English", "Current text", "Your correction", "Notes", "Keep as it is")
 NAMES = re.compile(r"OwneetOS|Steam|Xbox|PlayStation|Nintendo|Linux|Windows|SourceForge|GitHub|UEFI|BIOS")
@@ -68,25 +93,50 @@ def write_messages(folder: pathlib.Path, lang: str, messages: dict) -> None:
     (folder / f"{lang}.json").write_text(json.dumps(messages, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def flat(messages: dict) -> dict:
+    """Every text by id; a message with plural forms gives one per form: "games.count [one]"."""
+    texts = {}
+    for key, value in messages.items():
+        if key == "@meta":
+            continue
+        if isinstance(value, dict):
+            texts.update({f"{key} [{form}]": text for form, text in value.items()})
+        else:
+            texts[key] = value
+    return texts
+
+
+def set_text(messages: dict, text_id: str, text: str) -> None:
+    match = re.fullmatch(r"(.+) \[(\w+)\]", text_id)
+    if match:
+        messages[match.group(1)][match.group(2)] = text
+    else:
+        messages[text_id] = text
+
+
 def reviewable(folder: pathlib.Path) -> list:
     """The ids worth reviewing: a text differing between the languages."""
-    all_messages = [read_messages(folder, lang) for lang in LANGUAGES]
-    return [key for key in all_messages[0] if key != "@meta" and len({m[key] for m in all_messages}) > 1]
+    all_texts = [flat(read_messages(folder, lang)) for lang in LANGUAGES]
+    return [key for key in all_texts[0] if len({t[key] for t in all_texts}) > 1]
 
 
-def where(key: str) -> str:
+def website_where(key: str, lang: str) -> str:
     part = key.split(".")[0]
     if part not in WEBSITE_PARTS:
         sys.exit(f"{key}: add its part of the website to WEBSITE_PARTS")
-    return WEBSITE_PARTS[part][0]
+    name, page = WEBSITE_PARTS[part]
+    return name + "\n" + "/".join(["owneetos.org"] + ([] if lang == "en" else [lang]) + ([page] if page else []))
 
 
-def address(key: str, lang: str) -> str:
-    page = WEBSITE_PARTS[key.split(".")[0]][1]
-    parts = [] if lang == "en" else [lang]
-    if page:
-        parts.append(page)
-    return "/".join(["owneetos.org"] + parts)
+def console_where(key: str, lang: str) -> str:
+    part = key.split(".")[0]
+    if part not in CONSOLE_PARTS:
+        sys.exit(f"{key}: add its screen to CONSOLE_PARTS")
+    return CONSOLE_PARTS[part]
+
+
+# The sheets of a workbook: (name, folder of the message files, what the column Where says)
+SHEETS = {"Website": (WEBSITE, website_where), "Console": (CONSOLE, console_where)}
 
 
 def keep(text: str) -> str:
@@ -136,7 +186,7 @@ STYLES = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 </cellXfs></styleSheet>"""
 
 
-def readme_sheet(lang: str, areas: list) -> str:
+def readme_sheet(lang: str) -> str:
     name, register = LANGUAGES[lang]
     shown = f"owneetos.org/{lang}" if lang != "en" else "owneetos.org"
     texts = [
@@ -145,19 +195,24 @@ def readme_sheet(lang: str, areas: list) -> str:
             "background. These are its texts in " + name + ". Thank you for checking them."),
         (6, ""),
         (5, "What to do"),
-        (6, "1. Open the sheet " + " and the sheet ".join(areas) + ". Each row is one text."),
+        (6, "1. Open the sheet Website and the sheet Console. Each row is one text."),
         (6, "2. Read the column Current text. If it is good, leave the row as it is: an empty row means it is fine."),
         (6, "3. If it needs changing, write the whole new text in the yellow column Your correction, not only the changed words."),
         (6, "4. Anything to ask or explain goes in the column Notes."),
         (6, "5. Save the file in the same format and send it back to the person who gave it to you."),
-        (6, f"To see the texts in place: {shown} (the column Where says which page)."),
+        (6, f"To see the website's texts in place: {shown} (the column Where says which page). The console's texts cannot "
+            "be seen without a console: the column Where says which screen. If a text is not clear without seeing it, ask in Notes."),
         (6, ""),
         (5, "What to look for"),
         (6, "Mistakes, of course, but above all sentences that sound translated. A sentence that says the same thing the way a "
             "native speaker would say it is always welcome: you do not have to stay close to the English."),
         (6, f"The tone: {register}."),
         (6, "Short, plain words. No technical terms where an everyday word will do."),
-        (6, "The same thing is called the same way everywhere. Use Notes if you change a term that appears in many rows."),
+        (6, "The same thing is called the same way everywhere, on the website and on the console. Use Notes if you change a term "
+            "that appears in many rows."),
+        (6, "On the console the text is read on a TV, from a sofa, and the space is limited: stay close to the length of the current "
+            "text, above all in buttons, hints and titles."),
+        (6, "A row whose ID ends in [one] is the text for one item; [other] is the text for any other number. In French, [one] is also used for 0."),
         (6, ""),
         (5, "What must stay as it is"),
         (6, "The column Keep as it is lists what each row must keep: names in {curly brackets} are filled in by the page, "
@@ -176,8 +231,9 @@ def readme_sheet(lang: str, areas: list) -> str:
             f'<cols><col min="1" max="1" width="120" customWidth="1"/></cols><sheetData>{rows}</sheetData></worksheet>')
 
 
-def texts_sheet(lang: str, folder: pathlib.Path) -> str:
-    current, english = read_messages(folder, lang), read_messages(folder, "en")
+def texts_sheet(lang: str, sheet: str) -> str:
+    folder, where = SHEETS[sheet]
+    current, english = flat(read_messages(folder, lang)), flat(read_messages(folder, "en"))
     # (title, width, style); English has no column to compare with
     columns = [(ID, 22, 4), (WHERE, 24, 4)]
     columns += [(ENGLISH, 48, 2)] if lang != "en" else []
@@ -185,11 +241,11 @@ def texts_sheet(lang: str, folder: pathlib.Path) -> str:
     rows = ['<row r="1" ht="24" customHeight="1">'
             + "".join(cell(i, 1, title, 1) for i, (title, _, _) in enumerate(columns)) + "</row>"]
     for r, key in enumerate(reviewable(folder), 2):
-        values = [key, f"{where(key)}\n{address(key, lang)}"]
+        values = [key, where(key.split(" ")[0], lang)]
         values += [english[key]] if lang != "en" else []
         values += [current[key], "", "", keep(english[key])]
         height = max(lines(v, width) for v, (_, width, _) in zip(values, columns))
-        rows.append(f'<row r="{r}" ht="{16 * height + 4}" customHeight="1">'
+        rows.append(f'<row r="{r}" ht="{min(409, 16 * height + 4)}" customHeight="1">'
                     + "".join(cell(i, r, v, columns[i][2]) for i, v in enumerate(values)) + "</row>")
     widths = "".join(f'<col min="{i}" max="{i}" width="{w}" customWidth="1"/>' for i, (_, w, _) in enumerate(columns, 1))
     last = f"{column(len(columns) - 1)}{len(rows)}"
@@ -229,8 +285,9 @@ def export(out: pathlib.Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     for lang in LANGUAGES:
         path = out / f"OwneetOS-review-{lang}.xlsx"
-        write_workbook(path, [("Read me", readme_sheet(lang, ["Website"])), ("Website", texts_sheet(lang, WEBSITE))])
-        print(f"{path.relative_to(ROOT) if path.is_relative_to(ROOT) else path}: {len(reviewable(WEBSITE))} texts")
+        write_workbook(path, [("Read me", readme_sheet(lang))] + [(name, texts_sheet(lang, name)) for name in SHEETS])
+        counts = ", ".join(f"{name}: {len(reviewable(folder))} texts" for name, (folder, _) in SHEETS.items())
+        print(f"{path.relative_to(ROOT) if path.is_relative_to(ROOT) else path}: {counts}")
 
 
 # ---- Reading a workbook back, also after Excel, LibreOffice or Google Sheets saved it
@@ -285,20 +342,21 @@ def problems(new: str, reference: str) -> list:
     return found
 
 
-def import_file(path: pathlib.Path, folder: pathlib.Path, apply: bool) -> int:
-    rows = read_sheet(path, "Website")
+def import_sheet(path: pathlib.Path, sheet: str, folder: pathlib.Path, apply: bool) -> int:
+    rows = read_sheet(path, sheet)
     if not rows:
-        print(f"{path}: no sheet called Website")
+        print(f"{path}: no sheet called {sheet}")
         return 1
     header = {title: letter for letter, title in rows[0].items()}
     match = next((re.search(rf"^{CURRENT} \((\w+)\)$", title) for title in header if title.startswith(CURRENT)), None)
     if not match or match.group(1) not in LANGUAGES or ID not in header or CORRECTION not in header:
-        print(f"{path}: the columns were changed: {sorted(header)}")
+        print(f"{path}, {sheet}: the columns were changed: {sorted(header)}")
         return 1
     lang = match.group(1)
-    messages, english = read_messages(folder, lang), read_messages(folder, "en")
+    messages = read_messages(folder, lang)
+    texts, english = flat(messages), flat(read_messages(folder, "en"))
     current_title = f"{CURRENT} ({lang})"
-    changes, errors, moved, notes = {}, [], [], []
+    changes, errors, moved, notes, long = {}, [], [], [], []
     for row in rows[1:]:
         key = row.get(header[ID], "").strip()
         new = row.get(header[CORRECTION], "").strip()
@@ -307,36 +365,45 @@ def import_file(path: pathlib.Path, folder: pathlib.Path, apply: bool) -> int:
             notes.append(f"{key}: {note}")
         if not key or not new:
             continue
-        if key not in messages or key == "@meta":
+        if key not in texts:
             errors.append(f"{key}: no such text (the ID was changed?)")
             continue
-        if row.get(header[current_title], "") != messages[key]:
+        if row.get(header[current_title], "") != texts[key]:
             moved.append(key)     # changed in the repository since the export: the owner compares
-        if new == messages[key]:
+        if new == texts[key]:
             continue
         found = problems(new, english[key])
         if found:
             errors.append(f"{key}: {'; '.join(found)}\n    {new}")
-        else:
-            changes[key] = new
-    print(f"{path.name} ({lang}): {len(changes)} corrections, {len(errors)} to fix, {len(moved)} on a text changed since, {len(notes)} notes")
-    for title, items in (("To fix (not applied):", errors), ("Changed since the export (look at them first):", moved), ("Notes:", notes)):
+            continue
+        changes[key] = new
+        if sheet == "Console" and len(new) > max(len(texts[key]) * 1.3, len(texts[key]) + 8):
+            long.append(f"{key}: {len(texts[key])} -> {len(new)} characters")
+    print(f"{sheet} ({lang}): {len(changes)} corrections, {len(errors)} to fix, {len(moved)} on a text changed since, {len(notes)} notes")
+    for title, items in (("To fix (not applied):", errors), ("Changed since the export (look at them first):", moved),
+                         ("Much longer: check them on screen:", long), ("Notes:", notes)):
         if items:
             print(title)
             for item in items:
                 print("  " + item)
     for key, new in changes.items():
-        print(f"  {key}\n    - {messages[key]}\n    + {new}")
+        print(f"  {key}\n    - {texts[key]}\n    + {new}")
     if lang == "en" and changes:
         print("English changed: the other languages may need the same change.")
     if apply and not moved:
-        messages.update(changes)
+        for key, new in changes.items():
+            set_text(messages, key, new)
         write_messages(folder, lang, messages)
         print(f"written: {folder / (lang + '.json')}")
     elif apply:
         print("nothing written: look at the texts changed since the export first")
         return 1
     return 1 if errors else 0
+
+
+def import_file(path: pathlib.Path, website: pathlib.Path, console: pathlib.Path, apply: bool) -> int:
+    results = [import_sheet(path, "Website", website, apply), import_sheet(path, "Console", console, apply)]
+    return max(results)
 
 
 def main() -> int:
@@ -347,12 +414,13 @@ def main() -> int:
     back = sub.add_parser("import")
     back.add_argument("file", type=pathlib.Path)
     back.add_argument("--apply", action="store_true")
-    back.add_argument("--messages", type=pathlib.Path, default=WEBSITE, help="the folder of the message files")
+    back.add_argument("--website", type=pathlib.Path, default=WEBSITE, help="the website's message files")
+    back.add_argument("--console", type=pathlib.Path, default=CONSOLE, help="the console's message files")
     args = parser.parse_args()
     if args.command == "export":
         export(args.dir)
         return 0
-    return import_file(args.file, args.messages, args.apply)
+    return import_file(args.file, args.website, args.console, args.apply)
 
 
 if __name__ == "__main__":

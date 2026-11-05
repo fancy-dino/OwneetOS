@@ -69,7 +69,8 @@ Reviewers need no JSON: `tools/translation-review export` writes one spreadsheet
 instructions in the first sheet, every text beside the English, and a column for corrections. A returned
 file is checked with `tools/translation-review import FILE` and written with `--apply`: placeholders, marks
 and links must match the English, a text changed since the export is shown first, and nothing wrong is written.
-Today it covers the website's texts; the website's repository must sit next to this one.
+Each workbook has a sheet for the website and one for the console; the website's repository must sit next to
+this one. After writing corrections, run `tools/i18n-check`, and look on screen at the texts the tool calls much longer.
 
 ## Current limits
 
