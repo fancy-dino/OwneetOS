@@ -267,8 +267,10 @@ func (m *Manager) Steam(req SteamRequest) error {
 	case req.Open == "store":
 		url = "steam://store"
 	case req.Open == "storage":
-		// Steam moves its own games: its storage settings ([[step-6.6-moving-games-and-media-between-disks]])
-		url = "steam://settings/storage"
+		// Steam moves its own games: its settings, where Storage is
+		// ([[step-6.6-moving-games-and-media-between-disks]]). steam://settings/storage only showed
+		// Steam's home on FrankenPC (owner, 2026-11-05)
+		url = "steam://open/settings"
 	}
 	if url == "" {
 		return fmt.Errorf("%w: one of open (library, store, storage), run, install, uninstall, ask, windows (a Steam app id)", ErrInvalid)
