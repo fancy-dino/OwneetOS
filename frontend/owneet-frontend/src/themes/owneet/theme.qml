@@ -48,8 +48,7 @@ FocusScope {
         // once per boot, not when the interface restarts: the start-up animation with its sound
         if (systemInfo.firstStartThisBoot()) {
             intro.show();
-            sounds.playStartup();
-            introFallback.start();
+            introHold.start();
         }
         // The first start (6.1): until "Ready" on an installed console; from the USB stick at
         // every start, since nothing there is kept at power-off
@@ -3811,6 +3810,17 @@ FocusScope {
     Connections {
         target: sounds
         function onStartupStarted() { intro.go(); }
+    }
+    // The splash's still picture waits on screen before the colours start: a real screen may take a
+    // moment to show the session's first frames, and it would miss the start of the fade (owner's
+    // test on FrankenPC, 2026-11-05)
+    Timer {
+        id: introHold
+        interval: 1500
+        onTriggered: {
+            sounds.playStartup();
+            introFallback.start();
+        }
     }
     Timer {
         id: introFallback
