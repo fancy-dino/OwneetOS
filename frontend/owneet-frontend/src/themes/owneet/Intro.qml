@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The start-up animation ([[step-7.6-final-logo-and-brand]], design/demos/7.6-logo.html), once per boot
-// with the start-up sound. A black screen stands between the boot splash and the session
-// ([[black-screen-between-boot-splash-and-session]]), so it starts from black (owner, 2026-11-05): in
+// with the start-up sound. A black screen stands between the boot splash and the session, so it
+// starts from black (owner, 2026-11-05): in
 // four beats, over 2 s the logo fades in, in the palette's colours, and the black becomes the palette's
 // background; at 2 s, 2.5 s and 3 s the slogan's three words appear, each at once. 0.8 s later it all
 // fades into the pages in 0.4 s, 4.2 s in all, as on the website. "Reduce motion": a plain fade.
