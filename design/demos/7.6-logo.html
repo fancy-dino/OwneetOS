@@ -41,7 +41,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 10px; }
 .screen svg { display: block; width: 100%; height: 100%; }
 #full, #animWebsite { background: var(--bg); border: 1px solid var(--line); }
 #animConsole { background: #000; }
-#boot { background: #000; }
+#boot, #down { background: #000; }
 .topbar { display: flex; align-items: center; gap: 22px; background: var(--bg); border-radius: 12px; padding: 12px 18px; height: 76px; overflow: hidden; }
 .topbar svg { width: auto; display: block; flex: none; }
 .topbar svg { height: 32px; }
@@ -81,6 +81,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 10px; }
   <div class="cols">
     <section class="card"><h2>Full screen</h2><div class="screen" id="full"></div></section>
     <section class="card"><h2>Boot splash</h2><div class="screen" id="boot"></div></section>
+    <section class="card"><h2>Shutdown splash</h2><div class="screen" id="down"></div></section>
   </div>
   <section class="card"><h2>Top bar</h2><div class="topbar"><div id="bar"></div><div class="tabs"><b>Home</b><i>Library</i><i>Settings</i></div></div></section>
   <section class="card">
@@ -199,6 +200,11 @@ function screen(cText, cOS, cSlogan, hidden = false, cButtons = cOS) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="OwneetOS">` +
     `<g class="logo" transform="translate(400 ${top.toFixed(1)}) scale(${k.toFixed(5)})">${logoAbove(cText, cOS, cButtons)}</g>${line}</svg>`;
 }
+// The boot and shutdown splash: the logo, Plymouth's spinner, and under it the message (owner, 2026-11-05)
+const splash = message => screen(SPLASH.fg, SPLASH.accent).replace('</svg>',
+  '<circle cx="800" cy="828" r="18" fill="none" stroke="#FFF" stroke-opacity=".18" stroke-width="4"/>' +
+  '<path d="M800 810 A18 18 0 0 1 818 828" fill="none" stroke="#FFF" stroke-width="4" stroke-linecap="round"/>' +
+  `<text x="800" y="876" text-anchor="middle" font-family="Lexend, system-ui, sans-serif" font-size="18" fill="#FFF">${message}</text></svg>`);
 const markSvg = (px, colour, buttons) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${px}" height="${px}">${markPath(colour, buttons)}</svg>`;
 
@@ -211,7 +217,8 @@ function render() {
   $('#pal').textContent = 'Palette: ' + p[1];
   const b = t.accent;
   $('#full').innerHTML = screen(t.fg, t.accent, t.muted, false, b);
-  $('#boot').innerHTML = screen(SPLASH.fg, SPLASH.accent);
+  $('#boot').innerHTML = splash('Starting');
+  $('#down').innerHTML = splash('Shutting down');
   $('#bar').innerHTML = logoLeft(t.fg, t.accent, b);
   $('#sizes').innerHTML = [192, 128, 64, 48, 32, 24, 16]
     .map(px => `<figure>${markSvg(px, t.accent, b)}<figcaption>${px} px</figcaption></figure>`).join('');
