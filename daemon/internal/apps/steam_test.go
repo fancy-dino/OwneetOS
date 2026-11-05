@@ -181,6 +181,29 @@ func TestSteamWithNVIDIAKeepsTheGPU(t *testing.T) {
 	}
 }
 
+// Steam drops an address that comes while its interface is starting, and stays on its home page
+// (FrankenPC, 2026-11-05): its settings pages wait after the window shows
+func TestSteamStorageWaitsForItsInterface(t *testing.T) {
+	m, _, focus, _, forwarded, _ := newSteamManager(t)
+	old := steamPageAfter
+	steamPageAfter = 200 * time.Millisecond
+	defer func() { steamPageAfter = old }()
+	if err := m.Steam(SteamRequest{Open: "storage"}); err != nil {
+		t.Fatal(err)
+	}
+	focus.openWindow(1001)
+	for i := 0; i < settleChecks; i++ {
+		m.checkWindows()
+	}
+	if len(*forwarded) != 0 {
+		t.Fatalf("forwarded at once: %v", *forwarded)
+	}
+	time.Sleep(600 * time.Millisecond)
+	if len(*forwarded) != 1 || !strings.HasSuffix((*forwarded)[0], "/usr/bin/steam steam://settings/storage") {
+		t.Fatalf("forwarded %v", *forwarded)
+	}
+}
+
 func TestSteamStartsWithoutGamescopeControl(t *testing.T) {
 	m, units, focus, _, forwarded, ch := newSteamManager(t)
 	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {

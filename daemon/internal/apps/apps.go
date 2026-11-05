@@ -397,7 +397,7 @@ func (m *Manager) checkWindows() {
 		m.show(f, []uint32{behind[0], behind[1], HomeAppID})
 	}
 	if pending != "" {
-		m.forwardSteam(pending, sess)
+		m.forwardSteamPending(pending, sess)
 		m.mu.Lock()
 		hidden := m.steamHidden
 		m.mu.Unlock()
