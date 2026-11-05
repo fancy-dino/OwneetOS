@@ -452,6 +452,8 @@
   "disk.step.find": "Die Konsole findet in jedem Ordner, was zu starten ist. Ist sie unsicher, fragt sie dich einmal.",
   "disk.step.install": "Spiele mit Installer installiert die Konsole, nachdem du ihre Lizenz akzeptiert hast.",
   "disk.step.win": "Auch Spiele für Windows funktionieren: Du musst nichts weiter tun.",
+  "splash.starting": "Wird gestartet",
+  "splash.shutting_down": "Wird heruntergefahren",
   "steam.prep.title": "Steam wird vorbereitet…",
   "steam.prep.text": "Steam öffnet sich gleich von selbst.",
   "steam.prep.first": "Beim ersten Mal dauert es ein paar Minuten: Steam lädt seine Dateien herunter. Es öffnet sich von selbst, sobald es bereit ist.",

@@ -452,6 +452,8 @@
   "disk.step.find": "La consola encuentra qué iniciar en cada carpeta. Si no está segura, te lo pregunta una vez.",
   "disk.step.install": "La consola instala los juegos con instalador, después de que aceptes su licencia.",
   "disk.step.win": "Los juegos para Windows también funcionan: no hay que hacer nada más.",
+  "splash.starting": "Iniciando",
+  "splash.shutting_down": "Apagando",
   "steam.prep.title": "Preparando Steam…",
   "steam.prep.text": "Steam se abre solo en un momento.",
   "steam.prep.first": "La primera vez tarda unos minutos: Steam descarga sus archivos. Se abre solo cuando está listo.",

@@ -183,33 +183,99 @@ func TestSteamWithNVIDIAKeepsTheGPU(t *testing.T) {
 
 // Started from the console with an account, Steam's window stays hidden while it shows its logo and
 // flickers; the page asked for goes first, when its interface is ready (FrankenPC, 2026-11-05)
-func TestSteamWindowWaitsForItsInterface(t *testing.T) {
+// steamHoldReady starts Steam for its storage with an account and an old log, and opens its window.
+func steamHoldReady(t *testing.T) (*Manager, *[]string, string) {
+	t.Helper()
 	m, _, focus, _, forwarded, _ := newSteamManager(t)
-	config := filepath.Join(m.SteamDir, "config")
-	if err := os.MkdirAll(config, 0o755); err != nil {
-		t.Fatal(err)
+	for _, dir := range []string{"config", "logs"} {
+		if err := os.MkdirAll(filepath.Join(m.SteamDir, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if err := os.WriteFile(filepath.Join(config, "loginusers.vdf"), []byte(`"users" { "76561198000000001" { "AccountName" "a" } }`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(m.SteamDir, "config", "loginusers.vdf"), []byte(`"users" { "76561198000000001" { "AccountName" "a" } }`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if !steamAccount(m.SteamDir) {
 		t.Fatal("the account's file is not the one steamAccount reads")
 	}
+	log := steamInterfaceLog(m.SteamDir)
+	// the line of an earlier start does not count
+	if err := os.WriteFile(log, []byte(steamInterfaceLine), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if err := m.Steam(SteamRequest{Open: "storage"}); err != nil {
 		t.Fatal(err)
 	}
 	focus.openWindow(1001)
-	for i := 1; i <= settleChecks+steamHoldChecks; i++ {
+	return m, forwarded, log
+}
+
+const steamInterfaceLine = "[2026-11-05 13:28:13] notificationtoasts_uid2: STARTUP LoadEnd t=12.116 +9.4ms from create\n"
+
+func TestSteamWindowWaitsForItsInterface(t *testing.T) {
+	m, forwarded, log := steamHoldReady(t)
+	// however long the interface takes on this computer, nothing shows and nothing is sent
+	for i := 1; i < steamHoldMax-1; i++ {
 		m.checkWindows()
-		if want := i >= settleChecks+steamHoldChecks-steamPageBefore; want != (len(*forwarded) == 1) {
-			t.Fatalf("check %d: forwarded %v", i, *forwarded)
-		}
-		if shown := m.Status().Focus == SteamID; shown != (i == settleChecks+steamHoldChecks) {
-			t.Fatalf("check %d: Steam on screen %v", i, shown)
+		if len(*forwarded) != 0 || m.Status().Focus == SteamID {
+			t.Fatalf("check %d: forwarded %v, focus %q", i, *forwarded, m.Status().Focus)
 		}
 	}
-	if !strings.HasSuffix((*forwarded)[0], "/usr/bin/steam steam://settings/storage") {
+	f, err := os.OpenFile(log, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(steamInterfaceLine); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	// its interface is up: the page goes, and the window waits for the page
+	for i := 0; i < steamPageChecks; i++ {
+		m.checkWindows()
+		if len(*forwarded) != 1 || !strings.HasSuffix((*forwarded)[0], "/usr/bin/steam steam://settings/storage") {
+			t.Fatalf("forwarded %v", *forwarded)
+		}
+		if m.Status().Focus == SteamID {
+			t.Fatalf("check %d after the line: Steam on screen", i)
+		}
+	}
+	m.checkWindows()
+	if len(*forwarded) != 1 || m.Status().Focus != SteamID {
+		t.Fatalf("forwarded %v, focus %q", *forwarded, m.Status().Focus)
+	}
+}
+
+// Should the line never come (a new Steam, a sign-in that expired), Steam still shows.
+func TestSteamWindowDoesNotWaitForEver(t *testing.T) {
+	m, forwarded, _ := steamHoldReady(t)
+	for i := 1; i < steamHoldMax; i++ {
+		m.checkWindows()
+	}
+	if len(*forwarded) != 0 {
 		t.Fatalf("forwarded %v", *forwarded)
+	}
+	for i := 0; i <= steamPageChecks; i++ {
+		m.checkWindows()
+	}
+	if len(*forwarded) != 1 || m.Status().Focus != SteamID {
+		t.Fatalf("forwarded %v, focus %q", *forwarded, m.Status().Focus)
+	}
+}
+
+// Steam started a new log: the line is looked for from its start.
+func TestSteamInterfaceLogStartedAgain(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "logs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(steamInterfaceLog(dir), []byte(steamInterfaceLine), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !steamInterfaceReady(dir, 1<<20) {
+		t.Fatal("a shorter log not read from its start")
+	}
+	if steamInterfaceReady(dir, steamInterfaceLogSize(dir)) {
+		t.Fatal("a line from before the start counted")
 	}
 }
 

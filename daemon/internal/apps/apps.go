@@ -71,13 +71,15 @@ type App struct {
 // settleChecks is how many once-a-second checks a settling app's window must stay before it is shown.
 const settleChecks = 3
 
-// steamHoldChecks is how many more checks Steam's window stays hidden when the console starts it: Steam
-// shows its logo and flickers, and it drops an address that comes while its interface is starting
-// (FrankenPC, 2026-11-05: the address came 1 s after the window, the interface was still starting 3 s
-// later). steamPageBefore: the page asked for goes this many checks before the window shows.
+// When the console starts Steam, its window stays hidden until Steam's interface has started: before
+// that Steam shows its logo and flickers, and it drops an address (FrankenPC, 2026-11-05: an address
+// 3 s before that moment was lost, one 2 s after it opened). The moment depends on the computer, so
+// it is read from Steam's log (steamInterfaceReady), not waited for. steamHoldMax: checks after which
+// the window shows anyway, should that line never come (the user must never be left waiting).
+// steamPageChecks: how long the page asked for has to replace Steam's home before the window shows.
 const (
-	steamHoldChecks = 8
-	steamPageBefore = 3
+	steamHoldMax    = 30
+	steamPageChecks = 3
 )
 
 // HomeAppID tags the home screen's windows in gamescope; apps get ids just above it (see
@@ -201,7 +203,9 @@ type Manager struct {
 	// the steam:// address to hand to Steam once its window is shown (it started on its own
 	// home page, so that Back from that address has somewhere to go)
 	steamPending string
-	steamHold    bool     // started from the console with an account: its window waits (steamHoldChecks)
+	steamHold    bool     // started from the console with an account: its window waits for its interface
+	steamLogFrom int64    // where Steam's interface log ended when it started (steamInterfaceReady)
+	steamPageOff bool     // the hold: the page asked for has gone to Steam
 	shown        []uint32 // what owneetd last asked gamescope to show
 	lastFocus    string   // the last "focus.changed" sent
 	// Steam hidden while it starts a game; shown later if it seems to wait for the user (steam.go)
@@ -366,6 +370,10 @@ func (m *Manager) checkWindows() {
 		shown[v] = true
 	}
 	m.mu.Lock()
+	hold, steamDir, steamLogFrom := m.steamHold && !m.steamPageOff, m.SteamDir, m.steamLogFrom
+	m.mu.Unlock()
+	interfaceUp := hold && steamInterfaceReady(steamDir, steamLogFrom)
+	m.mu.Lock()
 	var ready []string
 	var bring []uint32  // settled apps to bring to the front
 	var behind []uint32 // Steam games whose window came: Steam back behind them
@@ -388,12 +396,15 @@ func (m *Manager) checkWindows() {
 			a.steady++
 			need := settleChecks
 			if a.ID == SteamID && m.steamHold {
-				// Steam's logo and its flicker stay hidden; the page asked for goes first, so that its
-				// home does not flash by
-				need += steamHoldChecks
-				if a.steady == need-steamPageBefore {
+				if !m.steamPageOff && a.steady >= settleChecks && (interfaceUp || a.steady >= steamHoldMax) {
 					pending, m.steamPending = m.steamPending, ""
+					m.steamPageOff = true
+					a.steady = 0
 				}
+				if !m.steamPageOff {
+					continue
+				}
+				need = steamPageChecks
 			}
 			if a.steady < need {
 				continue
@@ -406,7 +417,7 @@ func (m *Manager) checkWindows() {
 		a.window = true
 		ready = append(ready, a.ID)
 		if a.ID == SteamID {
-			m.steamHold = false
+			m.steamHold, m.steamPageOff = false, false
 			if m.steamPending != "" {
 				pending, m.steamPending = m.steamPending, ""
 			}
@@ -647,7 +658,7 @@ func (m *Manager) forget(id string) {
 	}
 	if id == SteamID {
 		m.steamPending = ""
-		m.steamHold = false
+		m.steamHold, m.steamPageOff = false, false
 		m.steamHidden = false
 		m.steamConfirm = nil
 		if m.steamAsk != nil {

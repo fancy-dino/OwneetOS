@@ -452,6 +452,8 @@
   "disk.step.find": "The console finds what to start in each folder. If it is not sure, it asks you once.",
   "disk.step.install": "Games with an installer are installed by the console, after you accept their licence.",
   "disk.step.win": "Games for Windows work too: nothing else to do.",
+  "splash.starting": "Starting",
+  "splash.shutting_down": "Shutting down",
   "steam.prep.title": "Preparing Steam…",
   "steam.prep.text": "Steam opens by itself in a moment.",
   "steam.prep.first": "The first time takes a few minutes: Steam downloads its files. It opens by itself when it is ready.",

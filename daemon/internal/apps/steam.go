@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -354,6 +355,8 @@ func (m *Manager) Steam(req SteamRequest) error {
 			m.mu.Lock()
 			m.steamPending = url
 			m.steamHold = !hidden && req.Run == "" && steamAccount(dir)
+			m.steamPageOff = false
+			m.steamLogFrom = steamInterfaceLogSize(dir)
 			m.mu.Unlock()
 		}
 		_, err = m.Launch(LaunchRequest{ID: SteamID, Name: "Steam", Kind: KindApp, Command: argv, Stop: m.steamStop()})
@@ -402,6 +405,38 @@ func (m *Manager) SteamStatus() SteamStatus {
 	return SteamStatus{Installed: err == nil, Allowed: allowed(), Prepared: prepared == nil, Running: running,
 		Games: installedSteamGames(dir), Downloads: downloads, Away: steamAway(dir), Account: steamAccount(dir),
 		Licences: steamLicences(dir), NVIDIA: m.NVIDIA()}
+}
+
+// steamInterfaceLog is Steam's log of its interface.
+func steamInterfaceLog(dir string) string { return filepath.Join(dir, "logs", "webhelper.txt") }
+
+func steamInterfaceLogSize(dir string) int64 {
+	if st, err := os.Stat(steamInterfaceLog(dir)); err == nil {
+		return st.Size()
+	}
+	return 0
+}
+
+// steamInterfaceUp is the line Steam writes when the last piece of its signed-in interface has loaded:
+// in all 33 starts since it first appears in FrankenPC's log, 9 to 12 s after the interface starts there.
+var steamInterfaceUp = regexp.MustCompile(`notificationtoasts_uid[0-9]+[^\n]*STARTUP LoadEnd`)
+
+// steamInterfaceReady: that line came after `from`, where the log ended when Steam started. Steam
+// starts a new log when it is too long: a smaller file is read from its start.
+func steamInterfaceReady(dir string, from int64) bool {
+	f, err := os.Open(steamInterfaceLog(dir))
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	if st, err := f.Stat(); err != nil || st.Size() < from {
+		from = 0
+	}
+	if _, err := f.Seek(from, io.SeekStart); err != nil {
+		return false
+	}
+	data, err := io.ReadAll(f)
+	return err == nil && steamInterfaceUp.Match(data)
 }
 
 // steamAskAfter: a game asked of a hidden Steam that has not started by then probably waits for

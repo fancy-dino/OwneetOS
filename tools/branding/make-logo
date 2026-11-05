@@ -29,7 +29,7 @@ ABOVE_SIZE, ABOVE_GAP = 1250, 100
 SMALL_LETTERS_TOP = -527.7      # the slogan is as far from the word as the symbol looks
 SPLASH_WIDTH = 800              # pixels: the word's width on the boot splash and in the animation
 SLOGAN_SIZE = 40                # pixels, at that width
-SPLASH_LETTERS, SPLASH_GREY = "#FFFFFF", "#B0B0B0"
+SPLASH_LETTERS, SPLASH_GREY = "#FFFFFF", "#A0A0A0"
 
 
 def symbol_paths():

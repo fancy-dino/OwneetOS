@@ -452,6 +452,8 @@
   "disk.step.find": "La console trouve quoi lancer dans chaque dossier. Si elle n’est pas sûre, elle vous le demande une fois.",
   "disk.step.install": "Les jeux avec un installateur sont installés par la console, après que vous avez accepté leur licence.",
   "disk.step.win": "Les jeux pour Windows fonctionnent aussi : rien d’autre à faire.",
+  "splash.starting": "Démarrage en cours",
+  "splash.shutting_down": "Arrêt en cours",
   "steam.prep.title": "Préparation de Steam…",
   "steam.prep.text": "Steam s’ouvre tout seul dans un instant.",
   "steam.prep.first": "La première fois, cela prend quelques minutes : Steam télécharge ses fichiers. Il s’ouvre tout seul quand il est prêt.",
