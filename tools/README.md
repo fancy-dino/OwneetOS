@@ -6,6 +6,12 @@ Scripts here must never modify the host system; anything that would requires the
 
 Plan: introduced from [[step-0.7-arch-builder-vm]] onwards.
 
+## Language reviews
+
+`tools/translation-review` writes the spreadsheets for the people who review a language and reads their
+corrections back (`docs/translating.md`). It runs on the host: only the Python standard library, and it writes
+only in `out/` and, with `--apply`, in the message files.
+
 ## Frontend preview
 
 `tools/frontend-preview` shows the interface without booting an ISO: after

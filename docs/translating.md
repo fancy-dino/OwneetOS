@@ -62,6 +62,15 @@ To see a translation on a running console without rebuilding anything, copy the 
 `~/.config/owneet-frontend/i18n/` of the `owneet` user and restart the interface: a file there
 overrides the installed one of the same language.
 
+## Reviews by people who speak the language
+
+Reviewers need no JSON: `tools/translation-review export` writes one spreadsheet per language
+(`out/translation-review/OwneetOS-review-<language>.xlsx`, for Excel, LibreOffice or Google Sheets), with its
+instructions in the first sheet, every text beside the English, and a column for corrections. A returned
+file is checked with `tools/translation-review import FILE` and written with `--apply`: placeholders, marks
+and links must match the English, a text changed since the export is shown first, and nothing wrong is written.
+Today it covers the website's texts; the website's repository must sit next to this one.
+
 ## Current limits
 
 - Right-to-left languages (Arabic, Hebrew) are not supported yet.

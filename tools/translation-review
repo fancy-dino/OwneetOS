@@ -1,0 +1,359 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The texts in a spreadsheet for the people who review a language ([[languages]]), and their corrections
+# back into the message files. One workbook per language, for Excel, LibreOffice or Google Sheets:
+# reviewers need no JSON and cannot break a file. Only the Python standard library.
+#
+#   tools/translation-review export [DIR]        write the workbooks (default: out/translation-review)
+#   tools/translation-review import FILE         check a returned workbook, change nothing
+#   tools/translation-review import FILE --apply the same, then write the corrections
+#
+# A text identical in every language (a button's name, the slogan, F12) is not listed: nothing to review.
+
+import argparse
+import json
+import pathlib
+import re
+import sys
+import xml.etree.ElementTree as ET
+import zipfile
+from xml.sax.saxutils import escape
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+WEBSITE = ROOT.parent / "OwneetOS-website" / "src" / "i18n"
+LANGUAGES = {
+    "en": ("English", "plain, natural English. It is the language the others are translated from"),
+    "de": ("German", 'address the reader as "du"'),
+    "fr": ("French", 'address the reader as "vous", with French quotation marks (« »)'),
+    "es": ("Spanish", 'address the reader as "tú", with words valid in Spain and in Latin America where possible'),
+}
+# Which part of the website a message belongs to: (first part of its id, what the reviewer sees, its page)
+WEBSITE_PARTS = {
+    "meta": ("Browser tab and search results", ""),
+    "nav": ("Menu at the top of every page", ""),
+    "footer": ("Bottom of every page", ""),
+    "page": ("Every page but the home", ""),
+    "features": ("Home page", ""),
+    "hero": ("Home page", ""),
+    "home": ("Home page", ""),
+    "slide": ("Home page", ""),
+    "plug": ("Home page, section Plug it", ""),
+    "play": ("Home page, section Play it", ""),
+    "own": ("Home page, section Own it", ""),
+    "download": ("Home page, section Download", ""),
+    "info": ("Home page, links to the other pages", ""),
+    "guide": ("Guide", "guide"),
+    "faq": ("Questions and answers", "faq"),
+    "credits": ("Credits", "credits"),
+    "contribute": ("Contribute", "contribute"),
+    "privacy": ("Privacy (legal text: keep its meaning exact)", "privacy"),
+    "not-found": ("Page not found", "404"),
+}
+ID, WHERE, ENGLISH, CURRENT, CORRECTION, NOTES, KEEP = (
+    "ID (do not change)", "Where", "English", "Current text", "Your correction", "Notes", "Keep as it is")
+NAMES = re.compile(r"OwneetOS|Steam|Xbox|PlayStation|Nintendo|Linux|Windows|SourceForge|GitHub|UEFI|BIOS")
+PLACEHOLDER = re.compile(r"\{[A-Za-z0-9_]+\}")
+CODE = re.compile(r"`[^`]+`")           # what the reader types or sees on screen, as it is
+LINK = re.compile(r"\]\(([^)]+)\)")     # [text](target): the text is translated, the target is not
+NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+REL = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+
+
+def read_messages(folder: pathlib.Path, lang: str) -> dict:
+    return json.loads((folder / f"{lang}.json").read_text(encoding="utf-8"))
+
+
+def write_messages(folder: pathlib.Path, lang: str, messages: dict) -> None:
+    (folder / f"{lang}.json").write_text(json.dumps(messages, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def reviewable(folder: pathlib.Path) -> list:
+    """The ids worth reviewing: a text differing between the languages."""
+    all_messages = [read_messages(folder, lang) for lang in LANGUAGES]
+    return [key for key in all_messages[0] if key != "@meta" and len({m[key] for m in all_messages}) > 1]
+
+
+def where(key: str) -> str:
+    part = key.split(".")[0]
+    if part not in WEBSITE_PARTS:
+        sys.exit(f"{key}: add its part of the website to WEBSITE_PARTS")
+    return WEBSITE_PARTS[part][0]
+
+
+def address(key: str, lang: str) -> str:
+    page = WEBSITE_PARTS[key.split(".")[0]][1]
+    parts = [] if lang == "en" else [lang]
+    if page:
+        parts.append(page)
+    return "/".join(["owneetos.org"] + parts)
+
+
+def keep(text: str) -> str:
+    found = list(dict.fromkeys(PLACEHOLDER.findall(text) + NAMES.findall(text)))
+    found += CODE.findall(text) + [f"the link ...]({target})" for target in LINK.findall(text)]
+    if "**" in text:
+        found.append("** around the bold words")
+    return ", ".join(found)
+
+
+# ---- Writing a workbook
+
+def column(index: int) -> str:
+    return chr(ord("A") + index)
+
+
+def cell(col: int, row: int, text: str, style: int) -> str:
+    ref = f"{column(col)}{row}"
+    if not text:
+        return f'<c r="{ref}" s="{style}"/>'
+    return f'<c r="{ref}" s="{style}" t="inlineStr"><is><t xml:space="preserve">{escape(text)}</t></is></c>'
+
+
+def lines(text: str, width: int) -> int:
+    return sum(max(1, -(-len(part) // max(1, width - 2))) for part in text.split("\n"))
+
+
+STYLES = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="4"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+<font><sz val="9"/><color rgb="FF777777"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font></fonts>
+<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF333333"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFFF6D6"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/></patternFill></fill></fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>
+<border><left style="thin"><color rgb="FFCCCCCC"/></left><right style="thin"><color rgb="FFCCCCCC"/></right><top style="thin"><color rgb="FFCCCCCC"/></top><bottom style="thin"><color rgb="FFCCCCCC"/></bottom><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="7">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf numFmtId="49" fontId="0" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="2" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+</cellXfs></styleSheet>"""
+
+
+def readme_sheet(lang: str, areas: list) -> str:
+    name, register = LANGUAGES[lang]
+    shown = f"owneetos.org/{lang}" if lang != "en" else "owneetos.org"
+    texts = [
+        (5, f"OwneetOS: review of the {name} texts"),
+        (6, "OwneetOS turns a PC into a game console, used from a sofa with a controller, for people with no technical "
+            "background. These are its texts in " + name + ". Thank you for checking them."),
+        (6, ""),
+        (5, "What to do"),
+        (6, "1. Open the sheet " + " and the sheet ".join(areas) + ". Each row is one text."),
+        (6, "2. Read the column Current text. If it is good, leave the row as it is: an empty row means it is fine."),
+        (6, "3. If it needs changing, write the whole new text in the yellow column Your correction, not only the changed words."),
+        (6, "4. Anything to ask or explain goes in the column Notes."),
+        (6, "5. Save the file in the same format and send it back to the person who gave it to you."),
+        (6, f"To see the texts in place: {shown} (the column Where says which page)."),
+        (6, ""),
+        (5, "What to look for"),
+        (6, "Mistakes, of course, but above all sentences that sound translated. A sentence that says the same thing the way a "
+            "native speaker would say it is always welcome: you do not have to stay close to the English."),
+        (6, f"The tone: {register}."),
+        (6, "Short, plain words. No technical terms where an everyday word will do."),
+        (6, "The same thing is called the same way everywhere. Use Notes if you change a term that appears in many rows."),
+        (6, ""),
+        (5, "What must stay as it is"),
+        (6, "The column Keep as it is lists what each row must keep: names in {curly brackets} are filled in by the page, "
+            "** marks the bold words (keep the pair around the right words), `text between these marks` is typed or seen "
+            "exactly so, and in [text](target) only the text is translated."),
+        (6, "Product and company names are not translated. The slogan \"Plug it. Play it. Own it!\" stays in English: it is not listed."),
+        (6, "No long dashes: use a plain hyphen \"-\" or a shorter sentence."),
+        (6, "Please do not change the column ID: it tells us where each text goes. Sorting and filtering the rows are fine."),
+    ]
+    rows = "".join(
+        f'<row r="{i}" ht="{20 if not text or style == 5 else 16 * lines(text, 118)}" customHeight="1">{cell(0, i, text, style)}</row>'
+        for i, (style, text) in enumerate(texts, 1))
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            '<sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews>'
+            f'<cols><col min="1" max="1" width="120" customWidth="1"/></cols><sheetData>{rows}</sheetData></worksheet>')
+
+
+def texts_sheet(lang: str, folder: pathlib.Path) -> str:
+    current, english = read_messages(folder, lang), read_messages(folder, "en")
+    # (title, width, style); English has no column to compare with
+    columns = [(ID, 22, 4), (WHERE, 24, 4)]
+    columns += [(ENGLISH, 48, 2)] if lang != "en" else []
+    columns += [(f"{CURRENT} ({lang})", 48, 2), (CORRECTION, 48, 3), (NOTES, 26, 3), (KEEP, 20, 4)]
+    rows = ['<row r="1" ht="24" customHeight="1">'
+            + "".join(cell(i, 1, title, 1) for i, (title, _, _) in enumerate(columns)) + "</row>"]
+    for r, key in enumerate(reviewable(folder), 2):
+        values = [key, f"{where(key)}\n{address(key, lang)}"]
+        values += [english[key]] if lang != "en" else []
+        values += [current[key], "", "", keep(english[key])]
+        height = max(lines(v, width) for v, (_, width, _) in zip(values, columns))
+        rows.append(f'<row r="{r}" ht="{16 * height + 4}" customHeight="1">'
+                    + "".join(cell(i, r, v, columns[i][2]) for i, v in enumerate(values)) + "</row>")
+    widths = "".join(f'<col min="{i}" max="{i}" width="{w}" customWidth="1"/>' for i, (_, w, _) in enumerate(columns, 1))
+    last = f"{column(len(columns) - 1)}{len(rows)}"
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+            f'<cols>{widths}</cols><sheetData>{"".join(rows)}</sheetData><autoFilter ref="A1:{last}"/></worksheet>')
+
+
+def write_workbook(path: pathlib.Path, sheets: list) -> None:
+    names = "".join(f'<sheet name="{escape(name)}" sheetId="{i}" r:id="rId{i}"/>' for i, (name, _) in enumerate(sheets, 1))
+    rels = "".join(f'<Relationship Id="rId{i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
+                   f'Target="worksheets/sheet{i}.xml"/>' for i in range(1, len(sheets) + 1))
+    overrides = "".join(f'<Override PartName="/xl/worksheets/sheet{i}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                        for i in range(1, len(sheets) + 1))
+    head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", head + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                   '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+                   '<Default Extension="xml" ContentType="application/xml"/>'
+                   '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+                   '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+                   + overrides + "</Types>")
+        z.writestr("_rels/.rels", head + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                   '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>')
+        z.writestr("xl/workbook.xml", head + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+                   'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                   f"<sheets>{names}</sheets></workbook>")
+        z.writestr("xl/_rels/workbook.xml.rels", head + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                   + rels + f'<Relationship Id="rId{len(sheets) + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>')
+        z.writestr("xl/styles.xml", STYLES)
+        for i, (_, xml) in enumerate(sheets, 1):
+            z.writestr(f"xl/worksheets/sheet{i}.xml", xml)
+
+
+def export(out: pathlib.Path) -> None:
+    out.mkdir(parents=True, exist_ok=True)
+    for lang in LANGUAGES:
+        path = out / f"OwneetOS-review-{lang}.xlsx"
+        write_workbook(path, [("Read me", readme_sheet(lang, ["Website"])), ("Website", texts_sheet(lang, WEBSITE))])
+        print(f"{path.relative_to(ROOT) if path.is_relative_to(ROOT) else path}: {len(reviewable(WEBSITE))} texts")
+
+
+# ---- Reading a workbook back, also after Excel, LibreOffice or Google Sheets saved it
+
+def text_of(element) -> str:
+    return "".join(t.text or "" for t in element.iter("{%s}t" % NS["m"]))
+
+
+def read_sheet(path: pathlib.Path, name: str) -> list:
+    """The sheet's rows, each a dict of column letter to text; [] if the workbook has no such sheet."""
+    with zipfile.ZipFile(path) as z:
+        files = z.namelist()
+        shared = []
+        if "xl/sharedStrings.xml" in files:
+            shared = [text_of(si) for si in ET.fromstring(z.read("xl/sharedStrings.xml")).findall("m:si", NS)]
+        targets = {r.get("Id"): r.get("Target") for r in ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))}
+        for sheet in ET.fromstring(z.read("xl/workbook.xml")).find("m:sheets", NS):
+            if sheet.get("name") == name:
+                target = targets[sheet.get(REL)].lstrip("/")
+                target = target if target.startswith("xl/") else "xl/" + target
+                root = ET.fromstring(z.read(target))
+                break
+        else:
+            return []
+    rows = []
+    for row in root.find("m:sheetData", NS):
+        values = {}
+        for c in row:
+            letter = re.match(r"[A-Z]+", c.get("r")).group()
+            if c.get("t") == "s":
+                values[letter] = shared[int(c.find("m:v", NS).text)]
+            elif c.get("t") == "inlineStr":
+                values[letter] = text_of(c)
+            elif c.find("m:v", NS) is not None:
+                values[letter] = c.find("m:v", NS).text or ""
+        rows.append(values)
+    return rows
+
+
+def problems(new: str, reference: str) -> list:
+    found = []
+    if sorted(PLACEHOLDER.findall(new)) != sorted(PLACEHOLDER.findall(reference)):
+        found.append(f"keep exactly {PLACEHOLDER.findall(reference) or 'no {names}'}")
+    if new.count("**") != reference.count("**"):
+        found.append("the ** marks are not the same number as in the English")
+    if sorted(CODE.findall(new)) != sorted(CODE.findall(reference)):
+        found.append(f"keep exactly, between ` marks: {CODE.findall(reference) or 'nothing'}")
+    if LINK.findall(new) != LINK.findall(reference):
+        found.append(f"keep the link as [text]({LINK.findall(reference)})")
+    if re.search("[—–]", new):
+        found.append("long dash: use a plain hyphen")
+    return found
+
+
+def import_file(path: pathlib.Path, folder: pathlib.Path, apply: bool) -> int:
+    rows = read_sheet(path, "Website")
+    if not rows:
+        print(f"{path}: no sheet called Website")
+        return 1
+    header = {title: letter for letter, title in rows[0].items()}
+    match = next((re.search(rf"^{CURRENT} \((\w+)\)$", title) for title in header if title.startswith(CURRENT)), None)
+    if not match or match.group(1) not in LANGUAGES or ID not in header or CORRECTION not in header:
+        print(f"{path}: the columns were changed: {sorted(header)}")
+        return 1
+    lang = match.group(1)
+    messages, english = read_messages(folder, lang), read_messages(folder, "en")
+    current_title = f"{CURRENT} ({lang})"
+    changes, errors, moved, notes = {}, [], [], []
+    for row in rows[1:]:
+        key = row.get(header[ID], "").strip()
+        new = row.get(header[CORRECTION], "").strip()
+        note = row.get(header.get(NOTES, ""), "").strip()
+        if note:
+            notes.append(f"{key}: {note}")
+        if not key or not new:
+            continue
+        if key not in messages or key == "@meta":
+            errors.append(f"{key}: no such text (the ID was changed?)")
+            continue
+        if row.get(header[current_title], "") != messages[key]:
+            moved.append(key)     # changed in the repository since the export: the owner compares
+        if new == messages[key]:
+            continue
+        found = problems(new, english[key])
+        if found:
+            errors.append(f"{key}: {'; '.join(found)}\n    {new}")
+        else:
+            changes[key] = new
+    print(f"{path.name} ({lang}): {len(changes)} corrections, {len(errors)} to fix, {len(moved)} on a text changed since, {len(notes)} notes")
+    for title, items in (("To fix (not applied):", errors), ("Changed since the export (look at them first):", moved), ("Notes:", notes)):
+        if items:
+            print(title)
+            for item in items:
+                print("  " + item)
+    for key, new in changes.items():
+        print(f"  {key}\n    - {messages[key]}\n    + {new}")
+    if lang == "en" and changes:
+        print("English changed: the other languages may need the same change.")
+    if apply and not moved:
+        messages.update(changes)
+        write_messages(folder, lang, messages)
+        print(f"written: {folder / (lang + '.json')}")
+    elif apply:
+        print("nothing written: look at the texts changed since the export first")
+        return 1
+    return 1 if errors else 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Language reviews: workbooks out, corrections in")
+    sub = parser.add_subparsers(dest="command", required=True)
+    out = sub.add_parser("export")
+    out.add_argument("dir", nargs="?", type=pathlib.Path, default=ROOT / "out" / "translation-review")
+    back = sub.add_parser("import")
+    back.add_argument("file", type=pathlib.Path)
+    back.add_argument("--apply", action="store_true")
+    back.add_argument("--messages", type=pathlib.Path, default=WEBSITE, help="the folder of the message files")
+    args = parser.parse_args()
+    if args.command == "export":
+        export(args.dir)
+        return 0
+    return import_file(args.file, args.messages, args.apply)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
