@@ -2,7 +2,7 @@
 @steam
 @disk
 @sysupdate uptodate
-# Pictures for the website's new home ([[step-7.8m-website-simpler-home]]): the carousel's screens
+# Pictures for the website's new home ([[step-7.8n-website-simpler-home]]): the carousel's screens
 # and the moves of "Play it". The long wait lets the "Windows games" notice come and go.
 wait 22
 shot 01-home
