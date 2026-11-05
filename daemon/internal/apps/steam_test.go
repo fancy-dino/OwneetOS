@@ -184,10 +184,15 @@ func TestSteamWithNVIDIAKeepsTheGPU(t *testing.T) {
 // Steam drops an address that comes while its interface is starting, and stays on its home page
 // (FrankenPC, 2026-11-05): its settings pages wait after the window shows
 func TestSteamStorageWaitsForItsInterface(t *testing.T) {
-	m, _, focus, _, forwarded, _ := newSteamManager(t)
+	m, _, focus, _, _, _ := newSteamManager(t)
 	old := steamPageAfter
 	steamPageAfter = 200 * time.Millisecond
 	defer func() { steamPageAfter = old }()
+	got := make(chan string, 2) // the address comes from the timer's goroutine
+	m.Forward = func(argv, _ []string) error {
+		got <- strings.Join(argv, " ")
+		return nil
+	}
 	if err := m.Steam(SteamRequest{Open: "storage"}); err != nil {
 		t.Fatal(err)
 	}
@@ -195,12 +200,18 @@ func TestSteamStorageWaitsForItsInterface(t *testing.T) {
 	for i := 0; i < settleChecks; i++ {
 		m.checkWindows()
 	}
-	if len(*forwarded) != 0 {
-		t.Fatalf("forwarded at once: %v", *forwarded)
+	select {
+	case url := <-got:
+		t.Fatalf("forwarded at once: %q", url)
+	default:
 	}
-	time.Sleep(600 * time.Millisecond)
-	if len(*forwarded) != 1 || !strings.HasSuffix((*forwarded)[0], "/usr/bin/steam steam://settings/storage") {
-		t.Fatalf("forwarded %v", *forwarded)
+	select {
+	case url := <-got:
+		if !strings.HasSuffix(url, "/usr/bin/steam steam://settings/storage") {
+			t.Fatalf("forwarded %q", url)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("never forwarded")
 	}
 }
 
