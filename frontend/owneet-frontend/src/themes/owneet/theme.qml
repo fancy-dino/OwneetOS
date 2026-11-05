@@ -376,10 +376,11 @@ FocusScope {
                 if (data && data.reason === "linux_version") root.askWindowsVersion(String(data.appid));
             } else if (type === "focus.changed") {
                 if (data.focus === "home") root.refreshSteam(true);
-                // Guide brings the home screen over a running game: the "launch" sound, the other way
-                const fromGame = root.gameOnScreen;
+                // Back on the home screen from a game or an app (Guide, or it closed): the "launch" sound,
+                // the other way (owner's test with Steam, 2026-11-05)
+                const fromApp = root.focusedApp !== "home" && root.focusedApp !== "";
                 root.focusedApp = data.focus;
-                if (data.focus === "home" && fromGame)
+                if (data.focus === "home" && fromApp)
                     sounds.play("launch");
                 // Guide over Google's terms page: back to the question it was opened from
                 if (data.focus === "home")

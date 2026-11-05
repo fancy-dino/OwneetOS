@@ -71,6 +71,15 @@ type App struct {
 // settleChecks is how many once-a-second checks a settling app's window must stay before it is shown.
 const settleChecks = 3
 
+// steamHoldChecks is how many more checks Steam's window stays hidden when the console starts it: Steam
+// shows its logo and flickers, and it drops an address that comes while its interface is starting
+// (FrankenPC, 2026-11-05: the address came 1 s after the window, the interface was still starting 3 s
+// later). steamPageBefore: the page asked for goes this many checks before the window shows.
+const (
+	steamHoldChecks = 8
+	steamPageBefore = 3
+)
+
 // HomeAppID tags the home screen's windows in gamescope; apps get ids just above it (see
 // newAppID). The range is far from Steam's app ids.
 const HomeAppID uint32 = 0x7E000000
@@ -192,6 +201,7 @@ type Manager struct {
 	// the steam:// address to hand to Steam once its window is shown (it started on its own
 	// home page, so that Back from that address has somewhere to go)
 	steamPending string
+	steamHold    bool     // started from the console with an account: its window waits (steamHoldChecks)
 	shown        []uint32 // what owneetd last asked gamescope to show
 	lastFocus    string   // the last "focus.changed" sent
 	// Steam hidden while it starts a game; shown later if it seems to wait for the user (steam.go)
@@ -375,7 +385,17 @@ func (m *Manager) checkWindows() {
 			}
 		}
 		if a.settle {
-			if a.steady++; a.steady < settleChecks {
+			a.steady++
+			need := settleChecks
+			if a.ID == SteamID && m.steamHold {
+				// Steam's logo and its flicker stay hidden; the page asked for goes first, so that its
+				// home does not flash by
+				need += steamHoldChecks
+				if a.steady == need-steamPageBefore {
+					pending, m.steamPending = m.steamPending, ""
+				}
+			}
+			if a.steady < need {
 				continue
 			}
 			// still wanted: nothing else was chosen meanwhile; Steam starting a game stays hidden
@@ -386,7 +406,10 @@ func (m *Manager) checkWindows() {
 		a.window = true
 		ready = append(ready, a.ID)
 		if a.ID == SteamID {
-			pending, m.steamPending = m.steamPending, ""
+			m.steamHold = false
+			if m.steamPending != "" {
+				pending, m.steamPending = m.steamPending, ""
+			}
 		}
 	}
 	m.mu.Unlock()
@@ -397,7 +420,7 @@ func (m *Manager) checkWindows() {
 		m.show(f, []uint32{behind[0], behind[1], HomeAppID})
 	}
 	if pending != "" {
-		m.forwardSteamPending(pending, sess)
+		m.forwardSteam(pending, sess)
 		m.mu.Lock()
 		hidden := m.steamHidden
 		m.mu.Unlock()
@@ -604,6 +627,8 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 	m.Log.Info("app started", "id", app.ID, "kind", app.Kind, "unit", app.unit)
 	m.Broker.Publish("app.started", map[string]string{"id": app.ID, "name": app.Name, "kind": app.Kind})
 	m.cageFocus(sess)
+	m.mu.Lock() // checkWindows changes the app from another goroutine
+	defer m.mu.Unlock()
 	return *app, nil
 }
 
@@ -622,6 +647,7 @@ func (m *Manager) forget(id string) {
 	}
 	if id == SteamID {
 		m.steamPending = ""
+		m.steamHold = false
 		m.steamHidden = false
 		m.steamConfirm = nil
 		if m.steamAsk != nil {

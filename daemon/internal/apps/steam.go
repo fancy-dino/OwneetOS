@@ -192,21 +192,6 @@ func (m *Manager) steamStop() []string {
 		remote}
 }
 
-// steamPageAfter: how long after its window shows Steam can open one of its settings pages. Sooner, while
-// its interface is still starting, it drops the address and stays on its home page (FrankenPC, 2026-11-05:
-// the address came 1 s after the window, the interface was still starting 3 s later; with Steam
-// ready the same address opens the page, in the test VM).
-var steamPageAfter = 5 * time.Second
-
-// forwardSteamPending hands over the address Steam was started for, now that its window shows.
-func (m *Manager) forwardSteamPending(url string, sess Session) {
-	if strings.HasPrefix(url, "steam://settings/") {
-		time.AfterFunc(steamPageAfter, func() { m.forwardSteam(url, sess) })
-		return
-	}
-	m.forwardSteam(url, sess)
-}
-
 // forwardSteam hands a steam:// address to the Steam already running.
 func (m *Manager) forwardSteam(url string, sess Session) error {
 	argv, err := m.steamArgv(url)
@@ -368,6 +353,7 @@ func (m *Manager) Steam(req SteamRequest) error {
 		if gamescope {
 			m.mu.Lock()
 			m.steamPending = url
+			m.steamHold = !hidden && req.Run == "" && steamAccount(dir)
 			m.mu.Unlock()
 		}
 		_, err = m.Launch(LaunchRequest{ID: SteamID, Name: "Steam", Kind: KindApp, Command: argv, Stop: m.steamStop()})
