@@ -5,8 +5,8 @@
      becomes a symbol next to it. The owner's combination: the symbol above on the full screen, with
      the slogan under it, and the symbol on the left in the top bar. The two start-up animations, as
      approved in logo-gamepad-o.html (four beats): the logo appears over 2 s (website: from transparent;
-     console: from the boot splash, already on screen, on black: letters, symbol and background take
-     the palette's colours together), then the slogan's words 0.5 s apart,
+     console: from black, the logo in the palette's colours and the black becoming the palette's
+     background, owner, 2026-11-05: a black screen stands between the boot splash and the session), then the slogan's words 0.5 s apart,
      each at once. The start-up sound (startup.wav, from sounds.js) starts with them, without the silence
      before it, as on the console; browsers allow sound only after a press, so it plays from "Play
      again" (or Enter), not when the page opens. The letters are the outlines of
@@ -74,7 +74,7 @@ h3 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 10px; }
     <div class="top" style="margin-bottom:12px"><h2 style="margin:0">Start-up animations</h2><button class="chip" id="replay" type="button">Play again, with sound</button></div>
     <div class="cols">
       <div><h3>Website: the logo from transparent</h3><div class="screen" id="animWebsite"></div></div>
-      <div><h3>Console: the logo from the boot splash's colours</h3><div class="screen" id="animConsole"></div></div>
+      <div><h3>Console: the logo fading in from black, in the palette's colours</h3><div class="screen" id="animConsole"></div></div>
     </div>
   </section>
 
@@ -129,8 +129,8 @@ const PALETTES = [
   ['contrast-light', 'High contrast light', '#FFFFFF', '#FFFFFF', '#EDEDED', '#000000', '#000000', '#262626', '#0038B8', '#FFFFFF'],
 ];
 const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
-// The boot splash (a still picture): white letters, the symbol and "OS" light grey.
-const SPLASH = { bg: '#000000', fg: '#FFFFFF', accent: '#B0B0B0' };
+// The boot splash (a still picture): all white (owner, 2026-11-05: the grey looked cream on a real screen).
+const SPLASH = { bg: '#000000', fg: '#FFFFFF', accent: '#FFFFFF' };
 const state = { pal: 0 };
 
 // ---- The symbol, in a 100 x 100 box: the disc, the gamepad cut out of it, the buttons back in the
@@ -232,18 +232,12 @@ function build(root, website) {
   const b = t.accent;
   root.innerHTML = screen(t.fg, t.accent, t.muted, true, b);
   const logo = root.querySelector('.logo');
-  // each outline with its colours, from the splash's to the palette's
-  const parts = [...logo.querySelectorAll('path')].map(path => path.classList.contains('buttons') ? [path, SPLASH.accent, b]
-    : path.getAttribute('fill') === t.accent ? [path, SPLASH.accent, t.accent] : [path, SPLASH.fg, t.fg]);
-  return { website, root, bg: t.bg, logo, parts, words: [...root.querySelectorAll('tspan')] };
+  return { website, root, bg: t.bg, logo, words: [...root.querySelectorAll('tspan')] };
 }
 function draw(a, ms) {
   const x = easeOut(Math.min(1, ms / FIRST_BEAT));
-  if (a.website) a.logo.setAttribute('opacity', x.toFixed(3));
-  else {
-    a.parts.forEach(([path, from, to]) => path.setAttribute('fill', mix(from, to, x)));
-    a.root.style.background = mix(SPLASH.bg, a.bg, x);      // the splash's black into the palette's
-  }
+  a.logo.setAttribute('opacity', x.toFixed(3));
+  if (!a.website) a.root.style.background = mix(SPLASH.bg, a.bg, x);      // from black into the palette's
   a.words.forEach((w, i) => w.setAttribute('visibility', ms >= FIRST_BEAT + i * BEAT ? 'visible' : 'hidden'));
 }
 function frame(now, mine = run) {

@@ -14,13 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-// OwneetOS: the loading screen looks exactly like the boot splash (Plymouth theme "owneet",
-// package owneet-branding): same background, logo and spinner at the same places, so the
-// handover from the boot splash to the interface is invisible. White on black, neutral for every
-// palette (owner, 2026-10-15): the palette's colours come with the start-up animation.
+// OwneetOS: the loading screen is black: the logo comes with the start-up animation, fading in from
+// black in the palette's colours (owner, 2026-11-05).
 
 import QtQuick 2.15
-import QtQuick.Shapes 1.15
 
 
 Rectangle {
@@ -32,43 +29,4 @@ Rectangle {
     property real progress: 0
     property bool showDataProgressText: true
     property string stage: ""
-
-    // Plymouth places images by their top-left corner: (screen - image) * alignment.
-    Image {
-        id: logo
-        source: "file:///usr/share/owneet/branding/owneetos-splash.svg"
-        sourceSize.width: 800
-        x: Math.round((root.width - width) * 0.5)
-        y: Math.round((root.height - height) * 0.5)
-    }
-
-    Shape {
-        id: spinner
-        width: 48
-        height: 48
-        x: Math.round((root.width - width) * 0.5)
-        y: Math.round((root.height - height) * 0.92)
-        layer.enabled: true
-        layer.samples: 4
-
-        ShapePath {
-            strokeColor: Qt.rgba(1.0, 1.0, 1.0, 0.18)
-            strokeWidth: 4
-            fillColor: "transparent"
-            PathAngleArc { centerX: 24; centerY: 24; radiusX: 18; radiusY: 18; startAngle: 0; sweepAngle: 360 }
-        }
-        ShapePath {
-            strokeColor: "#FFFFFF"
-            strokeWidth: 4
-            fillColor: "transparent"
-            capStyle: ShapePath.RoundCap
-            PathAngleArc { centerX: 24; centerY: 24; radiusX: 18; radiusY: 18; startAngle: -90; sweepAngle: 90 }
-        }
-
-        RotationAnimation on rotation {
-            from: 0; to: 360
-            duration: 1200
-            loops: Animation.Infinite
-        }
-    }
 }

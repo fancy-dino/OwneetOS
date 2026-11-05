@@ -1751,6 +1751,7 @@ FocusScope {
         if (steamOffline(page === "store" ? "store" : "play")) return;
         withSteamNotice(() => {
             if (page === "store") root.storeVisited = true;
+            if (page === "storage") Nav.feedback("launch");     // an app opens, as from its tile
             steamRequest({ open: page }, null);
         });
     }
@@ -3811,12 +3812,11 @@ FocusScope {
         target: sounds
         function onStartupStarted() { intro.go(); }
     }
-    // The splash's still picture waits on screen before the colours start: a real screen may take a
-    // moment to show the session's first frames, and it would miss the start of the fade (owner's
-    // test on FrankenPC, 2026-11-05)
+    // The black waits before the animation starts: a real screen may take seconds to show the session's
+    // first frames, and it would miss the fade (owner's tests on FrankenPC, 2026-11-05)
     Timer {
         id: introHold
-        interval: 1500
+        interval: 2500
         onTriggered: {
             sounds.playStartup();
             introFallback.start();
