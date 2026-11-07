@@ -40,6 +40,11 @@ Mockups and design assets.
     welcome, the internal disks with what is on them, the console's name, the warning (a switch to
     turn on for a disk with Windows or BitLocker), the final confirmation held for three seconds,
     the progress, the end and an error. Start state: `#lang=it&screen=disk`.
+  - [`6.7-installer-other-disks.html`](demos/6.7-installer-other-disks.html) and
+    [`6.7-settings-disks.html`](demos/6.7-settings-disks.html): preparing the other disks for games
+    ([[step-6.7-preparing-other-disks]]): in the installer, the screen "Other disks" after the disk for
+    OwneetOS; in Settings → Disks, A on a disk, Windows's warning, A held three seconds, the wait and the
+    notice. Start states: `#screen=warn&disk=1&others=0,3` and `#keys=a,down,a` (`#mode=live` shows the note).
   - [`6.6-moving-games.html`](demos/6.6-moving-games.html): moving games between disks
     ([[step-6.6-moving-games-and-media-between-disks]]) on the games-on-disk demo, with two internal
     disks (a 96 GB SSD and a 2 TB HDD, as the FrankenPC): each cover says its disk; Menu → "Move to
