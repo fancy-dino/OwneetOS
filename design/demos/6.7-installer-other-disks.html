@@ -5,7 +5,8 @@
      screen "Other disks" lists this PC's other internal disks (any size), each "Leave as it is" (off,
      first) or "Erase and prepare for games" (on: ext4, a Games folder, the console allowed to write);
      the warning and the final confirmation name every disk that will be erased, Windows and BitLocker
-     included, and the progress has a phase for them. The demo of Settings → Disks:
+     included, and the progress has a phase for them. The player names each disk for games ("Games",
+     "Games 2"… offered; up to 16 characters; never the name of another disk). The demo of Settings → Disks:
      6.7-settings-disks.html.
      Demo 6.4: interactive demo for [[step-6.4-installer-ui]]: the installer's screens, with the
      controller, in the console's look (the settings demo 3.9: fonts, palettes, focus, prompts,
@@ -157,6 +158,11 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
     'warn.windows.on': 'Windows is on {disk}', 'warn.bitlocker.on': '{disk} is encrypted (BitLocker)',
     'confirm.texts': 'Hold A for three seconds to erase {disks} and install OwneetOS.', 'and': 'and',
     'phase.games': 'Preparing the disks for games', 'err.notes': 'Only the chosen disks were changed.',
+    'dnames.title': 'Name the disks for games', 'dnames.text': 'It is how the console shows them, for example in the library. Up to 16 characters, a different name for each disk.',
+    'dname.label': 'Name of {disk}', 'dname.change': 'Name of {disk}', 'dname.typing': 'Up to 16 characters, typed with the console\'s keyboard; here, with your keyboard. Enter to keep it.',
+    'dname.empty': 'The disk needs a name: the previous one is kept.', 'dname.long': 'Too long: up to 16 characters (accented letters count as two). The previous name is kept.',
+    'dname.taken': 'Another disk is already called "{name}": the previous name is kept.',
+    'warn.games.named': '{disk}, {size}: prepared for games, named "{name}". Windows and Mac will no longer read it.',
     'demo.restart': '(demo) The console would restart now', 'demo.notnow': '(demo) Back to the console from the USB stick',
   };
   const IT = {
@@ -185,6 +191,11 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
     'warn.windows.on': 'Su {disk} c\'è Windows', 'warn.bitlocker.on': '{disk} è cifrato (BitLocker)',
     'confirm.texts': 'Tieni premuto A per tre secondi per cancellare {disks} e installare OwneetOS.', 'and': 'e',
     'phase.games': 'Preparazione dei dischi per i giochi', 'err.notes': 'Sono stati modificati solo i dischi scelti.',
+    'dnames.title': 'Dai un nome ai dischi per i giochi', 'dnames.text': 'È il nome con cui la console li mostra, per esempio nella libreria. Fino a 16 caratteri, un nome diverso per ogni disco.',
+    'dname.label': 'Nome di {disk}', 'dname.change': 'Nome di {disk}', 'dname.typing': 'Fino a 16 caratteri, scritti con la tastiera della console; qui, con la tua tastiera. Invio per tenerlo.',
+    'dname.empty': 'Il disco ha bisogno di un nome: resta quello di prima.', 'dname.long': 'Troppo lungo: al massimo 16 caratteri (le lettere accentate contano due). Resta il nome di prima.',
+    'dname.taken': 'C\'è già un disco che si chiama "{name}": resta il nome di prima.',
+    'warn.games.named': '{disk}, {size}: preparato per i giochi, con il nome "{name}". Windows e Mac non lo leggeranno più.',
     'demo.restart': '(demo) Ora la console si riavvierebbe', 'demo.notnow': '(demo) Si torna alla console dalla chiavetta USB',
   };
   let lang = 'en';
@@ -233,14 +244,19 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
   const DISKS = [
     { path: '/dev/nvme0n1', model: 'Samsung SSD 980', size: 500, windows: true, bitlocker: true, usable: true },
     { path: '/dev/sda', model: 'Crucial MX500', size: 1000, usable: true },
-    { path: '/dev/sdb', model: 'Kingston SSD', size: 16, usable: false, reason: 'small', data: true },
-    { path: '/dev/sdc', model: 'Seagate ST2000DM008', size: 2000, usable: true, data: true },
+    { path: '/dev/sdb', model: 'Kingston SSD', size: 16, usable: false, reason: 'small', data: true, label: 'Giochi' },
+    { path: '/dev/sdc', model: 'Seagate ST2000DM008', size: 2000, usable: true, data: true, label: 'Volume' },
   ];
-  const st = { screen: 'welcome', disk: null, name: 'OwneetOS', understood: false, fail: false, others: [] };
+  const st = { screen: 'welcome', disk: null, name: 'OwneetOS', understood: false, fail: false, others: [], names: {} };
+  // the name of a disk prepared for games: ext4's label, up to 16 bytes, never the name of another disk
+  const bytes = t => new TextEncoder().encode(t).length;
+  const taken = (name, i) => DISKS.some((d, j) => j !== i && j !== st.disk && ((st.others.includes(j) ? st.names[j] : d.label) || '').toLowerCase() === name.toLowerCase());
+  function freeName(i) { const base = lang === 'it' ? 'Giochi' : 'Games'; for (let n = 1; ; n++) { const t = n === 1 ? base : `${base} ${n}`; if (!taken(t, i)) return t; } }
+  function nameOthers() { st.others.slice().sort().forEach(i => { if (!st.names[i]) st.names[i] = freeName(i); }); }
   // every internal disk but OwneetOS's may be prepared for games, whatever its size
   const otherDisks = () => DISKS.map((d, i) => i).filter(i => i !== st.disk);
   const erased = () => [st.disk, ...st.others.slice().sort()];
-  const STEPS = { disk: 'disk', others: 'disk', name: 'name', warn: 'confirm', confirm: 'confirm', progress: 'install', done: 'install', error: 'install' };
+  const STEPS = { disk: 'disk', others: 'disk', dnames: 'disk', name: 'name', warn: 'confirm', confirm: 'confirm', progress: 'install', done: 'install', error: 'install' };
 
   /* ---------- Screens ---------- */
   const btn = (k, label, primary, extra = '') => `<button class="btn${primary ? ' primary' : ''}" data-f data-k="${k}" ${extra}>${label}</button>`;
@@ -268,6 +284,9 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
       return `<button class="row" data-f data-k="other" data-i="${i}" role="switch" aria-checked="${on}"><span class="left"><span class="t-m" style="font-weight:500">${d.model}</span>
         <span class="t-s muted">${size(d)} · ${tr(on ? 'others.prepare' : 'others.leave')}</span></span><span class="right">${contents(d)}<span class="switch"></span></span></button>`;
     }).join('')}</div><div class="buttons">${btn('next', tr('continue'), true)}${btn('back', tr('back'))}</div></div>`,
+    dnames: () => `<div class="screen"><h1 class="disp t-l">${tr('dnames.title')}</h1><p class="t-m muted">${tr('dnames.text')}</p>${st.others.slice().sort().map(i =>
+      `<button class="field" data-f data-k="dname" data-i="${i}"><span class="t-s muted">${tr('dname.label', { disk: DISKS[i].model })}</span><span class="t-l">${esc(st.names[i])}</span></button>`).join('')}
+      <div class="buttons">${btn('next', tr('continue'), true)}${btn('back', tr('back'))}</div></div>`,
     name: () => `<div class="screen"><h1 class="disp t-l">${tr('name.title')}</h1><p class="t-m muted">${tr('name.text')}</p>
       <button class="field" data-f data-k="rename"><span class="t-s muted">${tr('name.label')}</span><span class="t-l">${esc(st.name)}</span></button>
       <div class="buttons">${btn('next', tr('continue'), true)}${btn('back', tr('back'))}</div></div>`,
@@ -276,7 +295,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
       const all = erased().map(i => DISKS[i]);
       const win = all.some(x => x.windows || x.bitlocker);
       // one disk: the text of demo 6.4; more: each disk and what becomes of it
-      const what = st.others.length ? `<h1 class="disp t-l">${tr('warn.titles')}</h1>${all.map((x, n) => `<p class="t-m">${tr(n ? 'warn.games' : 'warn.system', { disk: x.model, size: size(x) })}</p>`).join('')}<p class="t-s muted">${tr('warn.others')}</p>`
+      const what = st.others.length ? `<h1 class="disp t-l">${tr('warn.titles')}</h1>${erased().map((i, n) => `<p class="t-m">${tr(n ? 'warn.games.named' : 'warn.system', { disk: DISKS[i].model, size: size(DISKS[i]), name: esc(st.names[i] || '') })}</p>`).join('')}<p class="t-s muted">${tr('warn.others')}</p>`
         : `<h1 class="disp t-l">${tr('warn.title')}</h1><p class="t-m">${tr('warn.text', { disk: d.model, size: size(d) })}</p>`;
       const alerts = st.others.length ? all.filter(x => x.windows || x.bitlocker).map(x => `<div class="alert"><span class="t-m" style="font-weight:600">${[x.windows ? tr('warn.windows.on', { disk: x.model }) : '', x.bitlocker ? tr('warn.bitlocker.on', { disk: x.model }) : ''].filter(Boolean).join(' · ')}</span><span class="t-s">${tr('warn.windows.text')}</span></div>`).join('')
         : win ? `<div class="alert"><span class="t-m" style="font-weight:600">${tr('warn.windows')}</span><span class="t-s">${tr('warn.windows.text')}</span></div>` : '';
@@ -351,8 +370,9 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
     else if (k === 'notnow') toast(tr('demo.notnow'));
     else if (k === 'disk') { st.disk = +focused.dataset.i; st.understood = false; st.others = st.others.filter(i => i !== st.disk); go(otherDisks().length ? 'others' : 'name'); }
     else if (k === 'other') { const i = +focused.dataset.i; st.others = st.others.includes(i) ? st.others.filter(x => x !== i) : [...st.others, i]; st.understood = false; feedback('confirm'); render('other'); focus($(`#main [data-k="other"][data-i="${i}"]`), true); }
-    else if (k === 'rename') renameSheet();
-    else if (k === 'next') go(st.screen === 'others' ? 'name' : st.screen === 'name' ? 'warn' : 'confirm');
+    else if (k === 'rename') renameSheet(null);
+    else if (k === 'next') { if (st.screen === 'others' && st.others.length) nameOthers(); go(st.screen === 'others' ? (st.others.length ? 'dnames' : 'name') : st.screen === 'dnames' ? 'name' : st.screen === 'name' ? 'warn' : 'confirm'); }
+    else if (k === 'dname') renameSheet(+focused.dataset.i);
     else if (k === 'understand') { st.understood = !st.understood; feedback('confirm'); render('understand'); }
     else if (k === 'back') back();
     else if (k === 'restart') toast(tr('demo.restart'));
@@ -360,7 +380,7 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
   }
   function back() {
     if (sheetOpen) { closeSheet(false); return; }
-    const prev = { disk: 'welcome', others: 'disk', name: otherDisks().length && st.disk !== null ? 'others' : 'disk', warn: 'name', confirm: 'warn', error: 'confirm' }[st.screen];
+    const prev = { disk: 'welcome', others: 'disk', dnames: 'others', name: st.others.length ? 'dnames' : otherDisks().length && st.disk !== null ? 'others' : 'disk', warn: 'name', confirm: 'warn', error: 'confirm' }[st.screen];
     if (prev) { feedback('confirm'); st.screen = prev; render(); } else feedback('edge');
   }
 
@@ -398,16 +418,27 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
   }
 
   /* ---------- The name (the console's keyboard in the real installer) ---------- */
-  let sheetOpen = false;
-  function renameSheet() {
-    sheetOpen = true; feedback('sheet-open');
-    $('#sheet').innerHTML = `<span class="disp t-l">${tr('name.change')}</span><span class="t-s muted">${tr('name.typing')}</span><input id="nameIn" maxlength="40" value="${esc(st.name)}">`;
+  let sheetOpen = false, renaming = null;
+  // the console's name (i null, demo 6.4) or a disk's for games
+  function renameSheet(i) {
+    sheetOpen = true; renaming = i; feedback('sheet-open');
+    const disk = i !== null;
+    $('#sheet').innerHTML = `<span class="disp t-l">${disk ? tr('dname.change', { disk: DISKS[i].model }) : tr('name.change')}</span><span class="t-s muted">${tr(disk ? 'dname.typing' : 'name.typing')}</span><input id="nameIn" maxlength="${disk ? 32 : 40}" value="${esc(disk ? st.names[i] : st.name)}">`;
     $('#overlay').classList.add('open'); renderPrompts();
     setTimeout(() => { $('#nameIn').focus(); $('#nameIn').select(); }, 30);
   }
   function closeSheet(keep) {
-    if (keep) { const v = $('#nameIn').value.trim(); st.name = v || 'OwneetOS'; }
-    sheetOpen = false; feedback('sheet-close'); $('#overlay').classList.remove('open'); render('rename');
+    let problem = '';
+    if (keep && renaming === null) { const v = $('#nameIn').value.trim(); st.name = v || 'OwneetOS'; }
+    else if (keep) {
+      const v = $('#nameIn').value.trim();
+      problem = !v ? 'dname.empty' : bytes(v) > 16 ? 'dname.long' : taken(v, renaming) ? 'dname.taken' : '';
+      if (!problem) st.names[renaming] = v; else problem = tr(problem, { name: v });
+    }
+    const i = renaming;
+    sheetOpen = false; feedback(problem ? 'error' : 'sheet-close'); $('#overlay').classList.remove('open'); render(i === null ? 'rename' : 'dname');
+    if (i !== null) focus($(`#main [data-k="dname"][data-i="${i}"]`), true);
+    if (problem) toast(problem);
   }
 
   let toastTimer;
@@ -463,8 +494,9 @@ main { min-height: 0; display: grid; align-content: center; justify-items: cente
   if (q.get('lang') === 'it') lang = 'it';
   if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
   if (SCREENS[q.get('screen')] && !['warn', 'confirm', 'progress', 'done', 'error'].includes(q.get('screen'))) st.screen = q.get('screen');
-  if (q.get('disk') !== null && DISKS[+q.get('disk')]) { st.disk = +q.get('disk'); if (['others', 'warn', 'confirm', 'done', 'error'].includes(q.get('screen'))) st.screen = q.get('screen'); }
+  if (q.get('disk') !== null && DISKS[+q.get('disk')]) { st.disk = +q.get('disk'); if (['others', 'dnames', 'warn', 'confirm', 'done', 'error'].includes(q.get('screen'))) st.screen = q.get('screen'); }
   if (q.get('others')) st.others = q.get('others').split(',').map(Number).filter(i => DISKS[i] && i !== st.disk);
+  nameOthers();
   applyPalette();
   render();
 })();

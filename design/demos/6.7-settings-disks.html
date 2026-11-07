@@ -5,7 +5,8 @@
      console's own can be chosen; A asks "Prepare {disk} for games?" with what is on it and what will
      happen (everything erased, ext4: Windows and Mac no longer read it), a specific warning to switch on
      for Windows or BitLocker, then the final confirmation held for three seconds as in the installer,
-     then a short wait and a notice. A disk the console cannot read is listed too, "Not ready for games".
+     then a short wait and a notice. Before the final confirmation the player names the disk ("Games" offered,
+     up to 16 characters, never the name of another disk). A disk the console cannot read is listed too, "Not ready for games".
      Started from the USB stick the disks only show, with a note: the installer prepares them
      (6.7-installer-other-disks.html). Demo keys: I live / installed, F the next preparation fails.
      Demo 6.2: interactive demo for [[step-6.2-live-vs-installed-mode]] (Settings → System), on the
@@ -274,6 +275,9 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
     'prep.hold.title': 'Last step', 'prep.hold.text': 'Hold A for three seconds to erase {disk}.', 'prep.hold': 'Hold to erase and prepare', 'p.hold': 'Hold: erase and prepare',
     'prep.working': 'Preparing {disk}…', 'prep.usb': 'Do not unplug it.', 'prep.done': '{disk} is ready for games',
     'prep.failed': '{disk} could not be prepared: it may be faulty. Nothing else was changed.',
+    'name.title': 'Name the disk', 'name.text': 'It is how the console shows it, for example in the library.', 'continue': 'Continue',
+    'name.typing': 'Up to 16 characters, typed with the console\'s keyboard (here, with yours; Enter when done).',
+    'name.empty': 'Give the disk a name.', 'name.long': 'Too long: up to 16 characters (accented letters count as two).', 'name.taken': 'Another disk is already called "{name}".',
     'upd.version': 'OwneetOS version', 'upd.uptodate': 'OwneetOS is up to date', 'upd.checked': 'Checked today at {time}',
     'upd.check': 'Check for updates', 'upd.checking': 'Checking…', 'upd.offline': 'No internet: the console checks again when it is online',
     'upd.available': 'OwneetOS {v} is available', 'upd.size': '{size} to download',
@@ -344,6 +348,9 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
     'prep.hold.title': 'Ultimo passo', 'prep.hold.text': 'Tieni premuto A per tre secondi per cancellare {disk}.', 'prep.hold': 'Tieni premuto per cancellare e preparare', 'p.hold': 'Tieni premuto: cancella e prepara',
     'prep.working': 'Preparazione di {disk}…', 'prep.usb': 'Non scollegarlo.', 'prep.done': '{disk} è pronto per i giochi',
     'prep.failed': 'Non è stato possibile preparare {disk}: potrebbe essere guasto. Nient\'altro è stato modificato.',
+    'name.title': 'Dai un nome al disco', 'name.text': 'È il nome con cui la console lo mostra, per esempio nella libreria.', 'continue': 'Continua',
+    'name.typing': 'Fino a 16 caratteri, scritti con la tastiera della console (qui, con la tua; Invio per finire).',
+    'name.empty': 'Dai un nome al disco.', 'name.long': 'Troppo lungo: al massimo 16 caratteri (le lettere accentate contano due).', 'name.taken': 'C\'è già un disco che si chiama "{name}".',
     'upd.version': 'Versione di OwneetOS', 'upd.uptodate': 'OwneetOS è aggiornato', 'upd.checked': 'Controllato oggi alle {time}',
     'upd.check': 'Cerca aggiornamenti', 'upd.checking': 'Ricerca…', 'upd.offline': 'Niente internet: la console riprova quando è online',
     'upd.available': 'È disponibile OwneetOS {v}', 'upd.size': '{size} da scaricare',
@@ -914,12 +921,48 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
         if (el.dataset.k === 'understand') { closeSheet(false); prepareSheet(i, !understood); focus($('#sheet [data-k="understand"]'), true); return; }
         if (el.disabled) { feedback('edge'); return; }
         if (el.dataset.k !== 'go') { closeSheet(); return; }
-        closeSheet(false); holdSheet(i);
+        closeSheet(false); nameSheet(i);
       }, understood ? { quiet: true } : {});
     sheetReturn = $(`#panel [data-act="disk"][data-i="${i}"]`);   // closing goes back to the disk
   }
+  // ext4's label: up to 16 bytes; the console shows it, and two disks never share it
+  const bytes = t => new TextEncoder().encode(t).length;
+  function nameProblem(name, i) {
+    if (!name) return 'name.empty';
+    if (bytes(name) > 16) return 'name.long';
+    if (st.disks.some((d, j) => j !== i && (d.name || '').toLowerCase() === name.toLowerCase())) return 'name.taken';
+    return '';
+  }
+  function freeName(i) {
+    const base = tr('sto.label');
+    for (let n = 1; ; n++) { const t = n === 1 ? base : `${base} ${n}`; if (!nameProblem(t, i)) return t; }
+  }
+  function nameSheet(i, typed) {
+    const d = st.disks[i];
+    const name = typed ?? freeName(i), problem = nameProblem(name.trim(), i);
+    openSheet(`<span class="disp t-l">${tr('name.title')}</span><span class="t-m muted notes">${tr('name.text')}</span>
+      <input class="field" data-f data-k="name" maxlength="32" value="${name.replace(/"/g, '&quot;')}" style="font:inherit;font-size:20px;color:var(--fg)">
+      <span class="t-s ${problem ? 'error' : 'muted'}">${problem ? tr(problem, { name: name.trim() }) : tr('name.typing')}</span>
+      ${buttons([['next', tr('continue'), true, problem ? 'disabled' : ''], ['cancel', tr('cancel')]])}`,
+      [P(['a'], 'p.select'), P(['b'], 'p.cancel')], el => {
+        if (el.dataset.k === 'name') { el.focus(); return; }
+        if (el.disabled) { feedback('edge'); return; }
+        if (el.dataset.k !== 'next') { closeSheet(); return; }
+        d.newName = name.trim(); closeSheet(false); holdSheet(i);
+      }, { quiet: typed !== undefined, first: '[data-k="name"]' });
+    sheetReturn = $(`#panel [data-act="disk"][data-i="${i}"]`);
+    const input = $('#sheet input');
+    input.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Enter') { e.preventDefault(); const t = input.value; closeSheet(false); nameSheet(i, t); const n = $('#sheet [data-k="next"]'); if (n && !n.disabled) { $('#sheet input').blur(); focus(n, true); } }
+      else if (e.key === 'Escape') { e.preventDefault(); closeSheet(); }
+    });
+    if (typed !== undefined) input.focus();
+  }
+  let holdIndex = -1;
   function holdSheet(i) {
-    const d = st.disks[i], name = d.name || d.model;
+    const d = st.disks[i], name = d.newName;
+    holdIndex = i;
     openSheet(`<span class="disp t-l">${tr('prep.hold.title')}</span><span class="t-m">${tr('prep.hold.text', { disk: name })}</span>
       <div class="hold"><button class="hold-btn" data-f data-k="hold">${G.a}<svg class="ring" viewBox="0 0 144 144"><circle cx="72" cy="72" r="68" id="ring"/></svg></button>
       <span class="t-s muted">${tr('prep.hold')}</span></div>${buttons([['cancel', tr('cancel')]])}`,
@@ -953,7 +996,7 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
     setTimeout(() => {
       closeSheet(false);
       if (st.failNext) { st.failNext = false; $('#fail-state').textContent = 'off'; feedback('error'); toast(tr('prep.failed', { disk: name })); return; }
-      Object.assign(d, { name: tr('sto.label'), free: Math.round(d.total * .98), ro: false, windows: false, bitlocker: false, files: false, notready: false });
+      Object.assign(d, { name: d.newName, free: Math.round(d.total * .98), ro: false, windows: false, bitlocker: false, files: false, notready: false });
       renderPanel($(`#panel [data-act="disk"][data-i="${i}"]`)); focus($(`#panel [data-act="disk"][data-i="${i}"]`), true);
       feedback('notify'); toast(tr('prep.done', { disk: d.name }));
     }, 2600);
@@ -1039,8 +1082,13 @@ Left / right change a slider. <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = M
     else if (keys[k]) { e.preventDefault(); if (!e.repeat) press[keys[k]](); }
     else if (DEMO[k]) { e.preventDefault(); DEMO[k](); }
   });
+  // the final confirmation: held with the mouse too, and let go means stop
+  document.addEventListener('pointerdown', e => { const el = e.target.closest('[data-k="hold"]'); if (el && sheetOpen) { focus(el, true); holdDown(holdIndex); } });
+  ['pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, holdUp));
   document.addEventListener('click', e => {
     const el = e.target.closest('[data-f]');
+    if (el && el.dataset.k === 'hold') return;   // pointer down / up above
+    if (el && el.tagName === 'INPUT') return;
     if (!el) { if (sheetOpen && e.target === $('#overlay')) closeSheet(); return; }
     if (!sheetOpen && el.closest('#nav')) { focusArea = 'nav'; st.section = el.dataset.section; renderNav(); renderPanel(); focus($(`#nav [data-section="${st.section}"]`), true); return; }
     if (!sheetOpen) focusArea = 'panel';

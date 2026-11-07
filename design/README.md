@@ -44,7 +44,7 @@ Mockups and design assets.
     [`6.7-settings-disks.html`](demos/6.7-settings-disks.html): preparing the other disks for games
     ([[step-6.7-preparing-other-disks]]): in the installer, the screen "Other disks" after the disk for
     OwneetOS; in Settings → Disks, A on a disk, Windows's warning, A held three seconds, the wait and the
-    notice. Start states: `#screen=warn&disk=1&others=0,3` and `#keys=a,down,a` (`#mode=live` shows the note).
+    notice; each disk for games is named by the player ("Games" offered, up to 16 characters, never another disk's name). Start states: `#screen=dnames&disk=0&others=2,3` and `#keys=a,a,left,a` (`#mode=live` shows the note).
   - [`6.6-moving-games.html`](demos/6.6-moving-games.html): moving games between disks
     ([[step-6.6-moving-games-and-media-between-disks]]) on the games-on-disk demo, with two internal
     disks (a 96 GB SSD and a 2 TB HDD, as the FrankenPC): each cover says its disk; Menu → "Move to
