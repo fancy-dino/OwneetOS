@@ -8,10 +8,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // errWindowsNotReady: owneet-windows-run's exit code 3, Proton is not ready yet.
@@ -98,6 +100,10 @@ func (m *Manager) windowsInstall(ctx context.Context, j *job) (string, error) {
 		dest = link
 	}
 	argv := append([]string{m.WindowsRun, j.req.Prefix}, windowsArgs(j.Kind, j.req.Installer, winPath(dest))...)
+	// no percentage: what it has written so far, and whether it seems stuck (6.8)
+	watchCtx, stopWatch := context.WithCancel(ctx)
+	defer stopWatch()
+	go m.watchWritten(watchCtx, j)
 	sum := sha1.Sum([]byte(j.Dest))
 	unit := "owneet-install-" + hex.EncodeToString(sum[:])[:10] + ".service"
 	err := m.Runner.Run(ctx, unit, argv, m.Env())
@@ -160,4 +166,57 @@ func (systemdRun) Run(ctx context.Context, unit string, argv, env []string) erro
 		<-done
 		return fmt.Errorf("stopped: %w", ctx.Err())
 	}
+}
+
+// writtenEvery: how often a Windows installer's folder is measured.
+var writtenEvery = 5 * time.Second
+
+// watchWritten measures what a Windows installer has written into the game's folder, and marks it
+// stalled when nothing grows for StallAfter (and not stalled again once it grows).
+func (m *Manager) watchWritten(ctx context.Context, j *job) {
+	stall := m.StallAfter
+	if stall == 0 {
+		stall = 10 * time.Minute
+	}
+	tick := time.NewTicker(writtenEvery)
+	defer tick.Stop()
+	last, grew := int64(-1), time.Now()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+		size := dirSize(j.Dest)
+		if size != last {
+			last, grew = size, time.Now()
+		}
+		stalled := time.Since(grew) >= stall
+		m.mu.Lock()
+		changed := j.Stalled != stalled
+		j.Stalled = stalled
+		m.mu.Unlock()
+		if changed && stalled {
+			m.Log.Warn("the Windows installer writes nothing", "dest", j.Dest, "for", stall)
+			m.event("install.stalled", map[string]string{"dest": j.Dest, "title": j.Title})
+		}
+		m.progress(j, size)
+		if changed {
+			m.publish()
+		}
+	}
+}
+
+// dirSize: the bytes of the files in a folder, sub-folders too.
+func dirSize(dir string) int64 {
+	var size int64
+	_ = filepath.WalkDir(dir, func(_ string, d fs.DirEntry, err error) error {
+		if err == nil && d.Type().IsRegular() {
+			if info, err := d.Info(); err == nil {
+				size += info.Size()
+			}
+		}
+		return nil
+	})
+	return size
 }

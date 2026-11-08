@@ -181,6 +181,21 @@ double DiskGames::folderSize(const QString& path) const
     return static_cast<double>(bytes);
 }
 
+double DiskGames::installerSize(const QString& installer, const QString& game_dir) const
+{
+    const QFileInfo info(installer);
+    if (installer.isEmpty() || !info.isFile())
+        return 0;
+    if (QDir::cleanPath(info.absolutePath()) != QDir::cleanPath(game_dir))
+        return folderSize(info.absolutePath());     // a folder of its own: it goes with the installer
+    double bytes = static_cast<double>(info.size());
+    const QDir dir = info.absoluteDir();
+    const QStringList parts = dir.entryList({ info.completeBaseName() + QStringLiteral("-*.bin") }, QDir::Files);
+    for (const QString& part : parts)
+        bytes += static_cast<double>(QFileInfo(dir.filePath(part)).size());
+    return bytes;
+}
+
 bool DiskGames::firstStart(QObject* game_obj) const
 {
     const auto* game = qobject_cast<model::Game*>(game_obj);

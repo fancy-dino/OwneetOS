@@ -52,6 +52,9 @@ public:
     Q_INVOKABLE QVariantMap installRequest(QObject* game, const QString& language) const;
     /// The bytes a game's folder takes (what uninstalling it frees)
     Q_INVOKABLE double folderSize(const QString& path) const;
+    /// What deleting a game's installer frees (6.8): the installer with its parts (GOG's setup_*.exe and
+    /// setup_*-N.bin); the whole folder when it is a folder of its own. 0 when it is gone.
+    Q_INVOKABLE double installerSize(const QString& installer, const QString& game_dir) const;
 
     bool quietReading() const { return m_quiet_reading; }
     void setQuietReading(bool quiet);

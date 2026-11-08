@@ -407,6 +407,8 @@ FocusScope {
                 GameInfo.installs = (data && data.installs) || [];
             } else if (type === "install.done" || type === "install.failed") {
                 root.installEnded(type, data);
+            } else if (type === "install.stalled") {      // 6.8: nothing written for 10 minutes
+                if (data) root.notify({ key: "notices.install.stalled", args: { name: data.title }, icon: "alert", kind: "attention" });
             } else if (type === "update.changed") {
                 root.updateStatus = data;
                 root.showUpdate(data);
@@ -819,8 +821,20 @@ FocusScope {
         // 4.6: an install stops; a game the console installed is uninstalled (its installer stays)
         if (GameInfo.hasInstaller(game) && (s === "installing" || s === "queued"))
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.stop_install"), action: () => { dialog.close(true); root.askStopInstall(game); } }]);
-        if (GameInfo.installedHere(game) && !(runningGame && runningGame.name === game.title))
-            dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.uninstall"), action: () => { dialog.close(true); root.askRemoveInstalled(game); } }]);
+        // 6.8: every game on a disk can be uninstalled: the copy the console installed, otherwise its
+        // folder (a game ready to start, an installer); the installer of an installed game goes apart.
+        // Not while it runs, an install works in it, or its disk is read only.
+        const running = runningGame && runningGame.name === game.title;
+        const busy = GameInfo.hasInstaller(game) && (s === "installing" || s === "queued");
+        if (GameInfo.onDisk(game) && !steam && !running && !busy && !root.diskReadOnly(game)) {
+            if (GameInfo.installedHere(game)) {
+                dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.uninstall"), action: () => { dialog.close(true); root.askRemoveInstalled(game); } }]);
+                if (root.installerLeft(game) > 0)
+                    dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.delete_installer"), action: () => { dialog.close(true); root.askDeleteInstaller(game); } }]);
+            } else {
+                dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.uninstall"), action: () => { dialog.close(true); root.askDeleteGame(game); } }]);
+            }
+        }
         if (section !== "library")
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.library"), action: () => {
                 dialog.close(true);
@@ -1492,8 +1506,13 @@ FocusScope {
         dialog.prompts = dialog.defaultPrompts;
         dialog.backAction = null;
         dialog.title = Tr.tr("installer.uninstall.title", { title: game.title });
-        dialog.text = Tr.tr("installer.uninstall.text", { size: GameInfo.sizeAuto(diskGames.folderSize(dir)),
-                                                           disk: vol ? diskName(vol.key) : diskName("internal") });
+        // 6.8: moved to another disk, or its installer deleted: the text says so
+        const size = GameInfo.sizeAuto(diskGames.folderSize(dir));
+        const here = GameInfo.diskRoot(game) === "internal" || GameInfo.diskRoot(game) === "";
+        dialog.text = root.installerLeft(game) === 0
+            ? Tr.tr("installer.uninstall.text.gone", { size: size, where: root.diskOf(dir) })
+            : here ? Tr.tr("installer.uninstall.text", { size: size, disk: vol ? diskName(vol.key) : diskName("internal") })
+            : Tr.tr("installer.uninstall.text.disk", { size: size, where: root.diskOf(dir), disk: vol ? diskName(vol.key) : diskName("internal") });
         dialog.buttons = [
             { text: Tr.tr("uninstall.go"), style: "primary", action: () => {
                 dialog.close(true);
@@ -1512,6 +1531,76 @@ FocusScope {
         dialog.defaultIndex = 1;             // Cancel first: nothing removed by accident
         dialog.open();
     }
+    // ---- Games on disk (6.8, approved demo 6.8-games-on-disk): their folder or their installer deleted
+    function diskReadOnly(game) {
+        const root = GameInfo.diskRoot(game);
+        if (root === "" || root === "internal")
+            return false;
+        const v = storage.volumes().find(v => v.key === root);
+        return !!v && v.readOnly === true;
+    }
+    function diskOf(path) {
+        const v = storage.volumes().find(v => v.key !== "internal" && String(path).startsWith(v.key + "/"));
+        return v ? diskName(v.key) : diskName("internal");
+    }
+    function installerLeft(game) {           // what deleting its installer frees; 0 when it is gone
+        const from = String(game.extra["disk.installed.from"] || "");
+        return from === "" ? 0 : diskGames.installerSize(from, String(game.extra["disk.dir"]));
+    }
+    function deleteFailed(data) {
+        const code = data && data.error ? data.error.code : "";
+        toast.show(Tr.tr(code === "installs.in_use" ? "error.install.in_use" : code === "installs.read_only" ? "error.delete.read_only" : "error.installer"));
+        Nav.feedback("error");
+    }
+    // A game on a disk that the console did not install (ready to start, or only an installer): its folder
+    function askDeleteGame(game) {
+        const dir = String(game.extra["disk.dir"]);
+        dialog.game = null;
+        dialog.mode = "installRemove";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.prompts = dialog.defaultPrompts;
+        dialog.backAction = null;
+        dialog.title = Tr.tr("installer.uninstall.title", { title: game.title });
+        dialog.text = Tr.tr("disk.delete.text", { size: GameInfo.sizeAuto(diskGames.folderSize(dir)), disk: root.diskOf(dir) });
+        dialog.buttons = [
+            { text: Tr.tr("uninstall.go"), action: () => {
+                dialog.close(true);
+                owneetd.post("/v1/installs/delete", { dest: dir }, (status, data) => {
+                    if (status !== 204) { root.deleteFailed(data); return; }
+                    toast.show(Tr.tr("toast.install.removed", { title: game.title }));
+                    root.readGamesQuietly();
+                });
+            } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 1;             // Cancel first: nothing deleted by accident
+        dialog.open();
+    }
+    function askDeleteInstaller(game) {
+        const dir = String(game.extra["disk.dir"]);
+        const from = String(game.extra["disk.installed.from"] || "");
+        dialog.game = null;
+        dialog.mode = "installRemove";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.prompts = dialog.defaultPrompts;
+        dialog.backAction = null;
+        dialog.title = Tr.tr("disk.delete_installer.title", { title: game.title });
+        dialog.text = Tr.tr("disk.delete_installer.text", { title: game.title, size: GameInfo.sizeAuto(root.installerLeft(game)), disk: root.diskOf(from) });
+        dialog.buttons = [
+            { text: Tr.tr("disk.delete.go"), action: () => {
+                dialog.close(true);
+                owneetd.post("/v1/installs/delete-installer", { dest: dir }, (status, data) => {
+                    if (status !== 204) { root.deleteFailed(data); return; }
+                    toast.show(Tr.tr("toast.installer.deleted", { title: game.title }));
+                    root.readGamesQuietly();
+                });
+            } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 1;
+        dialog.open();
+    }
+
     // The end of an install: the installed copy replaces the game (read again quietly), a notice
     // says so; or why it stopped
     function installEnded(type, data) {
@@ -1543,7 +1632,8 @@ FocusScope {
         const cur = list.find(i => i.state === "installing");
         if (!cur) return [];
         const text = (cur.total > 0 ? Tr.tr("home.notice.install", { title: cur.title, p: Math.floor(cur.done * 100 / cur.total) })
-                                    : Tr.tr("home.notice.install.busy", { title: cur.title }))
+                                    : Tr.tr(cur.stalled ? "home.notice.install.stalled" : "home.notice.install.written",
+                                            { title: cur.title, gb: GameInfo.sizeAuto(cur.done || 0) }))
                      + (list.length > 1 ? "  ·  " + Tr.tr("home.notice.more", { n: list.length - 1 }) : "");
         return [{ text: text, game: games.find(g => g.title === cur.title) || null }];
     }

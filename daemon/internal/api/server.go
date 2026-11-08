@@ -171,6 +171,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/installs/inspect", s.handleInstallInspect)
 	mux.HandleFunc("POST /v1/installs/stop", s.handleInstallStop)
 	mux.HandleFunc("POST /v1/installs/uninstall", s.handleUninstall)
+	mux.HandleFunc("POST /v1/installs/delete", s.handleDelete)
+	mux.HandleFunc("POST /v1/installs/delete-installer", s.handleDeleteInstaller)
 	mux.HandleFunc("GET /v1/pointer", s.handlePointer)
 	mux.HandleFunc("POST /v1/pointer", s.handlePointerSet)
 	mux.HandleFunc("GET /v1/steam", s.handleSteamStatus)

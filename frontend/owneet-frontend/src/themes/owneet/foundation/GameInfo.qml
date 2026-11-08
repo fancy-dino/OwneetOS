@@ -155,7 +155,11 @@ QtObject {
             return "";
         if (s === "installing") {
             const i = install(game);
-            return i && i.total > 0 ? Tr.tr("installer.state.installing", { p: progress(game) }) : Tr.tr("installer.state.busy");
+            if (i && i.total > 0)
+                return Tr.tr("installer.state.installing", { p: progress(game) });
+            // 6.8: a Windows installer has no percentage: what it has written, and whether it seems stuck
+            return i ? Tr.tr(i.stalled ? "installer.state.stalled" : "installer.state.written", { gb: sizeAuto(i.done || 0) })
+                     : Tr.tr("installer.state.busy");
         }
         if (s === "unusable")
             return Tr.tr("installer.state.unusable");

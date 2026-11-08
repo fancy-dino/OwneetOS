@@ -29,6 +29,7 @@ NavArea {
     property var prompts: defaultPrompts
     default property alias content: column.data
     backFeedback: ""            // closing plays "sheet-close"
+    rowsHold: true              // buttons on two rows: left / right stay on the row
 
     anchors.fill: parent
     visible: false

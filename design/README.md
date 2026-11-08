@@ -42,8 +42,8 @@ Mockups and design assets.
     the progress, the end and an error. Start state: `#lang=it&screen=disk`.
   - [`6.8-games-on-disk.html`](demos/6.8-games-on-disk.html): on the installers demo 4.6
     ([[step-6.8-games-on-disk-delete-and-progress]]): Windows installs show what they have written, and say
-    when they seem stuck (key K); Options → "Delete from disk" (a game on a disk, an installer) and "Delete
-    the installer" (a game installed from it). Start state: `#filter=local&sort=name&win=ready`.
+    when they seem stuck (key K); Options → "Uninstall" on every game on a disk (owner: one label; its
+    folder, or the copy installed) and "Delete the installer" apart. Start state: `#filter=local&sort=name&win=ready`.
   - [`6.7-installer-other-disks.html`](demos/6.7-installer-other-disks.html) and
     [`6.7-settings-disks.html`](demos/6.7-settings-disks.html): preparing the other disks for games
     ([[step-6.7-preparing-other-disks]]): in the installer, the screen "Other disks" after the disk for

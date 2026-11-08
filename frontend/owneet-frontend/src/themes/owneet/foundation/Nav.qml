@@ -97,11 +97,13 @@ QtObject {
     // direction (the one overlapping the selection most). Entering sideways returns to the item
     // selected there last time (the first item the first time); entering up or down goes to the
     // nearest item. Returns null at the edge.
-    function find(root, from, direction) {
+    // `rows`: left / right never leave the selected item's row (a window whose buttons take two rows)
+    function find(root, from, direction, rows) {
         if (!from)
             return navigables(root)[0] || null;
         const group = groupOf(root, from);
-        const inside = nearest(root, navigables(group || root), from, direction, group !== null);
+        const sideways = direction === "left" || direction === "right";
+        const inside = nearest(root, navigables(group || root), from, direction, group !== null || (rows === true && sideways));
         if (inside || !group)
             return inside;
 

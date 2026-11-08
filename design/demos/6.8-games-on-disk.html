@@ -4,9 +4,10 @@
      installers demo 4.6 (below unchanged but for the new parts). New: a Windows installer shows how much
      it has written ("Installing · 7.4 GB written", on the cover and in the home screen's notice), and if
      it writes nothing for 10 minutes, a banner and the cover say it seems stuck (Options: Stop
-     installing). Options → "Delete from disk" for a game on a disk (its folder, saves inside too) and
-     for an installer; a game installed from its installer gets "Delete the installer" (the game
-     stays). Each asks first, Cancel selected; never for Steam games (Steam's storage) or on a read-only
+     installing). Options → "Uninstall" for every game that is not Steam's, on any disk (owner,
+     2026-11-08: one label): a game ready to start or an installer, its whole folder (saves inside
+     too); a game installed from its installer, its installed copy, and "Delete the installer" apart
+     (the game stays). Each asks first, Cancel selected; never for Steam games (Steam's storage) or on a read-only
      disk. Demo keys: K the Windows install in progress stops writing.
      Demo 4.6: interactive demo for [[step-4.6-installers]] (installers), built on the approved
      demo 4.5 (owner's choices of 2026-10-19: install on the console's disk; GOG's .sh extracted,
@@ -263,7 +264,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 <p class="help"><b>New in 4.6:</b> on the USB disk, folders with only an installer: <b>Stargunner</b> (GOG for Linux, extracted), <b>Shadow Harbor</b> (GOG for Windows, run silently: Windows games must be ready first; no percentage, a moving bar), <b>Lantern Keep</b> (another kind of Windows installer; licence not found), <b>Titan Fields</b> (too big for the free space), <b>Treasure Adventure Game</b> (GOG Galaxy's online installer) and <b>Old Relic</b> (unknown kind): both shown, “cannot be installed yet”. A installs (licence first; Read shows it, the right stick scrolls); Home's notices follow the install; Menu stops it, or uninstalls an installed game. Installed games stay when the disk is unplugged; unplugging it during an install stops it. Still from 4.5: Windows games (<b>Tyrian 2000</b>, <b>Ashen Gate</b>) and <b>Iron Tundra</b> (Steam).<br>
 <b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A play, B menu (back in windows), X details, Y sort, Menu options, LT/RT filters, LB/RB sections.
 <b>Keyboard:</b> arrows, Page Up/Down = right stick, Enter = A, Esc = B, X, Y, M = Menu, Z/C = LT/RT, Q/E = LB/RB.<br>
-<b>New in 6.8:</b> Windows installs show what they wrote (K: it stops writing, the banner after 10 minutes); Options → Delete from disk, Delete the installer.<br><b>Demo only:</b> K stuck install, O internet on / off (<span id="net-state">on</span>), W download state (<span id="win-state">getting ready</span>), R forget first starts, choices and installs, U plug in / unplug the disk (<span id="disk-state">plugged in</span>), P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#win=waiting|downloading|ready&amp;net=off&amp;section=home|settings&amp;filter=local&amp;lang=it&amp;open=install|licence|nolicence|installing|space|unusable|uninstall|offline|progress|prep|choose|broken|steamdl</code></p>
+<b>New in 6.8:</b> Windows installs show what they wrote (K: it stops writing, the banner after 10 minutes); Options → Uninstall on every game on a disk (its folder), Delete the installer apart.<br><b>Demo only:</b> K stuck install, O internet on / off (<span id="net-state">on</span>), W download state (<span id="win-state">getting ready</span>), R forget first starts, choices and installs, U plug in / unplug the disk (<span id="disk-state">plugged in</span>), P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#win=waiting|downloading|ready&amp;net=off&amp;section=home|settings&amp;filter=local&amp;lang=it&amp;open=install|licence|nolicence|installing|space|unusable|uninstall|offline|progress|prep|choose|broken|steamdl</code></p>
 
 <script src="sounds.js"></script>
 <script>
@@ -802,8 +803,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   }
   function optionsSheet(g) {
     if (g.inst && g.state !== 'installed') {
-      const items = g.state === 'none' ? [['install', 'opt.install', true], ['details', 'opt.details'], ['fav', g.fav ? 'opt.unfav' : 'opt.fav'], ['delete', 'opt.delete']]
-        : g.state === 'unusable' ? [['details', 'opt.details', true], ['fav', g.fav ? 'opt.unfav' : 'opt.fav'], ['delete', 'opt.delete']]
+      const items = g.state === 'none' ? [['install', 'opt.install', true], ['details', 'opt.details'], ['fav', g.fav ? 'opt.unfav' : 'opt.fav'], ['delete', 'opt.uninstall']]
+        : g.state === 'unusable' ? [['details', 'opt.details', true], ['fav', g.fav ? 'opt.unfav' : 'opt.fav'], ['delete', 'opt.uninstall']]
         : [['details', 'opt.details', true], ['stop', 'opt.stop']];
       openSheet(`<span class="disp t-l">${g.title}</span><div class="list t-m">${items.map(([k, t, primary]) =>
           `<button class="item${primary ? ' primary' : ''}" data-f data-sheet="${k}">${tr(t)}</button>`).join('')}</div>`,
@@ -824,7 +825,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       ${g.files && g.files.length > 1 ? `<button class="item" data-f data-sheet="choose">${tr('opt.choose')}</button>` : ''}
       ${installed(g) ? `<button class="item" data-f data-sheet="uninstall">${tr('opt.uninstall')}</button>` : ''}
       ${installed(g) && !g.instGone && diskOn ? `<button class="item" data-f data-sheet="delinst">${tr('opt.delete.inst')}</button>` : ''}
-      ${g.src === 'local' && !g.inst && g.disk !== 'internal' ? `<button class="item" data-f data-sheet="delete">${tr('opt.delete')}</button>` : ''}</div>`,
+      ${g.src === 'local' && !g.inst ? `<button class="item" data-f data-sheet="delete">${tr('opt.uninstall')}</button>` : ''}</div>`,
       [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
         const what = el.dataset.sheet;
         if (what === 'play') { closeSheet(false); start(g); }
@@ -1052,10 +1053,11 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   // 6.8: a game's folder (or only its installer) deleted from its disk; Cancel selected first
   function deleteSheet(g, installerOnly) {
     const disk = diskName(ALL_DISKS.find(d => d.key === g.disk) || ALL_DISKS.find(d => d.key === 'ssd'));
+    // owner 2026-11-08: one label, "Uninstall", for every game; the text says what goes
     const size = gbs(installerOnly ? +(g.need * 0.5).toFixed(1) : g.size);
-    openSheet(`<span class="disp t-l">${tr(installerOnly ? 'del.inst.title' : 'del.title', { title: g.title, disk })}</span>
+    openSheet(`<span class="disp t-l">${tr(installerOnly ? 'del.inst.title' : 'uninst.title', { title: g.title, disk })}</span>
       <span class="t-m msg">${tr(installerOnly ? 'del.inst.text' : 'del.text', { title: g.title, disk, size })}</span>
-      <div class="list t-m"><button class="item" data-f data-act="go">${tr('del.go')}</button>
+      <div class="list t-m"><button class="item" data-f data-act="go">${tr(installerOnly ? 'del.go' : 'uninst.go')}</button>
       <button class="item primary" data-f data-act="cancel">${tr('p.cancel')}</button></div>`,
       [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
         closeSheet(el.dataset.act !== 'go');

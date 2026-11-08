@@ -78,6 +78,8 @@ type Install struct {
 	State string `json:"state"`
 	Done  int64  `json:"done"`  // bytes written
 	Total int64  `json:"total"` // bytes to write; 0 for Windows installers (no percentage)
+	// Stalled: a Windows installer has written nothing for StallAfter (6.8): it seems stuck
+	Stalled bool `json:"stalled,omitempty"`
 }
 
 // Status is GET /v1/installs and the "installs.changed" event.
@@ -125,6 +127,11 @@ type Manager struct {
 	// InUse tells whether a process works in a folder (its working folder or its program is in
 	// it: /proc by default)
 	InUse func(dir string) bool
+	// Media is where the console mounts the disks (default /run/media/owneet): games there can be
+	// deleted and uninstalled too (6.8)
+	Media string
+	// StallAfter: a Windows installer that writes nothing this long seems stuck (default 10 minutes)
+	StallAfter time.Duration
 
 	mu    sync.Mutex
 	queue []*job
@@ -358,11 +365,12 @@ func (m *Manager) Stop(dest string) error {
 	return ErrNotFound
 }
 
-// Uninstall removes a game the console installed: everything in its folder but what was there
-// before (an installer in the folder itself); its prefix (with its saves) stays.
+// Uninstall removes a game the console installed, also after it was moved to another disk (6.8):
+// everything in its folder but what was there before (an installer in the folder itself); its prefix
+// (with its saves) stays.
 func (m *Manager) Uninstall(dest string) error {
 	m.init()
-	dest, err := m.gamesDest(dest)
+	dest, err := m.gameFolder(dest)
 	if err != nil {
 		return err
 	}
@@ -378,6 +386,9 @@ func (m *Manager) Uninstall(dest string) error {
 	// never under a running game (FrankenPC, 2026-10-19: ScummVM lost its files and crashed)
 	if m.InUse(dest) {
 		return ErrInUse
+	}
+	if readOnly(dest) {
+		return ErrReadOnly
 	}
 	m.mu.Lock()
 	for _, j := range m.queue {
