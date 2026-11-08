@@ -184,6 +184,9 @@ type Manager struct {
 	StateDir     string // owneetd's own marks (~/.config/owneet): Steam Input set once per account
 	SteamAllowed func() bool
 	Forward      func(argv, env []string) error
+	// MountState is owneet-mount's state (MountStateDir): the disks prepared for games are handed
+	// to Steam (steamdisks.go).
+	MountState string
 	// NVIDIA tells whether the NVIDIA driver runs the screen (Steam then draws its pages
 	// without the GPU, see steamGPUArgs).
 	NVIDIA func() bool
@@ -219,6 +222,7 @@ type Manager struct {
 	steamSamples map[string]*steamSample // downloads: bytes at the last check (steamlib.go)
 	steamLast    string                  // the last status sent as "steam.changed"
 	steamRunning bool                    // Steam ran at the last check
+	steamDisks   map[string]bool         // disks for games handed to the running Steam (steamdisks.go)
 }
 
 func (m *Manager) init() {
@@ -250,6 +254,9 @@ func (m *Manager) init() {
 	}
 	if m.Forward == nil {
 		m.Forward = forward
+	}
+	if m.MountState == "" {
+		m.MountState = MountStateDir
 	}
 	if m.NVIDIA == nil {
 		m.NVIDIA = nvidiaDriver

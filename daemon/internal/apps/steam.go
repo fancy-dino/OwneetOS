@@ -530,13 +530,22 @@ func (m *Manager) steamAskNow() {
 func (m *Manager) watchSteam() {
 	m.mu.Lock()
 	m.init()
-	_, running := m.apps[SteamID]
+	steam, running := m.apps[SteamID]
+	// Steam's window is up (or, where owneetd does not follow windows, Steam has run a while): it
+	// takes addresses (steamdisks.go)
+	ready := running && (steam.window || time.Since(steam.Started) >= steamDisksAfter)
 	confirm, dir := m.steamConfirm, m.SteamDir
 	m.mu.Unlock()
 	m.steamMu.Lock()
 	was := m.steamRunning // once more after Steam stopped: its downloads stopped too
 	m.steamRunning = running
+	if !running || m.steamDisks == nil {
+		m.steamDisks = map[string]bool{} // a new Steam is told again
+	}
 	m.steamMu.Unlock()
+	if ready {
+		m.steamAddDisks()
+	}
 	if !running && !was && confirm == nil {
 		return
 	}
