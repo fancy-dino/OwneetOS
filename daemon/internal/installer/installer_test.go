@@ -16,7 +16,7 @@ import (
 )
 
 const disksJSON = `{"disks":[
- {"path":"/dev/nvme0n1","serial":"S1","size":500107862016,"model":"Samsung SSD 980","usable":true,"reason":"","windows":true,"bitlocker":false,"linux":false,"partitions":[{"path":"/dev/nvme0n1p1","size":1,"fstype":"ntfs","label":""}]},
+ {"path":"/dev/nvme0n1","serial":"S1","size":500107862016,"model":"Samsung SSD 980","usable":true,"reason":"","windows":true,"bitlocker":false,"linux":false,"partitions":[{"path":"/dev/nvme0n1p1","size":1,"fstype":"ntfs","label":"Volume"}]},
  {"path":"/dev/sda","serial":"S2","size":1000204886016,"model":"Crucial MX500","usable":true,"reason":"","windows":false,"bitlocker":false,"linux":false,"partitions":[]},
  {"path":"/dev/sdb","serial":"S3","size":16008609792,"model":"Kingston","usable":false,"reason":"too_small","windows":false,"bitlocker":false,"linux":false,"partitions":[]}]}`
 
@@ -163,5 +163,62 @@ func TestCleanName(t *testing.T) {
 		if got := CleanName(in); got != want {
 			t.Errorf("CleanName(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// The other internal disks prepared for games ([[step-6.7-preparing-other-disks]]): any size, named,
+// never two the same name, never a name another disk keeps.
+func TestGamesDisks(t *testing.T) {
+	sdb := GamesDisk{Disk: "/dev/sdb", Size: 16008609792, Serial: "S3", Name: "Giochi"}
+	units := &fakeUnits{state: `{"state":"done","percent":100,"error":"","time":"x"}`}
+	m := newManager(t, units, true)
+	if err := m.Start(Request{Disk: "/dev/sda", Size: 1000204886016, Serial: "S2", Games: []GamesDisk{sdb}, Folder: "Giochi"}); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(m.RequestFile)
+	want := "OWNEET_INSTALL_GAMES_1_DISK=/dev/sdb\nOWNEET_INSTALL_GAMES_1_SIZE=16008609792\nOWNEET_INSTALL_GAMES_1_SERIAL=S3\n" +
+		"OWNEET_INSTALL_GAMES_1_ERASE=/dev/sdb\nOWNEET_INSTALL_GAMES_1_NAME=Giochi\nOWNEET_INSTALL_GAMES_FOLDER=Giochi\n"
+	if !strings.HasSuffix(string(data), want) {
+		t.Errorf("request:\n%s\nwant at the end:\n%s", data, want)
+	}
+	waitFor(t, m, "done")
+
+	nvme := GamesDisk{Disk: "/dev/nvme0n1", Size: 500107862016, Serial: "S1", Name: "Games 2"}
+	named := func(g GamesDisk, name string) GamesDisk { g.Name = name; return g }
+	confirmed := func(g GamesDisk) GamesDisk { g.EraseWindows = true; return g }
+	sys := Request{Disk: "/dev/sda", Size: 1000204886016, Serial: "S2", Folder: "Games"}
+	with := func(r Request, g ...GamesDisk) Request { r.Games = g; return r }
+	for name, c := range map[string]struct {
+		req  Request
+		want error
+	}{
+		"Windows without consent": {with(sys, nvme), ErrWindowsNotConfirmed},
+		"the system's disk":       {with(sys, GamesDisk{Disk: "/dev/sda", Size: 1000204886016, Serial: "S2", Name: "G"}), ErrDiskChanged},
+		"another serial":          {with(sys, GamesDisk{Disk: "/dev/sdb", Size: 16008609792, Serial: "S9", Name: "G"}), ErrDiskChanged},
+		"the same disk twice":     {with(sys, sdb, named(sdb, "Other")), ErrDiskChanged},
+		"empty name":              {with(sys, named(sdb, "")), ErrBadName},
+		"too long":                {with(sys, named(sdb, "Giochi giochi gio")), ErrBadName},
+		"accents count two":       {with(sys, named(sdb, "Città dei giochi")), ErrBadName},
+		"a slash":                 {with(sys, named(sdb, "a/b")), ErrBadName},
+		"two the same":            {with(sys, named(sdb, "Giochi"), named(confirmed(nvme), "GIOCHI")), ErrNameTaken},
+		"another disk keeps it":   {with(sys, named(sdb, "volume")), ErrNameTaken},
+		"unknown folder":          {Request{Disk: "/dev/sda", Size: 1000204886016, Serial: "S2", Games: []GamesDisk{sdb}, Folder: "../x"}, ErrBadName},
+	} {
+		units := &fakeUnits{}
+		m := newManager(t, units, true)
+		if err := m.Start(c.req); !errors.Is(err, c.want) {
+			t.Errorf("%s: %v, want %v", name, err, c.want)
+		}
+		if len(units.started) != 0 {
+			t.Errorf("%s: a unit was started", name)
+		}
+	}
+	// the disk that kept "Volume" is erased itself (OwneetOS goes there): its name is free again
+	m = newManager(t, &fakeUnits{}, true)
+	m.Timeout = 50 * time.Millisecond
+	err := m.Start(Request{Disk: "/dev/nvme0n1", Size: 500107862016, Serial: "S1", EraseWindows: true,
+		Games: []GamesDisk{named(sdb, "Volume")}, Folder: "Games"})
+	if err != nil {
+		t.Errorf("a name the erased system disk kept: %v", err)
 	}
 }

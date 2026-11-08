@@ -24,6 +24,7 @@
         <file>owneet/foundation/Logo.qml</file>
         <file>owneet/foundation/LogoData.qml</file>
         <file>owneet/foundation/SettingSlider.qml</file>
+        <file>owneet/foundation/HoldButton.qml</file>
         <file>owneet/foundation/InfoRow.qml</file>
         <file>owneet/foundation/QrCode.qml</file>
         <file>owneet/foundation/Icon.qml</file>

@@ -6,6 +6,10 @@
 // (a disk with Windows or BitLocker needs its switch on), the final confirmation held for three
 // seconds (nothing is erased by one press, [[user-data]]), the progress in the backend's steps
 // (POST /v1/installer/start, "installer.changed"), the end and the errors in the player's words.
+// The other internal disks ([[step-6.7-preparing-other-disks]], approved demo
+// design/demos/6.7-installer-other-disks.html): after the disk, "Other disks" (any size, "Leave as it
+// is" first), then their names ("Games", "Games 2"…, up to 16 characters, never another disk's
+// name); the warning and the confirmation name every disk erased, the progress has their phase.
 import QtQuick 2.15
 import "foundation"
 
@@ -20,21 +24,29 @@ Rectangle {
     signal closed()
 
     // ---- Where the player is
-    property string screen: "welcome"    // welcome, disk, name, warn, confirm, progress, done, error
-    readonly property var stepOf: ({ disk: "disk", name: "name", warn: "confirm", confirm: "confirm",
+    property string screen: "welcome"    // welcome, disk, others, dnames, name, warn, confirm, progress, done, error
+    readonly property var stepOf: ({ disk: "disk", others: "disk", dnames: "disk", name: "name", warn: "confirm", confirm: "confirm",
                                      progress: "install", done: "install", error: "install" })
     readonly property var steps: ["disk", "name", "confirm", "install"]
     property var disks: []
     property var disk: null              // the one chosen, as it was listed
     property string consoleName: "OwneetOS"
     property bool understood: false      // Windows or BitLocker: the switch
-    readonly property bool hasWindows: disk !== null && (disk.windows || disk.bitlocker)
+    // The other internal disks to prepare for games (their paths, in the list's order) and their names
+    property var others: []
+    property var gameNames: ({})
+    readonly property var otherDisks: disk === null ? [] : disks.filter(d => d.path !== disk.path)
+    readonly property var gamesDisks: disks.filter(d => others.indexOf(d.path) >= 0)
+    readonly property var erased: disk === null ? [] : [disk].concat(gamesDisks)
+    readonly property bool hasWindows: erased.some(d => d.windows || d.bitlocker)
     property var status: ({ state: "", percent: 0 })
     property string error: ""            // the backend's code, or owneetd's refusal
 
     function open() {
         screen = "welcome";
         disk = null;
+        others = [];
+        gameNames = {};
         understood = false;
         error = "";
         visible = true;
@@ -55,7 +67,9 @@ Rectangle {
         Qt.callLater(focusScreen);
     }
     function back() {
-        const prev = { disk: "welcome", name: "disk", warn: "name", confirm: "warn", error: "confirm" }[screen];
+        const prev = { disk: "welcome", others: "disk", dnames: "others",
+                       name: others.length > 0 ? "dnames" : otherDisks.length > 0 ? "others" : "disk",
+                       warn: "name", confirm: "warn", error: "confirm" }[screen];
         if (!prev) {
             Nav.feedback("edge");
             return;
@@ -78,14 +92,82 @@ Rectangle {
         nav.focusFirst();
     }
 
+    // ---- The other disks: switched on or off, then named
+    function toggleOther(path) {
+        const i = others.indexOf(path);
+        const next = others.slice();
+        if (i >= 0) next.splice(i, 1); else next.push(path);
+        others = disks.map(d => d.path).filter(p => next.indexOf(p) >= 0);
+        understood = false;
+    }
+    function afterOthers() {
+        if (others.length === 0) {
+            go("name");
+            return;
+        }
+        const names = Object.assign({}, gameNames);
+        for (const p in names)
+            if (others.indexOf(p) < 0) delete names[p];
+        gameNames = names;
+        others.forEach(p => { if (!gameNames[p]) { const n = Object.assign({}, gameNames); n[p] = freeName(p); gameNames = n; } });
+        go("dnames");
+    }
+    // A disk's name: ext4's label (1 to 16 bytes, no "/"), never the name another disk keeps or gets
+    function utf8Bytes(t) { return unescape(encodeURIComponent(t)).length; }
+    function nameProblem(name, path) {
+        if (name === "" || name.indexOf("/") >= 0 || name.charAt(0) === ".")
+            return "installer.dname.empty";
+        if (utf8Bytes(name) > 16)
+            return "installer.dname.long";
+        const lower = name.toLowerCase();
+        for (let i = 0; i < disks.length; i++) {
+            const d = disks[i];
+            if (d.path === path || d.path === disk.path)
+                continue;
+            if (others.indexOf(d.path) >= 0) {
+                if ((gameNames[d.path] || "").toLowerCase() === lower)
+                    return "installer.dname.taken";
+            } else if ((d.partitions || []).some(p => (p.label || "").toLowerCase() === lower)) {
+                return "installer.dname.taken";
+            }
+        }
+        return "";
+    }
+    function freeName(path) {
+        const base = Tr.tr("installer.dname.default");
+        for (let n = 1; ; n++) {
+            const t = n === 1 ? base : base + " " + n;
+            if (nameProblem(t, path) === "")
+                return t;
+        }
+    }
+    function renameOther(path) {
+        const d = disks.find(x => x.path === path);
+        if (!root.theme || !d)
+            return;
+        root.theme.renameDisk(Tr.tr("installer.dname.change", { disk: d.model || d.path }), gameNames[path], 16,
+                              name => nameProblem(name, path), name => {
+            const n = Object.assign({}, root.gameNames);
+            n[path] = name;
+            root.gameNames = n;
+        });
+    }
+    function diskList(list) {           // "A, B and C"
+        const names = list.map(d => d.model || d.path);
+        return names.length > 1 ? names.slice(0, -1).join(", ") + " " + Tr.tr("installer.and") + " " + names[names.length - 1] : names[0] || "";
+    }
+
     // ---- The installation
     function start() {
         status = { state: "preparing", percent: 0 };
         error = "";
         Nav.feedback("confirm");
         go("progress");
-        owneetd.post("/v1/installer/start", { disk: disk.path, size: disk.size, serial: disk.serial,
-                                               name: consoleName, erase_windows: hasWindows && understood }, (code, data) => {
+        const games = gamesDisks.map(d => ({ disk: d.path, size: d.size, serial: d.serial, name: gameNames[d.path],
+                                             erase_windows: (d.windows || d.bitlocker) && understood }));
+        owneetd.post("/v1/installer/start", { disk: disk.path, size: disk.size, serial: disk.serial, name: consoleName,
+                                               erase_windows: (disk.windows || disk.bitlocker) && understood,
+                                               games: games, folder: Tr.language.indexOf("it") === 0 ? "Giochi" : "Games" }, (code, data) => {
             if (code === 202 || code === 200)
                 return;
             // owneetd refused before anything was touched
@@ -93,7 +175,8 @@ Rectangle {
             fail(refused === "installer.disk_changed" ? "disk_changed"
                  : refused === "installer.not_usable" ? "not_usable"
                  : refused === "installer.not_live" ? "not_live"
-                 : refused === "installer.windows_not_confirmed" ? "windows_not_confirmed" : "failed");
+                 : refused === "installer.windows_not_confirmed" ? "windows_not_confirmed"
+                 : refused === "installer.bad_name" || refused === "installer.name_taken" ? "name_taken" : "failed");
         });
     }
     function fail(code) {
@@ -123,13 +206,14 @@ Rectangle {
     function errorText(code) {
         const same = { no_disk: "disk_changed", erase_not_confirmed: "not_confirmed",
                        windows_not_confirmed: "not_confirmed", partition_failed: "disk_failed",
-                       format_failed: "disk_failed", boot_failed: "setup_failed" };
+                       format_failed: "disk_failed", boot_failed: "setup_failed", bad_name: "name_taken" };
         const key = "installer.err." + (same[code] || code);
         return Tr.tr(key) !== key ? Tr.tr(key) : Tr.tr("installer.err.failed");
     }
     readonly property bool untouched: ["not_live", "not_uefi", "no_disk", "disk_changed", "not_usable",
-                                       "erase_not_confirmed", "windows_not_confirmed"].indexOf(error) >= 0
-    readonly property var phases: ["partitioning", "copying", "setting_up", "boot"]
+                                       "erase_not_confirmed", "windows_not_confirmed", "bad_name", "name_taken"].indexOf(error) >= 0
+    readonly property var phases: others.length > 0 ? ["partitioning", "copying", "setting_up", "boot", "games"]
+                                                     : ["partitioning", "copying", "setting_up", "boot"]
     readonly property int phase: Math.max(0, phases.indexOf(status.state))
 
     // ================= Layout =================
@@ -222,9 +306,13 @@ Rectangle {
                         readonly property bool navigable: modelData.usable
                         signal activated()
                         onActivated: {
+                            if (root.disk === null || root.disk.path !== modelData.path) {
+                                root.others = [];
+                                root.gameNames = {};
+                            }
                             root.disk = modelData;
                             root.understood = false;
-                            root.go("name");
+                            root.go(root.otherDisks.length > 0 ? "others" : "name");
                         }
                         width: parent.width
                         height: Math.max(Theme.px(64), diskText.implicitHeight + Theme.px(28))
@@ -259,35 +347,144 @@ Rectangle {
                             anchors { right: parent.right; rightMargin: Theme.px(18); verticalCenter: parent.verticalCenter }
                             spacing: Theme.px(10)
                             Repeater {
-                                model: {
-                                    const d = modelData, t = [];
-                                    if (d.windows) t.push(["windows", true]);
-                                    if (d.bitlocker) t.push(["bitlocker", true]);
-                                    if (d.linux) t.push(["linux", false]);
-                                    if (!d.windows && !d.bitlocker && !d.linux && (d.partitions || []).length > 0)
-                                        t.push(["data", false]);
-                                    if (t.length === 0) t.push(["empty", false]);
-                                    return t;
-                                }
+                                model: root.contents(modelData)
+                                Tag { tag: modelData }
+                            }
+                        }
+                        FocusFrame {}
+                    }
+                }
+            }
+        }
+
+        // ---- The other disks (6.7): each one "Leave as it is" or "Erase and prepare for games"
+        Column {
+            visible: root.screen === "others"
+            anchors.centerIn: parent
+            width: Theme.px(860)
+            spacing: Theme.px(18)
+            Heading { text: Tr.tr("installer.others.title") }
+            Para { text: Tr.tr("installer.others.text") }
+            Column {
+                width: parent.width
+                spacing: Theme.px(12)
+                Repeater {
+                    model: root.screen === "others" ? root.otherDisks : []
+                    Rectangle {
+                        readonly property bool on: root.others.indexOf(modelData.path) >= 0
+                        readonly property bool navigable: true
+                        readonly property bool isSwitch: true
+                        readonly property string feedbackKind: on ? "toggle-off" : "toggle-on"
+                        signal activated()
+                        onActivated: root.toggleOther(modelData.path)
+                        width: parent.width
+                        height: Math.max(Theme.px(64), otherText.implicitHeight + Theme.px(28))
+                        radius: Theme.radiusM
+                        color: Theme.surface
+                        border.color: Theme.line
+                        border.width: Math.max(1, Theme.px(1))
+                        Column {
+                            id: otherText
+                            anchors { left: parent.left; leftMargin: Theme.px(18); verticalCenter: parent.verticalCenter }
+                            width: parent.width * 0.55
+                            spacing: Theme.px(3)
+                            Text {
+                                width: parent.width
+                                text: modelData.model || modelData.path
+                                color: Theme.fg
+                                font.family: Theme.textFont
+                                font.weight: Font.Medium
+                                font.pixelSize: Theme.fs(17)
+                                elide: Text.ElideRight
+                            }
+                            Text {
+                                text: GameInfo.size(modelData.size) + " · " + Tr.tr(parent.parent.on ? "installer.others.prepare" : "installer.others.leave")
+                                color: Theme.muted
+                                font.family: Theme.textFont
+                                font.pixelSize: Theme.fs(14.5)
+                            }
+                        }
+                        Row {                     // what is on it, then the switch
+                            anchors { right: parent.right; rightMargin: Theme.px(18); verticalCenter: parent.verticalCenter }
+                            spacing: Theme.px(10)
+                            Repeater {
+                                model: root.contents(modelData)
+                                Tag { tag: modelData }
+                            }
+                            Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: Theme.px(44); height: Theme.px(24); radius: height / 2
+                                color: parent.parent.on ? Theme.accent : Theme.raised
+                                border.color: parent.parent.on ? Theme.accent : Theme.line
+                                border.width: Math.max(1, Theme.px(1))
                                 Rectangle {
-                                    width: tagText.implicitWidth + Theme.px(20)
-                                    height: tagText.implicitHeight + Theme.px(4)
-                                    radius: height / 2
-                                    color: modelData[1] ? Theme.accent : Theme.raised
-                                    Text {
-                                        id: tagText
-                                        anchors.centerIn: parent
-                                        text: Tr.tr("installer.disk." + modelData[0])
-                                        color: modelData[1] ? Theme.onAccent : Theme.fg
-                                        font.family: Theme.textFont
-                                        font.pixelSize: Theme.fs(16)
-                                    }
+                                    width: Theme.px(16); height: width; radius: width / 2
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    x: parent.parent.parent.on ? Theme.px(23) : Theme.px(3)
+                                    color: parent.parent.parent.on ? Theme.onAccent : Theme.muted
+                                    Behavior on x { NumberAnimation { duration: Theme.motionMs; easing.type: Easing.OutCubic } }
                                 }
                             }
                         }
                         FocusFrame {}
                     }
                 }
+            }
+            Row {
+                spacing: Theme.px(16)
+                topPadding: Theme.px(6)
+                Button { text: Tr.tr("installer.continue"); style: "primary"; onActivated: root.afterOthers() }
+                Button { text: Tr.tr("installer.back"); onActivated: root.back() }
+            }
+        }
+
+        // ---- The names of the disks for games (6.7)
+        Column {
+            visible: root.screen === "dnames"
+            anchors.centerIn: parent
+            width: Theme.px(860)
+            spacing: Theme.px(18)
+            Heading { text: Tr.tr("installer.dnames.title") }
+            Para { text: Tr.tr("installer.dnames.text") }
+            Repeater {
+                model: root.screen === "dnames" ? root.gamesDisks : []
+                Rectangle {
+                    readonly property bool navigable: true
+                    signal activated()
+                    onActivated: root.renameOther(modelData.path)
+                    width: parent.width
+                    height: dnameColumn.implicitHeight + Theme.px(28)
+                    radius: Theme.radiusM
+                    color: Theme.surface
+                    border.color: Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                    Column {
+                        id: dnameColumn
+                        anchors { left: parent.left; right: parent.right; leftMargin: Theme.px(18); rightMargin: Theme.px(18); verticalCenter: parent.verticalCenter }
+                        spacing: Theme.px(4)
+                        Text {
+                            text: Tr.tr("installer.dname.label", { disk: modelData.model || modelData.path })
+                            color: Theme.muted
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(14.5)
+                        }
+                        Text {
+                            width: parent.width
+                            text: root.gameNames[modelData.path] || ""
+                            color: Theme.fg
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(24)
+                            elide: Text.ElideRight
+                        }
+                    }
+                    FocusFrame {}
+                }
+            }
+            Row {
+                spacing: Theme.px(16)
+                topPadding: Theme.px(6)
+                Button { text: Tr.tr("installer.continue"); style: "primary"; onActivated: root.go("name") }
+                Button { text: Tr.tr("installer.back"); onActivated: root.back() }
             }
         }
 
@@ -344,10 +541,24 @@ Rectangle {
             anchors.centerIn: parent
             width: Theme.px(860)
             spacing: Theme.px(18)
-            Heading { text: Tr.tr("installer.warn.title") }
+            Heading { text: Tr.tr(root.others.length > 0 ? "installer.warn.titles" : "installer.warn.title") }
             Para {
+                visible: root.others.length === 0
                 text: root.disk ? Tr.tr("installer.warn.text", { disk: root.disk.model || root.disk.path, size: GameInfo.size(root.disk.size) }) : ""
                 color: Theme.fg
+            }
+            Repeater {                    // 6.7: every disk erased, and what becomes of it
+                model: root.others.length > 0 && root.screen === "warn" ? root.erased : []
+                Para {
+                    text: Tr.tr(index === 0 ? "installer.warn.system" : "installer.warn.games",
+                                { disk: modelData.model || modelData.path, size: GameInfo.size(modelData.size), name: root.gameNames[modelData.path] || "" })
+                    color: Theme.fg
+                }
+            }
+            Para {
+                visible: root.others.length > 0
+                text: Tr.tr("installer.warn.others")
+                small: true
             }
             Rectangle {                   // Windows or BitLocker: what will be lost
                 visible: root.hasWindows
@@ -363,7 +574,11 @@ Rectangle {
                     spacing: Theme.px(6)
                     Text {
                         width: parent.width
-                        text: Tr.tr("installer.warn.windows")
+                        // 6.7: with more disks, which ones
+                        text: root.others.length === 0 ? Tr.tr("installer.warn.windows")
+                              : root.erased.filter(d => d.windows || d.bitlocker).map(d =>
+                                    [d.windows ? Tr.tr("installer.warn.windows.on", { disk: d.model || d.path }) : "",
+                                     d.bitlocker ? Tr.tr("installer.warn.bitlocker.on", { disk: d.model || d.path }) : ""].filter(x => x).join(" · ")).join(" · ")
                         color: Theme.fg
                         font.family: Theme.textFont
                         font.weight: Font.DemiBold
@@ -442,99 +657,18 @@ Rectangle {
             spacing: Theme.px(18)
             Heading { text: Tr.tr("installer.confirm.title"); horizontalAlignment: Text.AlignHCenter }
             Para {
-                text: root.disk ? Tr.tr("installer.confirm.text", { disk: root.disk.model || root.disk.path }) : ""
+                text: !root.disk ? "" : root.others.length > 0 ? Tr.tr("installer.confirm.texts", { disks: root.diskList(root.erased) })
+                      : Tr.tr("installer.confirm.text", { disk: root.disk.model || root.disk.path })
                 color: Theme.fg
                 horizontalAlignment: Text.AlignHCenter
             }
             Column {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: Theme.px(14)
-                FocusScope {
+                HoldButton {
                     id: hold
-                    readonly property bool navigable: true
-                    readonly property bool isHold: true
-                    readonly property real radius: width / 2     // the focus ring follows the circle
-                    property real progress: 0
-                    property bool holding: false
                     anchors.horizontalCenter: parent.horizontalCenter
-                    width: Theme.px(132); height: width
-                    function cancel() {
-                        if (!holding && progress === 0)
-                            return;
-                        holding = false;
-                        holdTimer.stop();
-                        unwind.start();
-                        Nav.feedback("edge");
-                    }
-                    // A pressed fills the ring; let go before it is full, nothing happens
-                    Keys.onPressed: {
-                        if (!api.keys.isAccept(event))
-                            return;
-                        event.accepted = true;
-                        if (event.isAutoRepeat || holding)
-                            return;
-                        unwind.stop();
-                        progress = 0;
-                        holding = true;
-                        holdTimer.start();
-                    }
-                    Keys.onReleased: {
-                        if (!api.keys.isAccept(event) || event.isAutoRepeat)
-                            return;
-                        event.accepted = true;
-                        if (holding)
-                            cancel();
-                    }
-                    onActiveFocusChanged: if (!activeFocus && holding) cancel()
-                    Timer {
-                        id: holdTimer
-                        interval: 16; repeat: true
-                        property real began: 0
-                        onRunningChanged: if (running) began = Date.now()
-                        onTriggered: {
-                            hold.progress = Math.min(1, (Date.now() - began) / 3000);
-                            if (hold.progress >= 1) {
-                                stop();
-                                hold.holding = false;
-                                hold.progress = 0;
-                                root.start();
-                            }
-                        }
-                    }
-                    NumberAnimation { id: unwind; target: hold; property: "progress"; to: 0; duration: 250; easing.type: Easing.OutCubic }
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: width / 2
-                        color: Theme.surface
-                        border.color: Theme.line
-                        border.width: Math.max(1, Theme.px(1))
-                    }
-                    Glyph {
-                        anchors.centerIn: parent
-                        button: "a"
-                        scale: 46 / 26
-                    }
-                    Canvas {                  // the ring that fills while A is held
-                        id: ring
-                        anchors.centerIn: parent
-                        width: parent.width + Theme.px(12); height: width
-                        readonly property real value: hold.progress
-                        onValueChanged: requestPaint()
-                        onPaint: {
-                            const ctx = getContext("2d");
-                            ctx.reset();
-                            if (value <= 0)
-                                return;
-                            const w = Theme.px(6);
-                            ctx.lineWidth = w;
-                            ctx.lineCap = "round";
-                            ctx.strokeStyle = Theme.accent;
-                            ctx.beginPath();
-                            ctx.arc(width / 2, height / 2, width / 2 - w / 2, -Math.PI / 2, -Math.PI / 2 + value * 2 * Math.PI);
-                            ctx.stroke();
-                        }
-                    }
-                    FocusFrame {}
+                    onConfirmed: root.start()
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -638,7 +772,7 @@ Rectangle {
             Heading { text: Tr.tr("installer.err.title"); horizontalAlignment: Text.AlignHCenter }
             Para { text: root.errorText(root.error); color: Theme.fg; horizontalAlignment: Text.AlignHCenter }
             Para {
-                text: Tr.tr(root.untouched ? "installer.err.note.none" : "installer.err.note")
+                text: Tr.tr(root.untouched ? "installer.err.note.none" : root.others.length > 0 ? "installer.err.notes" : "installer.err.note")
                 small: true
                 horizontalAlignment: Text.AlignHCenter
             }
@@ -675,7 +809,34 @@ Rectangle {
         }
     }
 
+    // What is on a disk: [tag, attention]
+    function contents(d) {
+        const t = [];
+        if (d.windows) t.push(["windows", true]);
+        if (d.bitlocker) t.push(["bitlocker", true]);
+        if (d.linux) t.push(["linux", false]);
+        if (!d.windows && !d.bitlocker && !d.linux && (d.partitions || []).length > 0)
+            t.push(["data", false]);
+        if (t.length === 0) t.push(["empty", false]);
+        return t;
+    }
+
     // ---- The screens' parts
+    component Tag: Rectangle {
+        property var tag: ["", false]       // [what, attention]
+        width: tagText.implicitWidth + Theme.px(20)
+        height: tagText.implicitHeight + Theme.px(4)
+        radius: height / 2
+        color: tag[1] ? Theme.accent : Theme.raised
+        Text {
+            id: tagText
+            anchors.centerIn: parent
+            text: Tr.tr("installer.disk." + tag[0])
+            color: tag[1] ? Theme.onAccent : Theme.fg
+            font.family: Theme.textFont
+            font.pixelSize: Theme.fs(16)
+        }
+    }
     component Heading: Text {
         property bool big: false
         width: parent ? parent.width : 0

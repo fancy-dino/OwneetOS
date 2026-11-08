@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A compact window in the middle of the screen (details, options, confirmations): a title, an
 // optional text or content, and round buttons in a centred row, chosen with left / right
-// (approved in demo 3.6). B closes it. Buttons: [{ text, style, action }], `defaultIndex` is the
+// (approved in demo 3.6). B closes it. Buttons: [{ text, style, action, enabled }] (enabled false:
+// dimmed and not selectable), `defaultIndex` is the
 // button selected first (e.g. Cancel in a confirmation), unless `initialItem` (an item of the
 // window's own content, e.g. a text field) is set. `icon` (optional) is drawn above the title,
 // on the accent colour when `iconAttention` (e.g. no internet, demo 4.2c).
@@ -148,9 +149,9 @@ NavArea {
             anchors { top: column.bottom; topMargin: Theme.px(20); horizontalCenter: parent.horizontalCenter }
             width: Math.min(column.width, implicitRowWidth)
             readonly property real implicitRowWidth: {
-                const buttons = Nav.navigables(row);
-                let w = 0;
-                for (let i = 0; i < buttons.length; i++) w += buttons[i].width + spacing;
+                let w = 0;                // every button, also one that is off
+                for (let i = 0; i < row.children.length; i++)
+                    if (row.children[i].buttonIndex !== undefined && row.children[i].visible) w += row.children[i].width + spacing;
                 return Math.max(0, w - spacing);
             }
             spacing: Theme.px(20)
@@ -162,6 +163,8 @@ NavArea {
                 Button {
                     text: modelData.text
                     style: modelData.style || "secondary"
+                    enabled: modelData.enabled !== false
+                    opacity: enabled ? 1 : 0.45
                     readonly property int buttonIndex: index
                 }
             }

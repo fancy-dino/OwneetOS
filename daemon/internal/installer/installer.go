@@ -22,6 +22,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/fancy-dino/OwneetOS/daemon/internal/diskprep"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 )
 
@@ -55,7 +56,7 @@ type Disk struct {
 
 // Status is the body of GET /v1/installer.
 type Status struct {
-	// State: "" (nothing started), preparing, partitioning, copying, setting_up, boot, done, failed
+	// State: "" (nothing started), preparing, partitioning, copying, setting_up, boot, games, done, failed
 	State   string `json:"state"`
 	Percent int    `json:"percent"`
 	// Error (when failed): the backend's code (copy_failed, not_uefi, …), shown in the player's words
@@ -63,14 +64,29 @@ type Status struct {
 }
 
 // Request is what the player chose: the disk as it was listed (path, size, serial), the console's
-// name, and the confirmation that Windows or BitLocker on it may be erased.
+// name, and the confirmation that Windows or BitLocker on it may be erased; the other internal disks
+// to prepare for games, each named ([[step-6.7-preparing-other-disks]]), and the Games folder's name.
 type Request struct {
+	Disk         string      `json:"disk"`
+	Size         int64       `json:"size"`
+	Serial       string      `json:"serial"`
+	Name         string      `json:"name"`
+	EraseWindows bool        `json:"erase_windows"`
+	Games        []GamesDisk `json:"games"`
+	Folder       string      `json:"folder"`
+}
+
+// GamesDisk is another internal disk to erase and prepare for games, as it was listed.
+type GamesDisk struct {
 	Disk         string `json:"disk"`
 	Size         int64  `json:"size"`
 	Serial       string `json:"serial"`
 	Name         string `json:"name"`
 	EraseWindows bool   `json:"erase_windows"`
 }
+
+// MaxGamesDisks is how many other disks one installation prepares at most.
+const MaxGamesDisks = 8
 
 // Errors returned to the API.
 var (
@@ -79,6 +95,8 @@ var (
 	ErrDiskChanged         = errors.New("the disk is not the one that was listed")
 	ErrNotUsable           = errors.New("the disk cannot hold OwneetOS")
 	ErrWindowsNotConfirmed = errors.New("erasing Windows or BitLocker was not confirmed")
+	ErrBadName             = diskprep.ErrBadName
+	ErrNameTaken           = diskprep.ErrNameTaken
 )
 
 // Starter starts a systemd unit of the system manager.
@@ -236,6 +254,11 @@ func (m *Manager) start(req Request) error {
 	if disk.Windows || disk.BitLocker {
 		lines = append(lines, "OWNEET_INSTALL_ERASE_WINDOWS=yes")
 	}
+	games, err := gamesLines(req, disks)
+	if err != nil {
+		return err
+	}
+	lines = append(lines, games...)
 	for _, l := range lines {
 		if strings.ContainsAny(l, "\n\r") {
 			return ErrDiskChanged
@@ -249,6 +272,72 @@ func (m *Manager) start(req Request) error {
 		return fmt.Errorf("writing the request: %w", err)
 	}
 	return m.Units.Start(Unit)
+}
+
+// gamesLines checks the disks for games as the backend will (each one listed as it was, not the
+// system's disk, confirmed, named with a name no other disk keeps) and gives their request lines.
+func gamesLines(req Request, disks []Disk) ([]string, error) {
+	if len(req.Games) == 0 {
+		return nil, nil
+	}
+	if len(req.Games) > MaxGamesDisks {
+		return nil, ErrDiskChanged
+	}
+	known := false
+	for _, f := range diskprep.Folders {
+		known = known || f == req.Folder
+	}
+	if !known {
+		return nil, ErrBadName
+	}
+	// the names other disks keep: every disk but the erased ones
+	listed := make([]diskprep.Disk, 0, len(disks))
+	for _, d := range disks {
+		parts := make([]diskprep.Partition, 0, len(d.Partitions))
+		for _, p := range d.Partitions {
+			parts = append(parts, diskprep.Partition{Path: p.Path, Label: p.Label})
+		}
+		listed = append(listed, diskprep.Disk{Path: d.Path, Partitions: parts})
+	}
+	erased := []string{req.Disk}
+	for _, g := range req.Games {
+		erased = append(erased, g.Disk)
+	}
+	var lines []string
+	seen := map[string]bool{}
+	for i, g := range req.Games {
+		var disk *Disk
+		for j := range disks {
+			if disks[j].Path == g.Disk {
+				disk = &disks[j]
+			}
+		}
+		if disk == nil || disk.Path == req.Disk || seen[disk.Path] || disk.Size != g.Size || disk.Serial != g.Serial {
+			return nil, ErrDiskChanged
+		}
+		seen[disk.Path] = true
+		if (disk.Windows || disk.BitLocker) && !g.EraseWindows {
+			return nil, ErrWindowsNotConfirmed
+		}
+		if err := diskprep.CheckName(g.Name); err != nil {
+			return nil, err
+		}
+		for _, other := range req.Games[:i] {
+			if strings.EqualFold(other.Name, g.Name) {
+				return nil, ErrNameTaken
+			}
+		}
+		if diskprep.NameTaken(g.Name, listed, erased...) {
+			return nil, ErrNameTaken
+		}
+		n := "OWNEET_INSTALL_GAMES_" + strconv.Itoa(i+1) + "_"
+		lines = append(lines, n+"DISK="+disk.Path, n+"SIZE="+strconv.FormatInt(disk.Size, 10), n+"SERIAL="+disk.Serial,
+			n+"ERASE="+disk.Path, n+"NAME="+g.Name)
+		if disk.Windows || disk.BitLocker {
+			lines = append(lines, n+"ERASE_WINDOWS=yes")
+		}
+	}
+	return append(lines, "OWNEET_INSTALL_GAMES_FOLDER="+req.Folder), nil
 }
 
 // watch follows the unit's progress until it is done or failed.

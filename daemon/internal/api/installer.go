@@ -49,7 +49,8 @@ func (s *Server) handleInstallerDisks(w http.ResponseWriter, _ *http.Request) {
 }
 
 // handleInstallerStart installs on the disk the player chose and confirmed (the final hold):
-// {"disk", "size", "serial", "name", "erase_windows"}; 202, then "installer.changed".
+// {"disk", "size", "serial", "name", "erase_windows", "games": [{"disk", "size", "serial", "name",
+// "erase_windows"}], "folder"}; 202, then "installer.changed".
 func (s *Server) handleInstallerStart(w http.ResponseWriter, r *http.Request) {
 	if !s.installerAvailable(w) {
 		return
@@ -74,6 +75,10 @@ func (s *Server) handleInstallerStart(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusConflict, "installer.not_usable", err.Error())
 	case errors.Is(err, installer.ErrWindowsNotConfirmed):
 		WriteError(w, http.StatusBadRequest, "installer.windows_not_confirmed", err.Error())
+	case errors.Is(err, installer.ErrBadName):
+		WriteError(w, http.StatusBadRequest, "installer.bad_name", err.Error())
+	case errors.Is(err, installer.ErrNameTaken):
+		WriteError(w, http.StatusConflict, "installer.name_taken", err.Error())
 	default:
 		s.Log.Warn("installation not started", "err", err)
 		WriteError(w, http.StatusBadGateway, "installer.failed", err.Error())

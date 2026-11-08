@@ -24,9 +24,15 @@
 # formatted without it, owner 2026-10-25), and OWNEET_INSTALL_ERASE_WINDOWS=yes when the disk has
 # Windows or BitLocker on it (the specific warning was shown and confirmed too). Its
 # progress is written to /run/owneet/install.json for the console: {"state", "percent", "error",
-# "time"}. States: preparing, partitioning, copying, setting_up, boot, done, failed; on failure
+# "time"}. States: preparing, partitioning, copying, setting_up, boot, games, done, failed; on failure
 # "error" is one of the codes below (the console shows them in the user's language). Its log:
 # /run/owneet-install.log, copied to the installed system's /var/log.
+#
+# The other internal disks the player chose to prepare for games ([[step-6.7-preparing-other-disks]]):
+# OWNEET_INSTALL_GAMES_<n>_DISK, _SIZE, _SERIAL, _ERASE (the same path: confirmed), _ERASE_WINDOWS and
+# _NAME (the disk's name), n from 1 to 8, and OWNEET_INSTALL_GAMES_FOLDER (Games or Giochi). They are
+# checked with the system's disk, before anything is touched, and prepared at the end (state "games")
+# by owneet-prepare-disk: one ext4 file system with the Games folder; error games_failed.
 #
 # What it makes: GPT with an EFI system partition (1 GiB, FAT32) and btrfs for the rest, with the
 # subvolumes @ (the system, the only one a rollback takes back), @home (the console user's games,
@@ -121,8 +127,8 @@ progress() {
     echo "==> $1 $2%${3:+ ($3)}"
 }
 # fail ERROR-CODE MESSAGE: codes not_live, not_uefi, no_disk, disk_changed, not_usable,
-# erase_not_confirmed, windows_not_confirmed, partition_failed, format_failed, no_image, copy_failed, setup_failed,
-# boot_failed
+# erase_not_confirmed, windows_not_confirmed, bad_name, name_taken, partition_failed, format_failed, no_image,
+# copy_failed, setup_failed, boot_failed, games_failed
 fail() {
     echo "!! $2"
     umount -R "$TARGET" 2>/dev/null
@@ -138,15 +144,18 @@ progress preparing 0
 # The request: only the OWNEET_INSTALL_* keys, taken as plain text (a regular file, not a link)
 [[ -f "$REQUEST" && ! -L "$REQUEST" ]] || fail no_disk "No request."
 OWNEET_INSTALL_DISK="" OWNEET_INSTALL_SIZE="" OWNEET_INSTALL_SERIAL="" OWNEET_INSTALL_NAME=""
-OWNEET_INSTALL_ERASE="" OWNEET_INSTALL_ERASE_WINDOWS=""
+OWNEET_INSTALL_ERASE="" OWNEET_INSTALL_ERASE_WINDOWS="" OWNEET_INSTALL_GAMES_FOLDER=""
+declare -A games=()
 while IFS= read -r line || [[ -n "$line" ]]; do
     key="${line%%=*}" value="${line#*=}"
     [[ "$line" == *=* ]] || continue
     case "$key" in
-        OWNEET_INSTALL_DISK|OWNEET_INSTALL_SIZE|OWNEET_INSTALL_SERIAL|OWNEET_INSTALL_NAME|OWNEET_INSTALL_ERASE|OWNEET_INSTALL_ERASE_WINDOWS)
+        OWNEET_INSTALL_DISK|OWNEET_INSTALL_SIZE|OWNEET_INSTALL_SERIAL|OWNEET_INSTALL_NAME|OWNEET_INSTALL_ERASE|OWNEET_INSTALL_ERASE_WINDOWS|OWNEET_INSTALL_GAMES_FOLDER)
             printf -v "$key" '%s' "$value" ;;
+        OWNEET_INSTALL_GAMES_[1-8]_DISK|OWNEET_INSTALL_GAMES_[1-8]_SIZE|OWNEET_INSTALL_GAMES_[1-8]_SERIAL|OWNEET_INSTALL_GAMES_[1-8]_ERASE|OWNEET_INSTALL_GAMES_[1-8]_ERASE_WINDOWS|OWNEET_INSTALL_GAMES_[1-8]_NAME)
+            games["${key#OWNEET_INSTALL_GAMES_}"]="$value" ;;
     esac
-done < <(head -c 4096 "$REQUEST")
+done < <(head -c 8192 "$REQUEST")
 
 # The same disk as listed, still usable; Windows or BitLocker only when confirmed
 disk="${OWNEET_INSTALL_DISK:-}"
@@ -161,6 +170,38 @@ disk_info "$disk"
 if [[ "$windows" == true || "$bitlocker" == true ]] && [[ "${OWNEET_INSTALL_ERASE_WINDOWS:-}" != yes ]]; then
     fail windows_not_confirmed "$disk has Windows or BitLocker on it and erasing it was not confirmed."
 fi
+
+# The disks for games: each one listed, the same as listed, not the system's disk, confirmed, named
+# with a name no other disk keeps (the disks erased here lose theirs)
+PREPARE=/usr/lib/owneet/owneet-prepare-disk
+sys_size="$size" sys_serial="$serial" sys_model="$model"
+games_disks=() games_names=()
+for n in 1 2 3 4 5 6 7 8; do
+    g="${games[${n}_DISK]:-}"
+    [[ -n "$g" ]] || continue
+    internal_disks | grep -qxF "$g" || fail disk_changed "$g is not one of the internal disks."
+    [[ "$g" != "$disk" ]] || fail disk_changed "$g is the disk OwneetOS is installed on."
+    disk_info "$g"
+    [[ "$size" == "${games[${n}_SIZE]:-}" && "$serial" == "${games[${n}_SERIAL]:-}" ]] \
+        || fail disk_changed "$g is not the disk that was chosen (size or serial differ)."
+    [[ "${games[${n}_ERASE]:-}" == "$g" ]] || fail erase_not_confirmed "Erasing $g was not confirmed."
+    if [[ "$windows" == true || "$bitlocker" == true ]] && [[ "${games[${n}_ERASE_WINDOWS]:-}" != yes ]]; then
+        fail windows_not_confirmed "$g has Windows or BitLocker on it and erasing it was not confirmed."
+    fi
+    gname="${games[${n}_NAME]:-}"
+    for other in "${games_names[@]}"; do
+        [[ "${other,,}" != "${gname,,}" ]] || fail name_taken "Two disks for games are called $gname."
+    done
+    games_disks+=("$g"); games_names+=("$gname")
+done
+if (( ${#games_disks[@]} > 0 )); then
+    [[ "$OWNEET_INSTALL_GAMES_FOLDER" == Games || "$OWNEET_INSTALL_GAMES_FOLDER" == Giochi ]] || fail bad_name "Unknown games folder."
+    for i in "${!games_disks[@]}"; do
+        code="$("$PREPARE" check-name "${games_names[$i]}" "$disk" "${games_disks[@]}")" \
+            || fail "${code:-bad_name}" "The name ${games_names[$i]} cannot be given ($code)."
+    done
+fi
+size="$sys_size" serial="$sys_serial" model="$sys_model"
 
 # The console's name: shown as it is (pretty name, Bluetooth), and as a host name on the network
 name="${OWNEET_INSTALL_NAME:-OwneetOS}"
@@ -177,7 +218,7 @@ umount -R "$TARGET" 2>/dev/null
 # The console mounts the disks by itself (owneet-mount, [[step-6.5-automatic-disk-mounting]]): this
 # one is left alone from now on, its new partitions too, and what it mounted lets go
 mkdir -p /run/owneet-mount
-basename "$disk" > /run/owneet-mount/installing
+{ basename "$disk"; for g in "${games_disks[@]}"; do basename "$g"; done; } > /run/owneet-mount/installing
 while read -r part; do
     systemctl stop "owneet-mount@$(basename "$part").service" 2>/dev/null
     umount "$part" 2>/dev/null
@@ -305,6 +346,18 @@ linux    /vmlinuz-linux
 initrd   /initramfs-linux-fallback.img
 options  root=UUID=$uuid_root rootflags=subvol=@ rw
 EOF
+
+# ---- The disks for games ([[step-6.7-preparing-other-disks]])
+if (( ${#games_disks[@]} > 0 )); then
+    progress games 98
+    for i in "${!games_disks[@]}"; do
+        g="${games_disks[$i]}"
+        sed -i "/^$(basename "$g")\$/d" /run/owneet-mount/installing
+        echo "Preparing $g for games as \"${games_names[$i]}\""
+        code="$("$PREPARE" format "$g" "${games_names[$i]}" "$OWNEET_INSTALL_GAMES_FOLDER")" \
+            || fail games_failed "Preparing $g for games failed (${code:-unknown})."
+    done
+fi
 
 progress "done" 100
 cp "$LOG" "$TARGET/var/log/owneet-install.log" 2>/dev/null

@@ -871,6 +871,202 @@ FocusScope {
         dialog.close();
     }
 
+    // ---- A disk's name ([[step-6.7-preparing-other-disks]], approved demos 6.7): the installer's
+    // disks for games (Done keeps it; a name that cannot be given keeps the old one and says why) and
+    // Settings → Disks (`inline`: why under the field, Continue off until the name can be given).
+    // `check(name)` gives "" or the message key of the problem.
+    property var diskNameDone: null
+    property var diskNameCheck: null
+    property bool diskNameInline: false
+    property string diskNameProblem: ""
+    function renameDisk(title, name, maxBytes, check, done) {
+        openDiskName(title, "", name, check, done, false);
+    }
+    function openDiskName(title, text, name, check, done, inline) {
+        const following = dialog.visible;
+        dialog.game = null;
+        dialog.mode = "diskName";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.title = title;
+        dialog.text = text;
+        diskNameCheck = check;
+        diskNameDone = done;
+        diskNameInline = inline;
+        diskNameInput.text = name;
+        diskNameProblem = inline ? check(name.trim()) : "";
+        dialog.buttons = inline ? diskNameButtons() : [];
+        dialog.defaultIndex = 0;
+        dialog.initialItem = diskNameField;
+        dialog.prompts = Qt.binding(() => dialog.defaultPrompts);
+        dialog.open(following);
+        dialog.backAction = () => { osk.close(true); dialog.close(); };
+        if (!inline)
+            Qt.callLater(() => { if (dialog.visible && dialog.mode === "diskName") osk.open(diskNameInput, false); });
+    }
+    function diskNameButtons() {
+        return [{ text: Tr.tr("installer.continue"), style: "primary", enabled: diskNameProblem === "", action: () => root.keepDiskName() },
+                { text: Tr.tr("prompt.cancel"), action: () => { osk.close(true); dialog.close(); } }];
+    }
+    function keepDiskName() {
+        const name = diskNameInput.text.trim();
+        const problem = diskNameCheck ? diskNameCheck(name) : "";
+        const done = diskNameDone;
+        osk.close(true);
+        if (diskNameInline) {
+            diskNameProblem = problem;
+            dialog.buttons = diskNameButtons();
+            if (problem !== "") {
+                Nav.feedback("error");
+                Qt.callLater(() => dialog.focusDefault());
+            } else if (done) {
+                done(name);
+            }
+            return;
+        }
+        dialog.close();
+        if (problem !== "") {
+            Nav.feedback("error");
+            toast.show(Tr.tr(problem, { name: name }));
+        } else if (done) {
+            done(name);
+        }
+    }
+    // A name a disk may get: ext4's label (1 to 16 bytes, no "/"), never one another disk keeps;
+    // `skip`: the disks whose names go (they are erased)
+    function diskNameProblemFor(name, disks, skip, keys) {
+        if (name === "" || name.indexOf("/") >= 0 || name.charAt(0) === ".")
+            return keys.empty;
+        if (unescape(encodeURIComponent(name)).length > 16)
+            return keys.long;
+        const lower = name.toLowerCase();
+        for (let i = 0; i < disks.length; i++) {
+            if (skip.indexOf(disks[i].path) >= 0)
+                continue;
+            if ((disks[i].partitions || []).some(p => (p.label || "").toLowerCase() === lower))
+                return keys.taken;
+        }
+        return "";
+    }
+
+    // ---- Preparing a disk for games from Settings → Disks (6.7, approved demo 6.7-settings-disks):
+    // the question (what is on it, Windows's switch), its name, A held three seconds, the wait, then a
+    // notice. owneetd: POST /v1/disks/prepare, "disks.prepare.changed".
+    property var prepDisk: null
+    property var prepDisks: []
+    property string prepShown: ""         // the disk as the list shows it (its name, else its model)
+    property string prepName: ""
+    property bool prepUnderstood: false
+    readonly property bool prepWindows: prepDisk !== null && (prepDisk.windows || prepDisk.bitlocker)
+    function prepareDisk(disk, disks, shown) {
+        // what is on it now (the list may be a moment old); gone: nothing to ask
+        owneetd.get("/v1/disks", (status, data) => {
+            const now = status === 200 ? (data.disks || []) : disks;
+            const fresh = now.find(d => d.path === disk.path && d.serial === disk.serial && d.size === disk.size);
+            if (!fresh || fresh.console || fresh.owneetlog) {
+                Nav.feedback("error");
+                toast.show(Tr.tr("disk.prep.failed", { disk: shown }));
+                settings.refresh();
+                return;
+            }
+            root.prepDisk = fresh;
+            root.prepDisks = now;
+            root.prepShown = shown;
+            root.prepUnderstood = false;
+            root.prepAsk();
+        });
+    }
+    function prepButtons() {
+        return [{ text: Tr.tr("disk.prep.go"), enabled: !prepWindows || prepUnderstood, action: () => root.prepNaming() },
+                { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+    }
+    function prepAsk() {
+        dialog.game = null;
+        dialog.mode = "prepAsk";
+        dialog.contentWidth = Theme.px(660);
+        dialog.icon = "";
+        dialog.title = Tr.tr("disk.prep.title", { disk: prepShown });
+        dialog.text = "";
+        dialog.buttons = prepButtons();
+        dialog.defaultIndex = 1;
+        dialog.initialItem = null;
+        dialog.prompts = Qt.binding(() => dialog.defaultPrompts);
+        dialog.open();
+    }
+    function prepToggle() {
+        prepUnderstood = !prepUnderstood;
+        dialog.buttons = prepButtons();
+        Qt.callLater(() => dialog.focusItem(prepSwitch));
+    }
+    function prepNameProblem(name) {
+        return diskNameProblemFor(name, prepDisks, [prepDisk.path],
+                                  { empty: "disk.name.empty", long: "disk.name.long", taken: "disk.name.taken" });
+    }
+    function prepNaming() {
+        const base = Tr.tr("disk.name.default");
+        let name = base;
+        for (let n = 2; prepNameProblem(name) !== ""; n++)
+            name = base + " " + n;
+        openDiskName(Tr.tr("disk.name.title"), Tr.tr("disk.name.text"), name, root.prepNameProblem,
+                     name => { root.prepName = name; root.prepHold(); }, true);
+    }
+    function prepHold() {
+        dialog.mode = "prepHold";
+        dialog.contentWidth = Theme.px(520);
+        dialog.title = Tr.tr("disk.hold.title");
+        dialog.text = Tr.tr("disk.hold.text", { disk: prepShown });
+        dialog.buttons = [{ text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.initialItem = prepHoldButton;
+        dialog.backAction = null;
+        dialog.prompts = [{ buttons: ["a"], label: Tr.tr("disk.p.hold") }, { buttons: ["b"], label: Tr.tr("prompt.cancel") }];
+        dialog.focusDefault();
+    }
+    function prepStart() {
+        const d = prepDisk;
+        dialog.mode = "prepWorking";
+        dialog.title = Tr.tr("disk.prep.working", { disk: prepShown });
+        dialog.text = "";
+        dialog.buttons = [];
+        dialog.initialItem = null;
+        dialog.prompts = [];
+        dialog.backAction = () => {};          // it cannot be stopped half way
+        Nav.feedback("confirm");
+        dialog.focusDefault();
+        owneetd.post("/v1/disks/prepare", { disk: d.path, size: d.size, serial: d.serial, name: prepName,
+                                            folder: Tr.language.indexOf("it") === 0 ? "Giochi" : "Games",
+                                            erase_windows: prepWindows && prepUnderstood }, (code, data) => {
+            if (code === 202 || code === 200)
+                return;
+            const refused = data && data.error ? data.error.code : "";
+            root.prepEnded(refused === "disks.name_taken" || refused === "disks.bad_name" ? "name_taken" : "refused");
+        });
+    }
+    function prepEnded(error) {
+        if (dialog.visible && dialog.mode === "prepWorking")
+            dialog.close(true);
+        if (error === "") {
+            Nav.feedback("notify");
+            toast.show(Tr.tr("disk.prep.done", { disk: prepName }));
+        } else {
+            Nav.feedback("error");
+            toast.show(Tr.tr(error === "in_use" ? "disk.prep.in_use" : error === "name_taken" ? "disk.name.taken" : "disk.prep.failed",
+                             { disk: prepShown, name: prepName }));
+        }
+        settings.refresh();
+    }
+    Connections {
+        target: owneetd
+        function onEvent(type, data) {
+            if (type !== "disks.prepare.changed" || !dialog.visible || dialog.mode !== "prepWorking" || !data)
+                return;
+            if (data.state === "done")
+                root.prepEnded("");
+            else if (data.state === "failed")
+                root.prepEnded(data.error || "failed");
+        }
+    }
+
     // ---- Optional web apps (5.0.0, approved demo design/demos/5.0.0-optional-apps.html): installed
     // and removed from the home screen's Apps grid. The engine behind them is never named.
     property var webApps: []                  // owneetd's catalogue: { id, nameKey, icon, installed, busy, sizeMiB }
@@ -2708,6 +2904,7 @@ FocusScope {
             onGoBackVersion: root.goBackVersion()
             onOtherVersions: root.otherVersions()
             onQuickMenu: quick.openMenu()
+            onPrepareDisk: root.prepareDisk(disk, disks, shown)
         }
     }
     // after the first layout; a window already open (e.g. "Keep this screen?") keeps the focus
@@ -3322,6 +3519,220 @@ FocusScope {
                 FocusFrame { shown: consoleNameField.activeFocus }
             }
         }
+        Column {                          // diskName: a disk's name (6.7)
+            visible: dialog.mode === "diskName"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(480)
+            spacing: Theme.px(10)
+            FocusScope {
+                id: diskNameField
+                // A opens the on-screen keyboard; a keyboard plugged in types here, Enter keeps it
+                readonly property bool navigable: true
+                signal activated()
+                onActivated: osk.open(diskNameInput, false)
+                width: parent.width
+                height: Theme.px(52)
+                Rectangle {
+                    anchors.fill: parent
+                    radius: Theme.radiusS + Theme.px(2)
+                    color: Theme.surface
+                    border.color: osk.visible && osk.target === diskNameInput ? Theme.accent : Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                }
+                TextInput {
+                    id: diskNameInput
+                    focus: true
+                    anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: Theme.px(16) }
+                    color: Theme.fg
+                    selectionColor: Theme.accent
+                    selectedTextColor: Theme.onAccent
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(20)
+                    maximumLength: 32
+                    clip: true
+                    cursorVisible: diskNameField.activeFocus || (osk.visible && osk.target === diskNameInput)
+                    Keys.onReturnPressed: root.keepDiskName()
+                    Keys.onEnterPressed: root.keepDiskName()
+                    onTextChanged: {
+                        if (!root.diskNameInline || dialog.mode !== "diskName" || !root.diskNameCheck)
+                            return;
+                        const problem = root.diskNameCheck(text.trim());
+                        if (problem !== root.diskNameProblem) {
+                            root.diskNameProblem = problem;
+                            dialog.buttons = root.diskNameButtons();
+                        }
+                    }
+                }
+                FocusFrame { shown: diskNameField.activeFocus }
+            }
+            Text {                        // Settings: why the name cannot be given, else the rule
+                visible: root.diskNameInline
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: root.diskNameProblem !== "" ? Tr.tr(root.diskNameProblem, { name: diskNameInput.text.trim() }) : Tr.tr("disk.name.hint")
+                color: root.diskNameProblem !== "" ? Theme.accent : Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(14.5)
+                wrapMode: Text.Wrap
+            }
+        }
+        Column {                          // prepAsk: what is on the disk, what will happen (6.7)
+            visible: dialog.mode === "prepAsk"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(640)
+            spacing: Theme.px(14)
+            Text {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: root.prepDisk ? (root.prepDisk.model || root.prepDisk.path) + " · " + GameInfo.size(root.prepDisk.size) : ""
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(14.5)
+            }
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Theme.px(8)
+                Repeater {
+                    model: {
+                        const d = root.prepDisk, t = [];
+                        if (!d) return t;
+                        if (d.windows) t.push(["windows", true]);
+                        if (d.bitlocker) t.push(["bitlocker", true]);
+                        if ((d.partitions || []).some(p => p.fstype !== "" && p.fstype !== "BitLocker")) t.push(["data", false]);
+                        if (t.length === 0) t.push(["empty", false]);
+                        return t;
+                    }
+                    Rectangle {
+                        width: prepTag.implicitWidth + Theme.px(20)
+                        height: prepTag.implicitHeight + Theme.px(4)
+                        radius: height / 2
+                        color: modelData[1] ? Theme.accent : Theme.raised
+                        Text {
+                            id: prepTag
+                            anchors.centerIn: parent
+                            text: Tr.tr("installer.disk." + modelData[0])
+                            color: modelData[1] ? Theme.onAccent : Theme.fg
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(16)
+                        }
+                    }
+                }
+            }
+            Text {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: Tr.tr("disk.prep.text")
+                color: Theme.fg
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(17)
+                wrapMode: Text.Wrap
+            }
+            Rectangle {                   // Windows or BitLocker: what will be lost
+                visible: root.prepWindows
+                width: parent.width
+                height: prepAlert.implicitHeight + Theme.px(28)
+                radius: Theme.radiusM
+                color: Qt.tint(Theme.bg, Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.1))
+                border.color: Theme.accent
+                border.width: Theme.px(2)
+                Column {
+                    id: prepAlert
+                    anchors { left: parent.left; right: parent.right; leftMargin: Theme.px(16); rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
+                    spacing: Theme.px(6)
+                    Text {
+                        width: parent.width
+                        text: root.prepDisk ? [root.prepDisk.windows ? Tr.tr("installer.warn.windows") : "",
+                                               root.prepDisk.bitlocker ? Tr.tr("disk.prep.bitlocker") : ""].filter(x => x !== "").join(" · ") : ""
+                        color: Theme.fg
+                        font.family: Theme.textFont
+                        font.weight: Font.DemiBold
+                        font.pixelSize: Theme.fs(17)
+                        wrapMode: Text.Wrap
+                    }
+                    Text {
+                        width: parent.width
+                        text: Tr.tr("installer.warn.windows.text")
+                        color: Theme.fg
+                        font.family: Theme.textFont
+                        font.pixelSize: Theme.fs(14.5)
+                        wrapMode: Text.Wrap
+                    }
+                }
+            }
+            Rectangle {                   // the switch to turn on before "Erase and prepare"
+                id: prepSwitch
+                visible: root.prepWindows
+                readonly property bool navigable: true
+                readonly property string feedbackKind: root.prepUnderstood ? "toggle-off" : "toggle-on"
+                signal activated()
+                onActivated: root.prepToggle()
+                width: parent.width
+                height: Math.max(Theme.px(56), prepSwitchText.implicitHeight + Theme.px(24))
+                radius: Theme.radiusM
+                color: Theme.surface
+                border.color: Theme.line
+                border.width: Math.max(1, Theme.px(1))
+                Text {
+                    id: prepSwitchText
+                    anchors { left: parent.left; leftMargin: Theme.px(16); right: prepKnob.left; rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
+                    text: Tr.tr("installer.warn.understand")
+                    color: Theme.fg
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(17)
+                    wrapMode: Text.Wrap
+                }
+                Rectangle {
+                    id: prepKnob
+                    anchors { right: parent.right; rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
+                    width: Theme.px(44); height: Theme.px(24); radius: height / 2
+                    color: root.prepUnderstood ? Theme.accent : Theme.raised
+                    border.color: root.prepUnderstood ? Theme.accent : Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                    Rectangle {
+                        width: Theme.px(16); height: width; radius: width / 2
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: root.prepUnderstood ? Theme.px(23) : Theme.px(3)
+                        color: root.prepUnderstood ? Theme.onAccent : Theme.muted
+                        Behavior on x { NumberAnimation { duration: Theme.motionMs; easing.type: Easing.OutCubic } }
+                    }
+                }
+                FocusFrame {}
+            }
+        }
+        Column {                          // prepHold: the final confirmation (6.7)
+            visible: dialog.mode === "prepHold"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(12)
+            HoldButton {
+                id: prepHoldButton
+                anchors.horizontalCenter: parent.horizontalCenter
+                onConfirmed: root.prepStart()
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: Tr.tr("disk.hold")
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(14.5)
+            }
+        }
+        Column {                          // prepWorking: the wait (6.7)
+            visible: dialog.mode === "prepWorking"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(12)
+            Spinner {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Theme.px(32); height: width
+            }
+            Text {
+                visible: root.prepDisk !== null && root.prepDisk.usb === true
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: Tr.tr("disk.prep.usb")
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(17)
+            }
+        }
         Column {                          // pointerType: what goes to the window (4.7)
             visible: dialog.mode === "pointerType"
             anchors.horizontalCenter: parent.horizontalCenter
@@ -3648,6 +4059,8 @@ FocusScope {
         onDone: {
             if (dialog.visible && dialog.mode === "consoleName")
                 root.keepConsoleName();      // Done = keep the name
+            else if (dialog.visible && dialog.mode === "diskName")
+                root.keepDiskName();
             else if (dialog.visible && (dialog.mode === "connect" || dialog.mode === "pointerType") && dialog.buttons.length > 0)
                 dialog.buttons[0].action();      // Done = Connect
             else
@@ -3655,7 +4068,7 @@ FocusScope {
         }
         onClosed: {
             close();
-            if (dialog.visible && dialog.mode === "consoleName")
+            if (dialog.visible && (dialog.mode === "consoleName" || (dialog.mode === "diskName" && !root.diskNameInline)))
                 dialog.close();              // B: the name as it was
             else if (dialog.visible)
                 Qt.callLater(() => dialog.focusButton(0));

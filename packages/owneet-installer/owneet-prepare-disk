@@ -1,0 +1,251 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Prepares a disk other than the console's own for games ([[step-6.7-preparing-other-disks]]): the whole
+# disk is erased and becomes one ext4 file system named by the player, with the Games folder, owned by
+# the console user. Used by Settings → Disks on the installed console and by the installer
+# (owneet-install) for the other internal disks.
+#
+#   owneet-prepare-disk disks      every disk, as JSON on stdout (any user may run it)
+#   owneet-prepare-disk prepare    prepares the disk of the request (root, owneet-prepare-disk.service)
+#   owneet-prepare-disk format DISK NAME FOLDER
+#                                  the work itself, for owneet-install (root; DISK checked by the caller)
+#   owneet-prepare-disk check-name NAME [DISK…]
+#                                  whether NAME may be given (bad_name, name_taken on stdout), the
+#                                  names of the DISKs left out (they are erased too)
+#
+# disks: {"disks": [{"path", "serial", "size", "model", "usb", "console", "owneetlog", "windows",
+#   "bitlocker", "linux", "partitions": [{"path", "size", "fstype", "label", "mountpoint"}]}]}.
+#   "console": the console's own disk, or the USB stick it started from; "owneetlog": the testers'
+#   OWNEETLOG stick. Neither can be prepared.
+#
+# prepare reads the request written by the console (/run/owneet-prepare/request, KEY=VALUE lines, read
+# key by key and never run: the console user writes it, this runs as root): OWNEET_PREPARE_DISK,
+# OWNEET_PREPARE_SIZE and OWNEET_PREPARE_SERIAL as the list gave them (the disk is checked again),
+# OWNEET_PREPARE_ERASE set to the same disk path (the player held A to confirm erasing this very disk:
+# nothing is formatted without it, [[user-data]]), OWNEET_PREPARE_ERASE_WINDOWS=yes when Windows or
+# BitLocker is on it (the specific warning was confirmed too), OWNEET_PREPARE_NAME (the disk's name:
+# 1 to 16 bytes, ext4's label, never another disk's name) and OWNEET_PREPARE_FOLDER (Games or Giochi,
+# the console's language). Never from the USB stick: there only the installer prepares disks. Its
+# progress goes to /run/owneet/prepare.json: {"state", "disk", "error", "time"}; states: preparing,
+# erasing, formatting, done, failed. Error codes: installed_only, no_disk, disk_changed, not_allowed,
+# erase_not_confirmed, windows_not_confirmed, bad_name, name_taken, in_use, partition_failed,
+# format_failed.
+
+set -uo pipefail
+
+MODE="${1:-}"
+STATE=/run/owneet/prepare.json
+REQUEST=/run/owneet-prepare/request
+MOUNT_STATE=/run/owneet-mount
+CONSOLE_UID=1000
+# Microsoft's GPT partition types: basic data, reserved, recovery
+WINDOWS_TYPES="ebd0a0a2-b9e5-4433-87c0-68b6b72699c7 e3c9e316-0b5c-4db8-817d-f92df00215ae de94bba4-06d1-4d40-a16a-bfd50179d6ac"
+
+json_string() { printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/ /g')"; }
+
+# The disk a mount point's file system is on ("" when nothing is mounted there)
+disk_at() {
+    local src
+    src="$(findmnt -no SOURCE "$1" 2>/dev/null | head -1)"
+    src="${src%%[*}"
+    [[ -b "$src" ]] && lsblk -npo PKNAME "$src" 2>/dev/null | head -1
+}
+console_disks() { disk_at /; disk_at /run/archiso/bootmnt; }
+
+# Every disk: not loop, zram or optical devices
+all_disks() { lsblk -dnpo NAME,TYPE | awk '$2 == "disk" && $1 !~ /zram|loop/ { print $1 }'; }
+
+# disk_info PATH: sets size, serial, model, usb, windows, bitlocker, linux, owneetlog, parts_json
+disk_info() {
+    local disk="$1" line name ptype fstype label psize mnt
+    local pairs='^NAME="([^"]*)" PARTTYPE="([^"]*)" FSTYPE="([^"]*)" LABEL="([^"]*)" SIZE="([0-9]*)" MOUNTPOINT="([^"]*)"$'
+    size="$(lsblk -dnbo SIZE "$disk")"
+    serial="$(lsblk -dno SERIAL "$disk" | xargs)"
+    model="$(lsblk -dno MODEL "$disk" | xargs)"
+    usb=false
+    [[ "$(lsblk -dno TRAN "$disk" | xargs)" == usb ]] && usb=true
+    windows=false bitlocker=false linux=false owneetlog=false parts_json=""
+    while read -r line; do
+        [[ "$line" =~ $pairs ]] || continue
+        name="${BASH_REMATCH[1]}" ptype="${BASH_REMATCH[2]}" fstype="${BASH_REMATCH[3]}"
+        label="${BASH_REMATCH[4]}" psize="${BASH_REMATCH[5]:-0}" mnt="${BASH_REMATCH[6]}"
+        [[ "$name" == "$disk" ]] && continue
+        [[ " $WINDOWS_TYPES " == *" ${ptype,,} "* || "$fstype" == ntfs ]] && windows=true
+        [[ "$fstype" == BitLocker ]] && bitlocker=true
+        [[ "$fstype" =~ ^(ext[234]|btrfs|xfs|f2fs)$ ]] && linux=true
+        [[ "$label" == OWNEETLOG ]] && owneetlog=true
+        parts_json+="${parts_json:+,}{\"path\":$(json_string "$name"),\"size\":$psize,\"fstype\":$(json_string "$fstype"),\"label\":$(json_string "$label"),\"mountpoint\":$(json_string "$mnt")}"
+    done < <(lsblk -npbP -o NAME,PARTTYPE,FSTYPE,LABEL,SIZE,MOUNTPOINT "$disk" 2>/dev/null)
+}
+
+list_disks() {
+    local disk out="" consoles console
+    consoles="$(console_disks)"
+    while read -r disk; do
+        [[ -n "$disk" ]] || continue
+        disk_info "$disk"
+        console=false
+        grep -qxF "$disk" <<<"$consoles" && console=true
+        out+="${out:+,}{\"path\":$(json_string "$disk"),\"serial\":$(json_string "$serial"),\"size\":$size,\"model\":$(json_string "$model"),\"usb\":$usb,\"console\":$console,\"owneetlog\":$owneetlog,\"windows\":$windows,\"bitlocker\":$bitlocker,\"linux\":$linux,\"partitions\":[$parts_json]}"
+    done < <(all_disks)
+    printf '{"disks":[%s]}\n' "$out"
+}
+
+# The name: one line, no "/" (it names the disk's folder too), 1 to 16 bytes (ext4's label)
+name_ok() {
+    local n="$1"
+    [[ -n "$n" && "$n" != *"/"* && "$n" != .* ]] || return 1
+    [[ "$(printf '%s' "$n" | tr -d '\000-\037\177')" == "$n" ]] || return 1
+    (( $(printf '%s' "$n" | wc -c) <= 16 ))
+}
+# Another disk's file system has this name already (letters in any case); $2: the disks whose names go
+name_taken() {
+    local wanted="${1,,}" skip="$2" line
+    local pairs='^NAME="([^"]*)" LABEL="([^"]*)" PKNAME="([^"]*)"$'
+    while read -r line; do
+        [[ "$line" =~ $pairs ]] || continue
+        grep -qxF "${BASH_REMATCH[3]}" <<<"$skip" && continue
+        grep -qxF "${BASH_REMATCH[1]}" <<<"$skip" && continue
+        [[ -n "${BASH_REMATCH[2]}" && "${BASH_REMATCH[2],,}" == "$wanted" ]] && return 0
+    done < <(lsblk -npP -o NAME,LABEL,PKNAME 2>/dev/null)
+    return 1
+}
+
+# format DISK NAME FOLDER: the whole disk becomes one ext4 file system; writes partition_failed,
+# format_failed or in_use on stdout and returns 1 when it fails. The console's mounter leaves the disk
+# alone meanwhile (/run/owneet-mount/preparing, owneet-mount), then mounts it as usual.
+format_disk() {
+    local disk="$1" kname rc part
+    kname="$(basename "$disk")"
+    mkdir -p "$MOUNT_STATE"
+    echo "$kname" >> "$MOUNT_STATE/preparing"
+    format_work "$@"
+    rc=$?
+    sed -i "/^$kname\$/d" "$MOUNT_STATE/preparing"
+    if (( rc == 0 )); then
+        # udev ran owneet-mount while the disk was left alone: once more now
+        part="$(lsblk -nlpo NAME "$disk" | sed -n 2p)"
+        systemctl restart "owneet-mount@$(basename "$part").service" 2>/dev/null
+    fi
+    return $rc
+}
+format_work() {
+    local disk="$1" name="$2" folder="$3" part mnt tmp
+    # what is mounted lets go first; a game or a copy still using it stops everything
+    while read -r part; do
+        mnt="$(findmnt -nro TARGET -S "$part" 2>/dev/null | head -1)"
+        if [[ -n "$mnt" ]] && fuser -sm "$mnt" 2>/dev/null; then
+            echo in_use; return 1
+        fi
+    done < <(lsblk -nlpo NAME "$disk" | tail -n +2)
+    while read -r part; do
+        systemctl stop "owneet-mount@$(basename "$part").service" 2>/dev/null
+        umount "$part" 2>/dev/null
+        if findmnt -nS "$part" >/dev/null 2>&1; then echo in_use; return 1; fi
+    done < <(lsblk -nlpo NAME "$disk" | tail -n +2)
+    progress erasing "$disk"
+    wipefs -af "$disk" >/dev/null || { echo partition_failed; return 1; }
+    sfdisk --quiet --wipe always --wipe-partitions always "$disk" <<'EOF' || { echo partition_failed; return 1; }
+label: gpt
+type=linux
+EOF
+    udevadm settle
+    part="$(lsblk -nlpo NAME "$disk" | sed -n 2p)"
+    [[ -b "$part" ]] || { echo partition_failed; return 1; }
+    progress formatting "$disk"
+    # no space kept for root: the disk is only for games and media
+    mkfs.ext4 -F -q -m 0 -L "$name" -E "root_owner=$CONSOLE_UID:$CONSOLE_UID" "$part" || { echo format_failed; return 1; }
+    tmp="$(mktemp -d /run/owneet-prepare-XXXXXX)"
+    if mount -t ext4 "$part" "$tmp"; then
+        install -d -o "$CONSOLE_UID" -g "$CONSOLE_UID" -m 755 "$tmp/$folder"
+        umount "$tmp"
+    else
+        rmdir "$tmp"; echo format_failed; return 1
+    fi
+    rmdir "$tmp"
+    return 0
+}
+
+progress() {
+    [[ "$MODE" == prepare ]] || return 0
+    printf '{"state":"%s","disk":%s,"error":%s,"time":"%s"}\n' "$1" "$(json_string "${2:-}")" \
+        "$(json_string "${3:-}")" "$(date -u +%FT%TZ)" > "$STATE.tmp"
+    mv "$STATE.tmp" "$STATE"
+    echo "==> $1 ${2:-}${3:+ ($3)}" >&2
+}
+
+case "$MODE" in
+    disks)
+        list_disks
+        exit 0
+        ;;
+    check-name)
+        [[ $# -ge 2 ]] || { echo "usage: owneet-prepare-disk check-name NAME [DISK…]" >&2; exit 2; }
+        name_ok "$2" || { echo bad_name; exit 1; }
+        name_taken "$2" "$(printf '%s\n' "${@:3}")" && { echo name_taken; exit 1; }
+        exit 0
+        ;;
+    format)
+        [[ $# -eq 4 ]] || { echo "usage: owneet-prepare-disk format DISK NAME FOLDER" >&2; exit 2; }
+        name_ok "$3" || { echo bad_name; exit 1; }
+        [[ "$4" == Games || "$4" == Giochi ]] || { echo bad_name; exit 1; }
+        format_disk "$2" "$3" "$4"
+        exit $?
+        ;;
+    prepare) ;;
+    *)
+        echo "usage: owneet-prepare-disk disks|prepare|format DISK NAME FOLDER|check-name NAME [DISK…]" >&2
+        exit 2
+        ;;
+esac
+
+# ---- Preparing (root, started through owneet-prepare-disk.service)
+
+mkdir -p /run/owneet
+fail() {
+    echo "!! $2" >&2
+    progress failed "${disk:-}" "$1"
+    exit 1
+}
+disk=""
+progress preparing ""
+# from the USB stick only the installer prepares disks (the internal ones are read only there)
+[[ -d /run/archiso || "$(cat /run/owneet/mode 2>/dev/null)" == live ]] && fail installed_only "Started from the USB stick."
+
+[[ -f "$REQUEST" && ! -L "$REQUEST" ]] || fail no_disk "No request."
+OWNEET_PREPARE_DISK="" OWNEET_PREPARE_SIZE="" OWNEET_PREPARE_SERIAL="" OWNEET_PREPARE_ERASE=""
+OWNEET_PREPARE_ERASE_WINDOWS="" OWNEET_PREPARE_NAME="" OWNEET_PREPARE_FOLDER=""
+while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" == *=* ]] || continue
+    key="${line%%=*}" value="${line#*=}"
+    case "$key" in
+        OWNEET_PREPARE_DISK|OWNEET_PREPARE_SIZE|OWNEET_PREPARE_SERIAL|OWNEET_PREPARE_ERASE|OWNEET_PREPARE_ERASE_WINDOWS|OWNEET_PREPARE_NAME|OWNEET_PREPARE_FOLDER)
+            printf -v "$key" '%s' "$value" ;;
+    esac
+done < <(head -c 4096 "$REQUEST")
+
+disk="$OWNEET_PREPARE_DISK"
+[[ -n "$disk" ]] || fail no_disk "No disk in the request."
+all_disks | grep -qxF "$disk" || fail disk_changed "$disk is not a disk."
+disk_info "$disk"
+[[ "$size" == "$OWNEET_PREPARE_SIZE" && "$serial" == "$OWNEET_PREPARE_SERIAL" ]] \
+    || fail disk_changed "$disk is not the disk that was chosen (size or serial differ)."
+console_disks | grep -qxF "$disk" && fail not_allowed "$disk is the console's own disk."
+[[ "$owneetlog" == true ]] && fail not_allowed "$disk is the OWNEETLOG stick."
+# never formatted without the player's confirmation for this very disk
+[[ "$OWNEET_PREPARE_ERASE" == "$disk" ]] || fail erase_not_confirmed "Erasing $disk was not confirmed."
+if [[ "$windows" == true || "$bitlocker" == true ]] && [[ "$OWNEET_PREPARE_ERASE_WINDOWS" != yes ]]; then
+    fail windows_not_confirmed "$disk has Windows or BitLocker on it and erasing it was not confirmed."
+fi
+name="$OWNEET_PREPARE_NAME"
+name_ok "$name" || fail bad_name "The name is empty, too long or has a \"/\"."
+[[ "$OWNEET_PREPARE_FOLDER" == Games || "$OWNEET_PREPARE_FOLDER" == Giochi ]] || fail bad_name "Unknown games folder."
+name_taken "$name" "$disk" && fail name_taken "Another disk is already called $name."
+
+echo "Preparing $disk ($size bytes, ${model:-unknown model}, serial ${serial:-none}) for games as \"$name\""
+if ! code="$(format_disk "$disk" "$name" "$OWNEET_PREPARE_FOLDER")"; then
+    fail "${code:-format_failed}" "Preparing $disk failed ($code)."
+fi
+progress "done" "$disk"
+echo "$disk is ready for games."

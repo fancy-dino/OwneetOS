@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A settings row that only shows something (not selectable): an optional icon, a label, an
-// optional second line, and a value on the right.
+// optional second line, and a value on the right. `selectable` makes it a row A acts on, with the
+// selectable rows' background (a disk in Settings → Disks, demo 6.7).
 import QtQuick 2.15
 
 Rectangle {
@@ -10,10 +11,13 @@ Rectangle {
     property string value: ""
     property string icon: ""           // Icon name, e.g. "wifi"
     property bool crossed: false       // the icon crossed out (e.g. offline)
+    property bool selectable: false
+    readonly property bool navigable: selectable
+    signal activated()
     default property alias extra: more.data
     implicitHeight: column.implicitHeight + Theme.px(24)
     radius: Theme.radiusS + Theme.px(2)
-    color: "transparent"
+    color: selectable ? Theme.surface : "transparent"
     border.color: Theme.line
     border.width: Math.max(1, Theme.px(1))
     Column {
@@ -69,4 +73,5 @@ Rectangle {
             visible: children.length > 0
         }
     }
+    FocusFrame {}
 }

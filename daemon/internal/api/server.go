@@ -68,6 +68,8 @@ type Server struct {
 	Xone Xone
 	// Installer installs OwneetOS from the USB stick (nil without a system bus).
 	Installer Installer
+	// DiskPrep prepares a disk for games from Settings → Disks (nil without a system bus).
+	DiskPrep DiskPrep
 	// Moves copies and moves games between disks.
 	Moves Moves
 
@@ -159,6 +161,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/installer", s.handleInstaller)
 	mux.HandleFunc("GET /v1/installer/disks", s.handleInstallerDisks)
 	mux.HandleFunc("POST /v1/installer/start", s.handleInstallerStart)
+	mux.HandleFunc("GET /v1/disks", s.handleDisks)
+	mux.HandleFunc("GET /v1/disks/prepare", s.handleDiskPrepStatus)
+	mux.HandleFunc("POST /v1/disks/prepare", s.handleDiskPrep)
 	mux.HandleFunc("GET /v1/windows", s.handleWindows)
 	mux.HandleFunc("POST /v1/windows/needed", s.handleWindowsNeeded)
 	mux.HandleFunc("GET /v1/installs", s.handleInstalls)

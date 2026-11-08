@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Prepares the disk of the console's request for games (owneet-prepare-disk prepare,
+# [[step-6.7-preparing-other-disks]]). Only on the installed console (from the USB stick the installer
+# does it); started by owneetd from Settings → Disks (polkit rule 50-owneet-install.rules: only this
+# unit, only start, only the console user). The request is read by the script itself, never as an
+# environment file.
+[Unit]
+Description=OwneetOS: a disk prepared for games
+ConditionPathExists=!/run/archiso
+ConditionPathExists=/run/owneet-prepare/request
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/owneet/owneet-prepare-disk prepare
+TimeoutStartSec=30min

@@ -23,6 +23,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/catalog"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/clock"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/config"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/diskprep"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/display"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
@@ -205,6 +206,7 @@ func run(configPath string) error {
 	var catalogAPI api.Catalog
 	var xoneAPI api.Xone
 	var installerAPI api.Installer
+	var diskPrepAPI api.DiskPrep
 	if starter, err := update.NewSystemdStarter(); err == nil {
 		defer starter.Close()
 		// The Xbox wireless adapter's firmware, after the player's consent ([[step-6.1-first-boot-flow]])
@@ -216,6 +218,10 @@ func run(configPath string) error {
 		installerAPI = &installer.Manager{Broker: broker, Log: log, Units: starter,
 			Command: "/usr/lib/owneet/owneet-install", RequestFile: "/run/owneet-install/request",
 			StateFile: "/run/owneet/install.json", Live: func() bool { return live.Mode() == live.ModeLive }}
+		// A disk prepared for games from Settings → Disks ([[step-6.7-preparing-other-disks]])
+		diskPrepAPI = &diskprep.Manager{Broker: broker, Log: log, Units: starter,
+			Command: "/usr/lib/owneet/owneet-prepare-disk", RequestFile: "/run/owneet-prepare/request",
+			StateFile: "/run/owneet/prepare.json", Live: func() bool { return live.Mode() == live.ModeLive }}
 		updateAPI = &update.Manager{Broker: broker, Log: log, Units: starter,
 			StateFile: "/run/owneet/update.json", TesterMark: "/etc/owneet/tester"}
 		stateDir := os.Getenv("XDG_STATE_HOME")
@@ -346,6 +352,7 @@ func run(configPath string) error {
 		Clock:           clockAPI,
 		Xone:            xoneAPI,
 		Installer:       installerAPI,
+		DiskPrep:        diskPrepAPI,
 		Moves: &moves.Manager{Broker: broker, Log: log, Home: os.Getenv("HOME"),
 			Media: "/run/media/owneet"},
 	}

@@ -77,6 +77,9 @@ NavArea {
     signal failed(string message)       // a message key, shown as a toast
     signal quickMenu()                  // B on the list of sections: nothing to go back to (3.13)
     signal chooseDisplay(string what, var state)   // what: screen, resolution, rate
+    // Disks (6.7, approved demo 6.7-settings-disks): A on a disk prepares it for games; `shown` is
+    // the disk as its row names it
+    signal prepareDisk(var disk, var disks, string shown)
 
     scrollTarget: panel
 
@@ -95,6 +98,8 @@ NavArea {
         }
         if (current.kind === "pad" || current.device === true)
             return [P("a", "prompt.options"), P("b", "prompt.back")];
+        if (current.kind === "disk")
+            return [P("a", "disk.prep.prompt"), P("b", "prompt.back")];
         return [P("a", "prompt.select"), P("b", "prompt.back")];
     }
 
@@ -183,6 +188,21 @@ NavArea {
     property var keyboardLayouts: []
     property string keyboardLayout: ""
     property var volumes: []
+    property var disks: []              // every disk (owneetd: GET /v1/disks), for preparing one (6.7)
+    // The disk a mounted volume is on, when it may be prepared (not the console's own, not OWNEETLOG)
+    function diskOf(volume) {
+        for (let i = 0; i < disks.length; i++) {
+            const d = disks[i];
+            if (d.console || d.owneetlog)
+                continue;
+            if ((d.partitions || []).some(p => p.mountpoint !== "" && p.mountpoint === volume.key))
+                return d;
+        }
+        return null;
+    }
+    // Disks with nothing the console can read on them: "Not ready for games"
+    readonly property var unreadyDisks: disks.filter(d => !d.console && !d.owneetlog
+                                                     && !(d.partitions || []).some(p => p.mountpoint !== ""))
     property var wifiNetworks: []
     property bool scanning: false
     property var bluetooth: null
@@ -194,7 +214,16 @@ NavArea {
         owneetd.get("/v1/input/layout", (status, data) => {
             if (status === 200) { page.keyboardLayouts = data.supported || []; page.keyboardLayout = data.layout || ""; }
         });
+        refreshDisks();
+    }
+    function refreshDisks() {
         volumes = storage.volumes();
+        owneetd.get("/v1/disks", (status, data) => { if (status === 200) page.disks = data.disks || []; });
+    }
+    // a disk plugged in, out, mounted or prepared: the list follows (6.7)
+    Connections {
+        target: storage
+        function onVolumesChanged() { page.refreshDisks(); }
     }
     // Networks nearby: the connected one first, then by signal; `scan` also asks for a new search
     function refreshNetworks(scan) {
@@ -849,10 +878,17 @@ NavArea {
                     Repeater {
                         model: page.volumes
                         InfoRow {
+                            // 6.7: every disk but the console's own can be prepared for games
+                            readonly property var disk: page.diskOf(modelData)
+                            readonly property string kind: "disk"
+                            readonly property string key: "volume:" + modelData.key
+                            selectable: disk !== null && !page.live
+                            onActivated: page.prepareDisk(disk, page.disks, modelData.name || disk.model)
                             width: parent.width
                             text: modelData.name || Tr.tr("disk.internal")
                             value: Tr.tr("disk.of", { free: GameInfo.size(modelData.free), total: GameInfo.size(modelData.total) })
-                            detail: modelData.readOnly ? Tr.tr(modelData.why === "windows" ? "disk.note.windows" : "disk.note.readonly") : ""
+                            detail: modelData.key === "internal" ? Tr.tr("disk.console")
+                                    : modelData.readOnly ? Tr.tr(modelData.why === "windows" ? "disk.note.windows" : "disk.note.readonly") : ""
                             Rectangle {
                                 width: parent.width; height: Theme.px(6); radius: height / 2
                                 color: Theme.raised
@@ -863,6 +899,29 @@ NavArea {
                                 }
                             }
                         }
+                    }
+                    Repeater {
+                        model: page.unreadyDisks
+                        InfoRow {
+                            readonly property string kind: "disk"
+                            readonly property string key: "disk:" + modelData.path
+                            selectable: !page.live
+                            onActivated: page.prepareDisk(modelData, page.disks, modelData.model || modelData.path)
+                            width: parent.width
+                            text: modelData.model || modelData.path
+                            value: GameInfo.size(modelData.size)
+                            detail: Tr.tr("disk.notready")
+                        }
+                    }
+                    Text {
+                        visible: page.live
+                        width: parent.width
+                        topPadding: Theme.px(4)
+                        text: Tr.tr("disk.prep.live")
+                        color: Theme.muted
+                        font.family: Theme.textFont
+                        font.pixelSize: Theme.fs(14.5)
+                        wrapMode: Text.Wrap
                     }
                 }
 

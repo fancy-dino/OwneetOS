@@ -20,8 +20,8 @@
 # Runs as root, started by owneet-mount@<kernel name>.service, which the udev rule
 # 90-owneet-disks.rules pulls in when a file system appears (at start too) and which stops when it
 # goes. What it did is in /run/owneet-mount/<kernel name>: the folder, rw or ro, and why ro.
-# The disk OwneetOS is being installed on (/run/owneet-mount/installing, owneet-install) is left
-# alone.
+# The disks OwneetOS is being installed on (/run/owneet-mount/installing, owneet-install) or that are
+# being prepared for games (/run/owneet-mount/preparing, owneet-prepare-disk) are left alone.
 
 set -uo pipefail
 
@@ -69,8 +69,9 @@ case "$MODE" in
         disk="$(disk_of "$dev")"
         if [[ -n "$disk" ]]; then
             [[ "$disk" == "$(disk_at /)" || "$disk" == "$(disk_at /run/archiso/bootmnt)" ]] && exit 0
-            # the disk OwneetOS is being installed on (owneet-install)
-            [[ "$disk" == "$(cat "$STATE/installing" 2>/dev/null)" ]] && exit 0
+            # the disks OwneetOS is being installed on (owneet-install), or being prepared for
+            # games (owneet-prepare-disk): one kernel name per line
+            cat "$STATE/installing" "$STATE/preparing" 2>/dev/null | grep -qxF "$disk" && exit 0
         fi
         usb=false
         udevadm info -q property -n "$dev" 2>/dev/null | grep -q '^ID_PATH=.*-usb-' && usb=true
