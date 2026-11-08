@@ -89,6 +89,9 @@ func (m *Manager) protonDir() string {
 	return dir
 }
 
+// Ready tells whether Windows programs can run: the Proton made ready is still there.
+func (m *Manager) Ready() bool { return m.protonDir() != "" }
+
 // Status reports the preparation's state.
 func (m *Manager) Status() Status {
 	m.init()

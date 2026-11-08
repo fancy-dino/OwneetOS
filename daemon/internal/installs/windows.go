@@ -16,8 +16,14 @@ import (
 	"time"
 )
 
-// errWindowsNotReady: owneet-windows-run's exit code 3, Proton is not ready yet.
+// errWindowsNotReady: Proton is not ready yet (owneet-windows-run's exit code 3, when owneetd's
+// own check agrees: an installer may end with 3 too, e.g. Inno Setup when it cannot use the
+// folder it is given).
 var errWindowsNotReady = errors.New("Windows games are not ready yet")
+
+// winRefused are the characters Windows refuses in a file name ("The Witcher 2: Assassins of
+// Kings", owner's test, 2026-11-08: Inno Setup ended with 3 and nothing was installed).
+const winRefused = `<>:"|?*\`
 
 // windowsNeed estimates the space a Windows installer needs: twice its files (GOG's setup_*.exe
 // with its setup_*-N.bin parts), as installers compress the game.
@@ -83,11 +89,14 @@ func windowsArgs(kind, installer, winDest string) []string {
 }
 
 // windowsInstall runs a Windows installer silently, in the game's prefix. NSIS and MSI cannot
-// take a folder with spaces: they install through a link without any, kept for the game (its
-// registry may point there).
+// take a folder with spaces, and no installer a folder with a character Windows refuses: they
+// install through a link without any, kept for the game (its registry may point there).
 func (m *Manager) windowsInstall(ctx context.Context, j *job) (string, error) {
+	if m.WindowsReady != nil && !m.WindowsReady() {
+		return "", errWindowsNotReady
+	}
 	dest, link := j.Dest, ""
-	if j.Kind != KindInno {
+	if j.Kind != KindInno || strings.ContainsAny(filepath.Base(j.Dest), winRefused) {
 		sum := sha1.Sum([]byte(j.Dest))
 		link = filepath.Join(m.linksDir(), hex.EncodeToString(sum[:])[:12])
 		if err := os.MkdirAll(m.linksDir(), 0o755); err != nil {
@@ -108,7 +117,7 @@ func (m *Manager) windowsInstall(ctx context.Context, j *job) (string, error) {
 	unit := "owneet-install-" + hex.EncodeToString(sum[:])[:10] + ".service"
 	err := m.Runner.Run(ctx, unit, argv, m.Env())
 	var exit *exec.ExitError
-	if errors.As(err, &exit) && exit.ExitCode() == 3 {
+	if errors.As(err, &exit) && exit.ExitCode() == 3 && (m.WindowsReady == nil || !m.WindowsReady()) {
 		return link, errWindowsNotReady
 	}
 	if err != nil {

@@ -297,6 +297,7 @@ func run(configPath string) error {
 	// Windows installers run in the console's session (its DISPLAY), never shown
 	instMgr := &installs.Manager{Broker: broker, Log: log, Home: home,
 		StateDir: filepath.Join(home, ".config", "owneet"), WindowsRun: "/usr/lib/owneet/owneet-windows-run",
+		WindowsReady: winMgr.Ready,
 		Env: func() []string {
 			if sess, err := appsMgr.Session(); err == nil {
 				return sess.Env

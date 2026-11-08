@@ -121,7 +121,10 @@ type Manager struct {
 	// WindowsRun is owneet-windows-run; Env the console session's variables (DISPLAY…) for it.
 	WindowsRun string
 	Env        func() []string
-	Runner     Runner
+	// WindowsReady tells whether Proton is ready for Windows installers (nil: owneet-windows-run's
+	// exit code 3 alone says it is not)
+	WindowsReady func() bool
+	Runner       Runner
 	// Free tells the free bytes of the disk holding path (statfs by default).
 	Free func(path string) (int64, error)
 	// InUse tells whether a process works in a folder (its working folder or its program is in

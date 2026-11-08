@@ -295,6 +295,36 @@ func TestWindowsInstallers(t *testing.T) {
 	if d := next(t, ch, "install.failed").Data.(map[string]string); d["reason"] != ReasonWindows || exists(dest3) {
 		t.Fatalf("not ready: %v, folder %v", d, exists(dest3))
 	}
+	// an installer's own exit code 3 while Proton is ready: the installer failed (Inno Setup)
+	m.WindowsReady = func() bool { return true }
+	m.Install(Request{Installer: setup, Kind: KindInno, Dest: dest3, Prefix: filepath.Join(prefixes, "third-1")})
+	if d := next(t, ch, "install.failed").Data.(map[string]string); d["reason"] != ReasonFailed || exists(dest3) {
+		t.Fatalf("installer's 3: %v, folder %v", d, exists(dest3))
+	}
+	// Proton not ready: the installer is not even started
+	m.WindowsReady = func() bool { return false }
+	started := len(runner.argv)
+	m.Install(Request{Installer: setup, Kind: KindInno, Dest: dest3, Prefix: filepath.Join(prefixes, "third-1")})
+	if d := next(t, ch, "install.failed").Data.(map[string]string); d["reason"] != ReasonWindows || len(runner.argv) != started {
+		t.Fatalf("not ready: %v, started %d", d, len(runner.argv)-started)
+	}
+	m.WindowsReady = nil
+	// Inno into a folder with a character Windows refuses: through a link without it
+	runner.run = func(ctx context.Context, argv []string) error {
+		_, win, _ := strings.Cut(argv[len(argv)-1], "=")
+		dir := strings.ReplaceAll(strings.TrimPrefix(win, "Z:"), `\`, "/")
+		return os.WriteFile(filepath.Join(dir, "game.exe"), []byte("MZ"), 0o644)
+	}
+	dest4 := filepath.Join(home, "Giochi", "The Witcher 2: Assassins of Kings")
+	if err := m.Install(Request{Installer: setup, Kind: KindInno, Dest: dest4, Prefix: filepath.Join(prefixes, "witcher-2")}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "install.done")
+	argv = runner.argv[len(runner.argv)-1]
+	if last := argv[len(argv)-1]; !strings.HasPrefix(last, "/DIR=Z:") || strings.Contains(strings.TrimPrefix(last, "/DIR=Z:"), ":") ||
+		!exists(filepath.Join(dest4, "game.exe")) {
+		t.Fatalf("Inno argv %q, installed %v", argv, exists(filepath.Join(dest4, "game.exe")))
+	}
 	// an installer that ends without writing anything failed
 	runner.run = nil
 	m.Install(Request{Installer: setup, Kind: KindInno, Dest: dest3, Prefix: filepath.Join(prefixes, "third-1")})

@@ -47,7 +47,8 @@ FocusScope {
             i = places.findIndex(p => !p.addGames && GameInfo.sameGame(p, selected));
             if (i >= 0) selected = places[i];
         }
-        if (i >= 0 && i !== grid.currentIndex) {
+        if (i < 0) i = 0;                           // as before the rows were kept: the first place
+        if (i !== grid.currentIndex && i < grid.count) {
             grid.currentIndex = i;
             grid.positionViewAtIndex(i, GridView.Contain);
         }
@@ -64,7 +65,10 @@ FocusScope {
         return v && v.name ? v.name : key.split("/").pop();
     }
     onVisibleChanged: if (visible) refreshVolumes()
-    Component.onCompleted: refreshVolumes()
+    Component.onCompleted: {
+        refreshVolumes();
+        syncGrid();
+    }
 
     readonly property var prompts: {
         const P = (b, l) => ({ buttons: b, label: Tr.tr(l) });
@@ -90,7 +94,53 @@ FocusScope {
     property bool startOnAddGames: false
     onStartOnAddGamesChanged: if (startOnAddGames) addGamesHold.restart()
     Timer { id: addGamesHold; interval: 4000; onTriggered: page.startOnAddGames = false }
-    onPlacesChanged: Qt.callLater(startOnAddGames ? selectAddGames : keepSelected)
+    onPlacesChanged: {
+        syncGrid();
+        Qt.callLater(startOnAddGames ? selectAddGames : keepSelected);
+    }
+    // The grid keeps its covers while the places change: one row per place, kept by its key, so a
+    // game that stays keeps its cover (a cover made again shows nothing for a moment: the list
+    // looked empty after an uninstall, owner's test, 2026-11-08)
+    ListModel { id: gridModel }
+    property var placeOf: ({})                  // a row's key → its place
+    property var rowKeys: []                    // the keys of gridModel's rows, in order
+    function placeKey(p) {
+        if (p.addGames) return "add";
+        const id = GameInfo.appid(p);
+        if (id !== "") return "steam:" + id;
+        return GameInfo.onDisk(p) ? "disk:" + p.extra["disk.dir"] : "title:" + p.title;
+    }
+    function syncGrid() {
+        const keys = [], map = {}, seen = {};
+        places.forEach(p => {
+            let k = placeKey(p);
+            seen[k] = (seen[k] || 0) + 1;
+            if (seen[k] > 1) k += "#" + seen[k];
+            keys.push(k);
+            map[k] = p;
+        });
+        placeOf = Object.assign({}, placeOf, map);  // rows going away keep their place meanwhile
+        const rows = rowKeys.slice();
+        for (let i = rows.length - 1; i >= 0; i--) {
+            if (!(rows[i] in map)) {
+                gridModel.remove(i);
+                rows.splice(i, 1);
+            }
+        }
+        for (let i = 0; i < keys.length; i++) {
+            if (rows[i] === keys[i]) continue;
+            const j = rows.indexOf(keys[i], i + 1);
+            if (j >= 0) {
+                gridModel.move(j, i, 1);
+                rows.splice(i, 0, rows.splice(j, 1)[0]);
+            } else {
+                gridModel.insert(i, { slot: keys[i] });
+                rows.splice(i, 0, keys[i]);
+            }
+        }
+        rowKeys = rows;
+        placeOf = map;
+    }
     function selectAddGames() {
         if (grid.count === 0 || filter === "favorites")
             return;
@@ -277,7 +327,7 @@ FocusScope {
         leftMargin: ring; rightMargin: ring - Theme.px(14); topMargin: ring; bottomMargin: ring
         clip: true
         focus: true
-        model: page.places
+        model: gridModel
         cellWidth: Math.floor((width - 2 * ring + Theme.px(14)) / page.columns)
         cellHeight: (cellWidth - Theme.px(14)) * 1.25 + Theme.px(16)
         keyNavigationEnabled: false             // Nav.listKeys moves the selection
@@ -286,8 +336,9 @@ FocusScope {
         preferredHighlightEnd: height - ring
         highlightMoveDuration: Theme.motionMs
         delegate: Loader {
-            readonly property bool addTile: modelData.addGames === true
-            readonly property var game: addTile ? null : modelData
+            readonly property var place: page.placeOf[slot]
+            readonly property bool addTile: !!place && place.addGames === true
+            readonly property var game: addTile || !place ? null : place
             width: grid.cellWidth - Theme.px(14)
             height: width * 1.25
             sourceComponent: addTile ? addTileComponent : coverComponent
