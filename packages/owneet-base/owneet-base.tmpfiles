@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Where the console writes its request to prepare a disk for games (owneet-prepare-disk, read as plain
+# text by root)
+d /run/owneet-prepare 0755 owneet owneet -

@@ -2,28 +2,25 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-installer
-pkgver=0.0.4
+pkgver=0.0.5
 pkgrel=1
-pkgdesc="OwneetOS installer backend: installs the live USB stick's system on a whole internal disk, and prepares other disks for games"
+pkgdesc="OwneetOS installer backend: installs the live USB stick's system on a whole internal disk"
 arch=('any')
 url="https://github.com/fancy-dino/OwneetOS"
 license=('GPL-3.0-or-later')
-# owneet-session: the console user owneet, who writes the request and starts the installation
-depends=('bash' 'coreutils' 'util-linux' 'btrfs-progs' 'dosfstools' 'e2fsprogs' 'psmisc' 'systemd' 'polkit'
-         'mkinitcpio' 'owneet-session')
-source=('owneet-install' 'owneet-install.service' '50-owneet-install.rules' 'owneet-installer.tmpfiles'
-        'owneet-prepare-disk' 'owneet-prepare-disk.service')
+# owneet-session: the console user owneet, who writes the request and starts the installation;
+# owneet-base: owneet-prepare-disk, which prepares the other disks for games (6.7)
+depends=('bash' 'coreutils' 'util-linux' 'btrfs-progs' 'dosfstools' 'systemd' 'polkit'
+         'mkinitcpio' 'owneet-session' 'owneet-base')
+source=('owneet-install' 'owneet-install.service' '50-owneet-install.rules' 'owneet-installer.tmpfiles')
 sha256sums=('44c1532cc9740e6bc80869f37d54a2322fc851adc108bb302c66b77aceccafca'
             '0d1337a1d9624c9a6a9aa9db7d38f0882116a46ce42e901ea9ab93acf3a5da34'
-            '32d0c4a31ac9d9cc539a69d4933bfb2ea2dfee21473d6d77eee860ceff7cbe06'
-            '5e2094a4b281dc51b60bc30715dd841d3827725dbd93ca817c6f794934990d30'
-            '8beca6060c1650f84b1ab0a0e835cd7dac53b32965d39c2b63c77e2ddff49660'
-            '4189a96d7e56211a5eb614cc4675ef35e55fee23e887be6900e6d8afa6a10f85')
+            '2b0bbb5e0c56e332fdc75d3711888ebb18a9ac3d441ebb06683e2e0c5d2681c4'
+            'a9cc8cba0cc8f3e25274df35f621ad3a661f4941dfd39abb2e07554aa0262da0')
 
 package() {
   install -Dm755 owneet-install "$pkgdir/usr/lib/owneet/owneet-install"
-  install -Dm755 owneet-prepare-disk "$pkgdir/usr/lib/owneet/owneet-prepare-disk"
-  install -Dm644 owneet-install.service owneet-prepare-disk.service -t "$pkgdir/usr/lib/systemd/system/"
+  install -Dm644 owneet-install.service -t "$pkgdir/usr/lib/systemd/system/"
   install -Dm644 50-owneet-install.rules "$pkgdir/usr/share/polkit-1/rules.d/50-owneet-install.rules"
   install -Dm644 owneet-installer.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/owneet-installer.conf"
 }
