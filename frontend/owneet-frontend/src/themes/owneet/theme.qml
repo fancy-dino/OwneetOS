@@ -111,8 +111,8 @@ FocusScope {
     // installed ones only (every owned Steam game is in the library, 4.2c)
     property var games: []
     function refreshGames() { games = GameInfo.recent(api.allGames); }
-    // A download's time left: minutes up to an hour, then hours and minutes ("about 1 h 56 min", not
-    // "about 116 min": owner, 2026-11-09)
+    // A download's time left: minutes up to an hour, then hours and minutes ("1 h 56 min", not
+    // "116 min"; no "about": owner, 2026-11-09)
     function timeLeft(seconds) {
         if (seconds < 60) return Tr.tr("details.left.less");
         const minutes = Math.round(seconds / 60);
