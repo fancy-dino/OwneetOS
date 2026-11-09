@@ -28,6 +28,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/installs"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/live"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/network"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/player"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/pointer"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/power"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/sdldb"
@@ -289,6 +290,22 @@ func run(configPath string) error {
 			Pads: pointer.ReadPads(db, log)}
 	}
 
+	// The Videos and Music pages' player ([[step-5.6-local-videos-and-music]]): mpv with OwneetOS's
+	// configuration, one at a time like a game; its saved positions on the console's disk, where
+	// the interface reads them
+	var playerAPI api.Player
+	if appsAPI != nil {
+		stateHome := os.Getenv("XDG_STATE_HOME")
+		if stateHome == "" {
+			stateHome = filepath.Join(home, ".local", "state")
+		}
+		mediaPlayer := &player.Manager{Apps: appsMgr, Broker: broker, Log: log, Session: appsMgr.Session,
+			ConfigDir: "/usr/share/owneet/player", RuntimeDir: filepath.Join(runtimeDir, "owneet"),
+			WatchLaterDir: filepath.Join(stateHome, "owneet", "watch_later")}
+		go mediaPlayer.Run(ctx.Done())
+		playerAPI = mediaPlayer
+	}
+
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
@@ -307,6 +324,7 @@ func run(configPath string) error {
 		Windows:         winMgr,
 		Installs:        instMgr,
 		Pointer:         pointerAPI,
+		Player:          playerAPI,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)
