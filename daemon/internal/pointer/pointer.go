@@ -50,6 +50,8 @@ type Screen interface {
 	Focused() (app, window uint32, err error)
 	// TextCursor: the pointer has the text "I" shape (over a text field)
 	TextCursor() (bool, error)
+	// CursorChanges: TextCursor each time the pointer's image changes (closed with the screen)
+	CursorChanges() <-chan bool
 	Close()
 }
 
@@ -75,7 +77,6 @@ const (
 	firstRepeat = 360 * time.Millisecond
 	nextRepeat  = 40 * time.Millisecond
 	wheelEvery  = 160 * time.Millisecond
-	textDelay   = 120 * time.Millisecond // after a click, the app changes the pointer's shape
 )
 
 // speed is the pointer's speed in pixels per millisecond for a push of 0…1 (slow at first).
@@ -106,8 +107,12 @@ type Manager struct {
 	restX   float64 // fractions of a pixel left from the last move
 	restY   float64
 	lastChk time.Time
-	now     func() time.Time
-	manual  bool // tests: no loop, step and input are called by hand
+	// the pointer's shape as the X server last told it, and a click that may still turn it into
+	// the text "I" (no move since; afterClick, followCursor)
+	textCursor bool
+	clickWaits bool
+	now        func() time.Time
+	manual     bool // tests: no loop, step and input are called by hand
 }
 
 // Status tells whether the pointer is on, and for which app.
@@ -139,6 +144,11 @@ func (m *Manager) On(app string) error {
 	m.status = Status{On: true, App: app}
 	m.appID, m.window, m.active = id, 0, false
 	m.screen = screen
+	m.textCursor, m.clickWaits = false, false
+	if text, err := screen.TextCursor(); err == nil {
+		m.textCursor = text
+	}
+	go m.followCursor(screen)
 	m.state, m.held, m.repeat = map[string]float64{}, map[string]time.Time{}, map[string]time.Time{}
 	m.stop = make(chan struct{})
 	stop := m.stop
@@ -269,7 +279,7 @@ func (m *Manager) input(ev Input) {
 	switch ev.Control {
 	case "a":
 		m.Mouse.Click("left")
-		go m.afterClick()
+		m.afterClick()
 	case "x":
 		m.Mouse.Click("right")
 	case "y":
@@ -279,17 +289,36 @@ func (m *Manager) input(ev Input) {
 	}
 }
 
-// afterClick: a click on a text field (the pointer has the text "I" shape) asks the keyboard.
+// afterClick: a click on a text field (the pointer has the text "I" shape) asks the keyboard: at
+// once when the pointer has that shape already (over the field), or as soon as the app gives it
+// that shape for the click (followCursor), unless the pointer moves first. No time is waited.
 func (m *Manager) afterClick() {
-	time.Sleep(textDelay)
 	m.mu.Lock()
-	screen, active := m.screen, m.active
+	ask := m.active && m.textCursor
+	m.clickWaits = m.active && !m.textCursor
 	m.mu.Unlock()
-	if !active || screen == nil {
-		return
-	}
-	if text, err := screen.TextCursor(); err == nil && text {
+	if ask {
 		m.askKeyboard("field")
+	}
+}
+
+// followCursor keeps the pointer's shape as the X server tells it, for this screen.
+func (m *Manager) followCursor(screen Screen) {
+	for text := range screen.CursorChanges() {
+		m.mu.Lock()
+		if m.screen != screen {
+			m.mu.Unlock()
+			return
+		}
+		m.textCursor = text
+		ask := text && m.clickWaits && m.active
+		if ask {
+			m.clickWaits = false
+		}
+		m.mu.Unlock()
+		if ask {
+			m.askKeyboard("field")
+		}
 	}
 }
 
@@ -318,6 +347,9 @@ func (m *Manager) nudge(dir string) {
 	case "dpright":
 		dx = step
 	}
+	m.mu.Lock()
+	m.clickWaits = false // moved: a later shape is not the click's
+	m.mu.Unlock()
 	m.Mouse.MovePointer(dx, dy, 0)
 }
 
@@ -369,6 +401,9 @@ func (m *Manager) step(dt time.Duration) {
 		m.wheelAt = now.Add(wheelEvery)
 	} else if math.Abs(ry) <= 0.5 {
 		m.wheelAt = time.Time{}
+	}
+	if dx != 0 || dy != 0 {
+		m.clickWaits = false // moved: a later shape is not the click's
 	}
 	m.mu.Unlock()
 	if dx != 0 || dy != 0 || wheel != 0 {

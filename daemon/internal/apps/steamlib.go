@@ -42,19 +42,15 @@ type SteamDownload struct {
 
 // steamSample is the last bytes seen of a download, to tell the one Steam works on and its speed.
 type steamSample struct {
-	done  int64
-	at    time.Time
-	rate  int64
-	moved time.Time // the bytes last grew
-	// what Steam has written, measured from the files (steamprogress.go)
+	done int64
+	at   time.Time
+	rate int64
+	// what Steam has written, measured on its disks (steamprogress.go)
 	written  int64
 	measured time.Time
 	base     int64 // the room used on Steam's disks when the measures began
 	baseDone int64 // the bytes Steam had done then
 }
-
-// steamMoving: a download whose bytes grew this recently is the one Steam works on.
-const steamMoving = 5 * time.Second
 
 // kvText reads Steam's text KeyValues ("key" "value", "key" { … }) into nested maps; keys are
 // kept as written.
@@ -293,18 +289,22 @@ func steamDownloads(dir string, samples map[string]*steamSample, phases map[stri
 				if dt := now.Sub(s.at).Seconds(); dt > 0 {
 					s.rate = int64(float64(done-s.done) / dt)
 				}
-				s.moved = now
 				s.done, s.at = done, now
 			case done < s.done:
 				s.done, s.at, s.rate = done, now, 0
 			case now.Sub(s.at) > 2*steamWrittenEvery:
 				s.rate = 0
 			}
-			moving := busy || (!s.moved.IsZero() && now.Sub(s.moved) < steamMoving)
-			if logged {
-				// Steam's log says what it does now: downloading, or not (preparing, suspended,
-				// cancelled, waiting its turn); the manifest's flags are as old as its bytes
+			// what Steam does now ([[waiting-for-events]]: no time stands for it): nothing while Steam
+			// is closed; its log while it runs (the manifest's flags are as old as its bytes); the
+			// manifest's flags for a game the log has not named yet
+			moving := false
+			switch {
+			case phases == nil:
+			case logged:
 				moving = phase == steamDownloading
+			default:
+				moving = busy
 			}
 			var state string
 			switch {

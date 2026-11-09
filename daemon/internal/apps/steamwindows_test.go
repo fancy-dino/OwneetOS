@@ -28,14 +28,16 @@ func TestSteamLaunchRead(t *testing.T) {
 	if state.failed || state.task != "CreatingProcess" || !state.waiting || offset != int64(len(head)) {
 		t.Fatalf("before the failure: %+v at %d (want %d)", state, offset, len(head))
 	}
-	at := time.Date(2026, 10, 18, 14, 24, 27, 0, time.Local)
-	if !state.busy(at.Add(time.Second)) || state.busy(at.Add(steamAnswerWait+time.Second)) {
-		t.Fatal("a question just asked is Steam's, one still open is the user's")
+	if !state.busy() || state.asksUser() {
+		t.Fatal("CreatingProcess is Steam's own question, not the user's")
+	}
+	if user := (launchState{task: "ShowEula", waiting: true}); user.busy() || !user.asksUser() {
+		t.Fatal("any other question is the user's, at once")
 	}
 	if err := os.WriteFile(path, []byte(head+failure), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if state, offset = steamLaunchRead(path, offset, "399070", since, state); !state.failed || state.busy(at) || offset != int64(len(head+failure)) {
+	if state, offset = steamLaunchRead(path, offset, "399070", since, state); !state.failed || state.busy() || offset != int64(len(head+failure)) {
 		t.Fatalf("the failure: %+v at %d", state, offset)
 	}
 	// Steam started again: a new, shorter log is read from its start
@@ -105,23 +107,52 @@ func TestSteamHiddenWhileItPreparesTheGame(t *testing.T) {
 	if st := m.Status(); st.Focus != "home" {
 		t.Fatalf("Steam shown while it downloads: %q", st.Focus)
 	}
-	m.mu.Lock()
-	again := m.steamAsk != nil
-	m.mu.Unlock()
-	if !again {
-		t.Fatal("not looked at again")
-	}
 	line(time.Now(), `waiting for user response to ShowInterstitials ""`) // a routine question
 	m.watchSteam()
-	m.steamAskNow()
 	if st := m.Status(); st.Focus != "home" {
 		t.Fatalf("Steam shown for its own question: %q", st.Focus)
 	}
-	line(time.Now().Add(-5*time.Second), `waiting for user response to ShowCloudConflict ""`) // still open
+	// a question for the user: shown as soon as Steam's log says it, no time waited
+	line(time.Now(), `waiting for user response to ShowCloudConflict ""`)
 	m.watchSteam()
-	m.steamAskNow()
 	if st := m.Status(); st.Focus != SteamID {
 		t.Fatalf("Steam not shown for a question to the user: %q", st.Focus)
+	}
+}
+
+// A launch that ends without a game (Steam's own error): Steam is shown as soon as its log says so
+func TestSteamShownWhenTheLaunchEnds(t *testing.T) {
+	m, _, focus, _, _, ch := newSteamManager(t)
+	dir := m.SteamDir
+	os.MkdirAll(filepath.Join(dir, "logs"), 0o755)
+	os.MkdirAll(filepath.Join(dir, "config"), 0o755)
+	os.WriteFile(filepath.Join(dir, "config", "loginusers.vdf"), []byte(`"users" { "76561190000000001" { "AccountName" "a" } }`), 0o644)
+	log := filepath.Join(dir, "logs", "console_log.txt")
+	os.WriteFile(log, nil, 0o644)
+	line := func(what string) {
+		f, _ := os.OpenFile(log, os.O_APPEND|os.O_WRONLY, 0)
+		f.WriteString("[" + time.Now().Format("2006-01-02 15:04:05") + "] GameAction [AppID 480, ActionID 1] : LaunchApp " + what + "\n")
+		f.Close()
+	}
+	if err := m.Steam(SteamRequest{Run: "480", Name: "Spacewar"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "app.started")
+	m.mu.Lock()
+	m.steamLaunch.at = time.Now().Add(-time.Minute)
+	m.mu.Unlock()
+	focus.openWindow(1001)
+	settle(m)
+	line(`changed task to SynchronizingCloud with ""`)
+	m.watchSteam()
+	m.steamAskNow() // the safety limit while Steam works: still hidden
+	if st := m.Status(); st.Focus != "home" {
+		t.Fatalf("Steam shown while it works: %q", st.Focus)
+	}
+	line(`failed with AppError_7 with "no licence"`)
+	m.watchSteam()
+	if st := m.Status(); st.Focus != SteamID {
+		t.Fatalf("Steam not shown after the launch failed: %q", st.Focus)
 	}
 }
 

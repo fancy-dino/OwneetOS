@@ -50,6 +50,7 @@ type fakeScreen struct {
 	mu          sync.Mutex
 	app, window uint32
 	text        bool
+	changes     chan bool
 }
 
 func (f *fakeScreen) Focused() (uint32, uint32, error) {
@@ -58,7 +59,24 @@ func (f *fakeScreen) Focused() (uint32, uint32, error) {
 	return f.app, f.window, nil
 }
 func (f *fakeScreen) TextCursor() (bool, error) { f.mu.Lock(); defer f.mu.Unlock(); return f.text, nil }
-func (f *fakeScreen) Close()                    {}
+func (f *fakeScreen) CursorChanges() <-chan bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.changes == nil {
+		f.changes = make(chan bool, 4)
+	}
+	return f.changes
+}
+
+// shape: the app changes the pointer's image (as XFixes tells it)
+func (f *fakeScreen) shape(text bool) {
+	f.mu.Lock()
+	f.text = text
+	f.mu.Unlock()
+	f.CursorChanges()
+	f.changes <- text
+}
+func (f *fakeScreen) Close() {}
 func (f *fakeScreen) set(app, window uint32) {
 	f.mu.Lock()
 	f.app, f.window = app, window
@@ -225,6 +243,31 @@ func TestClickOnATextField(t *testing.T) {
 	apps.mu.Unlock()
 	if homes != 1 {
 		t.Fatalf("home %d", homes)
+	}
+}
+
+// The app gives the pointer the text "I" only for the click: the keyboard comes when the X server
+// says so, no time waited; after a move, a later change is not the click's
+func TestClickThenTheTextShape(t *testing.T) {
+	m, _, _, screen, now, ch := newPointer(t)
+	screen.set(gameID, 7)
+	m.On("steam:480")
+	advance(m, now, checkEvery)
+	m.input(Input{Control: "a", Value: 1}) // an arrow: nothing yet
+	screen.shape(true)
+	if d := next(t, ch, "pointer.type").Data.(map[string]string); d["reason"] != "field" {
+		t.Fatalf("pointer.type %v", d)
+	}
+	screen.shape(false)
+	m.input(Input{Control: "a", Value: 1})
+	m.input(Input{Control: "dpleft", Value: 1}) // moved before the shape changed
+	screen.shape(true)
+	select {
+	case e := <-ch:
+		if e.Type == "pointer.type" {
+			t.Fatalf("the keyboard after a move: %v", e.Data)
+		}
+	case <-time.After(200 * time.Millisecond):
 	}
 }
 

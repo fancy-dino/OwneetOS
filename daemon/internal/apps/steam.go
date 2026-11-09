@@ -452,10 +452,11 @@ func steamInterfaceReady(dir string, from int64) bool {
 	return err == nil && steamInterfaceUp.Match(data)
 }
 
-// steamAskAfter: a game asked of a hidden Steam that has not started by then probably waits for
-// the user (a licence to accept, a cloud conflict, launch options): Steam is shown. Not while
-// Steam prepares the game's shaders (fossilize_replay, up to a minute or more the first time:
-// FrankenPC, 2026-10-14): the wait starts again when that ends.
+// steamAskAfter: a safety limit ([[waiting-for-events]]). Steam's console log says when it needs the
+// user, or when a launch ends (watchLaunch shows Steam at once then); a game asked of a hidden Steam
+// whose launch the log has not named by this time is shown in Steam, which may be waiting (signed
+// out, an address dropped). Not while Steam prepares the game's shaders (fossilize_replay, up to a
+// minute or more the first time: FrankenPC, 2026-10-14): the limit starts again when that ends.
 const steamAskAfter = 20 * time.Second
 
 // steamPreparingShaders: Steam is preparing a game's shaders (its fossilize_replay processes).
@@ -511,13 +512,13 @@ func (m *Manager) steamAskNow() {
 		m.steamAskLater()
 		return
 	}
-	// Steam still works on the launch (its console log, steamwindows.go): looked at again soon,
-	// so that a question for the user shows at once
+	// Steam still works on the launch (its console log, steamwindows.go): it stays hidden, and
+	// watchLaunch shows it as soon as the log says it needs the user or the launch has ended
 	m.mu.Lock()
 	launch := m.steamLaunch
 	busy, task, told := false, "", true
 	if launch != nil {
-		busy, task = launch.state.busy(time.Now()), launch.state.task
+		busy, task = launch.state.busy(), launch.state.task
 		told, launch.told = launch.told == task, task
 	}
 	if busy {
@@ -528,7 +529,6 @@ func (m *Manager) steamAskNow() {
 		if !told {
 			m.Log.Info("Steam is preparing the game: still hidden", "task", task)
 		}
-		m.steamAskIn(steamAnswerWait)
 		return
 	}
 	m.Log.Info("no Steam game yet: Steam may be waiting for the user, shown")
@@ -740,12 +740,14 @@ func (m *Manager) steamGame(appid string, reaper int, unit string) *App {
 		}
 		m.cageFocus(sess)
 	}
-	time.AfterFunc(steamAskAfter, func() { m.steamGameNoWindow(app) })
+	// the safety limit: Steam's log says when it waits for the user (watchLaunch); a game may take
+	// long to open its window on a slow PC, so only this long without one shows Steam behind it
+	time.AfterFunc(steamLaunchWatch, func() { m.steamGameNoWindow(app) })
 	return app
 }
 
-// steamGameNoWindow: steamAskAfter after a Steam game started, still without a window: Steam may
-// be waiting for the user (e.g. a question before the game), so it is shown behind the game again.
+// steamGameNoWindow: a Steam game started, still without a window, and Steam's log says it waits for
+// the user (or steamLaunchWatch has passed without a word): Steam is shown behind the game again.
 func (m *Manager) steamGameNoWindow(app *App) {
 	m.mu.Lock()
 	steam, running := m.apps[SteamID]

@@ -69,6 +69,9 @@ type App struct {
 }
 
 // settleChecks is how many once-a-second checks a settling app's window must stay before it is shown.
+// Not an event's stand-in by choice: Steam says nothing when it stops changing its windows (its
+// logs checked, 2026-11-09), so steadiness is measured ([[waiting-for-events]]; its interface's own
+// start is read from its log, steamInterfaceReady).
 const settleChecks = 3
 
 // When the console starts Steam, its window stays hidden until Steam's interface has started: before
@@ -76,7 +79,8 @@ const settleChecks = 3
 // 3 s before that moment was lost, one 2 s after it opened). The moment depends on the computer, so
 // it is read from Steam's log (steamInterfaceReady), not waited for. steamHoldMax: checks after which
 // the window shows anyway, should that line never come (the user must never be left waiting).
-// steamPageChecks: how long the page asked for has to replace Steam's home before the window shows.
+// steamPageChecks: how long the page asked for has to replace Steam's home before the window shows
+// (Steam logs no page it shows: steadiness again).
 const (
 	steamHoldMax    = 30
 	steamPageChecks = 3

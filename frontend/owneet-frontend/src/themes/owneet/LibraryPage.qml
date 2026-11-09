@@ -90,13 +90,23 @@ FocusScope {
     }
     readonly property bool addGamesSelected: grid.currentItem !== null && grid.currentItem.addTile === true
     // Back from Steam after the games were read again: "Add games" stays selected while the games
-    // arrive (they come a moment after the interface)
+    // arrive (they come a moment after the interface), until the reading has ended (no time waited,
+    // [[waiting-for-events]])
     property bool startOnAddGames: false
-    onStartOnAddGamesChanged: if (startOnAddGames) addGamesHold.restart()
-    Timer { id: addGamesHold; interval: 4000; onTriggered: page.startOnAddGames = false }
     onPlacesChanged: {
         syncGrid();
         Qt.callLater(startOnAddGames ? selectAddGames : keepSelected);
+        if (startOnAddGames && !Internal.scanner.running)
+            startOnAddGames = false;            // the games have all arrived
+    }
+    Connections {
+        target: Internal.scanner
+        function onRunningChanged() {
+            if (!Internal.scanner.running && page.startOnAddGames) {
+                page.selectAddGames();
+                page.startOnAddGames = false;
+            }
+        }
     }
     // The grid keeps its covers while the places change: one row per place, kept by its key, so a
     // game that stays keeps its cover (a cover made again shows nothing for a moment: the list

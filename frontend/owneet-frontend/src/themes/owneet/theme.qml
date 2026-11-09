@@ -370,11 +370,10 @@ FocusScope {
                     root.agreementAccepted(String(data.id).slice(6));
                 if (type === "app.exited" && (data.id === "steam" || String(data.id).startsWith("steam:")))
                     root.refreshSteam(true);
-                if (type === "app.exited")
-                    refreshTimer.restart();       // play time and "last played" have changed
             } else if (type === "steam.launch_failed") {
                 if (data && data.reason === "linux_version") root.askWindowsVersion(String(data.appid));
             } else if (type === "focus.changed") {
+                if (root.pointerTextApp !== "" && data.focus === root.pointerTextApp) root.sendPointerTextNow();
                 if (data.focus === "home") root.refreshSteam(true);
                 // Back on the home screen from a game or an app (Guide, or it closed): the "launch" sound,
                 // the other way (owner's test with Steam, 2026-11-05)
@@ -520,21 +519,21 @@ FocusScope {
     }
     function sendPointerText(app) {
         pointerText = pointerInput.text;
+        pointerTextApp = pointerText !== "" ? app.id : "";
         osk.close(true);
         dialog.close(true);
         root.resume(app);
-        if (pointerText !== "") pointerSend.restart();
     }
-    Timer {                                   // the window is on screen again: the text goes to it
-        id: pointerSend
-        interval: 400
-        onTriggered: {
-            const text = root.pointerText;
-            root.pointerText = "";
-            owneetd.post("/v1/input/text", { text: text }, status => {
-                if (status !== 204) toast.show(Tr.tr("error.pointer.text"));
-            });
-        }
+    // the text goes to the app as soon as its window is on screen again (owneetd's "focus.changed":
+    // no time waited, [[waiting-for-events]])
+    property string pointerTextApp: ""
+    function sendPointerTextNow() {
+        const text = root.pointerText;
+        root.pointerText = "";
+        root.pointerTextApp = "";
+        owneetd.post("/v1/input/text", { text: text }, status => {
+            if (status !== 204) toast.show(Tr.tr("error.pointer.text"));
+        });
     }
     // back: what Cancel and B also do (e.g. bring the web app back)
     function confirmClose(app, back) {
@@ -721,9 +720,13 @@ FocusScope {
             });
         }
         game.launch();                    // through owneetd, [[step-3.8-frontend-daemon-bridge]]
-        refreshTimer.restart();           // "last played" changes once the game has started
     }
-    Timer { id: refreshTimer; interval: 3000; onTriggered: root.refreshGames() }
+    // play counts, play time and "last played" change: the recent games again, when the games say
+    // so (no time waited, [[waiting-for-events]])
+    Connections {
+        target: api.allGames
+        function onDataChanged() { root.refreshGames(); }
+    }
     // Details: Play an installed game, Install one that is not, otherwise Close; the facts follow
     // the download while the window is open (4.2c)
     function showDetails(game) {
@@ -4317,7 +4320,9 @@ FocusScope {
         function onStartupStarted() { intro.go(); }
     }
     // The black waits before the animation starts: a real screen may take seconds to show the session's
-    // first frames, and it would miss the fade (owner's tests on FrankenPC, 2026-11-05)
+    // first frames, and it would miss the fade (owner's tests on FrankenPC, 2026-11-05). A duration
+    // chosen with the owner, not an event's stand-in: nothing tells a program when the monitor shows
+    // the picture ([[waiting-for-events]]).
     Timer {
         id: introHold
         interval: 2500

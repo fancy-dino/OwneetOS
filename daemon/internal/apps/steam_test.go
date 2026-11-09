@@ -444,7 +444,7 @@ func TestSteamGameStartedInSteamAndSteamClosing(t *testing.T) {
 
 // A Steam game that has no window yet keeps Steam's window off the screen (Silksong, FrankenPC
 // 2026-10-16: Steam's window was shown for 10 s before the game's): the home screen covers the
-// wait; Steam comes back behind the game once the game's window is there, or after steamAskAfter
+// wait; Steam comes back behind the game once the game's window is there, or after steamLaunchWatch
 // without one (Steam may be asking the user something).
 func TestSteamStaysBehindAGameWithoutWindow(t *testing.T) {
 	m, units, focus, procs, _, ch := newSteamManager(t)
@@ -484,10 +484,10 @@ func TestSteamStaysBehindAGameWithoutWindow(t *testing.T) {
 	m.mu.Unlock()
 	m.steamGameNoWindow(game) // the game had its window: nothing changes
 	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) {
-		t.Fatalf("after steamAskAfter with a window: %v", got)
+		t.Fatalf("after steamLaunchWatch with a window: %v", got)
 	}
 
-	// another game that never opens a window: Steam is shown after steamAskAfter
+	// another game that never opens a window: Steam is shown after steamLaunchWatch
 	procs.remove(2001)
 	procs.remove(2000)
 	m.scanSteam()
@@ -505,7 +505,7 @@ func TestSteamStaysBehindAGameWithoutWindow(t *testing.T) {
 	}
 	m.steamGameNoWindow(other)
 	if got := shown(); !sameIDs(got, []uint32{otherID, steamID, HomeAppID}) || m.Status().Focus != SteamID {
-		t.Fatalf("after steamAskAfter without a window: %v, focus %q", got, m.Status().Focus)
+		t.Fatalf("after steamLaunchWatch without a window: %v, focus %q", got, m.Status().Focus)
 	}
 }
 
@@ -753,6 +753,16 @@ func TestSteamStatusDownloadsAndDisks(t *testing.T) {
 	if len(st.Downloads) != 2 || st.Downloads[0].State != "queued" || st.Downloads[1].State != "queued" {
 		t.Fatalf("first look %+v", st.Downloads)
 	}
+	// Steam runs: its log says 510 downloads; 480's manifest says its update runs
+	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, steamContentLog(dir), "[2026-11-09 10:00:00] AppID 510 App update changed : Running Update,Downloading,Staging,\n")
+	man("510", 1026, 100, 2000)
+	m.SteamStatus()
+	m.steamMu.Lock()
+	m.steamSamples["510"].at = time.Now().Add(-time.Second)
+	m.steamMu.Unlock()
 	man("510", 1026, 900, 2000)
 	man("480", 4|stateUpdateRunning, 30, 60)
 	st = m.SteamStatus()

@@ -240,6 +240,8 @@ NavArea {
             });
         }
     }
+    // the search ends with owneetd's "wifi.scan_done" (below); this is only its safety limit, should
+    // that never come ([[waiting-for-events]])
     Timer { id: scanTimer; interval: 20000; onTriggered: page.scanning = false }
     property var display: null
     function refreshDisplay() {
