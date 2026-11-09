@@ -48,6 +48,13 @@ NavArea {
     }
     property real now: Date.now()
     Timer { interval: 30000; running: page.running !== null; repeat: true; onTriggered: page.now = Date.now() }
+    // how long a game or a web app has been open: minutes up to an hour, then hours and minutes
+    // (owner, 2026-11-09: as the time left of a download)
+    function since(key, minutes) {
+        if (minutes < 60) return Tr.trn(key, minutes);
+        const h = Math.floor(minutes / 60), m = minutes % 60;
+        return m === 0 ? Tr.tr(key + ".hours.whole", { h: h }) : Tr.tr(key + ".hours", { h: h, m: m });
+    }
     readonly property int playingMinutes: running && running.started
         ? Math.max(0, Math.floor((now - new Date(running.started).getTime()) / 60000)) : 0
     signal resume(var app)
@@ -328,8 +335,8 @@ NavArea {
                         }
                     }
                     Text {
-                        text: page.webOpen ? Tr.trn("home.open.time", page.playingMinutes)
-                            : page.running ? Tr.trn("home.session", page.playingMinutes) : GameInfo.lastPlayed(page.hero)
+                        text: page.webOpen ? page.since("home.open.time", page.playingMinutes)
+                            : page.running ? page.since("home.session", page.playingMinutes) : GameInfo.lastPlayed(page.hero)
                         color: page.webOpen ? Theme.muted : "#E6FFFFFF"
                         font.family: Theme.textFont
                         font.pixelSize: Theme.fs(14.5)

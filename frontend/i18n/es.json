@@ -203,11 +203,15 @@
     "one": "Jugando desde hace {n} min",
     "other": "Jugando desde hace {n} min"
   },
+  "home.session.hours": "Jugando desde hace {h} h {m} min",
+  "home.session.hours.whole": "Jugando desde hace {h} h",
   "home.open": "Abierto ahora",
   "home.open.time": {
     "one": "Abierto desde hace {n} min",
     "other": "Abierto desde hace {n} min"
   },
+  "home.open.time.hours": "Abierto desde hace {h} h {m} min",
+  "home.open.time.hours.whole": "Abierto desde hace {h} h",
   "home.closeapp": "Cerrar",
   "closeapp.text": "Lo que se está reproduciendo se detiene.",
   "error.apps.open": "No se ha podido abrir la app.",
@@ -558,6 +562,8 @@
   "details.speed": "Velocidad",
   "details.left": "Tiempo restante",
   "details.left.minutes": "unos {n} min",
+  "details.left.hours": "unas {h} h {m} min",
+  "details.left.hours.whole": "{h} h",
   "details.left.less": "menos de un minuto",
   "details.queue": "Esperando a: {title}",
   "details.away": "Conecta el disco «{disk}» para jugarlo.",

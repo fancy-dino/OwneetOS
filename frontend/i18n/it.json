@@ -203,11 +203,15 @@
     "one": "In gioco da {n} min",
     "other": "In gioco da {n} min"
   },
+  "home.session.hours": "In gioco da {h} h {m} min",
+  "home.session.hours.whole": "In gioco da {h} h",
   "home.open": "Aperta",
   "home.open.time": {
     "one": "Aperta da {n} min",
     "other": "Aperta da {n} min"
   },
+  "home.open.time.hours": "Aperta da {h} h {m} min",
+  "home.open.time.hours.whole": "Aperta da {h} h",
   "home.closeapp": "Chiudi",
   "closeapp.text": "Quello che sta riproducendo si ferma.",
   "error.apps.open": "Non è stato possibile aprire l’app.",
@@ -558,6 +562,8 @@
   "details.speed": "Velocità",
   "details.left": "Tempo rimanente",
   "details.left.minutes": "circa {n} min",
+  "details.left.hours": "circa {h} h {m} min",
+  "details.left.hours.whole": "{h} h",
   "details.left.less": "meno di un minuto",
   "details.queue": "In attesa di: {title}",
   "details.away": "Collega il disco “{disk}” per giocarci.",

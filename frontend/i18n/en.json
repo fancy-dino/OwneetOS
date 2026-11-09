@@ -203,11 +203,15 @@
     "one": "Playing for {n} min",
     "other": "Playing for {n} min"
   },
+  "home.session.hours": "Playing for {h} h {m} min",
+  "home.session.hours.whole": "Playing for {h} h",
   "home.open": "Open now",
   "home.open.time": {
     "one": "Open for {n} min",
     "other": "Open for {n} min"
   },
+  "home.open.time.hours": "Open for {h} h {m} min",
+  "home.open.time.hours.whole": "Open for {h} h",
   "home.closeapp": "Close",
   "closeapp.text": "Whatever is playing stops.",
   "error.apps.open": "The app could not open.",
@@ -558,6 +562,8 @@
   "details.speed": "Speed",
   "details.left": "Time left",
   "details.left.minutes": "about {n} min",
+  "details.left.hours": "about {h} h {m} min",
+  "details.left.hours.whole": "{h} h",
   "details.left.less": "less than a minute",
   "details.queue": "Waiting for: {title}",
   "details.away": "Connect the “{disk}” disk to play it.",

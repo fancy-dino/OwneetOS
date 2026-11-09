@@ -203,11 +203,15 @@
     "one": "Seit {n} Min. im Spiel",
     "other": "Seit {n} Min. im Spiel"
   },
+  "home.session.hours": "Seit {h} Std. {m} Min. im Spiel",
+  "home.session.hours.whole": "Seit {h} Std. im Spiel",
   "home.open": "Gerade geöffnet",
   "home.open.time": {
     "one": "Seit {n} Min. geöffnet",
     "other": "Seit {n} Min. geöffnet"
   },
+  "home.open.time.hours": "Seit {h} Std. {m} Min. geöffnet",
+  "home.open.time.hours.whole": "Seit {h} Std. geöffnet",
   "home.closeapp": "Schließen",
   "closeapp.text": "Was gerade läuft, wird beendet.",
   "error.apps.open": "Die App konnte nicht geöffnet werden.",
@@ -558,6 +562,8 @@
   "details.speed": "Geschwindigkeit",
   "details.left": "Restzeit",
   "details.left.minutes": "etwa {n} Min.",
+  "details.left.hours": "etwa {h} Std. {m} Min.",
+  "details.left.hours.whole": "{h} Std.",
   "details.left.less": "weniger als eine Minute",
   "details.queue": "Wartet auf: {title}",
   "details.away": "Schließe das Laufwerk „{disk}“ an, um es zu spielen.",

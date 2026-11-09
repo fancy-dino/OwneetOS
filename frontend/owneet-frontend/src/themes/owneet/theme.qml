@@ -111,6 +111,15 @@ FocusScope {
     // installed ones only (every owned Steam game is in the library, 4.2c)
     property var games: []
     function refreshGames() { games = GameInfo.recent(api.allGames); }
+    // A download's time left: minutes up to an hour, then hours and minutes ("about 1 h 56 min", not
+    // "about 116 min": owner, 2026-11-09)
+    function timeLeft(seconds) {
+        if (seconds < 60) return Tr.tr("details.left.less");
+        const minutes = Math.round(seconds / 60);
+        if (minutes < 60) return Tr.tr("details.left.minutes", { n: minutes });
+        const h = Math.floor(minutes / 60), m = minutes % 60;
+        return m === 0 ? Tr.tr("details.left.hours.whole", { h: h }) : Tr.tr("details.left.hours", { h: h, m: m });
+    }
     readonly property var homeGames: GameInfo.sorted(games.filter(g => GameInfo.installed(g)), "played")
 
     // ---- Steam's games as owneetd sees them (4.2c): installed, downloading, on a disk that is not
@@ -766,7 +775,7 @@ FocusScope {
         if (d && (s === "downloading" || s === "updating") && d.rate > 0) {
             const left = (d.total - d.done) / d.rate;
             facts.push([Tr.tr("details.speed"), Number(d.rate / 1e6).toLocaleString(Qt.locale(), "f", 1) + " MB/s"],
-                       [Tr.tr("details.left"), left < 60 ? Tr.tr("details.left.less") : Tr.tr("details.left.minutes", { n: Math.round(left / 60) })]);
+                       [Tr.tr("details.left"), root.timeLeft(left)]);
         }
         if (s === "queued") {
             const first = (GameInfo.steam.downloads || [])[0];
