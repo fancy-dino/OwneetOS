@@ -1,0 +1,56 @@
+@media
+# Videos and Music ([[step-5.6-local-videos-and-music]], approved demo 5.6): the tiles on the home
+# screen; Videos with Continue watching and the folders of two disks; a series, a season with a
+# started episode (its languages, Menu → Resume / Watch from the start), Autoplay on Y; B back up to
+# the home screen on the tile; Music by folder (an album folder with cover.jpg), then by artist
+# (the first reading, the artists, an artist's albums, an album's songs).
+pad right right
+pad down
+shot 01-videos-tile
+pad a
+wait 2
+shot 02-videos-top
+pad down
+pad right
+pad right
+shot 03-series-selected
+pad a
+shot 04-series
+pad a
+pad down
+wait 1
+shot 05-season-started
+pad menu
+shot 06-options
+pad b
+pad y
+shot 07-autoplay-off
+pad y
+pad b
+pad b
+shot 08-back-to-top
+pad b
+shot 09-home-on-tile
+pad right
+pad a
+wait 2
+shot 10-music-folders
+pad a
+pad a
+wait 1
+shot 11-album-folder
+pad b
+pad b
+pad rt
+shot 12-artists-reading
+wait 4
+shot 13-artists
+pad a
+shot 14-artist
+pad a
+wait 1
+shot 15-album
+pad b
+pad b
+pad lt
+shot 16-back-to-folders

@@ -1,0 +1,12 @@
+# Videos and Music with no Videos or Music folder anywhere ([[step-5.6-local-videos-and-music]],
+# approved demo 5.6): each page explains the folder to make.
+pad right right
+pad down
+pad a
+shot 01-videos-empty
+pad b
+pad right
+pad a
+shot 02-music-empty
+pad b
+shot 03-home-on-tile

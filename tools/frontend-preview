@@ -30,6 +30,11 @@
 #                    installers, 4.6):
 #                    scripts, programs, covers (Starfall, Beneath a steel sky), Windows games, and
 #                    folders with only an installer (GOG .sh, Inno Setup, too big, Galaxy, unknown)
+#   @media           an invented USB disk "MEDIA-STICK" with Videos and Music folders (5.6), made
+#                    with FFmpeg: episodes with two audio languages and subtitles, films with a
+#                    subtitle file beside them, songs with tags and pictures (cover.jpg, or their
+#                    own), songs without tags; a Videos folder on the console's disk too, and a
+#                    saved position for one episode
 #   @gamescope       (with @owneetd) the pretend session is gamescope's (Resume, the pointer)
 #   unplug / plug    (with @disk) the invented disk is unplugged / plugged in again
 #   event TYPE JSON  (with @owneetd) the pretend owneetd sends an event, e.g.
@@ -204,6 +209,76 @@ PY
     printf '{"installer": "%s/Old Lighthouse/gog_old_lighthouse.sh", "kind": "sh"}' "$g" > "$HOME/Games/Old Lighthouse/.owneet-installed"
     ls -l "$g/Starfall" >> /out/log.txt
     export OWNEET_DISKS="$disk"
+fi
+
+if grep -q '^@media' /steps.txt; then
+    m=/tmp/disks/MEDIA-STICK; rm -rf "$m"; mkdir -p "$m"
+    picture() { mkdir -p "$(dirname "$1")"; magick -size "$2" gradient:"$3" "$1" 2>/dev/null || convert -size "$2" gradient:"$3" "$1"; }
+    # video PATH SECONDS LANGUAGES(audio, e.g. "eng ita") [SUBTITLES: embedded languages]
+    video() {
+        local out="$1" secs="$2" i=1 args=() maps=(-map 0:v) meta=()
+        mkdir -p "$(dirname "$out")"
+        for lang in $3; do
+            args+=(-f lavfi -i "sine=frequency=$((300 + 110 * i)):duration=$secs")
+            maps+=(-map "$i:a"); meta+=("-metadata:s:a:$((i - 1))" "language=$lang"); i=$((i + 1))
+        done
+        local s=0
+        for lang in ${4:-}; do
+            printf '1\n00:00:01,000 --> 00:00:04,000\nA line (%s)\n' "$lang" > "/tmp/sub-$lang.srt"
+            args+=(-i "/tmp/sub-$lang.srt"); maps+=(-map "$i:s"); meta+=("-metadata:s:s:$s" "language=$lang")
+            i=$((i + 1)); s=$((s + 1))
+        done
+        ffmpeg -v error -y -f lavfi -i "testsrc=size=320x180:rate=5:duration=$secs" "${args[@]}" "${maps[@]}" "${meta[@]}" \
+            -c:v libx264 -preset ultrafast -c:a aac -b:a 32k -c:s srt "$out"
+    }
+    # song PATH SECONDS [key=value tags…] [picture=FILE]
+    song() {
+        local out="$1" secs="$2" pic="" tags=(); shift 2
+        for t in "$@"; do case "$t" in picture=*) pic="${t#picture=}" ;; *) tags+=(-metadata "$t") ;; esac; done
+        mkdir -p "$(dirname "$out")"
+        if [ -n "$pic" ]; then
+            ffmpeg -v error -y -f lavfi -i "sine=frequency=440:duration=$secs" -i "$pic" -map 0 -map 1 -c:v mjpeg \
+                -disposition:v attached_pic "${tags[@]}" "$out"
+        else
+            ffmpeg -v error -y -f lavfi -i "sine=frequency=440:duration=$secs" "${tags[@]}" "$out"
+        fi
+    }
+    v="$m/Videos"
+    picture "$v/Harbour Tales/cover.jpg" 640x360 '#1d3557-#a8dadc'
+    for e in 1 2 3 4; do video "$v/Harbour Tales/Season 1/Episode $e.mkv" $((140 + 10 * e)) "eng ita" "eng ita"; done
+    for e in 1 2; do video "$v/Harbour Tales/Season 2/Episode $e.mkv" 150 "eng ita" "eng"; done
+    picture "$v/Films/folder.jpg" 640x360 '#3d405b-#e07a5f'
+    video "$v/Films/The Long Coast.mkv" 400 "eng"
+    printf '1\n00:00:01,000 --> 00:00:04,000\nThe boat leaves at dawn.\n' > "$v/Films/The Long Coast.en.srt"
+    video "$v/Films/Paper Lanterns.mp4" 380 "eng"
+    video "$v/Holiday 2025/Beach.mp4" 60 "und"
+    video "$v/Holiday 2025/Boat trip.mp4" 90 "und"
+    video "$HOME/Videos/Concerts/Live at the Pier.mkv" 300 "eng"
+    video "$HOME/Videos/Bike ride.mp4" 80 "und"
+    mu="$m/Music"
+    picture "$mu/Coral Avenue/Low Tide/cover.jpg" 500x500 '#ff8a5b-#2a9d8f'
+    n=1; for t in "Morning Light" "Salt Air" "Harbour Walls" "Slow Return"; do
+        song "$mu/Coral Avenue/Low Tide/0$n $t.flac" $((20 + 3 * n)) "title=$t" "artist=Coral Avenue" "album=Low Tide" "track=$n" "date=2023"; n=$((n + 1))
+    done
+    picture /tmp/signal.jpg 400x400 '#6a4c93-#ffca3a'
+    n=1; for t in "Sparks" "Signal Fires" "Embers"; do
+        song "$mu/Coral Avenue/Signal Fires/0$n $t.mp3" 25 "title=$t" "artist=Coral Avenue" "album=Signal Fires" "track=$n/3" "date=2020" picture=/tmp/signal.jpg; n=$((n + 1))
+    done
+    n=1; for t in "Luna piena" "Mare calmo" "Ritorno"; do
+        song "$mu/Marta Vela/Lune/0$n $t.m4a" 22 "title=$t" "artist=Marta Vela" "album=Lune" "track=$n" "date=2024"; n=$((n + 1))
+    done
+    n=1; for t in "Mile Zero" "Open Country"; do
+        song "$mu/Northbound Trio/Long Roads/$n - $t.ogg" 30 "title=$t" "artist=Northbound Trio" "album=Long Roads" "track=$n" "date=2019"; n=$((n + 1))
+    done
+    song "$mu/Mixtape 2019/Paper Boats.mp3" 21 "title=Paper Boats" "artist=Ivy Lanes" "album=Paper Boats" "track=1"
+    song "$mu/Mixtape 2019/Static.mp3" 24 "title=Static" "artist=The Quiet Hours" "album=Static" "track=4"
+    song "$mu/Mixtape 2019/track07.mp3" 18
+    song "$mu/Rain on the roof.mp3" 60
+    # where an episode stopped (mpv's saved position: the MD5 of the video's path)
+    ep="$v/Harbour Tales/Season 1/Episode 2.mkv"
+    mkdir -p "$HOME/.local/state/owneet/watch_later"
+    printf '# %s\nstart=95.000000\n' "$ep" > "$HOME/.local/state/owneet/watch_later/$(printf '%s' "$ep" | md5sum | cut -c1-32 | tr a-f A-F)"
+    export OWNEET_DISKS="${OWNEET_DISKS:+$OWNEET_DISKS:}$m"
 fi
 
 if grep -q '^@owneetd' /steps.txt; then
