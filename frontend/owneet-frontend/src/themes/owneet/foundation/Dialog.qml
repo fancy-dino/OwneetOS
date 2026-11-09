@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A compact window in the middle of the screen (details, options, confirmations): a title, an
 // optional text or content, and round buttons in a centred row, chosen with left / right
-// (approved in demo 3.6). B closes it. Buttons: [{ text, style, action, enabled }] (enabled false:
-// dimmed and not selectable), `defaultIndex` is the
+// (approved in demo 3.6). B closes it. Buttons: [{ text, style, action, enabled, dim }] (enabled
+// false: dimmed and not selectable; dim: dimmed but still selectable, its action says why it does
+// nothing, demo 6.6b), `defaultIndex` is the
 // button selected first (e.g. Cancel in a confirmation), unless `initialItem` (an item of the
 // window's own content, e.g. a text field) is set. `icon` (optional) is drawn above the title,
 // on the accent colour when `iconAttention` (e.g. no internet, demo 4.2c).
@@ -173,7 +174,7 @@ NavArea {
                     text: modelData.text
                     style: modelData.style || "secondary"
                     enabled: modelData.enabled !== false
-                    opacity: enabled ? 1 : 0.45
+                    opacity: enabled && !modelData.dim ? 1 : 0.45
                     readonly property int buttonIndex: index
                 }
             }

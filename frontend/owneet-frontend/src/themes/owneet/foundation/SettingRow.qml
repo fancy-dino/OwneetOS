@@ -9,6 +9,7 @@ Rectangle {
     id: root
     property string text: ""
     property string detail: ""         // a second, smaller line under the label
+    property string aside: ""          // a short muted text after the label, on its line (a size, demo 6.6b)
     property string kind: "switch"
     property bool checked: false
     property string value: ""
@@ -29,14 +30,27 @@ Rectangle {
         anchors { left: parent.left; leftMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
         width: parent.width * 0.6
         spacing: Theme.px(2)
-        Text {
-            id: label
+        Row {
             width: parent.width
-            text: root.text
-            color: Theme.fg
-            font.family: Theme.textFont
-            font.pixelSize: Theme.fs(14.5)
-            elide: Text.ElideRight
+            spacing: Theme.px(6)
+            Text {
+                id: label
+                width: Math.min(implicitWidth, parent.width - (asideText.visible ? asideText.implicitWidth + parent.spacing : 0))
+                text: root.text
+                color: Theme.fg
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(14.5)
+                elide: Text.ElideRight
+            }
+            Text {
+                id: asideText
+                visible: root.aside !== ""
+                anchors.baseline: label.baseline
+                text: "· " + root.aside
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(12.5)
+            }
         }
         Text {
             visible: root.detail !== ""

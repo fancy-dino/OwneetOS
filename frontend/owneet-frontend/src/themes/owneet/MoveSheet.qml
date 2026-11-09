@@ -8,7 +8,10 @@
 // (owneetd: /v1/moves, "moves.changed"). A copy that fails its check is removed and the original
 // stays untouched: "The copy did not work" with Close (selected) and Try again; with several games
 // a summary. A Steam game: Steam moves it (its storage settings). A USB disk with games plugged
-// in: "Play from here / Copy to the console", then which disk (the originals stay).
+// in: "Play from here / Copy to the console", then which games (approved demo 6.6b: a switch per
+// game and "All games", all on at first; the button below copies the ones that are on, selected at
+// first so that one A copies them all; a disk with one game skips it), then which disk (the
+// originals stay); B goes back one window.
 import QtQuick 2.15
 import "foundation"
 
@@ -16,12 +19,14 @@ Dialog {
     id: root
     property Item theme: null            // diskName(), notify(), openSteam(), readGamesQuietly()
     property var toast: null
-    property string mode: ""             // disks, confirm, run, ask, failed, steam, plug
+    property string mode: ""             // disks, confirm, run, ask, failed, steam, plug, choose
     property var games: []               // [{ dir, title, size }]
     property string from: ""             // the disk they are on ("internal" or its folder)
     property string to: ""
     property bool remove: true
     property bool plugged: false         // the USB disk's games, copied to the console
+    property var plugGames: []           // all the plugged-in disk's games (games: the ones chosen)
+    property var chosen: ({})            // dir → true: the games switched on in "Which games to copy?"
     property var volumes: []
     property var st: ({ state: "" })     // owneetd's GET /v1/moves
     readonly property real need: games.reduce((a, g) => a + g.size, 0)
@@ -30,6 +35,15 @@ Dialog {
     readonly property var current: games[Math.min(st.index || 0, Math.max(0, games.length - 1))] || { title: "" }
 
     contentWidth: Theme.px(620)
+    scrollTarget: mode === "choose" ? chooseFlick : null
+    // the selected switch stays in sight when the games scroll (as VersionsSheet)
+    onMoved: if (mode === "choose" && Nav.navigables(chooseList).indexOf(item) >= 0) {
+        const y = item.mapToItem(chooseList, 0, 0).y, pad = chooseFlick.pad;
+        if (y < chooseFlick.contentY)
+            chooseFlick.contentY = Math.max(0, y);
+        else if (y + item.height + 2 * pad > chooseFlick.contentY + chooseFlick.height)
+            chooseFlick.contentY = Math.min(chooseFlick.contentHeight - chooseFlick.height, y + item.height + 2 * pad - chooseFlick.height);
+    }
 
     // why a disk cannot take the games ("" when it can)
     function why(v) {
@@ -55,17 +69,66 @@ Dialog {
         from = key;
         plugged = true;
         remove = false;
-        games = list.map(g => ({ dir: String(g.extra["disk.dir"]), title: g.title, size: diskGames.folderSize(String(g.extra["disk.dir"])) }));
+        plugGames = list.map(g => ({ dir: String(g.extra["disk.dir"]), title: g.title, size: diskGames.folderSize(String(g.extra["disk.dir"])) }));
+        games = plugGames;
+        const all = {};
+        plugGames.forEach(g => all[g.dir] = true);
+        chosen = all;
+        showPlug();
+    }
+    function showPlug() {
         mode = "plug";
-        title = Tr.tr("move.plug.title", { n: games.length });
+        title = Tr.tr("move.plug.title", { n: plugGames.length });
         text = Tr.tr("move.plug.text");
         buttons = [{ text: Tr.tr("move.plug.here"), style: "primary", action: () => root.close() },
-                   { text: Tr.tr("move.plug.copy"), action: () => root.showDisks() }];
+                   { text: Tr.tr("move.plug.copy"), action: () => plugGames.length > 1 ? root.showChoose() : root.showDisks() }];
         prompts = defaultPrompts;
         backAction = null;
         initialItem = null;
         defaultIndex = 0;
-        open();
+        open(visible);
+        if (visible) Qt.callLater(focusDefault);
+    }
+    // ---- 6.6b: which games to copy
+    readonly property var chosenGames: plugGames.filter(g => chosen[g.dir])
+    function goButton() {
+        const c = chosenGames;
+        const text = c.length === 0 ? Tr.tr("move.plug.go.none")
+                   : c.length === 1 ? Tr.tr("move.plug.go.one", { title: c[0].title, size: GameInfo.sizeAuto(c[0].size) })
+                   : Tr.tr("move.plug.go", { n: c.length, size: GameInfo.sizeAuto(c.reduce((a, g) => a + g.size, 0)) });
+        return [{ text: text, style: "primary", dim: c.length === 0, action: () => root.chooseDone() }];
+    }
+    function showChoose() {
+        chooseFlick.contentY = 0;
+        mode = "choose";
+        title = Tr.tr("move.plug.choose");
+        text = Tr.tr("move.plug.choose.text");
+        buttons = goButton();
+        prompts = defaultPrompts;
+        backAction = () => root.showPlug();
+        initialItem = null;
+        defaultIndex = 0;
+        Qt.callLater(focusDefault);   // the button: one A copies them all
+    }
+    // A on a switch: it changes in place, the selection stays on it
+    function toggle(dir) {
+        const c = Object.assign({}, chosen);
+        if (dir === "") {             // All games
+            const all = chosenGames.length === plugGames.length;
+            plugGames.forEach(g => c[g.dir] = !all);
+        } else {
+            c[dir] = !c[dir];
+        }
+        chosen = c;
+        buttons = goButton();
+    }
+    function chooseDone() {
+        if (chosenGames.length === 0) {
+            Nav.feedback("edge");
+            return;
+        }
+        games = chosenGames;
+        showDisks();
     }
     function openSteam(game) {
         mode = "steam";
@@ -82,13 +145,15 @@ Dialog {
     function showDisks() {
         volumes = storage.volumes();
         mode = "disks";
-        title = plugged ? Tr.tr("move.plug.where", { n: games.length, size: GameInfo.sizeAuto(need) })
+        title = plugged ? (games.length === 1 ? Tr.tr("move.plug.where.one", { title: games[0].title, size: GameInfo.sizeAuto(need) })
+                                              : Tr.tr("move.plug.where", { n: games.length, size: GameInfo.sizeAuto(need) }))
                         : Tr.tr("move.title", { title: games[0].title });
         text = plugged ? Tr.tr("move.plug.where.text")
                        : Tr.tr("move.where", { size: GameInfo.sizeAuto(need), disk: fromName });
         buttons = [];
         prompts = defaultPrompts;
-        backAction = null;
+        // a plugged-in disk: B goes back one window (demo 6.6b)
+        backAction = !plugged ? null : plugGames.length > 1 ? () => root.showChoose() : () => root.showPlug();
         // the usable disk with the most room first
         const best = targets().filter(v => why(v) === "").sort((a, b) => b.free - a.free)[0];
         initialItem = null;
@@ -186,8 +251,10 @@ Dialog {
         if (root.theme) {
             root.theme.readGamesQuietly();
             if (ok > 0 && failedTitles.length === 0) {
-                if (plugged)
+                if (plugged && games.length > 1)
                     root.theme.notify({ key: "move.plug.done", args: { n: games.length, disk: toName }, detailKey: "move.plug.where.text", icon: "check", kind: "info" });
+                else if (plugged)
+                    root.theme.notify({ key: "copy.done", args: { title: games[0].title, disk: toName }, detailKey: "move.plug.where.text", icon: "check", kind: "info" });
                 else
                     root.theme.notify({ key: remove ? "move.done" : "copy.done", args: { title: games[0].title, disk: toName },
                                         detailKey: remove ? "move.done.text" : "copy.done.text", icon: "check", kind: "info" });
@@ -228,7 +295,8 @@ Dialog {
                 readonly property string reason: root.why(modelData)
                 readonly property bool navigable: reason === ""
                 signal activated()
-                onActivated: root.confirm(modelData.key)
+                // a plugged-in disk's games are copied at once, the originals kept (approved demo 6.6)
+                onActivated: if (root.plugged) { root.to = modelData.key; root.start(); } else root.confirm(modelData.key)
                 width: parent.width
                 height: rowColumn.implicitHeight + Theme.px(24)
                 radius: Theme.radiusM
@@ -279,6 +347,41 @@ Dialog {
                     }
                 }
                 FocusFrame {}
+            }
+        }
+    }
+    Flickable {                           // which games to copy (6.6b): many games scroll in the window
+        id: chooseFlick
+        visible: root.mode === "choose"
+        width: Theme.px(620) + 2 * pad   // the rows 620 wide; the margin keeps the selection's frame whole
+        height: Math.min(contentHeight, Theme.px(360))
+        anchors.horizontalCenter: parent.horizontalCenter
+        clip: true
+        readonly property real pad: Theme.px(10)
+        contentHeight: chooseList.height + 2 * pad
+        boundsBehavior: Flickable.StopAtBounds
+        Behavior on contentY { enabled: !Theme.reduceMotion; NumberAnimation { duration: Theme.motionMs; easing.type: Easing.OutCubic } }
+        Column {
+            id: chooseList
+            x: chooseFlick.pad; y: chooseFlick.pad
+            width: Theme.px(620)
+            spacing: Theme.px(10)
+            SettingRow {
+                width: parent.width
+                text: Tr.tr("move.plug.all")
+                aside: GameInfo.sizeAuto(root.plugGames.reduce((a, g) => a + g.size, 0))
+                checked: root.chosenGames.length === root.plugGames.length
+                onActivated: root.toggle("")
+            }
+            Repeater {
+                model: root.mode === "choose" ? root.plugGames : []
+                SettingRow {
+                    width: parent.width
+                    text: modelData.title
+                    aside: GameInfo.sizeAuto(modelData.size)
+                    checked: root.chosen[modelData.dir] === true
+                    onActivated: root.toggle(modelData.dir)
+                }
             }
         }
     }
