@@ -134,7 +134,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/webapps/ask-close", s.handleWebAppsAskClose)
 	mux.HandleFunc("POST /v1/apps/{id}/close", s.handleAppAction(Apps.Close))
 	mux.HandleFunc("POST /v1/apps/{id}/kill", s.handleAppAction(Apps.Kill))
-	mux.HandleFunc("POST /v1/apps/{id}/focus", s.handleAppAction(Apps.FocusApp))
+	mux.HandleFunc("POST /v1/apps/{id}/focus", s.handleAppAction(func(a Apps, id string) error {
+		err := a.FocusApp(id)
+		if err == nil && s.Log != nil {
+			s.Log.Info("back to the app, asked by the interface", "id", id) // e.g. Resume (Guide logs its own)
+		}
+		return err
+	}))
 	mux.HandleFunc("GET /v1/update", s.handleUpdate)
 	mux.HandleFunc("POST /v1/update/check", s.handleUpdateAction(Update.Check))
 	mux.HandleFunc("POST /v1/update/apply", s.handleUpdateAction(Update.Apply))

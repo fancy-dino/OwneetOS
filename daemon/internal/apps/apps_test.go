@@ -93,13 +93,22 @@ func (f *fakeFocus) closeWindow(id uint32) {
 		changed()
 	}
 }
+
+// recompute: the first app asked for that has a window; with none, gamescope keeps the window it
+// showed while that window is there (with it gone, its last picture: nothing focused)
 func (f *fakeFocus) recompute() {
+	before := f.focused
 	f.focused = 0
 	for _, id := range f.shown {
 		for _, v := range f.visible {
 			if v == id && f.focused == 0 {
 				f.focused = id
 			}
+		}
+	}
+	for _, v := range f.visible {
+		if f.focused == 0 && v == before {
+			f.focused = before
 		}
 	}
 }
@@ -429,18 +438,19 @@ func TestCageHoldGuideToClose(t *testing.T) {
 
 // A game's window goes away while its process still ends (Proton): the home screen is announced as
 // soon as gamescope says so, not at the next regular check (the late sound, owner's test 2026-11-08)
+// An app's window goes while the app runs on: the home screen behind it is announced at once.
 func TestHomeAnnouncedWhenTheWindowGoes(t *testing.T) {
 	m, _, focus, ch := newManager(t, "gamescope")
 	m.checkEvery = time.Hour // only gamescope's notice can do it
 	m.watchSession()
 	focus.openWindow(10) // the home screen
-	if _, err := m.Launch(LaunchRequest{ID: "game", Name: "Game", Kind: KindGame, Command: []string{"/bin/game"}}); err != nil {
+	if _, err := m.Launch(LaunchRequest{ID: "app", Name: "App", Kind: KindApp, Command: []string{"/bin/app"}}); err != nil {
 		t.Fatal(err)
 	}
 	focus.openWindow(1001)
 	m.checkWindows()
-	if st := m.Status(); st.Focus != "game" {
-		t.Fatalf("game not on screen: %q", st.Focus)
+	if st := m.Status(); st.Focus != "app" {
+		t.Fatalf("app not on screen: %q", st.Focus)
 	}
 	stop := make(chan struct{})
 	defer close(stop)
@@ -448,7 +458,7 @@ func TestHomeAnnouncedWhenTheWindowGoes(t *testing.T) {
 	for len(ch) > 0 {
 		<-ch
 	}
-	focus.closeWindow(m.appIDOf("game"))
+	focus.closeWindow(m.appIDOf("app"))
 	timeout := time.After(2 * time.Second)
 	for {
 		select {
@@ -459,5 +469,73 @@ func TestHomeAnnouncedWhenTheWindowGoes(t *testing.T) {
 		case <-timeout:
 			t.Fatal("home not announced when gamescope said the window went")
 		}
+	}
+}
+
+// A game started by the console goes alone in front: between two of its windows (its launcher
+// closes, its game window opens) gamescope keeps its last picture and the home screen is not
+// announced (The Witcher 2 on FrankenPC, 2026-11-09); Guide, Resume and its end work as before.
+func TestGameKeepsTheScreenBetweenItsWindows(t *testing.T) {
+	m, _, focus, ch := newManager(t, "gamescope")
+	m.watchSession()
+	focus.openWindow(10) // the home screen
+	focus.Show([]uint32{HomeAppID})
+	if _, err := m.Launch(LaunchRequest{ID: "game", Name: "Game", Kind: KindGame, Command: []string{"/bin/game"}}); err != nil {
+		t.Fatal(err)
+	}
+	game := m.appIDOf("game")
+	if !sameIDs(focus.shown, []uint32{game}) {
+		t.Fatalf("shown at launch: %v", focus.shown)
+	}
+	m.checkWindows()
+	if st := m.Status(); st.Focus != "home" { // no window yet: the home screen stays
+		t.Fatalf("before its window: %q", st.Focus)
+	}
+	focus.openWindow(1001) // the launcher
+	m.checkWindows()
+	if st := m.Status(); st.Focus != "game" {
+		t.Fatalf("launcher not on screen: %q", st.Focus)
+	}
+	for len(ch) > 0 {
+		<-ch
+	}
+	focus.closeWindow(game) // the launcher closes; the game's window is not there yet
+	m.checkWindows()
+	focus.openWindow(1001) // the game's window
+	m.checkWindows()
+	for len(ch) > 0 {
+		if e := <-ch; e.Type == "focus.changed" && e.Data.(map[string]string)["focus"] == "home" {
+			t.Fatal("home announced between two windows of the game")
+		}
+	}
+	if st := m.Status(); st.Focus != "game" {
+		t.Fatalf("game window not on screen: %q", st.Focus)
+	}
+	// Guide, then Resume: the game goes alone in front again
+	if err := m.ShowHome(); err != nil || m.Status().Focus != "home" {
+		t.Fatalf("home: %v %q", err, m.Status().Focus)
+	}
+	if err := m.FocusApp("game"); err != nil || !sameIDs(focus.shown, []uint32{game}) || m.Status().Focus != "game" {
+		t.Fatalf("resume: %v %v %q", err, focus.shown, m.Status().Focus)
+	}
+	// the game closes its window, then its process ends: the home screen
+	focus.closeWindow(game)
+	m.checkWindows()
+	m.exited(Exit{Unit: UnitName("game"), Result: "success"})
+	if !sameIDs(focus.shown, []uint32{HomeAppID}) || m.Status().Focus != "home" {
+		t.Fatalf("after its end: %v %q", focus.shown, m.Status().Focus)
+	}
+}
+
+// An app (not a game) keeps the home screen behind it.
+func TestAppKeepsTheHomeScreenBehind(t *testing.T) {
+	m, _, focus, _ := newManager(t, "gamescope")
+	m.watchSession()
+	focus.openWindow(10)
+	if _, err := m.Launch(LaunchRequest{ID: "app", Name: "App", Kind: KindApp, Command: []string{"/bin/app"}}); err != nil {
+		t.Fatal(err)
+	}
+	if !sameIDs(focus.shown, []uint32{m.appIDOf("app"), HomeAppID}) {
+		t.Fatalf("shown: %v", focus.shown)
 	}
 }

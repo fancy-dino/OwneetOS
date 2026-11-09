@@ -655,7 +655,7 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 	// gamescope: the new app comes to the front as soon as it has a window (a settling one once
 	// its window is steady: checkWindows); the home screen stays on screen until then.
 	if f := m.focus(sess); f != nil {
-		first := []uint32{app.appID, HomeAppID}
+		first := front(app)
 		if app.settle {
 			first = []uint32{HomeAppID}
 		}
@@ -722,7 +722,11 @@ func (m *Manager) ended(app *App, result string) {
 	m.Broker.Publish("app.exited", map[string]string{"id": app.ID, "name": app.Name, "result": result})
 	if sess, err := m.Session(); err == nil {
 		if f := m.focus(sess); f != nil {
-			if focused, err := f.Focused(); err == nil && (focused == app.appID || focused == 0) {
+			m.mu.Lock()
+			// another game alone in front, between two of its windows (front): it keeps the screen
+			gap := len(m.shown) == 1 && m.shown[0] != HomeAppID && m.shown[0] != app.appID
+			m.mu.Unlock()
+			if focused, err := f.Focused(); err == nil && (focused == app.appID || (focused == 0 && !gap)) {
 				m.show(f, []uint32{HomeAppID}) // back to the home screen
 			}
 		}
@@ -815,6 +819,22 @@ func (m *Manager) Kill(id string) error {
 }
 
 // show asks gamescope to show the first of these apps that has a window, and remembers it.
+// front is what gamescope may show when an app is brought to the front. A game started by the
+// console goes alone: while it changes windows (its launcher closes, then its own window opens)
+// gamescope keeps showing its last picture, instead of falling back to the home screen (The Witcher
+// 2 on FrankenPC, 2026-11-09: the game and the home screen in turn, the "back home" sound each
+// time; [[step-4.5-windows-games-proton]]). Until its first window the home screen stays (gamescope
+// keeps what it showed); the home screen comes back when the game ends (ended) or with Guide.
+// Other apps keep the home screen behind them, since an app may go on without a window (Steam in
+// the background) and the home screen must come back then; Steam's games keep Steam behind them
+// (steam.go), as its questions come in its own window.
+func front(a *App) []uint32 {
+	if a.Kind == KindGame && !strings.HasPrefix(a.ID, steamGamePrefix) {
+		return []uint32{a.appID}
+	}
+	return []uint32{a.appID, HomeAppID}
+}
+
 func (m *Manager) show(f Focus, appIDs []uint32) error {
 	m.mu.Lock()
 	m.shown = append([]uint32(nil), appIDs...)
@@ -884,8 +904,9 @@ func (m *Manager) FocusApp(id string) error {
 	m.init()
 	a, ok := m.apps[id]
 	var appID uint32
+	var shown []uint32
 	if ok {
-		appID = a.appID
+		appID, shown = a.appID, front(a)
 	}
 	m.mu.Unlock()
 	if !ok {
@@ -909,7 +930,7 @@ func (m *Manager) FocusApp(id string) error {
 	}
 	for _, v := range visible {
 		if v == appID {
-			if err := m.show(f, []uint32{appID, HomeAppID}); err != nil {
+			if err := m.show(f, shown); err != nil {
 				return err
 			}
 			m.focusChanged(id)
