@@ -30,6 +30,11 @@ export WINEPREFIX="$prefix" PROTONPATH="$proton" GAMEID="${GAMEID:-umu-default}"
 # No pointer or mapping added inside games (owner, 2026-10-16, [[games-on-disk]]): GE-Proton's
 # Xalia (the controller as a mouse in Windows programs) stays off
 export PROTON_USE_XALIA=0
+# Steam's virtual controller (28de:11ff, made while Steam runs) sends nothing to a game started
+# outside Steam, yet Proton read it as the game's first controller, before the real one (The
+# Witcher 2 on FrankenPC, 2026-11-09, [[step-4.5-windows-games-proton]]). With this, Proton leaves
+# it out ("ignoring steam input virtual controller") and the real controllers come through SDL.
+export PROTON_NO_STEAMINPUT=1
 
 # Testers: owneet.debug.windows_log=on (boot menu, or owneet-debug.txt on the OWNEETLOG stick)
 # writes Proton's log in ~/.local/share/owneet/windows/logs/<game> (the test report copies it),
