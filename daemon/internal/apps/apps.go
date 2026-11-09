@@ -147,7 +147,7 @@ type Exit struct {
 type Focus interface {
 	// Watch tags windows with the app id that tag returns for their process, and passes on what
 	// someone else (Steam) asks gamescope to show; runs until closed.
-	Watch(tag func(pid int) uint32, request func(appIDs []uint32))
+	Watch(tag func(pid int) uint32, request func(appIDs []uint32), changed func())
 	// Show shows the first of these apps that has a window.
 	Show(appIDs []uint32) error
 	// Focused returns the app id on screen (0: none).
@@ -227,11 +227,16 @@ type Manager struct {
 	steamContent steamContent            // Steam's content log, read as it grows (steamprogress.go)
 	steamLast    string                  // the last status sent as "steam.changed"
 	steamRunning bool                    // Steam ran at the last check
+	screenWake   chan struct{}           // gamescope's notice that the screen may have changed
+	checkEvery   time.Duration           // the regular checks (a second; tests: longer)
 }
 
 func (m *Manager) init() {
 	if m.apps == nil {
 		m.apps = map[string]*App{}
+	}
+	if m.screenWake == nil {
+		m.screenWake = make(chan struct{}, 1)
 	}
 	if m.LookPath == nil {
 		m.LookPath = exec.LookPath
@@ -356,7 +361,17 @@ func (m *Manager) focusChanged(id string) {
 	m.lastFocus = id
 	m.mu.Unlock()
 	if !same {
+		m.Log.Info("on screen", "focus", id) // its time in the log: when the home screen came back
 		m.Broker.Publish("focus.changed", map[string]string{"focus": id})
+	}
+}
+
+// screenChanged: gamescope says what it shows may have changed: looked at now (Run), not at the
+// next once-a-second check.
+func (m *Manager) screenChanged() {
+	select {
+	case m.screenWake <- struct{}{}:
+	default: // a look is already due
 	}
 }
 
@@ -480,7 +495,11 @@ func (m *Manager) Run(stop <-chan struct{}) {
 			m.adopt(unit, desc)
 		}
 	}
-	tick := time.NewTicker(time.Second)
+	every := m.checkEvery
+	if every == 0 {
+		every = time.Second // a repeat interval: what gamescope does not announce
+	}
+	tick := time.NewTicker(every)
 	defer tick.Stop()
 	m.watchSession()
 	for {
@@ -489,6 +508,8 @@ func (m *Manager) Run(stop <-chan struct{}) {
 			return
 		case e := <-m.Units.Exited():
 			m.exited(e)
+		case <-m.screenWake: // gamescope says the screen changed: at once
+			m.checkWindows()
 		case <-tick.C:
 			m.watchSession()
 			m.scanSteam()
@@ -508,7 +529,7 @@ func (m *Manager) watchSession() {
 	m.homePID = sess.HomePID
 	m.mu.Unlock()
 	if f := m.focus(sess); f != nil {
-		f.Watch(m.tag, m.steamRequest)
+		f.Watch(m.tag, m.steamRequest, m.screenChanged)
 	}
 }
 

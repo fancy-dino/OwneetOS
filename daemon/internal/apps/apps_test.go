@@ -61,16 +61,37 @@ type fakeFocus struct {
 	mu      sync.Mutex
 	tag     func(pid int) uint32
 	request func([]uint32)
+	changed func()
 	visible []uint32
 	shown   []uint32
 	focused uint32
 }
 
-func (f *fakeFocus) Watch(tag func(pid int) uint32, request func([]uint32)) {
+func (f *fakeFocus) Watch(tag func(pid int) uint32, request func([]uint32), changed func()) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.tag = tag
 	f.request = request
+	f.changed = changed
+}
+
+// closeWindow simulates the app's window going away (the process may still run): gamescope shows
+// what is left and announces it
+func (f *fakeFocus) closeWindow(id uint32) {
+	f.mu.Lock()
+	var left []uint32
+	for _, v := range f.visible {
+		if v != id {
+			left = append(left, v)
+		}
+	}
+	f.visible = left
+	f.recompute()
+	changed := f.changed
+	f.mu.Unlock()
+	if changed != nil {
+		changed()
+	}
 }
 func (f *fakeFocus) recompute() {
 	f.focused = 0
@@ -403,5 +424,40 @@ func TestCageHoldGuideToClose(t *testing.T) {
 	defer units.mu.Unlock()
 	if len(units.stopped) != 1 || units.stopped[0] != UnitName("game") {
 		t.Fatalf("stopped = %v", units.stopped)
+	}
+}
+
+// A game's window goes away while its process still ends (Proton): the home screen is announced as
+// soon as gamescope says so, not at the next regular check (the late sound, owner's test 2026-11-08)
+func TestHomeAnnouncedWhenTheWindowGoes(t *testing.T) {
+	m, _, focus, ch := newManager(t, "gamescope")
+	m.checkEvery = time.Hour // only gamescope's notice can do it
+	m.watchSession()
+	focus.openWindow(10) // the home screen
+	if _, err := m.Launch(LaunchRequest{ID: "game", Name: "Game", Kind: KindGame, Command: []string{"/bin/game"}}); err != nil {
+		t.Fatal(err)
+	}
+	focus.openWindow(1001)
+	m.checkWindows()
+	if st := m.Status(); st.Focus != "game" {
+		t.Fatalf("game not on screen: %q", st.Focus)
+	}
+	stop := make(chan struct{})
+	defer close(stop)
+	go m.Run(stop)
+	for len(ch) > 0 {
+		<-ch
+	}
+	focus.closeWindow(m.appIDOf("game"))
+	timeout := time.After(2 * time.Second)
+	for {
+		select {
+		case e := <-ch:
+			if e.Type == "focus.changed" && e.Data.(map[string]string)["focus"] == "home" {
+				return
+			}
+		case <-timeout:
+			t.Fatal("home not announced when gamescope said the window went")
+		}
 	}
 }
