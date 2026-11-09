@@ -447,10 +447,9 @@ double Media::readSavedPosition(const QString& path)
     return 0;
 }
 
-QString Media::languageCode(const QString& code)
+// ISO 639-2 (as in Matroska and MP4 files), bibliographic and terminology forms
+static const QHash<QString, QString>& three_letter_codes()
 {
-    QString c = code.trimmed().toLower().section(QChar('-'), 0, 0).section(QChar('_'), 0, 0);
-    // ISO 639-2 (as in Matroska and MP4 files), bibliographic and terminology forms
     static const QHash<QString, QString> three {
         { "eng", "en" }, { "ita", "it" }, { "fre", "fr" }, { "fra", "fr" }, { "ger", "de" }, { "deu", "de" },
         { "spa", "es" }, { "por", "pt" }, { "dut", "nl" }, { "nld", "nl" }, { "swe", "sv" }, { "nor", "no" },
@@ -461,10 +460,30 @@ QString Media::languageCode(const QString& code)
         { "srp", "sr" }, { "slv", "sl" }, { "slo", "sk" }, { "slk", "sk" }, { "bul", "bg" }, { "tha", "th" },
         { "vie", "vi" }, { "ind", "id" }, { "may", "ms" }, { "msa", "ms" },
     };
+    return three;
+}
+
+QString Media::languageCode(const QString& code)
+{
+    QString c = code.trimmed().toLower().section(QChar('-'), 0, 0).section(QChar('_'), 0, 0);
     if (c.size() == 3)
-        return three.value(c);            // und, mis, zxx, mul and unknown codes: no language
+        return three_letter_codes().value(c);   // und, mis, zxx, mul and unknown codes: no language
     static const QRegularExpression two(QStringLiteral("^[a-z]{2}$"));
     return two.match(c).hasMatch() ? c : QString();
+}
+
+QVariantMap Media::languageCodes() const
+{
+    QVariantMap out;
+    const auto& three = three_letter_codes();
+    for (auto it = three.cbegin(); it != three.cend(); ++it)
+        out.insert(it.key(), it.value());
+    return out;
+}
+
+bool Media::fileExists(const QString& path) const
+{
+    return !path.isEmpty() && QFileInfo(path).isFile();
 }
 
 QString Media::nativeLanguageName(const QString& code) const

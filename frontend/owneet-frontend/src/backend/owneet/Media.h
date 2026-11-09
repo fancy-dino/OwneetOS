@@ -76,6 +76,11 @@ public:
     Q_INVOKABLE void refreshPositions();
     /// A language's own name, for codes the message files do not name
     Q_INVOKABLE QString nativeLanguageName(const QString& code) const;
+    /// The three-letter language codes of video files (ISO 639-2) and their two-letter codes, for
+    /// the player's display ([[step-5.6-local-videos-and-music]], sub-step 5)
+    Q_INVOKABLE QVariantMap languageCodes() const;
+    /// A file is still there (the player's file, while a disk is unplugged)
+    Q_INVOKABLE bool fileExists(const QString& path) const;
 
     /// The Artists view: every song's tags are read once, in the background
     Q_INVOKABLE void readTags();

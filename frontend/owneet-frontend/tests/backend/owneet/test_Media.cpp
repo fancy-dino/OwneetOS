@@ -84,6 +84,21 @@ private slots:
         QCOMPARE(owneet::Media::languageCode(QStringLiteral("en-US")), QStringLiteral("en"));
         QCOMPARE(owneet::Media::languageCode(QStringLiteral("und")), QString());
         QCOMPARE(owneet::Media::languageCode(QStringLiteral("forced")), QString());
+        // the same table for the player's display (5.6)
+        owneet::Media media;
+        const QVariantMap codes = media.languageCodes();
+        QCOMPARE(codes.value(QStringLiteral("ita")).toString(), QStringLiteral("it"));
+        QCOMPARE(codes.value(QStringLiteral("ger")).toString(), QStringLiteral("de"));
+        QVERIFY(!codes.contains(QStringLiteral("und")));
+    }
+
+    void file_exists()
+    {
+        owneet::Media media;
+        QVERIFY(media.fileExists(m_disk.filePath(QStringLiteral("Videos/Bike ride.mp4"))));
+        QVERIFY(!media.fileExists(m_disk.filePath(QStringLiteral("Videos/Gone.mp4"))));
+        QVERIFY(!media.fileExists(m_disk.filePath(QStringLiteral("Videos"))));   // a folder
+        QVERIFY(!media.fileExists(QString()));
     }
 
     void top_and_folders()
