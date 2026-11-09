@@ -193,6 +193,11 @@ func (m *Manager) add(path string) {
 		}
 		return
 	}
+	if m.fromProgram(dev) {
+		m.Log.Debug("input device left out: made by a program", "path", path, "name", dev.Name)
+		dev.Close()
+		return
+	}
 	t := &tracked{dev: dev, guideCode: -1}
 	switch {
 	case IsGamepad(dev):
@@ -404,6 +409,18 @@ func (m *Manager) driverName(d *evdev.Device) string {
 		return ""
 	}
 	return filepath.Base(link)
+}
+
+// testDevicePrefix names the project's own test devices (owneet-testpad, the uinput tests).
+const testDevicePrefix = "OwneetOS Test"
+
+// fromProgram: a device a program made through uinput (/sys/devices/virtual/input/…), not one the
+// player holds: Steam's virtual controller ("Microsoft X-Box 360 pad 0" while Steam runs: listed as
+// a second controller and its Guide read, owner's report, FrankenPC 2026-11-09), virtual keyboards
+// (owneetd's own too). Never listed nor read ([[step-2.3-controller-input]]). Bluetooth controllers
+// come through uhid (/sys/devices/virtual/misc/uhid/…) and stay; so do the project's test devices.
+func (m *Manager) fromProgram(d *evdev.Device) bool {
+	return strings.Contains(m.sysDevice(d), "/devices/virtual/input/") && !strings.HasPrefix(d.Name, testDevicePrefix)
 }
 
 // sysDevice is /sys/class/input/eventN/device resolved to its real path.
