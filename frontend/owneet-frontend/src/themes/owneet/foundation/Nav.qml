@@ -3,7 +3,7 @@
 //   action(event)  turns a key event into what it means here:
 //     up, down, left, right   move the selection (D-pad, left stick; they repeat when held)
 //     accept (A), back (B), secondary (X), page (Y), options (Menu); "ignored": A just after a window
-//     opened (windowOpened, acceptBlocked)
+//     opened (windowOpened, acceptBlocked), or any button while input is paused (inputPaused)
 //     section-prev / section-next (LB / RB), filter-prev / filter-next (LT / RT)
 //     scroll-up / scroll-down (right stick, repeats: fast scrolling)
 //   Guide never reaches the interface (owned by owneetd).
@@ -31,8 +31,14 @@ QtObject {
     property real windowOpenedAt: 0
     property real lastIgnoredLog: 0
     function windowOpened() { windowOpenedAt = Date.now(); }
-    // true (and logged, once per press) when A comes too soon after a window opened
+    // While the start-up animation plays every button is ignored, with no sound and no action
+    // (owner, FrankenPC, 2026-11-09: buttons pressed during it played the interface's sounds)
+    property bool inputPaused: false
+    // true (and logged, once per press) when A comes too soon after a window opened; always true
+    // while input is paused
     function acceptBlocked() {
+        if (inputPaused)
+            return true;
         const since = Date.now() - windowOpenedAt;
         if (since >= windowAcceptDelay)
             return false;
@@ -61,6 +67,8 @@ QtObject {
     }
 
     function action(event) {
+        if (inputPaused)
+            return "ignored";
         const k = api.keys;
         if (k.isUp(event)) return "up";
         if (k.isDown(event)) return "down";

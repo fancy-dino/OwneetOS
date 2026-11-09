@@ -56,7 +56,8 @@ FocusScope {
         } else if ((a === "scroll-up" || a === "scroll-down") && scrollTarget) {
             scrollBy((a === "scroll-up" ? -1 : 1) * scrollTarget.height * 0.4);
         } else if (a === "ignored") {
-            // A just after a window opened (Nav.acceptBlocked): taken and dropped, no sound
+            // A just after a window opened (Nav.acceptBlocked), or any button while input is
+            // paused (the start-up animation): taken and dropped, no sound
         } else if (a === "accept" && current) {
             // the item pressed: its action may select another one (e.g. a window's next page)
             const item = current;

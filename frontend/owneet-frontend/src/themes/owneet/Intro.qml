@@ -19,8 +19,10 @@ Item {
     property int words: 0               // the slogan's words on screen
     signal finished()
 
-    // Shown at once, black, until go(): the start-up sound plays then
+    // Shown at once, black, until go(): the start-up sound plays then. Until it ends every button
+    // is ignored (Nav.inputPaused) and the mouse reaches nothing below it.
     function show() {
+        Nav.inputPaused = true;
         content.opacity = 1;
         backdrop.opacity = 1;
         paletteLogo.opacity = 0;
@@ -41,11 +43,18 @@ Item {
         colours.start();
     }
     function done() {
+        Nav.inputPaused = false;
         visible = false;
         if (pages) pages.opacity = 1;
         finished();
     }
 
+    MouseArea {                         // clicks, the wheel and hovering stop here
+        anchors.fill: parent
+        hoverEnabled: true
+        acceptedButtons: Qt.AllButtons
+        onWheel: wheel.accepted = true
+    }
     Item {
         id: content
         anchors.fill: parent
