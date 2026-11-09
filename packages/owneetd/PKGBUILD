@@ -2,18 +2,19 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneetd
-pkgver=0.16.5
+pkgver=0.17.0
 pkgrel=1
-pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps, display, web apps) and owneetctl"
+pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps, display, web apps, the media player) and owneetctl"
 arch=('x86_64')
 url="https://github.com/fancy-dino/OwneetOS"
 # owneetd: GPL-3.0-or-later; SDL_GameControllerDB: Zlib; vendored Go modules (daemon/vendor/):
 # godbus/dbus BSD-2-Clause, golang.org/x/sys BSD-3-Clause, jezek/xgb BSD-3-Clause, jfreymuth/pulse MIT
 license=('GPL-3.0-or-later' 'Zlib' 'BSD-2-Clause' 'BSD-3-Clause' 'MIT')
-# ddcutil: brightness of monitors (DDC/CI); hwdata: screen makers' names (as gamescope shows them)
+# ddcutil: brightness of monitors (DDC/CI); hwdata: screen makers' names (as gamescope shows them);
+# mpv: the Videos and Music pages' player, with OwneetOS's configuration (daemon/player/)
 # (umu-launcher, which owneetd uses for Windows games, comes with owneet-base: it is in [multilib],
 # which the build chroot does not have)
-depends=('systemd' 'bluez' 'networkmanager' 'polkit' 'pipewire-pulse' 'ddcutil' 'hwdata')
+depends=('systemd' 'bluez' 'networkmanager' 'polkit' 'pipewire-pulse' 'ddcutil' 'hwdata' 'mpv')
 makedepends=('go')
 options=('!debug')
 install=owneetd.install
@@ -77,6 +78,8 @@ package() {
   install -Dm644 owneet-uinput.modules-load.conf "$pkgdir/usr/lib/modules-load.d/owneet-uinput.conf"
   install -Dm644 50-owneet-networkmanager.rules "$pkgdir/usr/share/polkit-1/rules.d/50-owneet-networkmanager.rules"
   install -Dm644 "gamecontrollerdb-$_sdldb.txt" "$pkgdir/usr/share/owneet/gamecontrollerdb.txt"
+  # The player ([[step-5.6-local-videos-and-music]]): mpv's configuration, bindings and display
+  install -Dm644 daemon/player/{mpv.conf,input.conf,owneet.lua} -t "$pkgdir/usr/share/owneet/player/"
   install -Dm644 "gamecontrollerdb-LICENSE-$_sdldb" "$pkgdir/usr/share/licenses/$pkgname/LICENSE.gamecontrollerdb"
   install -Dm644 daemon/vendor/github.com/godbus/dbus/v5/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE.godbus-dbus"
   install -Dm644 daemon/vendor/golang.org/x/sys/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE.golang-x-sys"

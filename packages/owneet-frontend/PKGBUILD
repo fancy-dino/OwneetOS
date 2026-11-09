@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-frontend
-pkgver=0.24.1
+pkgver=0.25.0
 pkgrel=1
 pkgdesc="OwneetOS console interface, a modified version of Pegasus Frontend by Mátyás Mustoha and contributors"
 arch=('x86_64')
@@ -83,6 +83,9 @@ package() {
   install -Dm644 "$src/thirdparty/SortFilterProxyModel/LICENSE" "$lic/LICENSE.SortFilterProxyModel"
   install -Dm644 "$src/assets/fonts/owneet/OFL-BricolageGrotesque.txt" "$lic/OFL-BricolageGrotesque.txt"
   install -Dm644 "$src/assets/fonts/owneet/OFL-Lexend.txt" "$lic/OFL-Lexend.txt"
+  # The same fonts on disk for the player's display (mpv draws its text with libass through
+  # fontconfig, 5.6); the interface keeps its own copies inside the program
+  install -Dm644 -t "$pkgdir/usr/share/fonts/owneet" "$src"/assets/fonts/owneet/*.ttf
   install -Dm644 frontend/sounds/LICENSE-Kenney.txt "$lic/LICENSE-Kenney-sounds.txt"
   install -Dm644 frontend/sounds/SOURCES.md "$lic/SOURCES-sounds.md"
 }

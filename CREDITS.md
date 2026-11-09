@@ -34,7 +34,7 @@ Licences are given as [SPDX](https://spdx.org/licenses/) identifiers, as declare
 | [Mesa](https://www.mesa3d.org) | Mesa contributors | MIT, BSD-3-Clause, SGI-B-2.0 | OpenGL and Vulkan drivers for AMD and Intel GPUs |
 | [Vulkan loader](https://www.vulkan.org) | Khronos Group and LunarG contributors | Apache-2.0 | Loads Vulkan drivers |
 | [NVIDIA open GPU kernel modules](https://github.com/NVIDIA/open-gpu-kernel-modules) and driver | NVIDIA | MIT and GPL-2.0-only (kernel modules); NVIDIA driver licence (user space) | NVIDIA GPU support, redistributed unmodified as its licence allows |
-| [mpv](https://mpv.io) | mpv contributors | GPL-2.0-or-later and LGPL-2.1-or-later | Local media playback and the placeholder screen |
+| [mpv](https://mpv.io) | mpv contributors | GPL-2.0-or-later and LGPL-2.1-or-later | The Videos and Music pages' player (local media playback) and the placeholder screen |
 | [FFmpeg](https://ffmpeg.org) | FFmpeg contributors | GPL-3.0-only (as packaged) | Audio and video decoding; the details of local videos and songs in the interface |
 | [ddcutil](https://www.ddcutil.com) | Sanford Rockowitz and contributors | GPL-2.0-or-later | Brightness of monitors that accept DDC/CI commands |
 | [hwdata](https://github.com/vcrhonek/hwdata) | hwdata contributors | GPL-2.0-or-later | Names of screen makers, shown in Settings → Display |
@@ -112,8 +112,8 @@ logos; Pegasus's copyright notices are kept in its source code.
 
 | Project | Who | Licence | Use |
 |---|---|---|---|
-| [Bricolage Grotesque](https://github.com/ateliertriay/bricolage) | Mathieu Triay | OFL-1.1 | Titles; the OwneetOS wordmark is drawn from its outlines |
-| [Lexend](https://www.lexend.com) | Bonnie Shaver-Troup, Thomas Jockin and the Lexend team | OFL-1.1 | Interface text |
+| [Bricolage Grotesque](https://github.com/ateliertriay/bricolage) | Mathieu Triay | OFL-1.1 | Titles (in the interface and the player's display); the OwneetOS wordmark is drawn from its outlines |
+| [Lexend](https://www.lexend.com) | Bonnie Shaver-Troup, Thomas Jockin and the Lexend team | OFL-1.1 | Interface text (in the interface and the player's display) |
 | [Lucide](https://lucide.dev) | Lucide Icons and contributors; some icons derived from [Feather](https://feathericons.com) by Cole Bemis | ISC (Feather's icons: MIT) | The website's icons (`lucide-static` 1.52.0), in its approved demo `design/demos/7.8-website-home.html` and in the website |
 
 Both fonts are bundled in `owneet-frontend` as static instances generated from the variable fonts
