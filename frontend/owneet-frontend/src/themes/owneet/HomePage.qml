@@ -8,7 +8,8 @@
 // demo design/demos/5.0.0-optional-apps.html): a missing one is dimmed with a download mark, A
 // installs it, Menu opens its options (Open, Remove). An open web app takes the hero like a game
 // ([[step-5.1-brave-in-the-os]], approved demo design/demos/5.1-web-app-running.html): its letter
-// instead of art, Resume and Close; its tile shows a green dot.
+// instead of art, Resume and Close; its tile shows a green dot. The Videos and Music tiles open
+// their pages ([[step-5.6-local-videos-and-music]], approved demo design/demos/5.6-videos-and-music.html).
 // Still to come: real covers from Steam's local files (4.1).
 import QtQuick 2.15
 import "foundation"
@@ -65,6 +66,12 @@ NavArea {
     signal openStore()                         // Steam's store (4.2)
     signal openWebApp(var app)                 // A on a web app: install it, or open it
     signal webAppOptions(var app)              // Menu on a web app
+    signal openMedia(string kind)              // the Videos ("videos") or Music ("music") tile
+    // Back from the Videos or Music page: the selection on its tile
+    function focusApp(key) {
+        const tile = Nav.navigables(sideGroup).find(i => i.kind === "app" && i.nameKey === key);
+        if (tile) focusItem(tile); else focusStart();
+    }
     signal openNotice(var notice)              // the downloads notice: the game's details (4.2c)
     property bool steamRunning: false           // Steam runs (hidden or not): Menu on its tile closes it
     signal steamOptions()
@@ -134,6 +141,7 @@ NavArea {
         else if (k === "store" || item.steamStore) openStore();
         else if (k === "app" && item.webApp) openWebApp(item.webApp);
         else if (k === "notice" && page.notices.length > 0) openNotice(page.notices[0]);
+        else if (k === "app" && item.mediaKind !== "") openMedia(item.mediaKind);
         else notYet();                         // apps (later steps)
     }
     onOtherAction: {
@@ -381,6 +389,7 @@ NavArea {
                             readonly property bool navigable: true
                             readonly property string kind: "app"
                             readonly property bool steamStore: modelData.key === "app.store"
+                            readonly property string mediaKind: modelData.key === "app.videos" ? "videos" : modelData.key === "app.music" ? "music" : ""
                             readonly property var webApp: modelData.id ? page.webApp(modelData.id) : null
                             readonly property string nameKey: webApp ? webApp.nameKey : (modelData.key || "")
                             readonly property bool missing: webApp !== null && !webApp.installed && !webApp.busy

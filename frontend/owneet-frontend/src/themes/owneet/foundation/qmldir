@@ -1,4 +1,5 @@
 singleton GameInfo 1.0 GameInfo.qml
+singleton MediaText 1.0 MediaText.qml
 singleton Nav 1.0 Nav.qml
 singleton Theme 1.0 Theme.qml
 singleton Tr 1.0 Tr.qml

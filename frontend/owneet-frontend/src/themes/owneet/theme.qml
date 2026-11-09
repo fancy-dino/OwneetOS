@@ -20,10 +20,14 @@ FocusScope {
     ]
     property string librarySort: "recent"
     onLibrarySortChanged: save("librarySort", librarySort)
+    // Videos (5.6): the next video of the folder starts by itself (on for a new console)
+    property bool mediaAutoplay: true
+    onMediaAutoplayChanged: save("mediaAutoplay", mediaAutoplay)
     property bool loaded: false
     Component.onCompleted: {
         prefs.forEach(p => { if (api.memory.has(p[0])) Theme[p[1]] = api.memory.get(p[0]); });
         if (api.memory.has("librarySort")) librarySort = api.memory.get("librarySort");
+        if (api.memory.has("mediaAutoplay")) mediaAutoplay = api.memory.get("mediaAutoplay") === true;
         loaded = true;
         // The interface restarts when the console moves to another screen (and when it comes
         // back): it opens again on Settings → Display, where the move was asked
@@ -201,11 +205,14 @@ FocusScope {
     // ---- Sections (LB / RB)
     readonly property var sections: ["home", "library", "settings"]
     property string section: "home"
-    readonly property Item page: section === "home" ? home : section === "library" ? library : settings
+    // the Videos or Music page (5.6), opened from its tile: a page of Home
+    property string mediaKind: ""
+    readonly property Item page: section === "home" ? (mediaKind !== "" ? mediaPage : home) : section === "library" ? library : settings
     function goSection(name) {
         if (name === section)
             return;
         section = name;
+        mediaKind = "";
         Nav.feedback("section");
         page.focusStart();
     }
@@ -217,7 +224,7 @@ FocusScope {
     // ---- Buttons the sections leave to the whole interface (section 9.1)
     Keys.onPressed: {
         const a = Nav.action(event);
-        if (a === "page" && section === "home" && !modalOpen) {
+        if (a === "page" && section === "home" && mediaKind === "" && !modalOpen) {
             notices.openSheet();                    // Y: notifications (demo 3.11)
         } else if ((a === "section-prev" || a === "section-next") && !modalOpen) {
             const i = sections.indexOf(section) + (a === "section-next" ? 1 : -1);
@@ -748,6 +755,35 @@ FocusScope {
         dialog.open();
     }
     function notYet() { toast.show(Tr.tr("toast.later")); }
+
+    // ---- Videos and Music (5.6, approved demo design/demos/5.6-videos-and-music.html)
+    function openMedia(kind) {
+        mediaKind = kind;
+        mediaPage.focusStart();
+    }
+    function leaveMedia() {
+        const key = mediaKind === "videos" ? "app.videos" : "app.music";
+        mediaKind = "";
+        home.focusApp(key);
+    }
+    // `list`: what plays after it (the rest of its folder or album); the player comes with
+    // sub-step 5 of step 5.6
+    function playMedia(entry, list, fromStart) { notYet(); }
+    // Menu on a started video: resume it, or watch it from the start
+    function mediaOptions(entry, list) {
+        const position = media.details(entry.path).position || 0;
+        dialog.game = null;
+        dialog.mode = "options";
+        dialog.contentWidth = 0;
+        dialog.title = entry.name;
+        dialog.text = Tr.tr("media.stopped", { t: MediaText.clock(position), d: MediaText.clock(media.details(entry.path).duration) });
+        dialog.buttons = [
+            { text: Tr.tr("media.resume_from", { t: MediaText.clock(position) }), style: "primary", action: () => { dialog.close(true); root.playMedia(entry, list, false); } },
+            { text: Tr.tr("media.from_start"), action: () => { dialog.close(true); root.playMedia(entry, list, true); } }
+        ];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
 
     // ---- Optional web apps (5.0.0, approved demo design/demos/5.0.0-optional-apps.html): installed
     // and removed from the home screen's Apps grid. The engine behind them is never named.
@@ -2261,8 +2297,9 @@ FocusScope {
         HomePage {
             id: home
             anchors.fill: parent
-            visible: root.section === "home"
+            visible: root.section === "home" && root.mediaKind === ""
             focus: visible
+            onOpenMedia: root.openMedia(kind)
             games: root.homeGames
             notices: root.steamNotices.concat(root.installNotices).concat(root.windowsNotices)
             onOpenNotice: if (notice.game) root.showDetails(notice.game)
@@ -2286,6 +2323,22 @@ FocusScope {
             webApps: root.webApps
             onOpenWebApp: root.openWebApp(app)
             onWebAppOptions: root.webAppOptions(app)
+        }
+        MediaPage {
+            id: mediaPage
+            anchors.fill: parent
+            visible: root.section === "home" && root.mediaKind !== ""
+            focus: visible
+            kind: root.mediaKind || "videos"
+            autoplay: root.mediaAutoplay
+            onPlay: root.playMedia(entry, list, fromStart)
+            onOptions: root.mediaOptions(entry, list)
+            onToggleAutoplay: {
+                root.mediaAutoplay = !root.mediaAutoplay;
+                Nav.feedback(root.mediaAutoplay ? "toggle-on" : "toggle-off");
+                toast.show(Tr.tr(root.mediaAutoplay ? "toast.autoplay.on" : "toast.autoplay.off"));
+            }
+            onLeave: root.leaveMedia()
         }
         LibraryPage {
             id: library

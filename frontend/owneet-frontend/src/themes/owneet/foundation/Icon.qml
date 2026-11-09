@@ -2,8 +2,8 @@
 // A small icon drawn for OwneetOS from an SVG path on a 24 x 24 grid (no icon fonts or images).
 // Named icons: "heart", "download", "controller", "wifi" (with `level` 0-3: arcs above it are
 // dimmed), "ethernet", "lock", "battery" (filled by `fill`, 0-1), the settings sections and the
-// on-screen keyboard's keys. `crossed` draws a slash over the icon
-// (e.g. offline).
+// on-screen keyboard's keys, a folder, a video ("play") and a song ("note"). `crossed` draws a
+// slash over the icon (e.g. offline).
 import QtQuick 2.15
 
 Canvas {
@@ -67,7 +67,11 @@ Canvas {
         trash: "M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13",
         check: "M5 12.5l4.5 4.5L19 7",
         info: "M21 12a9 9 0 1 1-18 0a9 9 0 1 1 18 0zM12 11v6M12 7.5v.5",
-        pointer: "M6 3v15l4.2-4 3 7 2.8-1.2-3-6.8H18z"
+        pointer: "M6 3v15l4.2-4 3 7 2.8-1.2-3-6.8H18z",
+        // Videos and Music (5.6): a folder, a video, a song
+        folder: "M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z",
+        play: "M8 5.5v13l10.5-6.5z",
+        note: "M9 17.5V6l10-2v11.5M4 17.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0M14 15.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0"
     })
     // Wi-Fi: three arcs and a dot, from the largest arc down
     readonly property var wifiArcs: ["M2 9a15 15 0 0 1 20 0", "M5 12.5a10 10 0 0 1 14 0", "M8.5 16a5 5 0 0 1 7 0"]

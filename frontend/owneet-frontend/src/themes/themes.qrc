@@ -13,6 +13,9 @@
         <file>owneet/QuickMenu.qml</file>
         <file>owneet/HomePage.qml</file>
         <file>owneet/LibraryPage.qml</file>
+        <file>owneet/MediaPage.qml</file>
+        <file>owneet/MediaCard.qml</file>
+        <file>owneet/MediaRow.qml</file>
         <file>owneet/SettingsPage.qml</file>
         <file>owneet/foundation/qmldir</file>
         <file>owneet/foundation/SettingSlider.qml</file>
@@ -22,6 +25,7 @@
         <file>owneet/foundation/Toast.qml</file>
         <file>owneet/foundation/NavGroup.qml</file>
         <file>owneet/foundation/GameInfo.qml</file>
+        <file>owneet/foundation/MediaText.qml</file>
         <file>owneet/foundation/GameArt.qml</file>
         <file>owneet/foundation/Dialog.qml</file>
         <file>owneet/foundation/Cover.qml</file>
