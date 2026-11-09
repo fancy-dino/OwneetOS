@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"os/exec"
 	"runtime"
 	"strings"
 	"sync"
@@ -172,7 +173,8 @@ func newManager(t *testing.T, mode string) (*Manager, *fakeUnits, *fakeFocus, <-
 			}
 			return "/usr/bin/" + strings.TrimPrefix(p, "/usr/bin/"), nil
 		},
-		Hold: 300 * time.Millisecond,
+		Hold:      300 * time.Millisecond,
+		watchExit: func(int, func()) bool { return true }, // the test processes never end by themselves
 	}
 	return m, units, focus, ch
 }
@@ -649,5 +651,142 @@ func TestSilentBehindTheHomeScreen(t *testing.T) {
 		}
 		focus.closeWindow(m.appIDOf(c.req.ID))
 		m.exited(Exit{Unit: UnitName(c.req.ID), Result: "success"})
+	}
+}
+
+// A console game quit from its menu: the home screen comes back once its programs have ended,
+// before its unit (Wine, the container) has; a launcher that ends after starting the game does
+// not bring it (owner, FrankenPC, 2026-11-09).
+func TestHomeWhenTheGamesProgramsEnd(t *testing.T) {
+	m, _, focus, _ := newManager(t, "gamescope")
+	procs := &fakeProcs{unit: map[int]string{}, cmd: map[int][]string{}, parent: map[int]int{}}
+	m.Procs = procs
+	m.UnitOf = func(pid int) string {
+		procs.mu.Lock()
+		defer procs.mu.Unlock()
+		return procs.unit[pid]
+	}
+	var mu sync.Mutex
+	ends := map[int]func(){}
+	m.watchExit = func(pid int, ended func()) bool {
+		procs.mu.Lock()
+		_, alive := procs.unit[pid]
+		procs.mu.Unlock()
+		if !alive {
+			return false // as a pidfd: an ended process cannot be followed
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		ends[pid] = ended
+		return true
+	}
+	end := func(pid int) {
+		procs.remove(pid)
+		mu.Lock()
+		f := ends[pid]
+		mu.Unlock()
+		if f == nil {
+			t.Fatalf("process %d not followed", pid)
+		}
+		f()
+	}
+	followed := func(pid int) {
+		deadline := time.Now().Add(2 * time.Second)
+		for {
+			mu.Lock()
+			_, ok := ends[pid]
+			mu.Unlock()
+			if ok {
+				return
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("process %d never followed", pid)
+			}
+			runtime.Gosched()
+		}
+	}
+	shown := func() []uint32 {
+		focus.mu.Lock()
+		defer focus.mu.Unlock()
+		return append([]uint32(nil), focus.shown...)
+	}
+	m.watchSession()
+	procs.add(10, 1, "home.service", "owneet-frontend")
+	focus.openWindow(10)
+	focus.Show([]uint32{HomeAppID})
+	if _, err := m.Launch(LaunchRequest{ID: "game", Name: "Game", Kind: KindGame, Command: []string{"/usr/lib/owneet/owneet-windows-run"}}); err != nil {
+		t.Fatal(err)
+	}
+	unit := UnitName("game")
+	game := m.appIDOf("game")
+	procs.add(2000, 1, unit, `C:\windows\system32\services.exe`) // Wine's: never counted
+	procs.add(2001, 1, unit, `X:\Games\Witcher\Launcher.exe`)
+	focus.openWindow(2001)
+	m.checkWindows()
+	followed(2001)
+	// the launcher starts the game, closes its window and ends: the game goes on
+	procs.add(2002, 2001, unit, `X:\Games\Witcher\bin\witcher2.exe`, "-silent")
+	focus.closeWindow(game)
+	end(2001)
+	if !sameIDs(shown(), []uint32{game}) || m.Status().Focus != "game" {
+		t.Fatalf("the launcher ended: %v %q", shown(), m.Status().Focus)
+	}
+	followed(2002)
+	focus.openWindow(2002)
+	m.checkWindows()
+	// quit from its menu: its window goes, then its program ends; Wine's go on
+	focus.closeWindow(game)
+	end(2002)
+	// (the window's own look at its process may come last and tell the end once more)
+	deadline := time.Now().Add(2 * time.Second)
+	for !sameIDs(shown(), []uint32{HomeAppID}) || m.Status().Focus != "home" {
+		if time.Now().After(deadline) {
+			t.Fatalf("the game's programs ended: %v %q", shown(), m.Status().Focus)
+		}
+		runtime.Gosched()
+	}
+	if _, ok := m.apps["game"]; !ok {
+		t.Fatal("the game is still running until its unit ends")
+	}
+}
+
+func TestWindowsProgram(t *testing.T) {
+	for argv, want := range map[string]bool{
+		`X:\Giochi\Exe Test\game.exe`:      true,
+		`Z:\home\owneet\Games\x\setup.exe`: true,
+		`C:\windows\system32\services.exe`: false,
+		`c:\windows\system32\umu.exe`:      false,
+		`/usr/bin/python3`:                 false,
+		``:                                 false,
+	} {
+		if got := windowsProgram([]string{argv}); got != want {
+			t.Errorf("%q: %v", argv, got)
+		}
+	}
+}
+
+// pidfdWatch tells the end of a real process.
+func TestPidfdWatch(t *testing.T) {
+	cmd := exec.Command("sleep", "0.2")
+	if err := cmd.Start(); err != nil {
+		t.Skip("cannot start sleep:", err)
+	}
+	done := make(chan struct{})
+	if !pidfdWatch(cmd.Process.Pid, func() { close(done) }) {
+		t.Fatal("cannot follow a running process")
+	}
+	select {
+	case <-done:
+		t.Fatal("ended before the process did")
+	default:
+	}
+	go cmd.Wait()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the end of the process was not told")
+	}
+	if pidfdWatch(1<<22+12345, func() {}) {
+		t.Fatal("a process that does not exist was followed")
 	}
 }

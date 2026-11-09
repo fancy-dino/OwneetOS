@@ -58,6 +58,8 @@ type App struct {
 	appID   uint32 // gamescope app id of its windows
 	reaper  int    // a Steam game: Steam's launcher process (steam.go)
 	window  bool   // has shown a window
+	// a console game's programs still running, by pid (closing.go)
+	programs map[int]bool
 	// settle: shown only once its window has stayed for a few seconds (Steam changes resolution
 	// and flashes windows while it starts: the console's "Preparing Steam" screen covers that)
 	settle bool
@@ -209,6 +211,8 @@ type Manager struct {
 	released func() <-chan struct{}
 	// apps besides games that go silent behind the home screen (SetSilent)
 	silent func(id string) bool
+	// follows a process until it ends (closing.go; tests replace it)
+	watchExit func(pid int, ended func()) bool
 	// names given by the interface to Steam games about to start, by Steam app id
 	steamNames map[string]string
 	// the steam:// address to hand to Steam once its window is shown (it started on its own
@@ -327,6 +331,9 @@ func (m *Manager) tag(pid int) uint32 {
 	defer m.mu.Unlock()
 	for _, a := range m.apps {
 		if a.unit == unit && a.reaper == 0 {
+			if closesWithPrograms(a) {
+				go m.watchPrograms(a.ID, pid) // it showed a window of the game
+			}
 			return a.appID
 		}
 	}
@@ -833,7 +840,7 @@ func (m *Manager) Kill(id string) error {
 // the background) and the home screen must come back then; Steam's games keep Steam behind them
 // (steam.go), as its questions come in its own window.
 func front(a *App) []uint32 {
-	if a.Kind == KindGame && !strings.HasPrefix(a.ID, steamGamePrefix) {
+	if closesWithPrograms(a) {
 		return []uint32{a.appID}
 	}
 	return []uint32{a.appID, HomeAppID}
