@@ -3,37 +3,43 @@
 package apps
 
 import (
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
-// steamLibrariesHanded: the folders handed to Steam with addlibraryfolder, decoded.
-func steamLibrariesHanded(t *testing.T, forwarded []string) []string {
-	t.Helper()
-	var out []string
-	for _, f := range forwarded {
-		_, enc, ok := strings.Cut(f, "steam://addlibraryfolder/")
-		if !ok {
-			continue
+const steamLibrariesText = `"libraryfolders"
+{
+	"0"
+	{
+		"path"		"%STEAM%"
+		"label"		""
+		"contentid"		"111"
+		"totalsize"		"0"
+		"apps"
+		{
+			"228980"		"0"
 		}
-		path, err := url.PathUnescape(enc)
-		if err != nil || len(enc) != 3*len(path) || strings.ToLower(enc) != enc {
-			t.Fatalf("not every byte encoded as %%xx: %q", enc)
-		}
-		out = append(out, path)
 	}
-	return out
+	"1"
+	{
+		"path"		"%LISTED%/SteamLibrary"
+		"label"		""
+		"contentid"		"222"
+		"totalsize"		"0"
+		"apps"
+		{
+		}
+	}
 }
+`
 
-// The disks the console prepared for games become Steam libraries once Steam's window is up, once
-// per disk while Steam runs; read-only disks, disks not prepared by the console, and folders Steam
-// lists already are left alone ([[step-6.7-preparing-other-disks]]).
+// The disks the console prepared for games are written into Steam's list of libraries when the
+// console starts Steam: read-only disks, disks not prepared by the console and folders Steam lists
+// already are left alone ([[step-6.7-preparing-other-disks]]).
 func TestSteamGetsTheDisksForGames(t *testing.T) {
-	m, _, focus, _, forwarded, _ := newSteamManager(t)
+	m, _, _, _, _, _ := newSteamManager(t)
 	ext4 := ext4At
 	ext4At = func(dir string) bool { return !strings.Contains(dir, "exfat") }
 	t.Cleanup(func() { ext4At = ext4 })
@@ -59,67 +65,110 @@ func TestSteamGetsTheDisksForGames(t *testing.T) {
 	disk("nogames", "rw", false)
 	disk("exfat", "rw", true)
 	kept := disk("kept", "rw", true) // Steam's library already at its top
-	writeFile(t, filepath.Join(kept, "libraryfolder.vdf"), "\"libraryfolder\"\n{\n}\n")
+	writeFile(t, filepath.Join(kept, "libraryfolder.vdf"), "\"libraryfolder\"\n{\n\t\"contentid\"\t\t\"333\"\n\t\"label\"\t\t\"\"\n}\n")
 	listed := disk("listed", "rw", true)
-	writeFile(t, filepath.Join(m.SteamDir, "steamapps", "libraryfolders.vdf"),
-		"\"libraryfolders\"\n{\n\t\"0\"\n\t{\n\t\t\"path\"\t\t\""+m.SteamDir+"\"\n\t}\n"+
-			"\t\"1\"\n\t{\n\t\t\"path\"\t\t\""+listed+"/SteamLibrary\"\n\t}\n}\n")
 	writeFile(t, filepath.Join(state, "preparing"), "sdz\n")
+	vdf := filepath.Join(m.SteamDir, "steamapps", "libraryfolders.vdf")
+	writeFile(t, vdf, strings.NewReplacer("%STEAM%", m.SteamDir, "%LISTED%", listed).Replace(steamLibrariesText))
+	// Steam's second copy (config/): here without the listed disk, which it gets too
+	configVdf := filepath.Join(m.SteamDir, "config", "libraryfolders.vdf")
+	writeFile(t, configVdf, strings.NewReplacer("%STEAM%", m.SteamDir, "%LISTED%/SteamLibrary", m.SteamDir+"/other").Replace(steamLibrariesText))
 
-	m.watchSteam() // Steam not running
-	if got := steamLibrariesHanded(t, *forwarded); len(got) != 0 {
-		t.Fatalf("handed before Steam runs: %v", got)
-	}
 	if err := m.Steam(SteamRequest{Open: "storage"}); err != nil {
 		t.Fatal(err)
 	}
-	m.watchSteam() // no window yet
-	if got := steamLibrariesHanded(t, *forwarded); len(got) != 0 {
-		t.Fatalf("handed before Steam's window: %v", got)
+	var paths []string
+	ids := map[string]string{}
+	for _, f := range steamFolders(m.SteamDir) {
+		paths = append(paths, f.path)
 	}
-	focus.openWindow(1001)
-	settle(m)
-	m.watchSteam()
-	got := steamLibrariesHanded(t, *forwarded)
-	if len(got) == 0 {
-		t.Fatal("nothing handed once Steam's window is up")
+	data, _ := os.ReadFile(vdf)
+	root, _ := kvGet(kvText(string(data)), "libraryfolders").(map[string]any)
+	for k, v := range root {
+		f := v.(map[string]any)
+		ids[f["path"].(string)] = k + ":" + f["contentid"].(string)
 	}
-	want := []string{filepath.Join(prepared, "SteamLibrary"), kept}
-	if strings.Join(got, "|") != strings.Join(want, "|") {
-		t.Fatalf("handed %v, want %v", got, want)
+	lib := filepath.Join(prepared, "SteamLibrary")
+	want := []string{lib, kept, listed + "/SteamLibrary", m.SteamDir}
+	got := strings.Join(paths, "|")
+	for _, w := range want {
+		if !strings.Contains(got, w) {
+			t.Fatalf("libraries %v, want %v", paths, want)
+		}
 	}
-	if st, err := os.Stat(filepath.Join(prepared, "SteamLibrary")); err != nil || !st.IsDir() {
-		t.Fatalf("SteamLibrary not made: %v", err)
+	if len(paths) != len(want) {
+		t.Fatalf("libraries %v, want %v", paths, want)
 	}
-	m.watchSteam()
-	if again := steamLibrariesHanded(t, *forwarded); len(again) != len(want) {
-		t.Fatalf("handed twice: %v", again)
+	if ids[kept] != "3:333" || !strings.HasPrefix(ids[lib], "2:") || ids[m.SteamDir] != "0:111" {
+		t.Fatalf("numbers and contentids %v", ids)
+	}
+	if id := libraryContentID(lib); id == "" || "2:"+id != ids[lib] {
+		t.Fatalf("libraryfolder.vdf of the new library: %q, listed %q", id, ids[lib])
+	}
+	labels := map[string]string{}
+	for _, v := range root {
+		f := v.(map[string]any)
+		labels[f["path"].(string)] = f["label"].(string)
+	}
+	if labels[lib] != "2TB HDD SATA" || labels[kept] != "kept" || labels[m.SteamDir] != "" {
+		t.Fatalf("labels %v", labels)
+	}
+	if lf, _ := os.ReadFile(filepath.Join(lib, "libraryfolder.vdf")); !strings.Contains(string(lf), "\"label\"\t\t\"2TB HDD SATA\"") {
+		t.Fatalf("libraryfolder.vdf without the label:\n%s", lf)
+	}
+	if st, err := os.Stat(filepath.Join(lib, "steamapps")); err != nil || !st.IsDir() {
+		t.Fatalf("steamapps not made: %v", err)
+	}
+	if !strings.Contains(string(data), "\"228980\"\t\t\"0\"") {
+		t.Fatal("Steam's own entries changed")
+	}
+	cfg, _ := os.ReadFile(configVdf)
+	cfgListed := listedLibraries(string(cfg))
+	for _, w := range []string{lib, kept, listed + "/SteamLibrary", m.SteamDir + "/other"} {
+		if !cfgListed[w] {
+			t.Fatalf("config/ copy lacks %s:\n%s", w, cfg)
+		}
+	}
+	if id := libraryContentID(lib); !strings.Contains(string(cfg), "\""+id+"\"") {
+		t.Fatalf("config/ copy has another contentid for %s:\n%s", lib, cfg)
 	}
 
-	// Steam closed and opened again, its window never seen (the cage session): told again once
-	// Steam has run steamDisksAfter
+	// Steam started again: nothing added twice
+	before, cfgBefore := string(data), string(cfg)
 	m.mu.Lock()
 	delete(m.apps, SteamID)
 	m.mu.Unlock()
-	m.watchSteam()
 	if err := m.Steam(SteamRequest{Open: "storage"}); err != nil {
 		t.Fatal(err)
 	}
-	m.watchSteam()
-	if again := steamLibrariesHanded(t, *forwarded); len(again) != len(want) {
-		t.Fatalf("handed too early: %v", again)
+	if after, _ := os.ReadFile(vdf); string(after) != before {
+		t.Fatalf("written again:\n%s", after)
 	}
-	m.mu.Lock()
-	m.apps[SteamID].Started = time.Now().Add(-steamDisksAfter)
-	m.mu.Unlock()
-	m.watchSteam()
-	if again := steamLibrariesHanded(t, *forwarded); len(again) != 2*len(want) {
-		t.Fatalf("a new Steam not told: %v", again)
+	if after, _ := os.ReadFile(configVdf); string(after) != cfgBefore {
+		t.Fatalf("config/ copy written again:\n%s", after)
 	}
 }
 
-func TestSteamURLPath(t *testing.T) {
-	if got := steamURLPath("/run/a b"); got != "%2f%72%75%6e%2f%61%20%62" {
-		t.Fatalf("got %q", got)
+// Steam never started: its list is not made by owneetd
+func TestSteamDisksBeforeSteamsFirstStart(t *testing.T) {
+	steam := t.TempDir()
+	if libs, err := steamLibraryDisks(steam, t.TempDir(), os.Getuid()); err != nil || libs != nil {
+		t.Fatalf("got %v, %v", libs, err)
+	}
+	if _, err := os.Stat(filepath.Join(steam, "steamapps", "libraryfolders.vdf")); err == nil {
+		t.Fatal("libraryfolders.vdf made")
+	}
+}
+
+// A file that is not Steam's list is left alone
+func TestSteamDisksStrangeFile(t *testing.T) {
+	if _, ok := addLibraries("\"other\"\n{\n}\n", []string{"/a"}, []string{"1"}, []string{"a"}); ok {
+		t.Fatal("added to a file that is not libraryfolders")
+	}
+}
+
+func TestVdfString(t *testing.T) {
+	if got := vdfString(`My "big" disk\x`); got != `"My \"big\" disk\\x"` {
+		t.Fatalf("got %s", got)
 	}
 }

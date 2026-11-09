@@ -3,28 +3,29 @@
 package apps
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/diskprep"
 )
 
 // The disks the console prepared for games are Steam libraries too ([[step-6.7-preparing-other-disks]],
-// owner, 2026-11-08): Steam's interface for the controller has no way to add a disk (on SteamOS the
-// system tells Steam). As SteamOS's own mounter does (steamos-automount.sh), each one mounted
-// read-write is handed to the running Steam as steam://addlibraryfolder/<folder>, every byte of the
-// folder written as %XX: the disk's SteamLibrary folder (made here), or the disk itself when Steam
-// already keeps a library there (libraryfolder.vdf). Steam then lists it in its storage and among the
-// places to install a game. Once per disk while Steam runs, and never for a folder Steam lists already.
-
-// steamDisksAfter: the disks are handed to a Steam whose window has not been seen after this long
-// (the cage session, where owneetd does not follow windows). A Steam nobody has signed in to showed
-// nothing of it (test VM, 2026-11-08).
-const steamDisksAfter = time.Minute
+// owner, 2026-11-09): Steam's interface for the controller has no way to add a disk, and outside SteamOS
+// Steam ignores steam://addlibraryfolder (FrankenPC, 2026-11-09). So, while Steam is closed, right before
+// the console starts it, owneetd writes each one mounted read-write into Steam's own list of libraries
+// (steamapps/libraryfolders.vdf), as Steam itself writes them: the disk's SteamLibrary folder with its
+// libraryfolder.vdf and steamapps, or the disk itself when Steam already keeps a library at its top. Each
+// one is labelled with the disk's name: Steam shows the label instead of the folder (no technical name,
+// [[product-invariants]]).
+// Steam reads the list when it starts. A disk plugged in while Steam runs is added at Steam's next start.
+// A folder Steam lists already is left as it is.
 
 // MountStateDir is where owneet-mount writes what it mounted: one file per partition, its folder,
 // "rw" or "ro", and why read only.
@@ -83,59 +84,153 @@ func gameDisks(stateDir string, uid int) []string {
 			out = append(out, dir)
 		}
 	}
+	sort.Strings(out)
 	return out
 }
 
-// steamURLPath: every byte as %XX, as SteamOS's mounter writes it.
-func steamURLPath(path string) string {
-	var b strings.Builder
-	for i := 0; i < len(path); i++ {
-		fmt.Fprintf(&b, "%%%02x", path[i])
+// libraryContentID: the contentid of a library folder (its libraryfolder.vdf), "" when it has none.
+func libraryContentID(lib string) string {
+	data, err := os.ReadFile(filepath.Join(lib, "libraryfolder.vdf"))
+	if err != nil {
+		return ""
 	}
-	return b.String()
+	id, _ := kvGet(kvText(string(data)), "libraryfolder", "contentid").(string)
+	return id
 }
 
-// steamAddDisks hands Steam the disks prepared for games it does not list yet. Called by watchSteam
-// while Steam's window is ready.
-func (m *Manager) steamAddDisks() {
-	disks := gameDisks(m.MountState, os.Getuid())
-	if len(disks) == 0 {
-		return
+// newContentID: a random number, as Steam gives each library folder.
+func newContentID() string {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return ""
 	}
+	return strconv.FormatUint(binary.LittleEndian.Uint64(b[:])>>1, 10)
+}
+
+// makeLibrary makes a library folder Steam can use: steamapps, and libraryfolder.vdf with its
+// contentid (kept when it has one) and its label. It returns the contentid.
+func makeLibrary(lib, label string) (string, error) {
+	if err := os.MkdirAll(filepath.Join(lib, "steamapps"), 0o755); err != nil {
+		return "", err
+	}
+	if id := libraryContentID(lib); id != "" {
+		return id, nil
+	}
+	id := newContentID()
+	if id == "" {
+		return "", fmt.Errorf("no random number for the library")
+	}
+	text := fmt.Sprintf("\"libraryfolder\"\n{\n\t\"contentid\"\t\t%q\n\t\"label\"\t\t%s\n}\n", id, vdfString(label))
+	if err := replaceFile(filepath.Join(lib, "libraryfolder.vdf"), []byte(text)); err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+// vdfString: a string as Steam's text files write it (backslash and quote escaped).
+func vdfString(s string) string {
+	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(s) + `"`
+}
+
+// addLibraries adds library folders to the text of libraryfolders.vdf, each as the next numbered
+// block with its contentid and label; false when the root block is not there (not the file we know).
+func addLibraries(text string, libs, ids, labels []string) (string, bool) {
+	root, ok := kvGet(kvText(text), "libraryfolders").(map[string]any)
+	if !ok {
+		return text, false
+	}
+	next := 0
+	for k := range root {
+		if n, err := strconv.Atoi(k); err == nil && n >= next {
+			next = n + 1
+		}
+	}
+	end := strings.LastIndex(text, "}")
+	if end < 0 {
+		return text, false
+	}
+	var b strings.Builder
+	for i, lib := range libs {
+		fmt.Fprintf(&b, "\t\"%d\"\n\t{\n\t\t\"path\"\t\t%s\n\t\t\"label\"\t\t%s\n\t\t\"contentid\"\t\t%q\n"+
+			"\t\t\"totalsize\"\t\t\"0\"\n\t\t\"apps\"\n\t\t{\n\t\t}\n\t}\n", next+i, vdfString(lib), vdfString(labels[i]), ids[i])
+	}
+	head := strings.TrimRight(text[:end], " \t")
+	if !strings.HasSuffix(head, "\n") {
+		head += "\n"
+	}
+	return head + b.String() + text[end:], true
+}
+
+// listedLibraries: the folders a libraryfolders.vdf lists.
+func listedLibraries(text string) map[string]bool {
 	listed := map[string]bool{}
-	for _, f := range steamFolders(m.SteamDir) {
-		listed[filepath.Clean(f.path)] = true
+	root, _ := kvGet(kvText(text), "libraryfolders").(map[string]any)
+	for _, v := range root {
+		if f, ok := v.(map[string]any); ok {
+			if p, _ := kvGet(f, "path").(string); p != "" {
+				listed[filepath.Clean(p)] = true
+			}
+		}
 	}
-	var sess Session
-	haveSess := false
-	for _, disk := range disks {
-		lib := filepath.Join(disk, "SteamLibrary")
-		if _, err := os.Stat(filepath.Join(disk, "libraryfolder.vdf")); err == nil {
-			lib = disk
+	return listed
+}
+
+// steamLibraryDisks writes the disks prepared for games that Steam does not list yet into Steam's
+// list of libraries. Steam keeps two copies of it, steamapps/ (read first when it starts) and config/
+// (test VM, 2026-11-09): both get them. Steam must be closed (it writes them itself while it runs). It
+// returns the folders added.
+func steamLibraryDisks(steamDir, stateDir string, uid int) ([]string, error) {
+	disks := gameDisks(stateDir, uid)
+	if len(disks) == 0 {
+		return nil, nil
+	}
+	type list struct {
+		file, text string
+		listed     map[string]bool
+	}
+	var lists []list
+	for _, sub := range []string{"steamapps", "config"} {
+		file := filepath.Join(steamDir, sub, "libraryfolders.vdf")
+		if data, err := os.ReadFile(file); err == nil {
+			lists = append(lists, list{file, string(data), listedLibraries(string(data))})
 		}
-		m.steamMu.Lock()
-		sent := m.steamDisks[disk]
-		if !sent {
-			m.steamDisks[disk] = true
-		}
-		m.steamMu.Unlock()
-		if sent || listed[lib] {
-			continue
-		}
-		if lib != disk {
-			if err := os.MkdirAll(lib, 0o755); err != nil {
-				m.Log.Warn("cannot make Steam's folder on a disk for games", "dir", lib, "err", err)
+	}
+	if len(lists) == 0 {
+		return nil, nil // Steam has never run: it makes the list first
+	}
+	var added []string
+	ids := map[string]string{}
+	for i := range lists {
+		var libs, libIDs, labels []string
+		for _, disk := range disks {
+			lib := filepath.Join(disk, "SteamLibrary")
+			if _, err := os.Stat(filepath.Join(disk, "libraryfolder.vdf")); err == nil {
+				lib = disk
+			}
+			if lists[i].listed[lib] || lists[i].listed[disk] {
 				continue
 			}
-		}
-		if !haveSess {
-			s, err := m.Session()
-			if err != nil {
-				return
+			if ids[lib] == "" {
+				id, err := makeLibrary(lib, filepath.Base(disk))
+				if err != nil {
+					return added, fmt.Errorf("making %s: %w", lib, err)
+				}
+				ids[lib] = id
+				added = append(added, lib)
 			}
-			sess, haveSess = s, true
+			// Steam shows the label, not the folder: the disk's name (its folder under /run/media)
+			libs, libIDs, labels = append(libs, lib), append(libIDs, ids[lib]), append(labels, filepath.Base(disk))
 		}
-		m.Log.Info("a disk for games handed to Steam", "dir", lib)
-		_ = m.forwardSteam("steam://addlibraryfolder/"+steamURLPath(lib), sess)
+		if len(libs) == 0 {
+			continue
+		}
+		text, ok := addLibraries(lists[i].text, libs, libIDs, labels)
+		if !ok {
+			return added, fmt.Errorf("%s is not the file we know", lists[i].file)
+		}
+		if err := replaceFile(lists[i].file, []byte(text)); err != nil {
+			return added, err
+		}
 	}
+	return added, nil
 }

@@ -329,12 +329,18 @@ func (m *Manager) Steam(req SteamRequest) error {
 	if !running {
 		// Steam is closed: Steam Input on for every controller, once per account (steamlib.go)
 		m.mu.Lock()
-		stateDir := m.StateDir
+		stateDir, mountState := m.StateDir, m.MountState
 		m.mu.Unlock()
 		if accounts, err := steamInputOnce(dir, stateDir); err != nil {
 			m.Log.Warn("cannot turn Steam Input on", "err", err)
 		} else if len(accounts) > 0 {
 			m.Log.Info("Steam Input turned on for every controller", "accounts", accounts)
+		}
+		// the disks prepared for games become Steam libraries (steamdisks.go)
+		if libs, err := steamLibraryDisks(dir, mountState, os.Getuid()); err != nil {
+			m.Log.Warn("cannot add the disks for games to Steam", "err", err)
+		} else if len(libs) > 0 {
+			m.Log.Info("disks for games added to Steam's libraries", "folders", libs)
 		}
 		args := append([]string{"-gamepadui"}, m.steamGPUArgs()...)
 		if lang := steamLanguage(req.Language); lang != "" {
@@ -530,22 +536,13 @@ func (m *Manager) steamAskNow() {
 func (m *Manager) watchSteam() {
 	m.mu.Lock()
 	m.init()
-	steam, running := m.apps[SteamID]
-	// Steam's window is up (or, where owneetd does not follow windows, Steam has run a while): it
-	// takes addresses (steamdisks.go)
-	ready := running && (steam.window || time.Since(steam.Started) >= steamDisksAfter)
+	_, running := m.apps[SteamID]
 	confirm, dir := m.steamConfirm, m.SteamDir
 	m.mu.Unlock()
 	m.steamMu.Lock()
 	was := m.steamRunning // once more after Steam stopped: its downloads stopped too
 	m.steamRunning = running
-	if !running || m.steamDisks == nil {
-		m.steamDisks = map[string]bool{} // a new Steam is told again
-	}
 	m.steamMu.Unlock()
-	if ready {
-		m.steamAddDisks()
-	}
 	if !running && !was && confirm == nil {
 		return
 	}
