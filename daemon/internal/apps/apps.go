@@ -207,6 +207,8 @@ type Manager struct {
 	homePID  int             // of the session being watched
 	// closed once no button is held (SetReleased)
 	released func() <-chan struct{}
+	// apps besides games that go silent behind the home screen (SetSilent)
+	silent func(id string) bool
 	// names given by the interface to Steam games about to start, by Steam app id
 	steamNames map[string]string
 	// the steam:// address to hand to Steam once its window is shown (it started on its own
@@ -1146,6 +1148,75 @@ func (m *Manager) onScreen(focused uint32) *App {
 		return m.appOfID(m.shown[0])
 	}
 	return nil
+}
+
+// SetSilent says which apps besides games go silent behind the home screen (the catalogue's video
+// apps).
+func (m *Manager) SetSilent(f func(id string) bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.silent = f
+}
+
+// SilentNow: the sound of this process must be silent now. A game, or a video app, left open
+// behind the home screen (Guide) goes silent, and its sound comes back with it (owner, 2026-11-09,
+// [[step-4.5-windows-games-proton]]); music apps play on. Anything not on screen counts as behind.
+func (m *Manager) SilentNow(pid int) bool {
+	a, ok := m.appOfProcess(pid)
+	if !ok {
+		return false
+	}
+	m.mu.Lock()
+	focus, silent := m.lastFocus, m.silent
+	m.mu.Unlock()
+	if a.ID == focus {
+		return false
+	}
+	return a.Kind == KindGame || (silent != nil && silent(a.ID))
+}
+
+// appOfProcess: the app a process belongs to, as tag finds it but without taking note of anything
+// (a Steam game is only found once owneetd knows it).
+func (m *Manager) appOfProcess(pid int) (App, bool) {
+	m.mu.Lock()
+	m.init()
+	home := m.homePID
+	steamUnit := ""
+	if s, ok := m.apps[SteamID]; ok {
+		steamUnit = s.unit
+	}
+	m.mu.Unlock()
+	if pid <= 0 || pid == home || m.UnitOf == nil {
+		return App{}, false
+	}
+	unit := m.UnitOf(pid)
+	if unit == "" {
+		appID := m.parentOfApp(pid)
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		if a := m.appOfID(appID); a != nil && appID != 0 {
+			return *a, true
+		}
+		return App{}, false
+	}
+	if unit == steamUnit {
+		if appid, _ := m.reaperOf(pid); appid != "" {
+			m.mu.Lock()
+			defer m.mu.Unlock()
+			if g, ok := m.apps[steamGamePrefix+appid]; ok {
+				return *g, true
+			}
+			return App{}, false
+		}
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, a := range m.apps {
+		if a.unit == unit && a.reaper == 0 {
+			return *a, true
+		}
+	}
+	return App{}, false
 }
 
 // SetReleased gives the controllers' WhenReleased: an app brought back to the front waits for it.

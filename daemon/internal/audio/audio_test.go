@@ -2,7 +2,11 @@
 
 package audio
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jfreymuth/pulse/proto"
+)
 
 func TestKind(t *testing.T) {
 	cases := []struct {
@@ -66,5 +70,18 @@ func TestBuild(t *testing.T) {
 	}
 	if st := Build(sinks[:1], "auto_null"); st.Output != "" || len(st.Outputs) != 0 {
 		t.Fatalf("dummy only: %+v", st)
+	}
+}
+
+func TestStreamPID(t *testing.T) {
+	props := proto.PropList{"application.process.id": proto.PropListString("7863")}
+	if got := streamPID(props); got != 7863 {
+		t.Fatalf("pid %d", got)
+	}
+	if got := streamPID(proto.PropList{}); got != 0 {
+		t.Fatalf("no pid: %d", got)
+	}
+	if got := streamPID(proto.PropList{"application.process.id": proto.PropListString("x")}); got != 0 {
+		t.Fatalf("bad pid: %d", got)
 	}
 }

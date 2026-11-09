@@ -611,3 +611,43 @@ func TestBackToTheGameWhenTheButtonIsUp(t *testing.T) {
 		runtime.Gosched()
 	}
 }
+
+// A game, or a video app, behind the home screen goes silent; on screen it is heard; music apps
+// play on; the interface's own sounds and other processes are never silenced (owner, 2026-11-09).
+func TestSilentBehindTheHomeScreen(t *testing.T) {
+	m, _, focus, _ := newManager(t, "gamescope")
+	m.watchSession()
+	focus.openWindow(10)
+	focus.Show([]uint32{HomeAppID})
+	m.SetSilent(func(id string) bool { return id == "web:netflix" })
+	// processes 1001, 1002, 1003 belong to the units in start order
+	for i, c := range []struct {
+		req    LaunchRequest
+		behind bool // silent behind the home screen
+	}{
+		{LaunchRequest{ID: "game", Name: "Game", Kind: KindGame, Command: []string{"/bin/game"}}, true},
+		{LaunchRequest{ID: "web:netflix", Name: "netflix", Kind: KindWebApp, Command: []string{"/bin/brave"}}, true},
+		{LaunchRequest{ID: "web:spotify", Name: "spotify", Kind: KindWebApp, Command: []string{"/bin/brave"}}, false},
+	} {
+		pid := 1001 + i
+		if _, err := m.Launch(c.req); err != nil {
+			t.Fatal(c.req.ID, err)
+		}
+		focus.openWindow(pid)
+		m.checkWindows()
+		if m.Status().Focus != c.req.ID || m.SilentNow(pid) {
+			t.Fatalf("%s on screen: focus %q, silent %v", c.req.ID, m.Status().Focus, m.SilentNow(pid))
+		}
+		if err := m.ShowHome(); err != nil {
+			t.Fatal(err)
+		}
+		if m.SilentNow(pid) != c.behind || m.SilentNow(10) || m.SilentNow(4242) {
+			t.Fatalf("%s behind the home screen: silent %v, want %v", c.req.ID, m.SilentNow(pid), c.behind)
+		}
+		if err := m.FocusApp(c.req.ID); err != nil || m.SilentNow(pid) {
+			t.Fatalf("%s back on screen: %v, silent %v", c.req.ID, err, m.SilentNow(pid))
+		}
+		focus.closeWindow(m.appIDOf(c.req.ID))
+		m.exited(Exit{Unit: UnitName(c.req.ID), Result: "success"})
+	}
+}

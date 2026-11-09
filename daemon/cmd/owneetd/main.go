@@ -156,6 +156,19 @@ func run(configPath string) error {
 	}
 
 	sound := &audio.Pulse{Log: log, Broker: broker}
+	if appsAPI != nil {
+		// a game or a video app behind the home screen goes silent (owner, 2026-11-09)
+		sound.SetSilence(appsMgr.SilentNow)
+		screen, stop := broker.Subscribe(64)
+		defer stop()
+		go func() {
+			for ev := range screen {
+				if ev.Type == "focus.changed" {
+					sound.ApplySilence()
+				}
+			}
+		}()
+	}
 	go sound.Run(ctx)
 
 	var powerAPI api.Power
@@ -258,6 +271,9 @@ func run(configPath string) error {
 		webApps.ExtensionDir = "/usr/share/owneet/extension"
 		webApps.ConsentFile = filepath.Join(stateDir, "owneetd", "widevine.json")
 		catalogAPI = webApps
+		if appsAPI != nil {
+			appsMgr.SetSilent(webApps.SilentBehindHome)
+		}
 	}
 
 	// The console's Brave extension and the interface ([[extension-design]])
