@@ -29,12 +29,14 @@ Canvas {
     onHueChanged: requestPaint()
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
-    // An image another art has loaded already gives no imageLoaded signal: ready at once
+    // An image another art has loaded already gives no imageLoaded signal: loading it makes it
+    // ready at once, so it is checked after loadImage too (the Videos and Music pages show the same
+    // picture on a row and beside the list, 5.6)
     function useImage() {
         const src = image.toString();
-        imageReady = src !== "" && isImageLoaded(src);
-        if (src !== "" && !imageReady)
+        if (src !== "" && !isImageLoaded(src))
             loadImage(src);
+        imageReady = src !== "" && isImageLoaded(src);
         requestPaint();
     }
     onImageChanged: useImage()
