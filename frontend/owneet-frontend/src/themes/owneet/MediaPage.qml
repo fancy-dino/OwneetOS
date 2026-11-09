@@ -7,7 +7,8 @@
 // the start; Y switches Autoplay. Music: by folder or by artist and album (LT / RT); the songs'
 // tags are read the first time, with a spinner. B goes back a folder, then to the home screen.
 // Without media, the page explains the folder. A disk plugged in or out changes the page quietly;
-// the selection stays where it was.
+// the selection stays where it was. While the player is open, what plays is marked "Playing" (A on
+// it brings the player back; a started video playing is first in Continue watching).
 import QtQuick 2.15
 import "foundation"
 
@@ -15,6 +16,8 @@ FocusScope {
     id: page
     property string kind: "videos"             // "videos" or "music"
     property bool autoplay: true
+    property string playingPath: ""            // what the player plays ("": the player is not open)
+    property real playingPosition: 0
     signal play(var entry, var list, bool fromStart)
     signal options(var entry, var list)         // Menu on a started video
     signal toggleAutoplay()
@@ -58,7 +61,18 @@ FocusScope {
     readonly property bool showDisks: topFolder.disks > 1
 
     // the items of the grid and of the list: { type, id, entry, cont }
-    readonly property var continueCards: mode === "grid" ? continueList.map(v => ({ type: "video", id: "continue:" + v.path, entry: v, cont: true })) : []
+    readonly property var continueCards: {
+        if (mode !== "grid")
+            return [];
+        const list = continueList.filter(v => v.path !== playingPath);
+        if (videos && playingPath !== "") {
+            const folder = parentOf(playingPath);
+            const f = media.folder(kind, folder);
+            const e = f.files.find(x => x.path === playingPath);
+            if (e) list.unshift(Object.assign({}, e, { trail: media.trail(folder), picture: f.picture || "" }));
+        }
+        return list.map(v => ({ type: "video", id: "continue:" + v.path, entry: v, cont: true }));
+    }
     function entries(l) {
         return l.folders.map(f => ({ type: "folder", id: f.path, entry: f })).concat(l.files.map(f => ({ type: f.kind, id: f.path, entry: f })));
     }
@@ -105,6 +119,21 @@ FocusScope {
             remember(null);
         }
     }
+    // The player keeps where the page was; when it closes the page is there again, the selection
+    // on what played last
+    function saveState() {
+        return { view: view, videoStack: videoStack.slice(), folderStack: folderStack.slice(), artistStack: artistStack.slice() };
+    }
+    function restoreState(state, path) {
+        if (state) {
+            view = state.view;
+            videoStack = state.videoStack;
+            folderStack = state.folderStack;
+            artistStack = state.artistStack;
+        }
+        if (path) selectedId = path;
+        Qt.callLater(restore);
+    }
     function focusStart() {
         if (mode === "grid") gridArea.forceActiveFocus();
         else if (mode === "list") rowList.forceActiveFocus();
@@ -123,6 +152,7 @@ FocusScope {
     function startedVideo(data) {
         return data !== null && data.type === "video" && (media.details(data.entry.path).position || 0) > 0;
     }
+    function isPlaying(data) { return data !== null && !!data.entry && data.entry.path === playingPath && playingPath !== ""; }
     function activate(data) {
         if (!data)
             return;
@@ -134,7 +164,7 @@ FocusScope {
         page.play(data.entry, listFor(data), false);
     }
     function optionsFor(data) {
-        if (!startedVideo(data))
+        if (!startedVideo(data) || isPlaying(data))
             return false;
         page.options(data.entry, listFor(data));
         return true;
@@ -183,9 +213,9 @@ FocusScope {
             if (d.type === "folder" || d.type === "artist" || d.type === "album") {
                 out.push(P(["a"], "prompt.open"));
             } else {
-                const started = startedVideo(d);
-                out.push(P(["a"], started ? "prompt.resume" : "prompt.play"));
-                if (started) out.push(P(["menu"], "prompt.options"));
+                const started = startedVideo(d), playing = isPlaying(d);
+                out.push(P(["a"], started || playing ? "prompt.resume" : "prompt.play"));
+                if (started && !playing) out.push(P(["menu"], "prompt.options"));
             }
         }
         if (mode !== "empty")
@@ -326,7 +356,11 @@ FocusScope {
                         spacing: Theme.px(14)
                         Repeater {
                             model: page.continueCards
-                            MediaCard { width: page.cardWidth; height: page.cardHeight; itemData: modelData }
+                            MediaCard {
+                                width: page.cardWidth; height: page.cardHeight; itemData: modelData
+                                playing: page.isPlaying(modelData)
+                                livePosition: playing ? page.playingPosition : -1
+                            }
                         }
                     }
                 }
@@ -346,6 +380,8 @@ FocusScope {
                                 itemData: modelData
                                 music: !page.videos
                                 showDisk: page.showDisks
+                                playing: page.isPlaying(modelData)
+                                livePosition: playing ? page.playingPosition : -1
                             }
                         }
                     }
@@ -514,6 +550,8 @@ FocusScope {
                 itemData: modelData
                 music: !page.videos
                 showArtist: page.manyArtists
+                playing: page.isPlaying(modelData)
+                livePosition: playing ? page.playingPosition : -1
                 focus: true
             }
             onCurrentIndexChanged: if (page.mode === "list") page.remember(page.rows[currentIndex] || null)

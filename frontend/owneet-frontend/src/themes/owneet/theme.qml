@@ -251,9 +251,12 @@ FocusScope {
     }
     // An open web app (5.1): treated like a game, one game or web app at a time
     readonly property var runningWebApp: apps.find(a => a.kind === "webapp") || null
+    // The Videos and Music pages' player (5.6): treated like a game too
+    readonly property var runningPlayer: apps.find(a => a.kind === "media") || null
     // The name of what is open, for "{name} is open: close it first."
     function openName() {
         if (runningGame) return runningGame.name;
+        if (runningPlayer) return Tr.tr(player.kind === "music" ? "app.music" : "app.videos");
         const w = runningWebApp ? webApps.find(a => "web:" + a.id === runningWebApp.id) : null;
         return w ? Tr.tr(w.nameKey) : (runningWebApp ? runningWebApp.name : "");
     }
@@ -274,6 +277,7 @@ FocusScope {
         owneetd.get("/v1/status", (status, data) => { if (status === 200) sessionMode = data.session_mode || ""; });
         owneetd.get("/v1/network", (status, data) => { if (status === 200) { network = data; lastNetwork = data; } });
         refreshApps();
+        owneetd.get("/v1/player", (status, data) => { if (status === 200) root.setPlayer(data); });
         refreshControllers();
         applyKeyboard();          // the on-screen keyboard and physical keyboards follow the chosen layout
         refreshSteam(false);
@@ -303,6 +307,10 @@ FocusScope {
                     root.refreshSteam(true);
                 if (type === "app.exited")
                     refreshTimer.restart();       // play time and "last played" have changed
+                if (type === "app.exited" && data.id === "player")
+                    root.playerEnded();
+            } else if (type === "player.changed") {
+                root.setPlayer(data);
             } else if (type === "steam.launch_failed") {
                 if (data && data.reason === "linux_version") root.askWindowsVersion(String(data.appid));
             } else if (type === "focus.changed") {
@@ -499,7 +507,7 @@ FocusScope {
     function quietNetwork() { quietNetUntil = Date.now() + 15000; }
     // While a game is on screen nothing is drawn over it (the overlay comes in Wave 2) and no
     // sound plays: the notification waits in the list, the bell counts it
-    readonly property bool gameOnScreen: (runningGame !== null || runningWebApp !== null) && focusedApp !== "home"
+    readonly property bool gameOnScreen: (runningGame !== null || runningWebApp !== null || runningPlayer !== null) && focusedApp !== "home"
     function notify(n) {
         n.time = Date.now();
         noticeList = [n].concat(noticeList).slice(0, 30);
@@ -622,7 +630,7 @@ FocusScope {
             root.resume(runningGame);
             return;
         }
-        if (runningWebApp && owneetd.connected) {   // one game or web app at a time (5.1)
+        if ((runningWebApp || runningPlayer) && owneetd.connected) {   // one game, web app or player at a time (5.1, 5.6)
             toast.show(Tr.tr("toast.app.busy", { name: openName() }));
             Nav.feedback("edge");
             return;
@@ -766,9 +774,150 @@ FocusScope {
         mediaKind = "";
         home.focusApp(key);
     }
-    // `list`: what plays after it (the rest of its folder or album); the player comes with
-    // sub-step 5 of step 5.6
-    function playMedia(entry, list, fromStart) { notYet(); }
+    // ---- The player (5.6, approved demo design/demos/5.6-videos-and-music.html): mpv, started by
+    // owneetd like a game (POST /v1/player), one game, web app or player at a time. Its display
+    // gets the console's texts, palette, fonts and glyphs with each start; what plays comes back
+    // as "player.changed". Guide shows the console while it plays (gamescope); B, its end or Close
+    // bring the console back, on the list it was opened from.
+    property var player: ({ open: false })   // owneetd's: { open, kind, index, path, title, folder, artist, album, position, duration, paused, autoplay, error }
+    property real playerAt: 0                 // when `player` arrived (the time goes on from there)
+    property real playerNow: 0
+    property string playerPicture: ""         // the picture of what plays (its folder's, a song's own)
+    property var playerOrigin: null           // the page it was opened from: { kind, state }
+    property string playerStopped: ""         // closed because its USB disk was removed: its title
+    Timer {                                   // the time of what plays, while the console shows it
+        interval: 1000; repeat: true
+        running: root.runningPlayer !== null && root.player.open === true && !root.player.paused && root.focusedApp !== "player"
+        onTriggered: root.playerNow = Date.now()
+    }
+    // what the home screen's hero and the pages show of it
+    readonly property var nowPlaying: {
+        if (!runningPlayer || player.open !== true)
+            return null;
+        const video = player.kind !== "music";
+        const later = player.paused ? 0 : Math.max(0, (playerNow - playerAt) / 1000);
+        return {
+            path: player.path || "", video: video, title: player.title || runningPlayer.name,
+            line: video ? (player.folder || Tr.tr("app.videos"))
+                        : [player.artist || Tr.tr("media.unknown_artist"), player.album || ""].filter(s => s !== "").join(" · "),
+            position: Math.min(player.duration || 0, (player.position || 0) + later), duration: player.duration || 0,
+            picture: playerPicture, seed: video ? ((player.folder || "").split(" › ")[0] || player.title || "") : (player.album || player.title || "")
+        };
+    }
+    function setPlayer(data) {
+        const path = data.path || "";
+        // a song's own picture, else its folder's (cover.jpg…); a video's folder's
+        if (path !== (player.path || "")) {
+            const folder = path.substring(0, path.lastIndexOf("/"));
+            playerPicture = !path ? "" : (data.kind === "music" ? media.details(path).picture : "")
+                                         || media.folder(data.kind === "music" ? "music" : "videos", folder).picture || "";
+        }
+        player = data;
+        playerAt = Date.now();
+        playerNow = playerAt;
+        // Autoplay switched in the player (Menu): the Videos page and the next start follow
+        if (data.open && data.kind === "videos" && data.autoplay !== undefined && data.autoplay !== mediaAutoplay)
+            mediaAutoplay = data.autoplay;
+    }
+    readonly property var playerTexts: ["player.play", "player.pause", "player.seek", "player.prevnext", "prompt.back",
+        "prompt.home", "player.hold", "player.state.audio", "player.state.subtitles", "player.off", "media.autoplay",
+        "media.on", "media.off", "player.track", "player.forward", "player.backward", "player.start",
+        "player.last.video", "player.last.song", "player.audio", "player.subtitles", "player.resumed",
+        "player.failed", "media.unknown_artist", "player.next", "player.last_song"]
+    // `list`: what plays after it (the rest of its folder, or of the album)
+    function playMedia(entry, list, fromStart) {
+        // what plays already: back to the player
+        if (runningPlayer && player.open && player.path === entry.path) {
+            Nav.feedback("launch");
+            root.resume(runningPlayer);
+            return;
+        }
+        if ((runningGame || runningWebApp) && owneetd.connected) {     // one at a time
+            toast.show(Tr.tr("toast.app.busy", { name: openName() }));
+            Nav.feedback("edge");
+            return;
+        }
+        const music = mediaKind === "music";
+        const items = list.map(e => {
+            const folder = media.trail(e.path.substring(0, e.path.lastIndexOf("/")));
+            if (!music)
+                return { path: e.path, title: e.name, folder: folder, hue: MediaText.hue(folder.split(" › ")[0] || e.name) };
+            const d = media.details(e.path);
+            const album = d.album || folder.split(" › ").pop() || "";
+            return { path: e.path, title: d.title || e.name, artist: d.artist || "", album: album, hue: MediaText.hue(album || d.title || e.name) };
+        });
+        const hex = c => "#" + [c.r, c.g, c.b].map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join("");
+        const texts = {};
+        playerTexts.forEach(k => texts[k] = Tr.tr(k));
+        texts["label.playing"] = Tr.tr("home.playing").toLocaleUpperCase();
+        const codes = media.languageCodes();
+        const languages = {};
+        Object.keys(codes).forEach(k => { const c = codes[k]; if (!(c in languages)) languages[c] = MediaText.language(c); });
+        const request = {
+            kind: music ? "music" : "videos", items: items, index: Math.max(0, list.findIndex(e => e.path === entry.path)),
+            from_start: fromStart === true, autoplay: mediaAutoplay, texts: texts, languages: languages, codes: codes,
+            look: { bg: hex(Theme.bg), surface: hex(Theme.surface), raised: hex(Theme.raised), line: hex(Theme.line),
+                    fg: hex(Theme.fg), muted: hex(Theme.muted), accent: hex(Theme.accent), onAccent: hex(Theme.onAccent),
+                    displayFont: Theme.displayFont, textFont: Theme.textFont, textScale: Theme.textScale, glyphs: Theme.glyphs }
+        };
+        Nav.feedback("launch");
+        const origin = { kind: mediaKind, state: mediaPage.saveState() };
+        owneetd.post("/v1/player", request, (status, data) => {
+            if (status === 201) {
+                playerOrigin = origin;
+                playerStopped = "";
+                setPlayer(data);
+                return;
+            }
+            const code = data && data.error ? data.error.code : "";
+            toast.show(code === "apps.game_running" ? Tr.tr("toast.app.busy", { name: openName() }) : Tr.tr("error.player"));
+            Nav.feedback("error");
+        });
+    }
+    // Close on the home screen's hero: at once (its position kept), no question
+    function closePlayer() {
+        const title = nowPlaying ? nowPlaying.title : "";
+        closingApps["player"] = true;
+        owneetd.post("/v1/apps/player/close", {}, status => {
+            if (status >= 300 || status === 0) { toast.show(Tr.tr("error.close")); return; }
+            Nav.feedback("confirm");
+            if (title !== "") toast.show(Tr.tr("toast.closed", { title: title }));
+        });
+    }
+    // The player has quit: the positions are read again; when it was on screen, the console is
+    // back on the list it was opened from, the selection on what played last. A file that could
+    // not be played, or its USB disk removed, is said.
+    function playerEnded() {
+        const last = player;
+        const onTop = focusedApp === "player" || focusedApp === "";
+        media.refreshPositions();
+        if (playerStopped !== "" || (last.path && !media.fileExists(last.path))) {
+            toast.show(Tr.tr("toast.usb", { title: playerStopped || last.title || "" }));
+        } else if (last.error && last.error === last.path) {
+            toast.show(Tr.tr("player.failed", { title: last.title || "" }));
+        }
+        playerStopped = "";
+        const o = playerOrigin;
+        playerOrigin = null;
+        if (!onTop || !o || modalOpen)
+            return;
+        if (section !== "home") goSection("home");
+        mediaKind = o.kind;
+        mediaPage.restoreState(o.state, last.path || "");
+        mediaPage.focusStart();
+    }
+    // A USB disk removed while the player plays one of its files: the player stops (mpv keeps the
+    // video's position as it quits), the console says so when it has ended
+    Connections {
+        target: media
+        function onRevisionChanged() {
+            if (!root.runningPlayer || !root.player.open || !root.player.path || media.fileExists(root.player.path))
+                return;
+            root.playerStopped = root.player.title || "";
+            root.closingApps["player"] = true;
+            owneetd.post("/v1/apps/player/close", {});
+        }
+    }
     // Menu on a started video: resume it, or watch it from the start
     function mediaOptions(entry, list) {
         const position = media.details(entry.path).position || 0;
@@ -820,7 +969,7 @@ FocusScope {
     property var termsFor: null           // { app, updated }: the question waiting for Google's page
     function openAfterConsent(app) {
         // already open (brought back), or another one open ("close it first"): nothing to ask
-        if (runningGame || runningWebApp) {
+        if (runningGame || runningWebApp || runningPlayer) {
             startWebApp(app);
             return;
         }
@@ -881,7 +1030,7 @@ FocusScope {
     // brings it back when it is already open
     function startWebApp(app) {
         const open = runningWebApp !== null && runningWebApp.id === "web:" + app.id;
-        if (!open && (runningGame || runningWebApp)) {
+        if (!open && (runningGame || runningWebApp || runningPlayer)) {
             toast.show(Tr.tr("toast.app.busy", { name: openName() }));
             Nav.feedback("edge");
             return;
@@ -2311,10 +2460,12 @@ FocusScope {
             onOpenLibrary: root.goSection("library")
             onHowToAdd: root.showHowToAdd()
             onOpenStore: root.openSteam("store")
-            running: root.runningGame || root.runningWebApp
+            running: root.runningGame || root.runningWebApp || root.runningPlayer
+            nowPlaying: root.nowPlaying
+            playerKind: root.runningPlayer ? (root.player.kind === "music" ? "music" : "videos") : ""
             canResume: root.sessionMode === "gamescope"
             onResume: root.resume(app)
-            onCloseApp: root.confirmClose(app)
+            onCloseApp: if (app.kind === "media") root.closePlayer(); else root.confirmClose(app)
             pointerOn: root.pointerStatus.on === true && root.runningGame !== null && root.pointerStatus.app === root.runningGame.id
             onResumeWithPointer: root.resumeWithPointer(app)
             onPointerOff: root.turnPointerOff()
@@ -2331,6 +2482,8 @@ FocusScope {
             focus: visible
             kind: root.mediaKind || "videos"
             autoplay: root.mediaAutoplay
+            playingPath: root.nowPlaying ? root.nowPlaying.path : ""
+            playingPosition: root.nowPlaying ? root.nowPlaying.position : 0
             onPlay: root.playMedia(entry, list, fromStart)
             onOptions: root.mediaOptions(entry, list)
             onToggleAutoplay: {

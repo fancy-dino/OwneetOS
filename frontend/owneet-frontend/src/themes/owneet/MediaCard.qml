@@ -3,7 +3,7 @@
 // folder, a video, a song or an artist, with its picture (the folder's own, a season's series',
 // the song's own) or art drawn from its name. A folder says what it holds, a video its length, a
 // started video what is left, with its progress under it; the disk's name shows when the media
-// folders are on several disks.
+// folders are on several disks. What the player plays is marked "Playing", its progress live.
 import QtQuick 2.15
 import "foundation"
 
@@ -12,6 +12,8 @@ Item {
     property var itemData: null                 // { type: folder, video, song or artist; id; entry; cont }
     property bool showDisk: false
     property bool music: false                  // a folder's songs, not videos
+    property bool playing: false                // the player plays it
+    property real livePosition: -1              // where the player is in it (-1: not playing)
     readonly property bool navigable: true
     readonly property real radius: Theme.radiusM
     readonly property string type: itemData ? itemData.type : ""
@@ -20,7 +22,7 @@ Item {
         const r = media.detailsRevision;
         return entry && (type === "video" || type === "song") ? media.details(entry.path) : null;
     }
-    readonly property real position: details && details.position ? details.position : 0
+    readonly property real position: livePosition >= 0 ? livePosition : details && details.position ? details.position : 0
     readonly property real duration: details ? details.duration : 0
     readonly property string title: !entry ? ""
         : type === "song" ? (details && details.title ? details.title : entry.name)
@@ -124,8 +126,24 @@ Item {
             font.pixelSize: Theme.fs(12.5)
         }
     }
+    Rectangle {                                 // playing (5.6): as the running game's badge
+        visible: root.playing
+        anchors { right: parent.right; top: parent.top; margins: Theme.px(8) }
+        width: playingText.implicitWidth + Theme.px(18); height: playingText.implicitHeight + Theme.px(4)
+        radius: height / 2
+        color: Theme.running
+        Text {
+            id: playingText
+            anchors.centerIn: parent
+            text: Tr.tr("media.playing")
+            color: Theme.runningInk
+            font.family: Theme.textFont
+            font.weight: Font.DemiBold
+            font.pixelSize: Theme.fs(12.5)
+        }
+    }
     Rectangle {                                 // folder, video or song
-        visible: root.type !== "artist"
+        visible: root.type !== "artist" && !root.playing
         anchors { right: parent.right; top: parent.top; margins: Theme.px(8) }
         width: Theme.px(26); height: width; radius: width / 2
         color: "#73000000"

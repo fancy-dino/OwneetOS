@@ -3,6 +3,7 @@
 // design/demos/5.6-videos-and-music.html): a folder and what it holds, a video and its length (a
 // started one: what is left, with its progress along the bottom), a song with its track number and
 // length (its artist too in a folder of several artists), an album with its picture, year and songs.
+// What the player plays is marked "Playing", its progress live.
 import QtQuick 2.15
 import "foundation"
 
@@ -11,13 +12,15 @@ Rectangle {
     property var itemData: null                 // { type: folder, video, song or album; id; entry }
     property bool music: false
     property bool showArtist: false
+    property bool playing: false                // the player plays it
+    property real livePosition: -1              // where the player is in it (-1: not playing)
     readonly property string type: itemData ? itemData.type : ""
     readonly property var entry: itemData ? itemData.entry : null
     readonly property var details: {
         const r = media.detailsRevision;
         return entry && (type === "video" || type === "song") ? media.details(entry.path) : null;
     }
-    readonly property real position: details && details.position ? details.position : 0
+    readonly property real position: livePosition >= 0 ? livePosition : details && details.position ? details.position : 0
     readonly property real duration: details ? details.duration : 0
     readonly property string title: !entry ? ""
         : type === "song" ? (details && details.title ? details.title : entry.name)
@@ -109,6 +112,22 @@ Rectangle {
         id: end
         anchors { right: parent.right; rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
         spacing: Theme.px(12)
+        Rectangle {                             // playing (5.6): as the running game's badge
+            visible: root.playing
+            anchors.verticalCenter: parent.verticalCenter
+            width: playingText.implicitWidth + Theme.px(18); height: playingText.implicitHeight + Theme.px(4)
+            radius: height / 2
+            color: Theme.running
+            Text {
+                id: playingText
+                anchors.centerIn: parent
+                text: Tr.tr("media.playing")
+                color: Theme.runningInk
+                font.family: Theme.textFont
+                font.weight: Font.DemiBold
+                font.pixelSize: Theme.fs(12.5)
+            }
+        }
         Text {
             visible: text !== ""
             anchors.verticalCenter: parent.verticalCenter

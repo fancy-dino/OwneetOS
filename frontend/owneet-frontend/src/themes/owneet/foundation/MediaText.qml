@@ -4,6 +4,8 @@
 //   MediaText.span(2465)        "41 min", "1 h 52 min" (a video's length, what is left)
 //   MediaText.languages(["en", "it"])   "English, Italian" (the message files' names, else the
 //                               language's own name)
+//   MediaText.hue("Low Tide")   the hue GameArt draws a cover from (0…359): the player draws a
+//                               song without a picture the same way
 pragma Singleton
 import QtQuick 2.15
 
@@ -22,6 +24,12 @@ QtObject {
         const key = "lang." + code;
         const name = Tr.tr(key);
         return name !== key ? name : media.nativeLanguageName(code);
+    }
+    function hue(seed) {             // GameArt's: FNV-1a over the characters, over the colour wheel
+        let h = 2166136261;
+        for (let i = 0; i < (seed || "").length; i++)
+            h = Math.imul(h ^ seed.charCodeAt(i), 16777619) >>> 0;
+        return h % 360;
     }
     // the known languages, each once
     function languages(codes) {

@@ -9,7 +9,9 @@
 // installs it, Menu opens its options (Open, Remove). An open web app takes the hero like a game
 // ([[step-5.1-brave-in-the-os]], approved demo design/demos/5.1-web-app-running.html): its letter
 // instead of art, Resume and Close; its tile shows a green dot. The Videos and Music tiles open
-// their pages ([[step-5.6-local-videos-and-music]], approved demo design/demos/5.6-videos-and-music.html).
+// their pages ([[step-5.6-local-videos-and-music]], approved demo design/demos/5.6-videos-and-music.html);
+// the player open takes the hero like a game: what plays, its time, Resume and Close; its tile
+// shows a green dot.
 // Still to come: real covers from Steam's local files (4.1).
 import QtQuick 2.15
 import "foundation"
@@ -31,15 +33,20 @@ NavArea {
         if (ids.join() !== webAppIds.join()) webAppIds = ids;
     }
     function webApp(id) { return webApps.find(a => a.id === id) || null; }
-    property var running: null                 // the running game or web app: { id, name, kind, started }
+    property var running: null                 // the running game, web app or player: { id, name, kind, started }
     property bool canResume: true
+    // The player open (5.6): what plays ({ title, line, position, duration, picture, seed }), and
+    // whether it is the Videos or the Music page's ("videos", "music")
+    property var nowPlaying: null
+    property string playerKind: ""
+    readonly property bool mediaOpen: running !== null && running.kind === "media"
     // An open web app (5.1): its catalogue entry
     readonly property bool webOpen: running !== null && running.kind === "webapp"
     readonly property var runningWeb: webOpen ? (webApps.find(a => "web:" + a.id === running.id) || null) : null
     function isOpen(app) { return app !== null && running !== null && running.id === "web:" + app.id; }
     // The Pegasus game of the running one (same title), for its art and source
     readonly property var runningGame: {
-        if (!running || webOpen) return null;
+        if (!running || webOpen || mediaOpen) return null;
         for (let i = 0; i < games.length; i++)
             if (games[i].title === running.name) return games[i];
         return null;
@@ -170,13 +177,14 @@ NavArea {
                 readonly property var game: page.running ? page.runningGame : page.hero
                 visible: (page.hero !== null || page.running !== null) && !page.webOpen
                 radius: Theme.radiusL
-                seed: page.running ? page.running.name : (page.hero ? page.hero.title : "")
+                seed: page.mediaOpen && page.nowPlaying ? page.nowPlaying.seed
+                    : page.running ? page.running.name : (page.hero ? page.hero.title : "")
                 // Art (4.4): a Steam game's wide picture, else its header, else the generated art; a
                 // game on a disk shows its cover whole, on the right (owner 2026-10-16)
                 readonly property string wide: game ? (game.assets.background || game.assets.banner || "") : ""
                 readonly property string cover: game && GameInfo.onDisk(game) ? (game.assets.boxFront || "") : ""
-                image: wide || cover
-                fit: wide === "" && cover !== ""
+                image: page.mediaOpen ? (page.nowPlaying ? page.nowPlaying.picture : "") : (wide || cover)
+                fit: !page.mediaOpen && wide === "" && cover !== ""
                 fitX: 0.92
                 fitMargin: Theme.px(22)
                 scrim: true
@@ -237,6 +245,7 @@ NavArea {
                 Text {
                     width: parent.width
                     text: page.webOpen ? (page.runningWeb ? Tr.tr(page.runningWeb.nameKey) : page.running.name)
+                        : page.mediaOpen ? (page.nowPlaying ? page.nowPlaying.title : page.running.name)
                         : page.running ? page.running.name : page.hero ? page.hero.title : Tr.tr("home.empty.title")
                     color: parent.ink
                     font.family: Theme.displayFont
@@ -277,6 +286,7 @@ NavArea {
                     }
                     Text {
                         text: page.webOpen ? Tr.trn("home.open.time", page.playingMinutes)
+                            : page.mediaOpen ? (page.nowPlaying ? page.nowPlaying.line : "")
                             : page.running ? Tr.trn("home.session", page.playingMinutes) : GameInfo.lastPlayed(page.hero)
                         color: page.webOpen ? Theme.muted : "#E6FFFFFF"
                         font.family: Theme.textFont
@@ -290,6 +300,29 @@ NavArea {
                         font.family: Theme.textFont
                         font.pixelSize: Theme.fs(14.5)
                         anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Row {            // the player: where it is in what plays
+                        visible: page.mediaOpen && page.nowPlaying !== null && page.nowPlaying.duration > 0
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Theme.px(10)
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(120); height: Theme.px(5); radius: height / 2
+                            color: "#40FFFFFF"
+                            Rectangle {
+                                width: parent.width * (page.nowPlaying && page.nowPlaying.duration > 0
+                                                       ? Math.min(1, page.nowPlaying.position / page.nowPlaying.duration) : 0)
+                                height: parent.height; radius: height / 2
+                                color: Theme.accent
+                            }
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: page.nowPlaying ? MediaText.clock(page.nowPlaying.position) + " / " + MediaText.clock(page.nowPlaying.duration) : ""
+                            color: "#E6FFFFFF"
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(14.5)
+                        }
                     }
                     Rectangle {      // the pointer is on for the running game (4.7)
                         visible: page.running !== null && page.pointerOn
@@ -324,7 +357,7 @@ NavArea {
                         style: page.webOpen ? "primary" : "light"
                     }
                     Button {
-                        visible: page.running !== null && page.canResume
+                        visible: page.running !== null && page.canResume && !page.mediaOpen
                         property string kind: page.pointerOn ? "pointerOff" : "pointer"
                         text: Tr.tr(page.pointerOn ? "home.pointer.off" : "home.pointer")
                         style: "glass"
@@ -332,7 +365,7 @@ NavArea {
                     Button {
                         visible: page.running !== null
                         readonly property string kind: "close"
-                        text: Tr.tr(page.webOpen ? "home.closeapp" : "home.close")
+                        text: Tr.tr(page.webOpen || page.mediaOpen ? "home.closeapp" : "home.close")
                         style: page.webOpen ? (page.canResume ? "secondary" : "primary")
                                             : (page.canResume ? "glass" : "light")
                     }
@@ -428,8 +461,9 @@ NavArea {
                                     color: Theme.fg
                                 }
                             }
-                            Rectangle {                 // open (5.1): green dot, as the running game
-                                visible: page.isOpen(parent.webApp) && !parent.webApp.busy
+                            Rectangle {                 // open (5.1, 5.6): green dot, as the running game
+                                visible: (page.isOpen(parent.webApp) && !parent.webApp.busy)
+                                         || (parent.mediaKind !== "" && page.mediaOpen && page.playerKind === parent.mediaKind)
                                 anchors { right: parent.right; top: parent.top; rightMargin: Theme.px(14); topMargin: Theme.px(16) }
                                 width: Theme.px(9); height: width; radius: width / 2
                                 color: Theme.running
