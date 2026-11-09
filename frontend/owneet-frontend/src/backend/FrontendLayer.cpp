@@ -22,6 +22,7 @@
 #include "owneet/Daemon.h"
 #include "owneet/DiskGames.h"
 #include "owneet/I18n.h"
+#include "owneet/Media.h"
 #include "owneet/Overlay.h"
 #include "owneet/Storage.h"
 #include "owneet/SystemInfo.h"
@@ -64,6 +65,7 @@ FrontendLayer::FrontendLayer(QObject* const api_public, QObject* const api_priva
     , m_system_info(new owneet::SystemInfo(this))
     , m_overlay(new owneet::Overlay(this))
     , m_disk_games(new owneet::DiskGames(this))
+    , m_media(new owneet::Media(this))
 {
     // Note: the pointer to the Api is non-owning and constant during the runtime
 
@@ -72,6 +74,8 @@ FrontendLayer::FrontendLayer(QObject* const api_public, QObject* const api_priva
         AppSettings::general.locale = m_i18n->language();
         AppSettings::save_config();
     });
+    // OwneetOS: a disk plugged in or out changes the Videos and Music pages (5.6)
+    connect(m_storage, &owneet::Storage::volumesChanged, m_media, &owneet::Media::disksChanged);
 }
 
 void FrontendLayer::rebuild()
@@ -98,6 +102,7 @@ void FrontendLayer::rebuild()
     m_engine->rootContext()->setContextProperty(QStringLiteral("systemInfo"), m_system_info); // OwneetOS
     m_engine->rootContext()->setContextProperty(QStringLiteral("overlay"), m_overlay); // OwneetOS
     m_engine->rootContext()->setContextProperty(QStringLiteral("diskGames"), m_disk_games); // OwneetOS
+    m_engine->rootContext()->setContextProperty(QStringLiteral("media"), m_media); // OwneetOS
     m_daemon->setEngine(m_engine);
     m_daemon->start();
     m_engine->load(QUrl(QStringLiteral("qrc:/frontend/main.qml")));
