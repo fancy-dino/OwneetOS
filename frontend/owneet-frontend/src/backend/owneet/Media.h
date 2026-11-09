@@ -113,7 +113,7 @@ private:
     QStringList allFiles(const QString& kind);
     bool known(const QString& path) const;
     void queue(const QStringList& paths, bool first);
-    void probed(const QString& path, const QJsonObject& info);
+    void probed(const QString& path, const QJsonObject& info, qint64 reading_us);
     std::vector<Group> groups();
     void loadList();
     void saveList();
@@ -137,5 +137,6 @@ private:
     QSet<QString> m_tags_pending;
     qint64 m_tags_started = 0;
     int m_tags_probed = 0;
+    qint64 m_tags_reading_us = 0;          // the time spent in the files themselves
 };
 } // namespace owneet

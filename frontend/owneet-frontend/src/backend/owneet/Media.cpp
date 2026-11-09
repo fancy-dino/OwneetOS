@@ -15,7 +15,7 @@
 #include <QLocale>
 #include <QMutex>
 #include <QRegularExpression>
-#include <QSaveFile>
+#include <QElapsedTimer>
 #include <QStorageInfo>
 #include <QThread>
 #include <QTimer>
@@ -23,6 +23,7 @@
 #include <QWaitCondition>
 
 #include <algorithm>
+#include <cstdio>
 #include <deque>
 #include <map>
 #include <tuple>
@@ -207,6 +208,20 @@ int leading_number(const QString& text)          // "3/12" → 3
     return m.hasMatch() ? m.captured(1).toInt() : 0;
 }
 
+// A file of the console's list or a picture: written whole, then put in its place. QSaveFile is
+// not used: it waits for the disk at every file (tens of ms each in a VM), which a cache does not need.
+bool write_cache(const QString& path, const QByteArray& data)
+{
+    const QString part = path + QStringLiteral(".part");
+    QFile out(part);
+    if (!out.open(QIODevice::WriteOnly) || out.write(data) != data.size()) {
+        out.remove();
+        return false;
+    }
+    out.close();
+    return std::rename(QFile::encodeName(part).constData(), QFile::encodeName(path).constData()) == 0;
+}
+
 // A song's own picture, saved on the console's disk for the interface to show
 QString save_picture(const QString& path, const AVPacket& pkt, bool png)
 {
@@ -215,11 +230,7 @@ QString save_picture(const QString& path, const AVPacket& pkt, bool png)
     const QString file = dir + QChar('/')
         + QString::fromLatin1(QCryptographicHash::hash(path.toUtf8(), QCryptographicHash::Sha1).toHex().left(20))
         + (png ? QStringLiteral(".png") : QStringLiteral(".jpg"));
-    QSaveFile out(file);
-    if (!out.open(QIODevice::WriteOnly))
-        return QString();
-    out.write(reinterpret_cast<const char*>(pkt.data), pkt.size);
-    return out.commit() ? file : QString();
+    return write_cache(file, QByteArray(reinterpret_cast<const char*>(pkt.data), pkt.size)) ? file : QString();
 }
 
 // The details kept in the list: s (size), m (modified, ms), d (seconds), au / su (audio and
@@ -339,9 +350,12 @@ protected:
                 path = m_queue.front();
                 m_queue.pop_front();
             }
+            QElapsedTimer clock;
+            clock.start();
             const QJsonObject info = probe(path);
+            const qint64 us = clock.nsecsElapsed() / 1000;
             Media* media = m_media;
-            QMetaObject::invokeMethod(media, [media, path, info] { media->probed(path, info); }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(media, [media, path, info, us] { media->probed(path, info, us); }, Qt::QueuedConnection);
         }
     }
 
@@ -767,7 +781,7 @@ void Media::queue(const QStringList& paths, bool first)
         m_worker->add(add, first);
 }
 
-void Media::probed(const QString& path, const QJsonObject& info)
+void Media::probed(const QString& path, const QJsonObject& info, qint64 reading_us)
 {
     m_queued.remove(path);
     m_list.insert(path, info);
@@ -778,12 +792,15 @@ void Media::probed(const QString& path, const QJsonObject& info)
         return;
     ++m_tags_read;
     ++m_tags_probed;
+    m_tags_reading_us += reading_us;
     emit tagsProgressChanged();
     if (!m_tags_pending.isEmpty())
         return;
+    // from the reading's start to its end, and the time spent in the files alone (the rest is waiting)
     const qint64 ms = QDateTime::currentMSecsSinceEpoch() - m_tags_started;
-    Log::info(LOGMSG("Media: read the tags of %1 songs in %2 ms (%3 ms a song)")
-                  .arg(m_tags_probed).arg(ms).arg(m_tags_probed > 0 ? double(ms) / m_tags_probed : 0.0, 0, 'f', 1));
+    const double n = std::max(1, m_tags_probed);
+    Log::info(LOGMSG("Media: read the tags of %1 songs in %2 ms (%3 ms a song; %4 ms a song in the files)")
+                  .arg(m_tags_probed).arg(ms).arg(ms / n, 0, 'f', 1).arg(m_tags_reading_us / 1000.0 / n, 0, 'f', 1));
     m_tags_complete = true;
     m_tags_state = QStringLiteral("ready");
     saveList();
@@ -802,6 +819,7 @@ void Media::readTags()
     m_tags_read = songs.size() - unread.size();
     m_tags_started = QDateTime::currentMSecsSinceEpoch();
     m_tags_probed = 0;
+    m_tags_reading_us = 0;
     queue(unread, false);
     // the first time with a spinner; afterwards the kept list at once, new songs added quietly
     m_tags_state = unread.isEmpty() || m_tags_complete ? QStringLiteral("ready") : QStringLiteral("reading");
@@ -942,8 +960,7 @@ void Media::saveList()
         { QStringLiteral("files"), files },
     };
     QDir().mkpath(QFileInfo(list_path()).path());
-    QSaveFile out(list_path());
-    if (!out.open(QIODevice::WriteOnly) || out.write(QJsonDocument(root).toJson(QJsonDocument::Compact)) < 0 || !out.commit())
+    if (!write_cache(list_path(), QJsonDocument(root).toJson(QJsonDocument::Compact)))
         Log::warning(LOGMSG("Media: cannot save the list of the files' details"));
 }
 
