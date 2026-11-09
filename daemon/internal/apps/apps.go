@@ -220,6 +220,7 @@ type Manager struct {
 
 	steamMu      sync.Mutex
 	steamSamples map[string]*steamSample // downloads: bytes at the last check (steamlib.go)
+	steamContent steamContent            // Steam's content log, read as it grows (steamprogress.go)
 	steamLast    string                  // the last status sent as "steam.changed"
 	steamRunning bool                    // Steam ran at the last check
 }

@@ -35,9 +35,14 @@ NavArea {
     visible: false
     z: 150
 
+    // A within this time of the window's opening is ignored: a double press (the controller, or a
+    // hand) never confirms the next window too (FrankenPC: one A went through two Steam notices,
+    // owner 2026-11-09)
+    readonly property int acceptDelay: 300
     function open(quiet) {
         if (!quiet)
             Nav.feedback("sheet-open");
+        acceptFrom = Date.now() + acceptDelay;
         visible = true;
         forceActiveFocus();
         focusDefault();
@@ -70,6 +75,8 @@ NavArea {
         iconCrossed = false;
         prompts = Qt.binding(() => defaultPrompts);
     }
+    onAcceptIgnored: console.log("Window \"" + title + "\": A ignored, " + (Date.now() - acceptFrom + acceptDelay)
+        + " ms after opening")
     onCancelled: {
         if (backAction) {
             Nav.feedback("sheet-close");
@@ -82,6 +89,9 @@ NavArea {
     // something else follows, e.g. another window or a game starting).
     // (the actions stay in `buttons`: a Repeater's modelData would drop the functions)
     onAccepted: {
+        // every A a window takes, in the log: if a double press comes back, its source can be found
+        console.log("Window \"" + title + "\": A on " + (item && item.buttonIndex !== undefined
+            ? "button " + item.buttonIndex : "its content") + ", " + (Date.now() - acceptFrom + acceptDelay) + " ms after opening");
         if (!item || item.buttonIndex === undefined)
             return;             // content with its own action (e.g. a password field)
         const b = buttons[item.buttonIndex];

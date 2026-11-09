@@ -14,6 +14,10 @@ FocusScope {
     property Flickable scrollTarget: null
     // Left / right stay on the selected item's row (Dialog: buttons on two rows, owner 2026-11-08)
     property bool rowsHold: false
+    // A is not taken before this time (Date.now()): a window just opened ignores a press that came
+    // with the one that opened it (Dialog, owner 2026-11-09)
+    property real acceptFrom: 0
+    signal acceptIgnored(Item item)
     function scrollBy(dy) {
         const f = scrollTarget;
         if (!f || f.contentHeight <= f.height) { Nav.feedback("edge"); return; }
@@ -55,6 +59,8 @@ FocusScope {
             }
         } else if ((a === "scroll-up" || a === "scroll-down") && scrollTarget) {
             scrollBy((a === "scroll-up" ? -1 : 1) * scrollTarget.height * 0.4);
+        } else if (a === "accept" && current && Date.now() < acceptFrom) {
+            acceptIgnored(current);       // no sound, nothing done: the press is taken and dropped
         } else if (a === "accept" && current) {
             // the item pressed: its action may select another one (e.g. a window's next page)
             const item = current;
