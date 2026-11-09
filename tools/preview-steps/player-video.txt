@@ -1,0 +1,47 @@
+@videos
+# The player with a video ([[step-5.6-local-videos-and-music]], approved demo 5.6): a saved position
+# resumed, the display at a press (gone after 4 s), paused, -10 / +10 s, the audio tracks (never
+# "no sound"), the subtitles (off, then each), Autoplay, LT's 5 s, RT keeping the position, B
+# saving it; the console over the player (its buttons ignored), the keyboard.
+saved 0 12
+start 0
+shot 01-resumed
+state
+wait 4
+shot 02-hidden
+pad a
+shot 03-paused
+pad a
+pad right
+shot 04-forward
+pad x
+shot 05-audio-italian
+pad x
+# the file's English subtitles are on at the start (its default track): Italian, off, English
+pad y
+shot 06-subtitles-italian
+pad y
+shot 07-subtitles-off
+pad y
+pad menu
+shot 08-autoplay-off
+pad menu
+state
+# LT from 0:05 on: back to the start; in the first 5 s: the previous one (here the first: its start)
+pad lt
+shot 09-lt-start
+# RT: the next episode; the first keeps its position
+pad rt
+wait 1
+shot 10-next
+state
+files
+# the console over the player: its buttons do nothing
+focus no
+pad rt
+state
+focus yes
+# the keyboard: Escape leaves; the episode keeps its position
+key ESC
+exit
+files

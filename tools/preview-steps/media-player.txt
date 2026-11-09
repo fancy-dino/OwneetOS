@@ -1,0 +1,36 @@
+@media
+@owneetd
+@gamescope
+# The player open, as the console shows it ([[step-5.6-local-videos-and-music]] sub-step 5,
+# approved demo 5.6), with the pretend owneetd: a started episode resumed from Continue watching;
+# Guide (the pretend focus event) shows the console where it was: the episode marked "Playing",
+# first in Continue watching, then in its season's list (A resumes, no Menu); the home screen's
+# hero with what plays, its time, Resume and Close, the Videos tile's green dot; Close closes it at
+# once ("Episode 2 closed"). A song: media-player-music.txt.
+pad right right
+pad down
+pad a
+wait 2
+pad a
+wait 2
+event focus.changed {"focus":"home"}
+wait 1
+shot 01-continue-playing
+pad down
+pad right
+pad right
+pad a
+pad a
+wait 1
+pad down
+shot 02-season-playing
+pad b
+pad b
+pad b
+wait 1
+shot 03-home-hero
+pad left
+pad right
+shot 04-close-selected
+pad a
+shot 05-closed

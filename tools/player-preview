@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Shows OwneetOS's player without booting an ISO ([[step-5.6-local-videos-and-music]]): runs mpv
+# with the player's files from the repository (daemon/player/: mpv.conf, input.conf, owneet.lua)
+# and the console's fonts on a virtual screen (Xvfb) in a throwaway container inside the builder
+# VM, with invented videos and songs made with FFmpeg, presses its buttons through mpv's control
+# socket as the controller would, follows a list of steps and saves screenshots in
+# out/player-preview/. It also prints what the player tells owneetd ("owneet-state") and the
+# saved positions, to check the player's rules (LT's 5 s, Autoplay, positions, tracks).
+#
+#   tools/build-in-vm tools/player-preview STEPS_FILE [WIDTHxHEIGHT]    (default 1280x720)
+#
+# STEPS_FILE, one step per line:
+#   @videos | @music   (first line) a season of three episodes (two audio languages, embedded
+#                      subtitles, a subtitle file beside one) / an album with its pictures, one
+#                      with a cover.jpg, one with nothing
+#   lang en|it, palette KEY, glyphs xbox|ps|nintendo, textscale N, session gamescope|cage,
+#   autoplay on|off    the console's choices, before `start`
+#   saved N SECONDS    a saved position for item N (0 = the first), as mpv writes it
+#   start N [fromstart]  open the player on item N (from the start: its saved position removed,
+#                      as owneetd does)
+#   pad BUTTON...      a b x y lt rt menu view lb rb up down left right l3 r3 guide (mpv's names)
+#   hold BUTTON MS     a button held down
+#   key KEY...         keyboard keys (mpv's names: ENTER, ESC, LEFT, x, m…)
+#   focus yes|no       owneetd: the console is on screen over the player (no) or not (yes)
+#   seek SECONDS       (test only) jump to a time
+#   shot NAME          screenshot: out/player-preview/NAME.png
+#   wait SECONDS       pause
+#   state              the last "owneet-state" message
+#   files              the saved positions (the watch-later folder)
+#   exit               wait until mpv has quit (at most 15 s) and print its exit code
+#   # …                comment
+# The player's log is out/player-preview/log.txt. The mpv command is the one owneetd builds
+# (daemon/internal/player/player.go, Args), with X11 output and no sound device: keep the two alike.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CHROOT="/var/tmp/owneet-chroot/root"
+BOX="/var/tmp/owneet-player"
+OUT="$ROOT/out/player-preview"
+
+die() { echo "error: $*" >&2; exit 1; }
+
+[[ $# -ge 1 && $# -le 2 ]] || { sed -n '4,36p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+STEPS="$(realpath "$1")"
+SIZE="${2:-1280x720}"
+[[ -f "$STEPS" ]] || die "$1 not found"
+[[ "$SIZE" =~ ^[0-9]+x[0-9]+$ ]] || die "size must be WIDTHxHEIGHT"
+{ command -v systemd-nspawn >/dev/null && [[ -d "$CHROOT" ]]; } \
+    || die "run it in the builder VM after a package build: tools/build-in-vm tools/player-preview …"
+
+if [[ ! -x "$BOX/usr/bin/mpv" ]]; then
+    echo "==> creating the player's preview container (once)"
+    [[ -d "$BOX" ]] || sudo cp -a "$CHROOT" "$BOX"
+    sudo systemd-nspawn -q -D "$BOX" pacman -Sy --noconfirm --needed \
+        mpv ffmpeg xorg-server-xvfb imagemagick python >/dev/null
+fi
+# The player's files and the console's fonts, as the packages install them
+sudo rm -rf "$BOX/usr/share/owneet/player" "$BOX/usr/share/fonts/owneet"
+sudo install -Dm644 "$ROOT"/daemon/player/{mpv.conf,input.conf,owneet.lua} -t "$BOX/usr/share/owneet/player/"
+sudo install -Dm644 "$ROOT"/frontend/owneet-frontend/assets/fonts/owneet/*.ttf -t "$BOX/usr/share/fonts/owneet/"
+sudo systemd-nspawn -q -D "$BOX" fc-cache -f >/dev/null
+# What the console sends with each start (texts, palette, language codes)
+sudo install -Dm644 "$ROOT"/frontend/i18n/*.json -t "$BOX/preview/i18n/"
+sudo install -Dm644 "$ROOT/frontend/owneet-frontend/src/themes/owneet/foundation/Theme.qml" \
+    "$ROOT/frontend/owneet-frontend/src/backend/owneet/Media.cpp" -t "$BOX/preview/"
+sudo install -Dm644 "$ROOT/tools/preview-steps/player-driver.py" "$BOX/preview/driver.py"
+sudo cp "$STEPS" "$BOX/preview/steps.txt"
+
+rm -rf "$OUT"; mkdir -p "$OUT"
+sudo systemd-nspawn -q -D "$BOX" --bind="$OUT:/out" \
+    xvfb-run -a -s "-screen 0 ${SIZE}x24" python3 -I /preview/driver.py /preview/steps.txt
+echo "==> screenshots in out/player-preview/"

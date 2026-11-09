@@ -1,0 +1,25 @@
+@media
+@owneetd
+@gamescope
+# A song played ([[step-5.6-local-videos-and-music]] sub-step 5, approved demo 5.6), with the
+# pretend owneetd: an album folder's first song; Guide (the pretend focus event) shows the console:
+# the song marked "Playing" in its list; the home screen's hero with its artist and album, the
+# Music tile's green dot.
+pad right right
+pad down
+pad right
+pad a
+wait 2
+pad a
+pad a
+wait 1
+pad a
+wait 2
+event focus.changed {"focus":"home"}
+wait 1
+shot 01-album-playing
+pad b
+pad b
+pad b
+wait 1
+shot 02-home-song

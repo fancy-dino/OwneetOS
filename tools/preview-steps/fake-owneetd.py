@@ -11,7 +11,9 @@
 #   - display: two screens, modes of the TV, brightness; a change waits for "Keep" (screen 30 s,
 #     mode 15 s);
 #   - optional web apps (5.0.0): none installed; the first install takes 3 s (the engine), the next
-#     ones and the removals are immediate; the last removal takes 1.5 s.
+#     ones and the removals are immediate; the last removal takes 1.5 s;
+#   - the player (5.6): POST /v1/player "starts" it (an app of kind "media", on screen after 1 s, a
+#     video at 1:35 of 25:00, a song at 0:30 of 3:34); closing an app ends it.
 #
 # Steps can send it events (tools/frontend-preview "event TYPE JSON"): one line each in the FIFO
 # given as second argument.
@@ -92,6 +94,7 @@ state = {
     "installs": [],
     # the controller as a mouse (4.7)
     "pointer": {"on": False},
+    "player": {"open": False},
     "steam": {"installed": True, "allowed": True, "prepared": False, "running": False, "games": [],
               "downloads": [], "away": {}, "account": False, "licences": 0, "nvidia": False},
     # optional web apps (5.0.0)
@@ -337,6 +340,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/v1/windows": state["windows"],
                 "/v1/installs": {"installs": state["installs"]},
                 "/v1/pointer": state["pointer"],
+                "/v1/player": state["player"],
                 "/v1/controllers": {"controllers": state["controllers"]},
                 "/v1/network": state["network"],
                 "/v1/network/wifi": {"networks": state["networks"]},
@@ -451,6 +455,37 @@ class Handler(BaseHTTPRequestHandler):
             publish("app.started", app)
             later(4, lambda: publish("focus.changed", {"focus": app["id"]}))
             return self.reply(201, {"id": app["id"]})
+        if path == "/v1/player":    # 5.6: what the console sends; the player "plays" the item
+            items, i = body.get("items") or [{}], body.get("index", 0)
+            it = items[i]
+            video = body.get("kind") != "music"
+            player = {"open": True, "kind": body.get("kind"), "index": i, "count": len(items), "path": it.get("path", ""),
+                      "title": it.get("title", ""), "folder": it.get("folder", ""), "artist": it.get("artist", ""),
+                      "album": it.get("album", ""), "position": 95 if video else 30, "duration": 1500 if video else 214,
+                      "paused": False, "autoplay": body.get("autoplay", True)}
+            app = {"id": "player", "name": it.get("title", ""), "kind": "media"}
+            with lock:
+                state["apps"] = [a for a in state["apps"] if a["id"] != "player"] + [app]
+                state["player"] = player
+            publish("app.started", app)
+            publish("player.changed", player)
+            later(1, lambda: publish("focus.changed", {"focus": "player"}))
+            return self.reply(201, player)
+        if path.startswith("/v1/apps/") and path.endswith("/close"):
+            app_id = urllib.parse.unquote(path[len("/v1/apps/"):-len("/close")])
+            with lock:
+                app = next((a for a in state["apps"] if a["id"] == app_id), None)
+                state["apps"] = [a for a in state["apps"] if a["id"] != app_id]
+                if app_id == "player":
+                    state["player"] = dict(state["player"], open=False)
+                player = dict(state["player"])
+            if app is None:
+                return self.error(404, "apps.unknown_app")
+            publish("app.exited", {"id": app_id, "name": app["name"], "result": "success"})
+            if app_id == "player":
+                publish("player.changed", player)
+            publish("focus.changed", {"focus": "home"})
+            return self.reply(204)
         if path == "/v1/pointer":   # 4.7: on for a running app, off by hand
             with lock:
                 if body.get("on"):

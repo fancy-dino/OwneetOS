@@ -1,0 +1,15 @@
+@videos
+# Autoplay ([[local-media]]): on, the next episode starts at the end of one (its end not saved);
+# switched off in the player (Menu), the last episode watched to the end closes the player, its
+# position not kept (as if never started); nothing saved at all.
+start 1
+seek 57
+wait 5
+state
+pad menu
+shot 01-autoplay-off
+state
+seek 16
+wait 6
+exit
+files
