@@ -26,6 +26,16 @@ prefix="$1"
 shift
 mkdir -p "$prefix"
 
+# umu writes its umu-shim (a short script ending in exec "$@") once, and writes it again only when it
+# is missing: one left empty by a hard stop made every Windows game end at once, with no error
+# ([[windows-games-quit-at-once-empty-umu-shim]]). A shim that would not start the game is removed,
+# and umu writes it again before it starts the game.
+shim="${XDG_DATA_HOME:-$HOME/.local/share}/umu/umu-shim"
+if [[ -e "$shim" ]] && ! grep -qsF 'exec "$@"' "$shim"; then
+    echo "owneet-windows-run: umu-shim was broken ($(stat -c %s "$shim") bytes): removed, umu writes it again" >&2
+    rm -f "$shim"
+fi
+
 export WINEPREFIX="$prefix" PROTONPATH="$proton" GAMEID="${GAMEID:-umu-default}" UMU_RUNTIME_UPDATE=0
 # No pointer or mapping added inside games (owner, 2026-10-16, [[games-on-disk]]): GE-Proton's
 # Xalia (the controller as a mouse in Windows programs) stays off
