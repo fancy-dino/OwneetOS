@@ -26,6 +26,7 @@ FocusScope {
         root.zone = zone;
         at = 3;
         Nav.feedback("sheet-open");
+        Nav.windowOpened();         // A just after it opens is ignored
         visible = true;
         forceActiveFocus();
     }

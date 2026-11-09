@@ -22,6 +22,8 @@ NavArea {
     function open(quiet) {
         if (!visible && !quiet)
             Nav.feedback("sheet-open");
+        if (!visible)
+            Nav.windowOpened();     // A just after it opens is ignored
         visible = true;
         forceActiveFocus();
     }

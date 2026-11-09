@@ -40,8 +40,10 @@ FocusScope {
         showPassword = false;
         line.text = k.value || "";
         line.cursorPosition = line.length;
-        if (!shown)
+        if (!shown) {
             Nav.feedback("sheet-open");
+            Nav.windowOpened();     // A just after it opens types nothing
+        }
         shown = true;
         if (layered) {
             if (!overlayMade) {

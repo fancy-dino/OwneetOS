@@ -66,6 +66,7 @@ FocusScope {
         held = false;
         row = 1;
         col = 0;
+        Nav.windowOpened();         // A just after it opens types nothing
         visible = true;
         forceActiveFocus();
     }
@@ -186,7 +187,11 @@ FocusScope {
             return;
         }
         if (event.key === Qt.Key_Backspace) { deleteBack(); event.accepted = true; return; }
-        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { Nav.feedback("confirm"); done(); event.accepted = true; return; }
+        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            if (!Nav.acceptBlocked()) { Nav.feedback("confirm"); done(); }
+            event.accepted = true;
+            return;
+        }
         if (api.keys.isPageUp(event)) {        // LT: capitals while held (its repeats change nothing)
             if (!event.isAutoRepeat && !held) {
                 held = true;

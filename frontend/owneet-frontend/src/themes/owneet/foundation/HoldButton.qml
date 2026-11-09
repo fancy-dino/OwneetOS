@@ -27,8 +27,8 @@ FocusScope {
         if (!api.keys.isAccept(event))
             return;
         event.accepted = true;
-        if (event.isAutoRepeat || holding)
-            return;
+        if (event.isAutoRepeat || holding || Nav.acceptBlocked())
+            return;                 // (A just after its window opened starts nothing)
         unwind.stop();
         progress = 0;
         holding = true;

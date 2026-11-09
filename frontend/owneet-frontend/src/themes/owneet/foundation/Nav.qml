@@ -2,7 +2,8 @@
 // Input map and navigation, shared by every screen ([[controller-input-map]]):
 //   action(event)  turns a key event into what it means here:
 //     up, down, left, right   move the selection (D-pad, left stick; they repeat when held)
-//     accept (A), back (B), secondary (X), page (Y), options (Menu)
+//     accept (A), back (B), secondary (X), page (Y), options (Menu); "ignored": A just after a window
+//     opened (windowOpened, acceptBlocked)
 //     section-prev / section-next (LB / RB), filter-prev / filter-next (LT / RT)
 //     scroll-up / scroll-down (right stick, repeats: fast scrolling)
 //   Guide never reaches the interface (owned by owneetd).
@@ -20,6 +21,27 @@ QtObject {
     signal played(string kind)
     property real lastPageStep: 0
     property string lastPage: ""
+
+    // A window just opened takes no A for windowAcceptDelay ms: one press of the controller can reach
+    // the interface twice about 50 ms apart (FrankenPC, 2026-11-09: "A ignored, 47 ms after opening"),
+    // and the second must not confirm the window the first one opened. Every window calls
+    // windowOpened() (Dialog, Sheet, the quick menu, the clock, the on-screen keyboards); A ignored
+    // reads as "ignored" from action() and is logged.
+    readonly property int windowAcceptDelay: 300
+    property real windowOpenedAt: 0
+    property real lastIgnoredLog: 0
+    function windowOpened() { windowOpenedAt = Date.now(); }
+    // true (and logged, once per press) when A comes too soon after a window opened
+    function acceptBlocked() {
+        const since = Date.now() - windowOpenedAt;
+        if (since >= windowAcceptDelay)
+            return false;
+        if (Date.now() - lastIgnoredLog > 20) {      // one line per press (parents read it again)
+            lastIgnoredLog = Date.now();
+            console.log("A ignored, " + since + " ms after a window opened");
+        }
+        return true;
+    }
 
     property bool confirmPending: false
     function feedback(kind) {
@@ -63,7 +85,7 @@ QtObject {
         }
         if (event.isAutoRepeat)
             return "";
-        if (k.isAccept(event)) return "accept";
+        if (k.isAccept(event)) return acceptBlocked() ? "ignored" : "accept";
         if (k.isCancel(event)) return "back";
         if (k.isDetails(event)) return "secondary";
         if (k.isFilters(event)) return "page";

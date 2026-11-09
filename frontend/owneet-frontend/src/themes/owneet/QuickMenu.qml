@@ -19,6 +19,7 @@ NavArea {
 
     function openMenu() {
         Nav.feedback("sheet-open");
+        Nav.windowOpened();         // A just after it opens is ignored
         visible = true;
         forceActiveFocus();
         const items = Nav.navigables(itemColumn);
