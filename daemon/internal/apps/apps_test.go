@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -537,5 +538,76 @@ func TestAppKeepsTheHomeScreenBehind(t *testing.T) {
 	}
 	if !sameIDs(focus.shown, []uint32{m.appIDOf("app"), HomeAppID}) {
 		t.Fatalf("shown: %v", focus.shown)
+	}
+}
+
+// Back to a game (Resume, Guide) only once the button that chose it is up: the game must not take
+// it (The Witcher 2 took the A of "Resume", FrankenPC, 2026-11-09). Guide over a game between two
+// of its windows shows the home screen.
+func TestBackToTheGameWhenTheButtonIsUp(t *testing.T) {
+	m, _, focus, _ := newManager(t, "gamescope")
+	m.watchSession()
+	focus.openWindow(10)
+	focus.Show([]uint32{HomeAppID})
+	var mu sync.Mutex
+	up := make(chan struct{})
+	close(up)
+	m.SetReleased(func() <-chan struct{} {
+		mu.Lock()
+		defer mu.Unlock()
+		return up
+	})
+	press := func() { // a button goes down
+		mu.Lock()
+		up = make(chan struct{})
+		mu.Unlock()
+	}
+	release := func() {
+		mu.Lock()
+		close(up)
+		mu.Unlock()
+	}
+	if _, err := m.Launch(LaunchRequest{ID: "game", Name: "Game", Kind: KindGame, Command: []string{"/bin/game"}}); err != nil {
+		t.Fatal(err)
+	}
+	focus.openWindow(1001)
+	game := m.appIDOf("game")
+	// between two of its windows: Guide still shows the home screen
+	focus.closeWindow(game)
+	m.Guide(true)
+	m.Guide(false)
+	if st := m.Status(); st.Focus != "home" || !sameIDs(focus.shown, []uint32{HomeAppID}) {
+		t.Fatalf("Guide over the game without a window: %q %v", st.Focus, focus.shown)
+	}
+	focus.openWindow(1001)
+	// Resume with A still held
+	press()
+	done := make(chan error, 1)
+	go func() { done <- m.FocusApp("game") }()
+	select {
+	case <-done:
+		t.Fatal("back to the game while A is held")
+	default:
+	}
+	release()
+	if err := <-done; err != nil || m.Status().Focus != "game" {
+		t.Fatalf("after A came up: %v %q", err, m.Status().Focus)
+	}
+	// Guide to the home screen, Guide back: the game comes when Guide is up
+	m.Guide(true)
+	m.Guide(false)
+	press()
+	m.Guide(true)
+	if m.Status().Focus != "home" {
+		t.Fatal("back to the game while Guide is held")
+	}
+	release()
+	m.Guide(false)
+	deadline := time.Now().Add(2 * time.Second)
+	for m.Status().Focus != "game" {
+		if time.Now().After(deadline) {
+			t.Fatal("not back to the game after Guide came up")
+		}
+		runtime.Gosched()
 	}
 }

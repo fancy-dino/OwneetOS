@@ -111,6 +111,7 @@ func run(configPath string) error {
 	if appsAPI != nil {
 		// The Guide button belongs to the system ([[controller-input-map]]).
 		pads.OnGuide = func(_ string, down bool) { appsMgr.Guide(down) }
+		appsMgr.SetReleased(pads.WhenReleased)
 	}
 	bt.Controllers = func() int { return len(pads.List()) }
 	go func() {

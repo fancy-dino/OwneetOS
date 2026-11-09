@@ -205,6 +205,8 @@ type Manager struct {
 	hold     *time.Timer     // cage: Guide held
 	homeHold *time.Timer     // gamescope: Guide held over Steam
 	homePID  int             // of the session being watched
+	// closed once no button is held (SetReleased)
+	released func() <-chan struct{}
 	// names given by the interface to Steam games about to start, by Steam app id
 	steamNames map[string]string
 	// the steam:// address to hand to Steam once its window is shown (it started on its own
@@ -891,7 +893,7 @@ func (m *Manager) Status() Status {
 	defer m.mu.Unlock()
 	if focused == HomeAppID {
 		st.Focus = "home"
-	} else if a := m.appOfID(focused); a != nil {
+	} else if a := m.onScreen(focused); a != nil {
 		st.Focus = a.ID
 	}
 	return st
@@ -911,6 +913,14 @@ func (m *Manager) FocusApp(id string) error {
 	m.mu.Unlock()
 	if !ok {
 		return ErrUnknownApp
+	}
+	// the button that chose it (A on Resume, Guide) comes up first: the app must not take it
+	if ch := m.held(); ch != nil {
+		select {
+		case <-ch:
+		case <-time.After(releaseLimit):
+			m.Log.Warn("a button still held: back to the app all the same", "id", id)
+		}
 	}
 	sess, err := m.Session()
 	if err != nil {
@@ -972,7 +982,7 @@ func (m *Manager) ShowHome() error {
 		}
 		m.mu.Lock()
 		m.init()
-		if shown := m.appOfID(focused); shown != nil {
+		if shown := m.onScreen(focused); shown != nil {
 			m.lastApp = shown.ID // Guide or Resume goes back to it
 		}
 		m.mu.Unlock()
@@ -1083,7 +1093,7 @@ func (m *Manager) toggle(sess Session) {
 	}
 	m.mu.Lock()
 	m.init()
-	shown := m.appOfID(focused)
+	shown := m.onScreen(focused)
 	if shown != nil { // an app is on screen: show the home screen
 		m.lastApp = shown.ID
 	}
@@ -1112,9 +1122,56 @@ func (m *Manager) toggle(sess Session) {
 	if target == "" { // home screen, nothing running
 		return
 	}
-	if err := m.FocusApp(target); err != nil {
-		m.Log.Debug("cannot go back to the app", "id", target, "err", err)
+	back := func() {
+		if err := m.FocusApp(target); err != nil {
+			m.Log.Debug("cannot go back to the app", "id", target, "err", err)
+			return
+		}
+		m.Log.Info("Guide: back to the app", "id", target)
+	}
+	if m.held() != nil {
+		go back() // FocusApp waits for Guide to come up, which this controller's reader must read
 		return
 	}
-	m.Log.Info("Guide: back to the app", "id", target)
+	back()
+}
+
+// onScreen: the app gamescope shows (its focused app id), or the game alone in front of it while it
+// has no window (front: gamescope keeps its last picture and names no app); callers hold m.mu.
+func (m *Manager) onScreen(focused uint32) *App {
+	if a := m.appOfID(focused); a != nil || focused != 0 {
+		return a
+	}
+	if len(m.shown) == 1 && m.shown[0] != HomeAppID {
+		return m.appOfID(m.shown[0])
+	}
+	return nil
+}
+
+// SetReleased gives the controllers' WhenReleased: an app brought back to the front waits for it.
+func (m *Manager) SetReleased(f func() <-chan struct{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.released = f
+}
+
+// releaseLimit: a safety limit for held: a button whose release never comes (a faulty controller)
+// does not keep the app away for good.
+const releaseLimit = 5 * time.Second
+
+// held returns a channel closed once no button or key is held, or nil when none is held now.
+func (m *Manager) held() <-chan struct{} {
+	m.mu.Lock()
+	f := m.released
+	m.mu.Unlock()
+	if f == nil {
+		return nil
+	}
+	ch := f()
+	select {
+	case <-ch:
+		return nil
+	default:
+		return ch
+	}
 }

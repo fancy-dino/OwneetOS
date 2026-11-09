@@ -107,3 +107,32 @@ func TestFromProgram(t *testing.T) {
 		t.Fatal("a real or test controller left out")
 	}
 }
+
+// WhenReleased waits until no button or key is held on any device.
+func TestWhenReleased(t *testing.T) {
+	m := &Manager{devs: map[string]*tracked{}}
+	pad, kbd := &tracked{}, &tracked{keyboard: true}
+	m.devs["/dev/input/event1"], m.devs["/dev/input/event2"] = pad, kbd
+	closed := func(ch <-chan struct{}) bool {
+		select {
+		case <-ch:
+			return true
+		default:
+			return false
+		}
+	}
+	if !closed(m.WhenReleased()) {
+		t.Fatal("nothing held, yet waiting")
+	}
+	m.hold(pad, evdev.BtnSouth, true) // A down
+	m.hold(kbd, evdev.KeyA, true)
+	ch := m.WhenReleased()
+	m.hold(pad, evdev.BtnSouth, false)
+	if closed(ch) {
+		t.Fatal("released while a key is still held")
+	}
+	m.hold(kbd, evdev.KeyA, false)
+	if !closed(ch) {
+		t.Fatal("not released when nothing is held")
+	}
+}
