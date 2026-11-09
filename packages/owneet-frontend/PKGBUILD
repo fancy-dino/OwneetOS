@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-frontend
-pkgver=0.23.3
+pkgver=0.24.0
 pkgrel=1
 pkgdesc="OwneetOS console interface, a modified version of Pegasus Frontend by Mátyás Mustoha and contributors"
 arch=('x86_64')
@@ -11,7 +11,9 @@ url="https://github.com/fancy-dino/OwneetOS"
 # SortFilterProxyModel: MIT; bundled Bricolage Grotesque and Lexend fonts: OFL-1.1;
 # bundled SDL_GameControllerDB: Zlib
 license=('GPL-3.0-or-later' 'MIT' 'OFL-1.1' 'Zlib' 'CC0-1.0')
-depends=('qt5-base' 'qt5-declarative' 'qt5-multimedia' 'qt5-svg' 'sdl2-compat' 'libxcb'
+# ffmpeg: the Videos and Music pages read the files' details and the songs' tags with its library
+# (5.6; FFmpeg is in the system for the player already)
+depends=('qt5-base' 'qt5-declarative' 'qt5-multimedia' 'qt5-svg' 'sdl2-compat' 'libxcb' 'ffmpeg'
          'owneet-branding')
 # ffmpeg: the interface sounds are converted when the package is built ([[interface-sounds-spec]])
 makedepends=('cmake' 'ninja' 'qt5-tools' 'ffmpeg')
