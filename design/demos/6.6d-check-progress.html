@@ -6,6 +6,9 @@
      long as the copy itself, so its step shows its own percentage and bar, as the copy's, from 0 %
      to 100 %. Owner's corrections (2026-11-10): the removal of the original shows its progress too;
      when the original is kept there is no step for it (the window shows the copy and its check only).
+     Copying several games, "Stop?" (Cancel or B during a copy) offers "Keep going" (selected),
+     "Stop this game" (its partial copy removed, the next games go on) and "Stop all" (the games
+     already copied stay); for the last game, or a single one, one "Stop" as before.
      The window is no longer drawn again at each moment of the copy, so Cancel can be clicked too.
      Nothing else changes (the check and the removal are never stopped half way: no Cancel then).
      Approved demo 6.6c, on the approved demo 6.6b. NEW IN 6.6c (owner, 2026-11-10: remove single games from the original, game
@@ -271,7 +274,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 <p class="help"><b>New in 4.3:</b> a disk with a “Games” folder: its games in the Library (title = the folder's name, cover from <code>cover.jpg</code> or drawn); <b>Lantern Keep</b> has several files to start: A asks once, then remembers; Menu → <b>Choose the file to start</b> changes it; X shows the disk. Windows games and installers are not shown yet (4.5, 4.6).<br>
 <b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A play, B menu (back in windows), X details, Y sort, Menu options, LT/RT filters, LB/RB sections.
 <b>Keyboard:</b> arrows, Page Up/Down = right stick, Enter = A, Esc = B, X, Y, M = Menu, Z/C = LT/RT, Q/E = LB/RB.<br>
-<b>New in 6.6d:</b> <b>Check the copy</b> and the removal of the original show their percentage and bar, as the copy; a copy that keeps the original shows no step for it.<br><b>New in 6.6c:</b> in <b>Which games to copy?</b> each game has a second switch, <b>Remove the original</b> (left / right between the two; only for a game that is copied); R makes the USB disk read only.<br><b>New in 6.6b:</b> plugging in the USB disk (U), <b>Copy to the console</b> asks <b>Which games to copy?</b>: A switches a game or all of them, the button below copies the ones that are on (selected at first: one A copies them all).<br><b>New in 6.6:</b> each cover says its disk; Menu on a game → <b>Move to another disk</b> (a Steam game: Steam moves it); plugging in the USB disk asks <b>Play from here / Copy to the console</b>, then which disk.<br><b>Demo only:</b> K the next check fails, U plug in / unplug the disk (<span id="disk-state">plugged in</span>), F forget the choice of Lantern Keep, P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#disk=0&amp;filter=local&amp;pal=ember&amp;lang=it&amp;open=choose|options|details|plug</code></p>
+<b>New in 6.6d:</b> <b>Check the copy</b> and the removal of the original show their percentage and bar, as the copy; a copy that keeps the original shows no step for it. Copying several games, <b>Cancel</b> asks whether to stop only this game or all of them.<br><b>New in 6.6c:</b> in <b>Which games to copy?</b> each game has a second switch, <b>Remove the original</b> (left / right between the two; only for a game that is copied); R makes the USB disk read only.<br><b>New in 6.6b:</b> plugging in the USB disk (U), <b>Copy to the console</b> asks <b>Which games to copy?</b>: A switches a game or all of them, the button below copies the ones that are on (selected at first: one A copies them all).<br><b>New in 6.6:</b> each cover says its disk; Menu on a game → <b>Move to another disk</b> (a Steam game: Steam moves it); plugging in the USB disk asks <b>Play from here / Copy to the console</b>, then which disk.<br><b>Demo only:</b> K the next check fails, U plug in / unplug the disk (<span id="disk-state">plugged in</span>), F forget the choice of Lantern Keep, P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#disk=0&amp;filter=local&amp;pal=ember&amp;lang=it&amp;open=choose|options|details|plug</code></p>
 
 <script src="sounds.js"></script>
 <script>
@@ -345,6 +348,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'plug.copying': 'Copying {title} ({i} of {n})', 'plug.done': '{n} games copied to {disk}',
     'p.cancel': 'Cancel', 'p.toggle': 'Switch',
     'cancel.ask': 'Stop?', 'cancel.text': 'The partial copy is removed and {title} stays on {disk}, as it was.', 'cancel.keep': 'Keep going', 'cancel.stop': 'Stop',
+    'cancel.text.many': 'The partial copy of {title} is removed and it stays on {disk}, as it was. “Stop all” does not copy the games after it either; the games already copied stay.',
+    'cancel.one': 'Stop this game', 'cancel.all': 'Stop all',
     'fail.title': 'The copy of {title} did not work', 'fail.text': 'The original is still on {from}, untouched. {to} may have a problem.',
     'fail.some': '{ok} of {n} games copied to {to}', 'fail.some.text': '{titles}: the copy did not work.', 'fail.many.text': 'The originals are still on {from}, untouched. {to} may have a problem.',
     'fail.close': 'Close', 'fail.retry': 'Try again', 'fail.demo': '(demo) The next check fails',
@@ -416,6 +421,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'plug.copying': 'Copia di {title} ({i} di {n})', 'plug.done': '{n} giochi copiati su {disk}',
     'p.cancel': 'Annulla', 'p.toggle': 'Attiva',
     'cancel.ask': 'Interrompere?', 'cancel.text': 'La copia parziale viene eliminata e {title} resta su {disk}, com\'era.', 'cancel.keep': 'Continua', 'cancel.stop': 'Interrompi',
+    'cancel.text.many': 'La copia parziale di {title} viene eliminata e il gioco resta su {disk}, com\'era. Con «Interrompi tutto» non vengono copiati nemmeno i giochi successivi; quelli già copiati restano.',
+    'cancel.one': 'Interrompi questo gioco', 'cancel.all': 'Interrompi tutto',
     'fail.title': 'La copia di {title} non è riuscita', 'fail.text': 'L\'originale è ancora su {from}, intatto. {to} potrebbe avere un problema.',
     'fail.some': '{ok} giochi su {n} copiati su {to}', 'fail.some.text': '{titles}: la copia non è riuscita.', 'fail.many.text': 'Gli originali sono ancora su {from}, intatti. {to} potrebbe avere un problema.',
     'fail.close': 'Chiudi', 'fail.retry': 'Riprova', 'fail.demo': '(demo) Il prossimo controllo fallisce',
@@ -842,14 +849,18 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     const draw = () => {
       const from = diskOf(origin[i]);
       if (asking) {
-        $('#sheet').innerHTML = `<span class="disp t-l">${tr('cancel.ask')}</span><span class="t-m muted" style="max-width:600px">${tr('cancel.text', { title: g().title, disk: diskName(from) })}</span>
-          <div class="list t-m"><button class="item primary" data-f data-keep>${tr('cancel.keep')}</button><button class="item" data-f data-stop>${tr('cancel.stop')}</button></div>`;
+        // 6.6d: games left after this one: stop only this game, or all
+        const more = i + 1 < list.length;
+        $('#sheet').innerHTML = `<span class="disp t-l">${tr('cancel.ask')}</span><span class="t-m muted" style="max-width:640px">${tr(more ? 'cancel.text.many' : 'cancel.text', { title: g().title, disk: diskName(from) })}</span>
+          <div class="list t-m"><button class="item primary" data-f data-keep>${tr('cancel.keep')}</button>${more
+            ? `<button class="item" data-f data-stopone>${tr('cancel.one')}</button><button class="item" data-f data-stop>${tr('cancel.all')}</button>`
+            : `<button class="item" data-f data-stop>${tr('cancel.stop')}</button>`}</div>`;
         focus($('#sheet [data-keep]'), true);
         $('#sheet-prompts').innerHTML = `<div class="set">${P(['a'], tr('p.select'))}${P(['b'], tr('cancel.keep'))}</div>`;
         return;
       }
       if (phase === 'failed') {
-        const ok = list.length - failed.length;
+        const ok = list.length - failed.length - skipped.length;
         const head = list.length > 1 ? tr('fail.some', { ok, n: list.length, to: diskName(to) }) : tr('fail.title', { title: failed[0].title });
         const where = { from: diskName(diskOf(failed[0].disk)), to: diskName(to) };
         const text = (list.length > 1 ? tr('fail.some.text', { titles: failed.map(x => x.title).join(', ') }) + ' ' : '')
@@ -878,12 +889,19 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     // Cancel (the button or B) during the copy: the partial copy is removed, nothing else changes;
     // the check and the removal are never stopped half way
     const cancel = () => { clearInterval(runTimer); sheetBack = null; closeSheet(); toast(tr('move.cancelled', { title: g().title, disk: diskName(diskOf(origin[i])) })); };
+    // 6.6d: only this game: its partial copy removed, the next game goes on
+    const skipped = [];
+    const stopOne = () => {
+      asking = false; feedback('sheet-close');
+      toast(tr('move.cancelled', { title: g().title, disk: diskName(diskOf(origin[i])) }));
+      skipped.push(g()); i++; p = 0; phase = 'copy'; draw();
+    };
     const ask = () => { asking = true; feedback('sheet-open'); draw(); };
     const resume = () => { asking = false; feedback('sheet-close'); draw(); };
     sheetAccept = el => {
       if (!el) return;
       if (phase === 'failed') { if (el.hasAttribute('data-retry')) { feedback('confirm'); run(failed, to, removeAll, done); } else { feedback('sheet-close'); done(failed); } return; }
-      if (asking) { if (el.hasAttribute('data-stop')) cancel(); else resume(); return; }
+      if (asking) { if (el.hasAttribute('data-stop')) cancel(); else if (el.hasAttribute('data-stopone')) stopOne(); else resume(); return; }
       if (el.hasAttribute('data-cancel') && phase === 'copy') ask();
     };
     // B: during the copy it asks; on the question it keeps going; the check and the removal go on
@@ -919,7 +937,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
         if (i + 1 >= list.length) {
           clearInterval(runTimer);
           if (failed.length) { phase = 'failed'; feedback('error'); draw(); return; }
-          phase = 'end'; draw(); sheetBack = null; setTimeout(() => done(failed), 700); return;
+          phase = 'end'; draw(); sheetBack = null; setTimeout(() => done(failed, skipped), 700); return;
         }
         i++; p = 0; phase = 'copy';
       }
@@ -1034,13 +1052,14 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       [P(['a'], tr('p.select')), P(['b'], tr('p.back'))], el => {
         if (!el.dataset.to || el.disabled) { feedback('edge'); return; }
         const to = diskOf(el.dataset.to);
-        run(list, to, rm, failed => {
+        run(list, to, rm, (failed, skipped = []) => {
           closeSheet(false); renderHead(); renderGrid();
           if (failed.length) return;
-          const gone = list.filter(g => rm.has(g.id));
+          const copied = list.filter(g => !skipped.includes(g));
+          const gone = copied.filter(g => rm.has(g.id));
           const after = gone.length === 0 ? tr('plug.keep.all') : gone.length === 1 ? tr('plug.removed.one', { title: gone[0].title }) : tr('plug.removed.many', { count: gone.length });
-          if (list.length === 1) banner(tr('copy.done', { title: list[0].title, disk: diskName(to) }), after);
-          else banner(tr('plug.done', { n: list.length, disk: diskName(to) }), after);
+          if (copied.length === 1) banner(tr('copy.done', { title: copied[0].title, disk: diskName(to) }), after);
+          else banner(tr('plug.done', { n: copied.length, disk: diskName(to) }), after);
         });
       }, best ? `#sheet [data-to="${best.key}"]` : null, () => (all.length > 1 ? plugChooseSheet(all, on, rm) : plugSheet()));
   }
