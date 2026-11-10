@@ -36,6 +36,7 @@
 #   @live            (with @owneetd) started from the USB stick (6.2: owneetd's mode is "live")
 #   @installfail     (with @owneetd) the installation (6.4) stops while copying (copy_failed)
 #   @movefail        (with @owneetd) moving a game (6.6): its copy does not pass the check
+#   @moveslow        (with @owneetd) moving games (6.6e): four times slower, to look at it running
 #   @sysupdate STATE (with @owneetd) an installed system's updates (7.1): uptodate, available,
 #                    ready, fellback, installfail, backfail (tools/preview-steps/fake-owneetd.py)
 #   unplug / plug    (with @disk) the invented disk is unplugged / plugged in again
@@ -225,6 +226,7 @@ if grep -q '^@owneetd' /steps.txt; then
     if grep -q '^@live' /steps.txt; then export FAKE_MODE=live; fi
     if grep -q '^@installfail' /steps.txt; then export FAKE_INSTALL_FAIL=copy_failed; fi
     if grep -q '^@movefail' /steps.txt; then export FAKE_MOVE_FAIL=1; fi
+    if grep -q '^@moveslow' /steps.txt; then export FAKE_MOVE_SLOW=1; fi
     FAKE_SYSUPDATE="$(sed -n 's/^@sysupdate \([a-z]*\).*/\1/p' /steps.txt | head -1)"
     export FAKE_SYSUPDATE
     python3 /fake-owneetd.py "$OWNEETD_SOCKET" /tmp/owneetd-events >> /out/log.txt 2>&1 &

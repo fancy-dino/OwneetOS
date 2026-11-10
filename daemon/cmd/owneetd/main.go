@@ -348,6 +348,7 @@ func run(configPath string) error {
 		clockAPI = &clock.Manager{Bus: td, Broker: broker, Log: log}
 	}
 
+	movesMgr := &moves.Manager{Broker: broker, Log: log, Home: os.Getenv("HOME"), Media: "/run/media/owneet"}
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
@@ -371,11 +372,12 @@ func run(configPath string) error {
 		Xone:            xoneAPI,
 		Installer:       installerAPI,
 		DiskPrep:        diskPrepAPI,
-		Moves: &moves.Manager{Broker: broker, Log: log, Home: os.Getenv("HOME"),
-			Media: "/run/media/owneet"},
+		Moves:           movesMgr,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)
+	// stopped (the console shuts down): a copy of games ends first, its partial copy removed
+	movesMgr.Abort(20 * time.Second)
 	log.Info("owneetd stopped")
 	return err
 }

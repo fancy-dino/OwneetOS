@@ -1129,6 +1129,9 @@ func (m *Manager) toggle(sess Session) {
 		return
 	}
 	if target == "" { // home screen, nothing running
+		// the interface may have a use for Home there: the copy of games' window closes, the copy
+		// goes on behind it (owner, 2026-11-10, [[step-6.6-moving-games-and-media-between-disks]])
+		m.Broker.Publish("home.requested", map[string]string{})
 		return
 	}
 	back := func() {

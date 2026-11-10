@@ -3,8 +3,8 @@
 <!-- OwneetOS - interactive demo 6.6e for [[step-6.6-moving-games-and-media-between-disks]], on the
      approved demo 6.6d. NEW IN 6.6e (owner's report, 2026-11-10: during a copy Home did nothing and
      the user could do nothing else until it ended): Guide (Home) closes the copy's window and shows
-     the home screen; the copy goes on. Guide is Home from every window of the console: an open
-     window closes (what it was asking is left as it was). While a copy runs, the top bar shows it
+     the home screen; the copy goes on. Only the copy's window: everywhere else Guide keeps its
+     meaning (owner, 2026-11-10: with an app open, Guide goes back to it). While a copy runs, the top bar shows it
      (its step and percentage; "2 of 3" with several games); the covers of its games show their state
      ("Copying · 45%", "Waiting to be copied"), and A on one of them shows the window again (the
      prompt says "Show the copy"); those games cannot be started meanwhile. One copy at a time:
@@ -294,7 +294,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 <p class="help"><b>New in 4.3:</b> a disk with a “Games” folder: its games in the Library (title = the folder's name, cover from <code>cover.jpg</code> or drawn); <b>Lantern Keep</b> has several files to start: A asks once, then remembers; Menu → <b>Choose the file to start</b> changes it; X shows the disk. Windows games and installers are not shown yet (4.5, 4.6).<br>
 <b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A play, B menu (back in windows), X details, Y sort, Menu options, LT/RT filters, LB/RB sections.
 <b>Keyboard:</b> arrows, Page Up/Down = right stick, Enter = A, Esc = B, X, Y, M = Menu, Z/C = LT/RT, Q/E = LB/RB.<br>
-<b>New in 6.6e:</b> during a copy, <b>Guide</b> (keyboard H) goes to Home and the copy goes on: the top bar and the covers show it; A on a cover being copied shows the window again. Guide is Home from every window.<br><b>New in 6.6d:</b> <b>Check the copy</b> and the removal of the original show their percentage and bar, as the copy; a copy that keeps the original shows no step for it. Copying several games, <b>Cancel</b> asks whether to stop only this game or all of them.<br><b>New in 6.6c:</b> in <b>Which games to copy?</b> each game has a second switch, <b>Remove the original</b> (left / right between the two; only for a game that is copied); R makes the USB disk read only.<br><b>New in 6.6b:</b> plugging in the USB disk (U), <b>Copy to the console</b> asks <b>Which games to copy?</b>: A switches a game or all of them, the button below copies the ones that are on (selected at first: one A copies them all).<br><b>New in 6.6:</b> each cover says its disk; Menu on a game → <b>Move to another disk</b> (a Steam game: Steam moves it); plugging in the USB disk asks <b>Play from here / Copy to the console</b>, then which disk.<br><b>Demo only:</b> K the next check fails, U plug in / unplug the disk (<span id="disk-state">plugged in</span>), F forget the choice of Lantern Keep, P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#disk=0&amp;filter=local&amp;pal=ember&amp;lang=it&amp;open=choose|options|details|plug</code></p>
+<b>New in 6.6e:</b> during a copy, <b>Guide</b> (keyboard H) goes to Home and the copy goes on: the top bar and the covers show it; A on a cover being copied shows the window again. Only the copy's window: elsewhere Guide does what it did.<br><b>New in 6.6d:</b> <b>Check the copy</b> and the removal of the original show their percentage and bar, as the copy; a copy that keeps the original shows no step for it. Copying several games, <b>Cancel</b> asks whether to stop only this game or all of them.<br><b>New in 6.6c:</b> in <b>Which games to copy?</b> each game has a second switch, <b>Remove the original</b> (left / right between the two; only for a game that is copied); R makes the USB disk read only.<br><b>New in 6.6b:</b> plugging in the USB disk (U), <b>Copy to the console</b> asks <b>Which games to copy?</b>: A switches a game or all of them, the button below copies the ones that are on (selected at first: one A copies them all).<br><b>New in 6.6:</b> each cover says its disk; Menu on a game → <b>Move to another disk</b> (a Steam game: Steam moves it); plugging in the USB disk asks <b>Play from here / Copy to the console</b>, then which disk.<br><b>Demo only:</b> K the next check fails, U plug in / unplug the disk (<span id="disk-state">plugged in</span>), F forget the choice of Lantern Keep, P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#disk=0&amp;filter=local&amp;pal=ember&amp;lang=it&amp;open=choose|options|details|plug</code></p>
 
 <script src="sounds.js"></script>
 <script>
@@ -796,9 +796,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   }
   function guide() {
     if (!steamOpen) {
-      // 6.6e: Home from anywhere in the console: an open window closes (a copy goes on behind it)
-      if (!sheetOpen && section === 'home') { feedback('edge'); return; }
-      if (sheetOpen) { if (jobSheet && job) job.hide(); else { sheetBack = null; closeSheet(false); } }
+      // 6.6e: on the copy's window only, Home: it closes and the copy goes on behind it
+      if (!(sheetOpen && jobSheet && job)) { feedback('edge'); return; }
+      job.hide();
       goSection('home');
       return;
     }

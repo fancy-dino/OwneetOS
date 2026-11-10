@@ -17,6 +17,10 @@
 // 6.6d: the check and the removal of the original show their own percentage and bar, as the copy;
 // a copy that keeps the original shows no step for it; copying several games, "Stop?" offers
 // "Stop this game" (the next games go on) and "Stop all" while games are left after this one.
+// Approved demo 6.6e: Home (owneetd's "home.requested") on the copy's window closes it and the copy
+// goes on behind it; the top bar shows it (jobText), the covers of its games their state (badge),
+// and A on one of them shows the window again (reopen); one copy at a time; its end, or a copy
+// that did not work, with the window closed: a notice.
 import QtQuick 2.15
 import "foundation"
 
@@ -37,6 +41,7 @@ Dialog {
     property string fromWhy: ""          // why it is read only ("windows": not shut down completely)
     property var volumes: []
     property var st: ({ state: "" })     // owneetd's GET /v1/moves
+    property bool running: false         // a copy started and not ended, its window shown or not (6.6e)
     readonly property real need: games.reduce((a, g) => a + g.size, 0)
     readonly property string fromName: theme ? theme.diskName(from) : ""
     readonly property string toName: theme ? theme.diskName(to) : ""
@@ -218,6 +223,7 @@ Dialog {
     }
     function start() {
         st = { state: "copy", index: 0, percent: 0, failed: [], moved: [] };
+        running = true;
         showRun();
         // a plugged-in disk: each game's own choice (6.6c); otherwise one for all
         owneetd.post("/v1/moves", { games: games.map(g => ({ dir: g.dir, title: g.title, remove: plugged && removing[g.dir] === true })),
@@ -277,12 +283,49 @@ Dialog {
         Nav.feedback("sheet-close");
         showRun();
     }
+    // ---- 6.6e: the copy behind its window
+    readonly property string step: ["copy", "check", "remove"].indexOf(st.state) >= 0 ? st.state : "check"
+    readonly property int stepPercent: step === st.state ? (st.percent || 0) : 100
+    readonly property bool failedNow: running && mode === "failed"
+    readonly property string jobText: !running ? "" : failedNow ? Tr.tr("move.job.failed")
+        : Tr.tr("move.job." + step, { p: stepPercent })
+          + (games.length > 1 ? " · " + Tr.tr("move.job.n", { i: Math.min((st.index || 0) + 1, games.length), n: games.length }) : "")
+    // a game of this copy not ended yet (or whose copy did not work): what its cover says, else null
+    function badge(dir) {
+        if (!running)
+            return null;
+        const i = games.findIndex(g => g.dir === dir);
+        if (i < 0 || skippedTitles.indexOf(games[i].title) >= 0)
+            return null;
+        if (failedTitles.indexOf(games[i].title) >= 0)
+            return { text: Tr.tr("move.tile.failed"), percent: -1 };
+        const at = st.index || 0;
+        if (mode === "failed" || i < at)
+            return null;
+        if (i > at)
+            return { text: Tr.tr("move.tile.waiting"), percent: -1 };
+        return { text: Tr.tr("move.tile." + step, { p: stepPercent }), percent: stepPercent };
+    }
+    // Home: the window closes, the copy goes on (a "Stop?" left open: it keeps going)
+    function hide() {
+        if (mode === "ask") {
+            owneetd.post("/v1/moves/resume", {}, () => {});
+            mode = "run";
+        }
+        close(true);
+    }
+    // A on a cover of the copy: the window again, as it is now
+    function reopen() {
+        if (mode === "failed") showFailed(true); else showRun();
+        open(true);
+        Qt.callLater(focusDefault);
+    }
     readonly property var failedTitles: st.failed || []
     readonly property var skippedTitles: st.skipped || []     // stopped alone by the player (6.6d)
     property string failText: ""
-    function showFailed() {
+    function showFailed(quiet) {
         mode = "failed";
-        Nav.feedback("error");
+        if (!quiet) Nav.feedback("error");
         const several = games.length > 1;
         title = several ? Tr.tr("move.fail.some", { ok: games.length - failedTitles.length - skippedTitles.length, n: games.length, to: toName })
                         : Tr.tr("move.fail.title", { title: failedTitles[0] });
@@ -304,6 +347,7 @@ Dialog {
     function finish() {
         // the games copied: not the ones stopped alone (6.6d)
         const copied = games.filter(g => skippedTitles.indexOf(g.title) < 0 && failedTitles.indexOf(g.title) < 0);
+        running = false;
         close(true);
         if (root.theme) {
             root.theme.readGamesQuietly();
@@ -326,17 +370,31 @@ Dialog {
     Connections {
         target: owneetd
         function onEvent(type, data) {
-            if (type !== "moves.changed" || !root.visible || (root.mode !== "run" && root.mode !== "ask"))
+            // 6.6e: followed while it runs, its window shown or not
+            if (type !== "moves.changed" || !root.running || (root.mode !== "run" && root.mode !== "ask"))
                 return;
             const before = root.st.state, index = root.st.index;
             root.st = data;
             if (data.state === "cancelled") {
+                root.running = false;
                 root.close();
                 if (root.toast) root.toast.show(Tr.tr("move.cancelled", { title: root.current.title, disk: root.fromName }));
             } else if (data.state === "done") {
-                if ((data.failed || []).length > 0) root.showFailed();
-                else { root.mode = "run"; doneTimer.start(); }
-            } else if (root.mode === "run" && (data.state !== before || data.index !== index)) {
+                if ((data.failed || []).length > 0 && root.visible) {
+                    root.showFailed();
+                } else if ((data.failed || []).length > 0) {
+                    // its window closed: a notice; its covers and the top bar say it, A shows it
+                    root.mode = "failed";
+                    const f = data.failed;
+                    if (root.theme)
+                        root.theme.notify({ key: f.length > 1 ? "move.fail.banner.many" : "move.fail.banner", args: { title: f[0], n: f.length },
+                                            detailKey: f.length > 1 ? "move.fail.banner.text.many" : "move.fail.banner.text", icon: "alert", kind: "attention" });
+                } else if (root.visible) {
+                    root.mode = "run"; doneTimer.start();
+                } else {
+                    root.finish();
+                }
+            } else if (root.visible && root.mode === "run" && (data.state !== before || data.index !== index)) {
                 root.showRun();
             }
         }

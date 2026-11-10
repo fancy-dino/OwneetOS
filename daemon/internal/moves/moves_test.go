@@ -251,7 +251,7 @@ func TestCheckAndRemovalTellTheirProgress(t *testing.T) {
 	// the last value of each step is sent at once only at the step's change: the percentages
 	// themselves come at most a few times a second, so here the counters are checked directly
 	moved, read := filepath.Join(media, "HDD", "Games", "Tyrian"), 0
-	if err := same(moved, moved, func(n int64) { read += int(n) }); err != nil || int64(read) != 2*size(moved) || read == 0 {
+	if err := same(moved, moved, func(n int64) error { read += int(n); return nil }); err != nil || int64(read) != 2*size(moved) || read == 0 {
 		t.Errorf("the check read %d of %d: %v", read, 2*size(moved), err)
 	}
 	dir := t.TempDir()
@@ -264,5 +264,48 @@ func TestCheckAndRemovalTellTheirProgress(t *testing.T) {
 	}
 	if _, err := os.Lstat(dir); !os.IsNotExist(err) {
 		t.Error("the folder is still there")
+	}
+}
+
+// Shutting down during a copy: Abort stops it, waits for its end, the partial copy goes and the
+// original stays.
+func TestAbortStopsTheCopyAndWaits(t *testing.T) {
+	m, game, _ := setup(t)
+	if !m.Abort(time.Second) {
+		t.Error("with no copy, Abort must not wait")
+	}
+	m.running, m.paused = true, true
+	m.resume, m.stop, m.skip = make(chan struct{}), make(chan struct{}), make(chan struct{})
+	m.done = make(chan struct{})
+	m.st = Status{Count: 1, Failed: []string{}, Skipped: []string{}, Moved: []string{}}
+	dest, _ := m.gamesFolder(Internal)
+	go m.run(Request{Games: []Game{{Dir: game, Title: "Tyrian", Remove: true}}, To: Internal}, dest)
+	for i := 0; m.Status().State != "copy"; i++ {
+		if i > 500 {
+			t.Fatal("the copy never started")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !m.Abort(5 * time.Second) {
+		t.Fatal("Abort returned before the copy ended")
+	}
+	if st := m.Status(); st.State != "cancelled" {
+		t.Errorf("status %+v", st)
+	}
+	if _, err := os.Stat(filepath.Join(m.Home, "Games", "Tyrian")); !os.IsNotExist(err) {
+		t.Error("the partial copy is still there")
+	}
+	if _, err := os.Stat(filepath.Join(game, "TYRIAN.EXE")); err != nil {
+		t.Error("the original was touched")
+	}
+}
+
+// The check stops as soon as its reader says so, with that error.
+func TestTheCheckCanBeStopped(t *testing.T) {
+	_, game, _ := setup(t)
+	read := 0
+	err := same(game, game, func(n int64) error { read++; return errStopped })
+	if !errors.Is(err, errStopped) || read != 1 {
+		t.Errorf("the check went on: %v after %d reads", err, read)
 	}
 }

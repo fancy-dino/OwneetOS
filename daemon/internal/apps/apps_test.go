@@ -336,9 +336,20 @@ func TestGuideTogglesHomeAndGame(t *testing.T) {
 	if st := m.Status(); st.Focus != "home" {
 		t.Fatalf("focus = %q, want home", st.Focus)
 	}
-	m.Guide(true) // no app: nothing happens
+	ch, stop := m.Broker.Subscribe(16)
+	m.Guide(true) // no app: the screen stays; the interface is told Home was asked (6.6e)
+	stop()
 	if st := m.Status(); st.Focus != "home" {
 		t.Fatal("Guide without apps changed the screen")
+	}
+	asked := false
+	for len(ch) > 0 {
+		if ev := <-ch; ev.Type == "home.requested" {
+			asked = true
+		}
+	}
+	if !asked {
+		t.Error("Guide on the home screen with nothing running did not send home.requested")
 	}
 	if _, err := m.Launch(LaunchRequest{ID: "game", Kind: KindGame, Command: []string{"game"}}); err != nil {
 		t.Fatal(err)

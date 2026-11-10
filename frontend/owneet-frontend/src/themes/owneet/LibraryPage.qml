@@ -13,6 +13,9 @@ FocusScope {
     id: page
     property var games: []                     // every game (any order)
     signal launch(var game)
+    // 6.6e: the copy of games (MoveSheet): the covers of its games say how it goes, A shows it
+    property var copying: null
+    function copyOf(game) { return copying && GameInfo.onDisk(game) ? copying.badge(String(game.extra["disk.dir"])) : null; }
     signal details(var game)
     signal options(var game)
     signal chooseSort()
@@ -81,7 +84,7 @@ FocusScope {
         if (game) {
             const s = GameInfo.steamState(game);
             if (s === "installed")
-                return [P(["a"], "prompt.play"), P(["x"], "prompt.details"), P(["menu"], "prompt.options")].concat(page);
+                return [P(["a"], copyOf(game) ? "prompt.show_copy" : "prompt.play"), P(["x"], "prompt.details"), P(["menu"], "prompt.options")].concat(page);
             if (s === "none")
                 return [P(["a"], "prompt.install"), P(["x"], "prompt.details"), P(["menu"], "prompt.options")].concat(page);
             return [P(["a"], "prompt.details"), P(["menu"], "prompt.options")].concat(page);
@@ -360,6 +363,7 @@ FocusScope {
                 focus: true
                 // with more than one disk, the disk a game on a disk is on (6.6); Steam keeps its own
                 disk: page.volumes.length > 1 && game && GameInfo.diskRoot(game) !== "" ? page.diskName(GameInfo.diskRoot(game)) : ""
+                copy: game ? page.copyOf(game) : null
             }
         }
         Component {

@@ -5,7 +5,8 @@
 // shows its state and progress under its title (4.2c); so does a game being installed from its
 // installer (4.6: a moving bar when the installer tells no percentage), and one that cannot be
 // installed yet has an "info" mark. With more than one disk, the disk it is on under the title
-// (6.6, approved demo 6.6).
+// (6.6, approved demo 6.6). A game being copied says so over its art, with its step's progress
+// (6.6e, approved demo 6.6e).
 import QtQuick 2.15
 
 Item {
@@ -16,6 +17,7 @@ Item {
     property real radius: Theme.radiusM
     property bool running: false                // this game runs now
     property string disk: ""                    // the disk's name, when the console has several
+    property var copy: null                     // being copied (6.6e): { text, percent } (-1: no bar)
     signal activated()
 
     // Steam (4.2c): not installed, downloading, or on a disk that is not connected
@@ -119,6 +121,41 @@ Item {
             color: "#FFFFFF"
             font.family: Theme.textFont
             font.pixelSize: Theme.fs(12.5)
+        }
+    }
+    Rectangle {          // being copied (6.6e): its step and percentage, or waiting, or failed
+        visible: root.copy !== null
+        anchors { left: parent.left; right: parent.right; top: parent.top
+                  leftMargin: Theme.px(8); rightMargin: Theme.px(8); topMargin: Theme.px(44) }
+        height: copyColumn.implicitHeight + Theme.px(14)
+        radius: Theme.radiusS
+        color: Theme.artShade
+        Column {
+            id: copyColumn
+            anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter
+                      leftMargin: Theme.px(9); rightMargin: Theme.px(9) }
+            spacing: Theme.px(5)
+            Text {
+                width: parent.width
+                text: root.copy ? root.copy.text : ""
+                color: Theme.onArt
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(12.5)
+                wrapMode: Text.Wrap
+                maximumLineCount: 2
+                elide: Text.ElideRight
+            }
+            Rectangle {
+                visible: root.copy !== null && root.copy.percent >= 0
+                width: parent.width; height: Theme.px(5); radius: height / 2
+                color: Theme.artTrack
+                clip: true
+                Rectangle {
+                    width: parent.width * (root.copy ? Math.max(0, root.copy.percent) : 0) / 100
+                    height: parent.height; radius: height / 2
+                    color: Theme.accent
+                }
+            }
         }
     }
     Rectangle {          // running now

@@ -369,6 +369,12 @@ FocusScope {
         function onConnectedChanged() { if (owneetd.connected) root.refreshDaemon(); }
         function onEvent(type, data) {
             root.noticeFor(type, data);
+            // 6.6e: Home (owneetd: Guide on the home screen with nothing to go back to) on the copy's
+            // window: it closes, the copy goes on behind it; anywhere else nothing changes
+            if (type === "home.requested" && moveSheet.visible && moveSheet.running) {
+                moveSheet.hide();
+                if (root.section === "home") Nav.feedback("sheet-close"); else root.goSection("home");
+            }
             if (type === "app.started" || type === "app.exited") {
                 // Google's terms page closed: its question again, but only once the home screen has
                 // caught up (it selects its hero when the running app changes, which would take
@@ -678,6 +684,8 @@ FocusScope {
 
     // ---- Games: launch, details, options
     function launch(game, agreementShown) {
+        // 6.6e: a game being copied is never started: A shows the copy's window
+        if (GameInfo.onDisk(game) && moveSheet.badge(String(game.extra["disk.dir"])) !== null) { moveSheet.reopen(); return; }
         // a game with only an installer (4.6): installed first, after the console's question
         if (GameInfo.hasInstaller(game)) { installStart(game); return; }
         // Steam (4.2c): a game not installed is installed first; one being downloaded or on a disk
@@ -814,6 +822,7 @@ FocusScope {
             // 6.6: a game on a disk moves with the console; a Steam game is moved by Steam
             { text: Tr.tr("move.option"), action: () => {
                 dialog.close(true);
+                if (!steam && moveSheet.running) { toast.show(Tr.tr("move.busy")); return; }   // 6.6e: one copy at a time
                 if (steam) moveSheet.openSteam(game); else moveSheet.openMove(game);
             } },
             { text: Tr.tr(game.favorite ? "options.unfavorite" : "options.favorite"), action: () => {
@@ -1728,7 +1737,8 @@ FocusScope {
                 return;
             // 6.6, approved demo 6.6: "Play from here / Copy to the console" (the notice when the
             // question cannot come now: another window, or a game on screen)
-            if (!windowOpen && !firstStart.visible && !installer.visible && !gameOnScreen && d.plugged.length === 1)
+            // 6.6e: while a copy runs (its window closed) the notice too: one copy at a time
+            if (!windowOpen && !firstStart.visible && !installer.visible && !gameOnScreen && d.plugged.length === 1 && !moveSheet.running)
                 moveSheet.openPlug(k, list);
             else
                 notify({ key: "notices.disk.plugged", args: { n: list.length }, icon: "usb", kind: "info" });
@@ -2399,6 +2409,8 @@ FocusScope {
         dialog.open();
     }
     function power(action) {
+        // 6.6e: during a copy of games a shutdown or a restart is confirmed first (owner, 2026-11-10)
+        if (moveSheet.running && (action === "shutdown" || action === "restart")) { confirmPower(action); return; }
         quick.close(true);
         dialog.close(true);
         owneetd.post("/v1/power/" + action, {}, status => {
@@ -2410,10 +2422,12 @@ FocusScope {
         dialog.mode = "power";
         dialog.contentWidth = 0;
         dialog.title = Tr.tr("system.power.confirm." + action);
-        dialog.text = runningGame ? Tr.tr("system.power.game") : "";
+        dialog.text = [runningGame ? Tr.tr("system.power.game") : "",
+                       moveSheet.running && action !== "suspend" ? Tr.tr("system.power.copy") : ""].filter(t => t !== "").join(" ");
         dialog.buttons = [
             { text: Tr.tr("system.power." + action), action: () => {
                 dialog.close();
+                quick.close(true);
                 owneetd.post("/v1/power/" + action, {}, status => {
                     if (status >= 300 || status === 0) toast.show(Tr.tr("error.power"));
                 });
@@ -2811,6 +2825,43 @@ FocusScope {
         Row {
             anchors { right: parent.right; verticalCenter: parent.verticalCenter }
             spacing: Theme.px(20)
+            Rectangle {                    // 6.6e: a copy of games going on: its step and percentage
+                visible: moveSheet.running
+                anchors.verticalCenter: parent.verticalCenter
+                width: jobRow.implicitWidth + Theme.px(20)
+                height: jobRow.implicitHeight + Theme.px(8)
+                radius: height / 2
+                color: Theme.raised
+                Row {
+                    id: jobRow
+                    anchors.centerIn: parent
+                    spacing: Theme.px(8)
+                    Spinner {
+                        visible: !moveSheet.failedNow
+                        width: Theme.fs(14); height: width
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Rectangle {            // the copy did not work
+                        visible: moveSheet.failedNow
+                        width: Theme.fs(14); height: width; radius: width / 2
+                        color: Theme.fg
+                        anchors.verticalCenter: parent.verticalCenter
+                        Text {
+                            anchors.centerIn: parent
+                            text: "✕"
+                            color: Theme.bg
+                            font.pixelSize: Theme.fs(10)
+                        }
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: moveSheet.jobText
+                        color: Theme.fg
+                        font.family: Theme.textFont
+                        font.pixelSize: Theme.fs(14.5)
+                    }
+                }
+            }
             Item {                         // notifications: the bell counts the ones not seen yet
                 anchors.verticalCenter: parent.verticalCenter
                 width: Theme.fs(20); height: width
@@ -2959,6 +3010,7 @@ FocusScope {
         LibraryPage {
             id: library
             anchors.fill: parent
+            copying: moveSheet
             visible: root.section === "library"
             focus: visible
             games: root.games

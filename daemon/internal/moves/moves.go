@@ -99,6 +99,8 @@ type Manager struct {
 	resume   chan struct{}
 	stop     chan struct{}
 	skip     chan struct{} // the current game's copy only; a new one for each game
+	aborting bool          // the console shuts down or restarts: the check stops too (Abort)
+	done     chan struct{} // closed when the copy has ended
 	lastSent time.Time
 }
 
@@ -218,8 +220,9 @@ func (m *Manager) Start(req Request) error {
 		m.mu.Unlock()
 		return ErrBusy
 	}
-	m.running, m.paused = true, false
+	m.running, m.paused, m.aborting = true, false, false
 	m.resume, m.stop, m.skip = make(chan struct{}), make(chan struct{}), make(chan struct{})
+	m.done = make(chan struct{})
 	m.st = Status{State: "copy", Count: len(req.Games), Title: req.Games[0].Title, Remove: req.Remove || req.Games[0].Remove,
 		Failed: []string{}, Skipped: []string{}, Moved: []string{}}
 	m.mu.Unlock()
@@ -250,6 +253,41 @@ func (m *Manager) Skip() error {
 		return cerr
 	}
 	return err
+}
+
+// Abort ends the copy before the console shuts down or restarts (the player confirmed it, owner,
+// 2026-11-10): the copy and its check stop at once, the partial copy is removed and the game
+// stays where it was, as with Stop; an original whose copy has passed its check is removed to the
+// end first. It waits until the copy has ended, limit at most: false when it had not by then.
+func (m *Manager) Abort(limit time.Duration) bool {
+	m.mu.Lock()
+	if !m.running || m.done == nil {
+		m.mu.Unlock()
+		return true
+	}
+	m.aborting = true
+	select {
+	case <-m.stop:
+	default:
+		close(m.stop)
+	}
+	m.unpause()
+	done := m.done
+	m.mu.Unlock()
+	m.Log.Info("the copy stops: the console shuts down or restarts")
+	select {
+	case <-done:
+		return true
+	case <-time.After(limit):
+		m.Log.Warn("the copy had not stopped in time", "limit", limit)
+		return false
+	}
+}
+
+func (m *Manager) isAborting() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.aborting
 }
 
 func (m *Manager) unpause() {
@@ -329,6 +367,9 @@ func (m *Manager) run(req Request, dest string) {
 	defer func() {
 		m.mu.Lock()
 		m.running = false
+		if m.done != nil {
+			close(m.done)
+		}
 		m.mu.Unlock()
 		m.publish(true)
 	}()
@@ -358,7 +399,20 @@ func (m *Manager) run(req Request, dest string) {
 		}
 		if err == nil {
 			m.set(func(s *Status) { s.State, s.Percent = "check", 0 }, true)
-			err = same(g.Dir, target, m.percent(2*size(g.Dir)))
+			progress := m.percent(2 * size(g.Dir))
+			err = same(g.Dir, target, func(n int64) error {
+				progress(n)
+				if m.isAborting() {
+					return errStopped
+				}
+				return nil
+			})
+			if errors.Is(err, errStopped) {
+				os.RemoveAll(target)
+				m.Log.Info("the check stopped, the console shuts down: the copy removed, the original untouched", "game", g.Title)
+				m.set(func(s *Status) { s.State = "cancelled" }, true)
+				return
+			}
 		}
 		if err != nil {
 			// the copy did not work: it goes, the original is never touched
@@ -513,8 +567,9 @@ func (m *Manager) copyTree(src, dst string) error {
 }
 
 // same checks that the copy is the original: the same files and links, each file's size and
-// SHA-256. read (may be nil) is told the bytes read, of both.
-func same(src, dst string, read func(n int64)) error {
+// SHA-256. read (may be nil) is told the bytes read, of both; an error from it stops the check
+// and is returned as it is.
+func same(src, dst string, read func(n int64) error) error {
 	count := 0
 	err := filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -539,6 +594,9 @@ func same(src, dst string, read func(n int64)) error {
 				return err
 			}
 			b, err := digest(other, read)
+			if errors.Is(err, errStopped) {
+				return err
+			}
 			if err != nil || a != b {
 				return fmt.Errorf("%s: differs", rel)
 			}
@@ -565,7 +623,7 @@ func same(src, dst string, read func(n int64)) error {
 	return nil
 }
 
-func digest(path string, read func(n int64)) (string, error) {
+func digest(path string, read func(n int64) error) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", err
@@ -582,16 +640,18 @@ func digest(path string, read func(n int64)) (string, error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-// counting tells the bytes read through it.
+// counting tells the bytes read through it; an error from read stops the reading.
 type counting struct {
 	r    io.Reader
-	read func(n int64)
+	read func(n int64) error
 }
 
 func (c *counting) Read(p []byte) (int, error) {
 	n, err := c.r.Read(p)
 	if n > 0 {
-		c.read(int64(n))
+		if rerr := c.read(int64(n)); rerr != nil {
+			return n, rerr
+		}
 	}
 	return n, err
 }

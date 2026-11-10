@@ -16,7 +16,8 @@
 #     installs in 3 s (FAKE_FIRSTSTART=1: a new console, not connected to any network);
 #   - the system's mode (6.2): installed, or live with FAKE_MODE=live (started from the USB stick);
 #   - moving games (6.6): a copy in about 3 s, then the check and the removal (FAKE_MOVE_FAIL=1: the
-#     check fails); pause, resume and stop;
+#     check fails; FAKE_MOVE_SLOW=1: four times slower, to look at it while it runs); pause, resume
+#     and stop;
 #   - the installer (6.4): the disks of demo 6.4, an installation in about 5 s (FAKE_INSTALL_FAIL=CODE:
 #     it stops while copying with that error);
 #   - the updates of an installed system (7.1), with FAKE_SYSUPDATE (otherwise a tester's PC that
@@ -511,7 +512,7 @@ class Handler(BaseHTTPRequestHandler):
                     with lock:
                         mv["percent"] = pct
                     publish("moves.changed", seen(mv))
-                    time.sleep(pause)
+                    time.sleep(pause * (4 if os.environ.get("FAKE_MOVE_SLOW") else 1))
                 return ""
 
             def run():

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/moves"
 )
@@ -19,6 +20,8 @@ type Moves interface {
 	Resume() error
 	Stop() error
 	Skip() error
+	// Abort ends a copy before a shutdown or a restart, waiting for it (limit at most)
+	Abort(limit time.Duration) bool
 }
 
 func (s *Server) handleMoves(w http.ResponseWriter, _ *http.Request) {

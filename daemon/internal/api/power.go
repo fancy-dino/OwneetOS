@@ -38,10 +38,19 @@ func (s *Server) handlePower(w http.ResponseWriter, _ *http.Request) {
 // waits up to 20 s).
 const appsCloseWait = 25 * time.Second
 
+// movesStopWait: how long a shutdown or restart waits for a copy of games to stop and remove its
+// partial copy (removing a big partial copy takes a while on a slow disk).
+const movesStopWait = 60 * time.Second
+
 func (s *Server) handlePowerAction(a power.Action) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		if !s.powerAvailable(w) {
 			return
+		}
+		// A copy of games stops first (the player confirmed it): its partial copy is removed, the
+		// game stays where it was ([[step-6.6-moving-games-and-media-between-disks]])
+		if s.Moves != nil && (a == power.Shutdown || a == power.Restart) {
+			s.Moves.Abort(movesStopWait)
 		}
 		// Games and apps close first, cleanly (Steam saves its state); 20 s each at most
 		if s.Apps != nil && (a == power.Shutdown || a == power.Restart) {

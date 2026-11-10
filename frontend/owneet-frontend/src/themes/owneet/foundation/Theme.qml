@@ -82,6 +82,11 @@ QtObject {
     // "Running": a game or web app open behind the home screen (demo 3.6), the same in every palette
     readonly property color running: "#4ADE80"
     readonly property color runningInk: "#062010"
+    // Over a cover's art (6.6e: a game being copied), the same in every palette: white text on a
+    // dark shade, a light track for its bar
+    readonly property color onArt: "#FFFFFF"
+    readonly property color artShade: "#9E000000"
+    readonly property color artTrack: "#38FFFFFF"
 
     // ---- Shapes
     readonly property real radiusS: px(10)

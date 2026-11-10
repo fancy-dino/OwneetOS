@@ -1,0 +1,61 @@
+@nogames
+@owneetd
+@disk
+@moveslow
+@movefail
+# A copy that goes on behind its window and does not pass its check (approved demo 6.6e): a notice,
+# its cover and the top bar say it; A on its cover shows Close / Try again. Before, while the copy
+# runs, the quick menu's Shut down asks first and says the copy stops.
+wait 10
+unplug
+wait 3
+plug
+wait 4
+pad right a
+wait 1
+pad up up up up up up up up up up up up up up up up up up up up
+pad a
+wait 0.5
+pad down a down a down a
+pad down down down down down down down down down down down down down down down down down down down down
+pad a
+wait 1
+pad a
+wait 2
+event home.requested {}
+wait 1
+pad b
+wait 1
+shot 01-quick-menu
+pad a
+wait 1
+pad left
+pad a
+wait 1
+shot 02-shut-down-asks
+pad a
+wait 1
+pad b
+wait 1
+shot 03-not-shut-down
+wait 44
+shot 04a-failed-behind
+wait 3
+shot 04b-failed-behind
+wait 3
+shot 04c-failed-behind
+wait 3
+shot 04d-failed-behind
+wait 3
+shot 04e-failed-behind
+wait 6
+pad rb
+wait 1
+pad up
+pad down
+pad left left left left
+wait 0.5
+shot 05-library-failed
+pad a
+wait 1
+shot 06-failed-window
