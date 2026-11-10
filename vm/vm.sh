@@ -35,6 +35,8 @@ OwneetOS VM manager
         --evdev PATH    pass a host input device (e.g. a gamepad) to the guest; repeatable
         --gl            3D-accelerated virtual GPU (virgl), needed for gamescope
         --audio         two virtual sound cards (built-in HDA + USB), silent on the host
+        --audio-record  with --audio: what each card plays is saved in vm/run/NAME/
+                        audio-builtin.wav and audio-usb.wav (made anew at each start)
         --kernel-args S extra kernel command line, appended by systemd-boot (SMBIOS type 11)
         --tools DIR     a host folder seen by the guest as a small read-only FAT disk (test tools)
         --stick IMAGE   a disk image plugged in as a USB stick (e.g. an OWNEETLOG stick)
@@ -200,7 +202,7 @@ cmd_create() {
 cmd_start() {
     local name="${1:-}"; shift || true
     check_name "$name"
-    local iso="" headless=0 mem="$DEFAULT_MEM_MB" cpus="$DEFAULT_CPUS" net=1 ssh_port="" seed_url="" gl=0 audio=0
+    local iso="" headless=0 mem="$DEFAULT_MEM_MB" cpus="$DEFAULT_CPUS" net=1 ssh_port="" seed_url="" gl=0 audio=0 record=0
     local evdevs=() kargs="" tools="" stick=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -214,6 +216,7 @@ cmd_start() {
             --evdev)    evdevs+=("${2:-}"); shift 2 ;;
             --gl)       gl=1; shift ;;
             --audio)    audio=1; shift ;;
+            --audio-record) record=1; shift ;;
             --kernel-args) kargs="${2:-}"; shift 2 ;;
             --tools)    tools="${2:-}"; shift 2 ;;
             --stick)    stick="${2:-}"; shift 2 ;;
@@ -223,6 +226,7 @@ cmd_start() {
     [[ "$mem" =~ ^[0-9]+$ && "$cpus" =~ ^[0-9]+$ ]] || die "--mem and --cpus need numbers."
     [[ -z "$ssh_port" || "$ssh_port" =~ ^[0-9]+$ ]] || die "--ssh-port needs a number."
     (( net )) || [[ -z "$ssh_port" && -z "$seed_url" ]] || die "--ssh-port and --seed-url need the network (drop --no-net)."
+    (( audio || ! record )) || die "--audio-record needs --audio."
 
     check_host
     find_firmware
@@ -287,9 +291,17 @@ cmd_start() {
     if (( audio )); then
         # Two outputs to test output selection: a built-in HDA card and a USB card. The "none"
         # backend discards the sound (nothing plays on the host). Fixed PCI slots, as above.
+        # --audio-record: each card writes what it plays into a WAV file in the VM's run folder
+        # (QEMU's "wav" backend), so a test can tell which sounds played and when.
+        local builtin="snd0" usb="snd0"
+        if (( record )); then
+            builtin="rec0"; usb="rec1"
+            args+=(-audiodev "wav,id=rec0,path=$(vm_run_dir "$name")/audio-builtin.wav"
+                   -audiodev "wav,id=rec1,path=$(vm_run_dir "$name")/audio-usb.wav")
+        fi
         args+=(-audiodev "none,id=snd0"
-               -device "ich9-intel-hda,addr=0x11" -device "hda-output,audiodev=snd0"
-               -device "qemu-xhci,addr=0x12" -device "usb-audio,audiodev=snd0")
+               -device "ich9-intel-hda,addr=0x11" -device "hda-output,audiodev=$builtin"
+               -device "qemu-xhci,addr=0x12" -device "usb-audio,audiodev=$usb")
     fi
     if (( net )); then
         local nic="user,model=virtio-net-pci"

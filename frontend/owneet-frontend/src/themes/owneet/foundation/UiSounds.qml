@@ -4,7 +4,9 @@
 // at once. Settings → Sound turns them on or off and sets their volume; they are silent while a
 // game is on screen. A silent sound loops from the start, so the sound output (e.g. a TV over HDMI)
 // is running and in sync before the first real sound: otherwise the first one after boot is lost
-// while the TV picks up the audio (owner's NiPoGi test, 2026-10-11).
+// while the TV picks up the audio (owner's NiPoGi test, 2026-10-11). While the start-up animation or
+// its sound plays, no other sound plays: a notification (a controller plugged in) or anything else
+// would cover it (owner, FrankenPC, 2026-11-10).
 import QtQuick 2.15
 import QtMultimedia 5.15
 
@@ -12,6 +14,7 @@ QtObject {
     id: root
     property string dir: ""
     property bool muted: false
+    property bool startupOnly: false    // the start-up animation is on screen
 
     // What Nav.feedback reports → the file that plays (ten sounds; one "click" for many events)
     readonly property var fileOf: ({
@@ -57,6 +60,11 @@ QtObject {
     function play(kind) {
         if (!Theme.uiSounds || muted || dir === "")
             return;
+        if (kind !== "startup") {
+            const startup = effects.objectAt(files.indexOf("startup"));
+            if (startupOnly || (startup && startup.playing))
+                return;
+        }
         const effect = effects.objectAt(files.indexOf(fileOf[kind]));
         if (effect)
             effect.play();

@@ -101,7 +101,7 @@ hardware), blank virtual disks.
 ```text
 vm/test.sh fetch-arch-iso        stock Arch ISO, verified (used until OwneetOS has its own ISO)
 vm/test.sh create [single|multi] single: one 32G disk; multi: 32G + 64G data disk
-vm/test.sh boot [ISO] [options]  --headless, --gamepad auto|none|PATH, --gl, --audio, --ssh, --kargs, --journal, --debug-shell, --tools DIR
+vm/test.sh boot [ISO] [options]  --headless, --gamepad auto|none|PATH, --gl, --audio, --audio-record, --ssh, --kargs, --journal, --debug-shell, --tools DIR
 vm/test.sh run 'CMD'             run a command in the debug shell and print its output
 vm/test.sh keys COMBO[@MS]       press keys in the VM, e.g. ctrl-alt-f9; ret@3500 holds Enter 3.5 s
 vm/test.sh gamepads              gamepads connected to this computer
@@ -156,6 +156,9 @@ vm/test.sh stop | reset | destroy
   (`vm/images/.keys/test_ed25519`) in root's `authorized_keys`, on `127.0.0.1:2223`.
 - **Sound cards:** `--audio` adds a built-in sound card (Intel HDA) and a USB sound card, to test
   output selection ([[step-2.7-audio]]). The QEMU backend is `none`: nothing plays on the host.
+  With `--audio-record`, each card writes what it plays into `vm/run/test/audio-builtin.wav` and
+  `audio-usb.wav` (QEMU's `wav` backend, made anew at each start), to check which interface sounds
+  played; the console plays on the USB card by default.
   Fixed PCI slots `0x11` and `0x12`.
 - **Simulated Wi-Fi** ([[step-2.6-network]]): the kernel module `mac80211_hwsim` creates virtual
   Wi-Fi radios that see each other, and NetworkManager makes one of them a hotspot. NetworkManager's

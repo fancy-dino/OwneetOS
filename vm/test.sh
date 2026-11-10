@@ -46,6 +46,7 @@ OwneetOS test VM (${MEM_MB} MB RAM, ${CPUS} CPUs, UEFI, Secure Boot off)
         --gamepad auto|none|PATH     pass host gamepads to the VM (default: auto = all detected)
         --gl                         3D-accelerated GPU (needed for gamescope)
         --audio                      two virtual sound cards (built-in + USB), silent on the host
+        --audio-record               with --audio: each card's sound saved in vm/run/test/audio-*.wav
         --ssh                        live Arch ISO only: allow root SSH with the project test key
         --kargs "ARGS"               extra kernel command line (e.g. owneet.session=cage)
         --tools DIR                  test tools for the VM (a read-only disk, e.g. out/vm-tools)
@@ -101,13 +102,14 @@ cmd_create() {
 }
 
 cmd_boot() {
-    local iso="" headless=0 gamepad="auto" gl=0 audio=0 ssh=0 kargs="" tools="" disk=0 stick=""
+    local iso="" headless=0 gamepad="auto" gl=0 audio=0 record=0 ssh=0 kargs="" tools="" disk=0 stick=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --headless) headless=1; shift ;;
             --gamepad)  gamepad="${2:-}"; shift 2 ;;
             --gl)       gl=1; shift ;;
             --audio)    audio=1; shift ;;
+            --audio-record) record=1; shift ;;
             --ssh)      ssh=1; shift ;;
             --kargs)    kargs+=" ${2:-}"; shift 2 ;;
             --tools)    tools="${2:-}"; shift 2 ;;
@@ -127,6 +129,7 @@ cmd_boot() {
     if (( headless )); then args+=(--headless); fi
     if (( gl )); then args+=(--gl); fi
     if (( audio )); then args+=(--audio); fi
+    if (( record )); then args+=(--audio-record); fi
     if [[ -n "$tools" ]]; then args+=(--tools "$tools"); fi
     if [[ -n "$stick" ]]; then args+=(--stick "$stick"); fi
     if [[ -n "${kargs# }" ]]; then args+=(--kernel-args "${kargs# }"); info "extra kernel arguments:${kargs}"; fi

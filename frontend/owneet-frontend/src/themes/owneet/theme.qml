@@ -4158,6 +4158,7 @@ FocusScope {
         id: sounds
         dir: systemInfo.soundsDir
         muted: root.gameOnScreen && !webKeys.shown    // the web keyboard is the console's
+        startupOnly: intro.running
     }
     Connections {
         target: Nav
