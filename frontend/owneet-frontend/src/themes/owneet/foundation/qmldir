@@ -26,6 +26,7 @@ Prompt 1.0 Prompt.qml
 PromptBar 1.0 PromptBar.qml
 SettingRow 1.0 SettingRow.qml
 SettingSlider 1.0 SettingSlider.qml
+SwitchCell 1.0 SwitchCell.qml
 Sheet 1.0 Sheet.qml
 Spinner 1.0 Spinner.qml
 Toast 1.0 Toast.qml

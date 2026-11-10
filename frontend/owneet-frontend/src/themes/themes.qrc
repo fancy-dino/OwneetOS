@@ -47,6 +47,7 @@
         <file>owneet/foundation/Prompt.qml</file>
         <file>owneet/foundation/PromptBar.qml</file>
         <file>owneet/foundation/SettingRow.qml</file>
+        <file>owneet/foundation/SwitchCell.qml</file>
         <file>owneet/foundation/Sheet.qml</file>
         <file>owneet/foundation/PadDrawing.qml</file>
         <file>owneet/foundation/Spinner.qml</file>

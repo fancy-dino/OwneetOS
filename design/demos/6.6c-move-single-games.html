@@ -333,6 +333,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'plug.keep.all': 'The originals stay on the USB disk.', 'plug.remove.one': 'After the check, the original of {title} is removed from the USB disk.',
     'plug.remove.many': 'After the check, the originals of {n} games are removed from the USB disk.',
     'plug.readonly': 'Read only: Windows was not shut down completely. The originals stay on the USB disk.',
+    'plug.removed.one': 'Copy checked, the original of {title} removed from the USB disk.', 'plug.removed.many': 'Copies checked, the originals of {count} games removed from the USB disk.',
     'plug.ro.on': 'Demo: the USB disk is read only', 'plug.ro.off': 'Demo: the USB disk can be written',
     'plug.copying': 'Copying {title} ({i} of {n})', 'plug.done': '{n} games copied to {disk}',
     'p.cancel': 'Cancel', 'p.toggle': 'Switch',
@@ -403,6 +404,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'plug.keep.all': 'Gli originali restano sul disco USB.', 'plug.remove.one': 'Dopo il controllo, l’originale di {title} viene eliminato dal disco USB.',
     'plug.remove.many': 'Dopo il controllo, gli originali di {n} giochi vengono eliminati dal disco USB.',
     'plug.readonly': 'Sola lettura: Windows non è stato spento del tutto. Gli originali restano sul disco USB.',
+    'plug.removed.one': 'Copia controllata, l’originale di {title} eliminato dal disco USB.', 'plug.removed.many': 'Copie controllate, gli originali di {count} giochi eliminati dal disco USB.',
     'plug.ro.on': 'Demo: il disco USB è in sola lettura', 'plug.ro.off': 'Demo: il disco USB è scrivibile',
     'plug.copying': 'Copia di {title} ({i} di {n})', 'plug.done': '{n} giochi copiati su {disk}',
     'p.cancel': 'Annulla', 'p.toggle': 'Attiva',
@@ -1018,8 +1020,10 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
         run(list, to, rm, failed => {
           closeSheet(false); renderHead(); renderGrid();
           if (failed.length) return;
-          if (list.length === 1) banner(tr('copy.done', { title: list[0].title, disk: diskName(to) }), tr('plug.where.text'));
-          else banner(tr('plug.done', { n: list.length, disk: diskName(to) }), tr('plug.where.text'));
+          const gone = list.filter(g => rm.has(g.id));
+          const after = gone.length === 0 ? tr('plug.keep.all') : gone.length === 1 ? tr('plug.removed.one', { title: gone[0].title }) : tr('plug.removed.many', { count: gone.length });
+          if (list.length === 1) banner(tr('copy.done', { title: list[0].title, disk: diskName(to) }), after);
+          else banner(tr('plug.done', { n: list.length, disk: diskName(to) }), after);
         });
       }, best ? `#sheet [data-to="${best.key}"]` : null, () => (all.length > 1 ? plugChooseSheet(all, on, rm) : plugSheet()));
   }

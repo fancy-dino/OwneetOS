@@ -150,3 +150,39 @@ func TestStartRefuses(t *testing.T) {
 		t.Errorf("no space: %v", err)
 	}
 }
+
+// A plugged-in disk's games chosen game by game (approved demo 6.6c): only the originals asked
+// for are removed, each after its own check; the others stay.
+func TestRemoveGameByGame(t *testing.T) {
+	m, game, media := setup(t)
+	other := filepath.Join(media, "USB", "Giochi", "Cayne")
+	if err := os.MkdirAll(other, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(other, "CAYNE.EXE"), []byte("other"), 0o755)
+	seen := map[int]bool{} // by game
+	ch, stop := m.Broker.Subscribe(256)
+	defer stop()
+	if err := m.Start(Request{Games: []Game{{Dir: game, Title: "Tyrian", Remove: true}, {Dir: other, Title: "Cayne"}}, To: Internal}); err != nil {
+		t.Fatal(err)
+	}
+	st := finish(t, m)
+	if len(st.Moved) != 2 || len(st.Failed) != 0 {
+		t.Fatalf("status %+v", st)
+	}
+	if _, err := os.Stat(game); !os.IsNotExist(err) {
+		t.Error("Tyrian's original is still there")
+	}
+	if _, err := os.Stat(filepath.Join(other, "CAYNE.EXE")); err != nil {
+		t.Error("Cayne's original was touched")
+	}
+	// the status says each game's own choice while it is copied
+	for len(ch) > 0 {
+		if s, ok := (<-ch).Data.(Status); ok && s.State == "copy" {
+			seen[s.Index] = s.Remove
+		}
+	}
+	if len(seen) != 2 || !seen[0] || seen[1] {
+		t.Errorf("remove per game in the status: %v", seen)
+	}
+}

@@ -36,10 +36,13 @@ var GamesFolders = []string{"games", "giochi"}
 type Game struct {
 	Dir   string `json:"dir"`
 	Title string `json:"title"`
+	// Remove: this game's original is removed once its copy is checked, whatever the request's
+	// Remove says (a plugged-in disk's games, chosen game by game: approved demo 6.6c)
+	Remove bool `json:"remove,omitempty"`
 }
 
 // Request: the games, where they go (Internal or a mounted disk's folder), and whether the
-// originals are removed once their copies are checked.
+// originals are removed once their copies are checked (all of them; or each game's own Remove).
 type Request struct {
 	Games  []Game `json:"games"`
 	To     string `json:"to"`
@@ -55,7 +58,7 @@ type Status struct {
 	Count   int    `json:"count"`
 	Title   string `json:"title"`
 	Percent int    `json:"percent"` // of the current game's copy
-	Remove  bool   `json:"remove"`
+	Remove  bool   `json:"remove"`  // the current game's original is removed after its check
 	// Failed: the titles whose copy did not work (the originals untouched)
 	Failed []string `json:"failed"`
 	// Moved: where each game that worked is now
@@ -207,7 +210,7 @@ func (m *Manager) Start(req Request) error {
 	}
 	m.running, m.paused = true, false
 	m.resume, m.stop = make(chan struct{}), make(chan struct{})
-	m.st = Status{State: "copy", Count: len(req.Games), Title: req.Games[0].Title, Remove: req.Remove,
+	m.st = Status{State: "copy", Count: len(req.Games), Title: req.Games[0].Title, Remove: req.Remove || req.Games[0].Remove,
 		Failed: []string{}, Moved: []string{}}
 	m.mu.Unlock()
 	m.Log.Info("moving games", "count", len(req.Games), "to", dest, "remove", req.Remove)
@@ -298,7 +301,8 @@ func (m *Manager) run(req Request, dest string) {
 		m.publish(true)
 	}()
 	for i, g := range req.Games {
-		m.set(func(s *Status) { s.State, s.Index, s.Title, s.Percent = "copy", i, g.Title, 0 }, true)
+		remove := req.Remove || g.Remove
+		m.set(func(s *Status) { s.State, s.Index, s.Title, s.Percent, s.Remove = "copy", i, g.Title, 0, remove }, true)
 		target := freeName(filepath.Join(dest, filepath.Base(g.Dir)))
 		err := m.copyTree(g.Dir, target)
 		if errors.Is(err, errStopped) {
@@ -318,7 +322,7 @@ func (m *Manager) run(req Request, dest string) {
 			m.set(func(s *Status) { s.Failed = append(s.Failed, g.Title) }, true)
 			continue
 		}
-		if req.Remove {
+		if remove {
 			m.set(func(s *Status) { s.State = "remove" }, true)
 			if err := os.RemoveAll(g.Dir); err != nil {
 				m.Log.Warn("the original could not be removed", "game", g.Title, "err", err)

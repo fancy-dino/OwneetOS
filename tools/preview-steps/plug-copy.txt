@@ -2,9 +2,10 @@
 @owneetd
 @disk
 # A USB disk with games plugged in ([[step-6.6-moving-games-and-media-between-disks]], approved demos
-# 6.6 and 6.6b): "Play from here / Copy to the console"; copying asks which games (a switch per game
-# and "All games", all on, the button selected; many games scroll in the window), then which disk
-# (the originals stay), then the games one after the other. B goes back one window.
+# 6.6, 6.6b and 6.6c): "Play from here / Copy to the console"; copying asks which games, with a
+# "Copy" and a "Remove the original" switch on each (all copied, no original removed at first; the
+# button selected; many games scroll in the window), then which disk, then the games one after the
+# other; an original goes only after its copy's check. B goes back one window.
 wait 2
 unplug
 wait 3
@@ -14,20 +15,26 @@ shot 01-plugged
 pad right a
 wait 1
 shot 02-which-games
-pad up a up a
+pad up up up up up up up up up up up up up up up up up up up up
+pad a
 wait 0.5
-shot 03-two-off
-pad down down down down down down down down down down down down
+shot 03-none
+pad down a right a left down a
 wait 0.5
-shot 04-scrolled-to-the-button
+shot 04-two-one-removed
+pad down down down down down down down down down down down down down down down down down down down down
 pad a
 wait 1
 shot 05-which-disk
 pad b
 wait 1
-shot 06-back-to-games
+shot 06-back-kept
 pad a
 wait 1
 pad a
-wait 1.5
-shot 07-copying
+wait 2
+shot 07-copying-removed
+wait 5
+shot 08-copying-kept
+wait 5
+shot 09-done

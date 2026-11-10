@@ -11,7 +11,9 @@
 // in: "Play from here / Copy to the console", then which games (approved demo 6.6b: a switch per
 // game and "All games", all on at first; the button below copies the ones that are on, selected at
 // first so that one A copies them all; a disk with one game skips it), then which disk (the
-// originals stay); B goes back one window.
+// originals stay); B goes back one window. Approved demo 6.6c: next to "Copy", each game has a
+// "Remove the original" switch (off at first, only for a copied game, never on a read-only disk):
+// its original is removed from the USB disk once its copy has passed the check.
 import QtQuick 2.15
 import "foundation"
 
@@ -27,14 +29,19 @@ Dialog {
     property bool plugged: false         // the USB disk's games, copied to the console
     property var plugGames: []           // all the plugged-in disk's games (games: the ones chosen)
     property var chosen: ({})            // dir → true: the games switched on in "Which games to copy?"
+    property var removing: ({})          // dir → true: their originals removed after the check (6.6c)
+    property bool fromReadOnly: false    // the plugged-in disk cannot lose its originals
+    property string fromWhy: ""          // why it is read only ("windows": not shut down completely)
     property var volumes: []
     property var st: ({ state: "" })     // owneetd's GET /v1/moves
     readonly property real need: games.reduce((a, g) => a + g.size, 0)
     readonly property string fromName: theme ? theme.diskName(from) : ""
     readonly property string toName: theme ? theme.diskName(to) : ""
     readonly property var current: games[Math.min(st.index || 0, Math.max(0, games.length - 1))] || { title: "" }
+    // whether the original of the game being copied is removed after its check
+    readonly property bool currentRemove: plugged ? removing[current.dir] === true : remove
 
-    contentWidth: Theme.px(620)
+    contentWidth: Theme.px(mode === "choose" ? 720 : 620)   // 6.6c: room for the two headings
     scrollTarget: mode === "choose" ? chooseFlick : null
     // the selected switch stays in sight when the games scroll (as VersionsSheet)
     onMoved: if (mode === "choose" && Nav.navigables(chooseList).indexOf(item) >= 0) {
@@ -74,6 +81,10 @@ Dialog {
         const all = {};
         plugGames.forEach(g => all[g.dir] = true);
         chosen = all;
+        removing = ({});
+        const v = storage.volumes().find(v => v.key === key);
+        fromReadOnly = !!(v && v.readOnly);
+        fromWhy = v && v.why ? String(v.why) : "";
         showPlug();
     }
     function showPlug() {
@@ -89,8 +100,18 @@ Dialog {
         open(visible);
         if (visible) Qt.callLater(focusDefault);
     }
-    // ---- 6.6b: which games to copy
+    // ---- 6.6b / 6.6c: which games to copy, and whose originals go
     readonly property var chosenGames: plugGames.filter(g => chosen[g.dir])
+    readonly property bool allRemoved: chosenGames.length > 0 && chosenGames.every(g => removing[g.dir])
+    // what happens to the originals (under the list, and in the disk window)
+    function originalsNote(list) {
+        if (fromReadOnly)
+            return Tr.tr(fromWhy === "windows" ? "move.plug.readonly" : "move.plug.readonly.other");
+        const r = list.filter(g => removing[g.dir]);
+        return r.length === 0 ? Tr.tr("move.plug.where.text")
+             : r.length === 1 ? Tr.tr("move.plug.remove.one", { title: r[0].title })
+             : Tr.tr("move.plug.remove.many", { n: r.length });
+    }
     function goButton() {
         const c = chosenGames;
         const text = c.length === 0 ? Tr.tr("move.plug.go.none")
@@ -103,6 +124,7 @@ Dialog {
         mode = "choose";
         title = Tr.tr("move.plug.choose");
         text = Tr.tr("move.plug.choose.text");
+        if (fromReadOnly) removing = ({});
         buttons = goButton();
         prompts = defaultPrompts;
         backAction = () => root.showPlug();
@@ -110,17 +132,32 @@ Dialog {
         defaultIndex = 0;
         Qt.callLater(focusDefault);   // the button: one A copies them all
     }
-    // A on a switch: it changes in place, the selection stays on it
+    // A on a switch: it changes in place, the selection stays on it. A game no longer copied keeps
+    // no "Remove the original".
     function toggle(dir) {
-        const c = Object.assign({}, chosen);
+        const c = Object.assign({}, chosen), r = Object.assign({}, removing);
         if (dir === "") {             // All games
             const all = chosenGames.length === plugGames.length;
-            plugGames.forEach(g => c[g.dir] = !all);
+            plugGames.forEach(g => { c[g.dir] = !all; if (all) r[g.dir] = false; });
         } else {
             c[dir] = !c[dir];
+            if (!c[dir]) r[dir] = false;
         }
         chosen = c;
+        removing = r;
         buttons = goButton();
+    }
+    function toggleRemove(dir) {
+        if (fromReadOnly)
+            return;
+        const r = Object.assign({}, removing);
+        if (dir === "") {             // All games: the copied ones
+            const all = allRemoved;
+            chosenGames.forEach(g => r[g.dir] = !all);
+        } else if (chosen[dir]) {
+            r[dir] = !r[dir];
+        }
+        removing = r;
     }
     function chooseDone() {
         if (chosenGames.length === 0) {
@@ -148,7 +185,7 @@ Dialog {
         title = plugged ? (games.length === 1 ? Tr.tr("move.plug.where.one", { title: games[0].title, size: GameInfo.sizeAuto(need) })
                                               : Tr.tr("move.plug.where", { n: games.length, size: GameInfo.sizeAuto(need) }))
                         : Tr.tr("move.title", { title: games[0].title });
-        text = plugged ? Tr.tr("move.plug.where.text")
+        text = plugged ? originalsNote(games)
                        : Tr.tr("move.where", { size: GameInfo.sizeAuto(need), disk: fromName });
         buttons = [];
         prompts = defaultPrompts;
@@ -179,7 +216,9 @@ Dialog {
     function start() {
         st = { state: "copy", index: 0, percent: 0, failed: [], moved: [] };
         showRun();
-        owneetd.post("/v1/moves", { games: games.map(g => ({ dir: g.dir, title: g.title })), to: to, remove: remove }, (status, data) => {
+        // a plugged-in disk: each game's own choice (6.6c); otherwise one for all
+        owneetd.post("/v1/moves", { games: games.map(g => ({ dir: g.dir, title: g.title, remove: plugged && removing[g.dir] === true })),
+                                    to: to, remove: remove }, (status, data) => {
             if (status === 202)
                 return;
             Nav.feedback("error");
@@ -194,7 +233,7 @@ Dialog {
         mode = "run";
         text = "";
         title = plugged && games.length > 1 ? Tr.tr("move.plug.copying", { title: current.title, i: (st.index || 0) + 1, n: games.length })
-              : Tr.tr(remove ? "move.title" : "copy.title", { title: current.title });
+              : Tr.tr(currentRemove ? "move.title" : "copy.title", { title: current.title });
         const copying = st.state === "copy";
         buttons = copying ? [{ text: Tr.tr("prompt.cancel"), action: () => root.ask() }] : [];
         prompts = copying ? [{ buttons: ["a"], label: Tr.tr("prompt.cancel") }] : [];
@@ -251,10 +290,15 @@ Dialog {
         if (root.theme) {
             root.theme.readGamesQuietly();
             if (ok > 0 && failedTitles.length === 0) {
+                // what happened to the originals (6.6c)
+                const gone = games.filter(g => removing[g.dir]);
+                const detail = !plugged ? "" : gone.length === 0 ? { key: "move.plug.where.text", args: {} }
+                             : gone.length === 1 ? { key: "move.plug.removed.one", args: { title: gone[0].title } }
+                             : { key: "move.plug.removed.many", args: { count: gone.length } };
                 if (plugged && games.length > 1)
-                    root.theme.notify({ key: "move.plug.done", args: { n: games.length, disk: toName }, detailKey: "move.plug.where.text", icon: "check", kind: "info" });
+                    root.theme.notify({ key: "move.plug.done", args: Object.assign({ n: games.length, disk: toName }, detail.args), detailKey: detail.key, icon: "check", kind: "info" });
                 else if (plugged)
-                    root.theme.notify({ key: "copy.done", args: { title: games[0].title, disk: toName }, detailKey: "move.plug.where.text", icon: "check", kind: "info" });
+                    root.theme.notify({ key: "copy.done", args: Object.assign({ title: games[0].title, disk: toName }, detail.args), detailKey: detail.key, icon: "check", kind: "info" });
                 else
                     root.theme.notify({ key: remove ? "move.done" : "copy.done", args: { title: games[0].title, disk: toName },
                                         detailKey: remove ? "move.done.text" : "copy.done.text", icon: "check", kind: "info" });
@@ -353,7 +397,7 @@ Dialog {
     Flickable {                           // which games to copy (6.6b): many games scroll in the window
         id: chooseFlick
         visible: root.mode === "choose"
-        width: Theme.px(620) + 2 * pad   // the rows 620 wide; the margin keeps the selection's frame whole
+        width: Theme.px(720) + 2 * pad   // the rows 720 wide; the margin keeps the selection's frame whole
         height: Math.min(contentHeight, Theme.px(360))
         anchors.horizontalCenter: parent.horizontalCenter
         clip: true
@@ -364,26 +408,96 @@ Dialog {
         Column {
             id: chooseList
             x: chooseFlick.pad; y: chooseFlick.pad
-            width: Theme.px(620)
+            width: Theme.px(720)
             spacing: Theme.px(10)
-            SettingRow {
+            readonly property real copyColumn: Theme.px(110)
+            readonly property real removeColumn: Theme.px(190)
+            readonly property real gap: Theme.px(8)
+            Item {                        // the headings, over the switches
                 width: parent.width
-                text: Tr.tr("move.plug.all")
-                aside: GameInfo.sizeAuto(root.plugGames.reduce((a, g) => a + g.size, 0))
-                checked: root.chosenGames.length === root.plugGames.length
-                onActivated: root.toggle("")
+                height: copyHead.implicitHeight
+                Text {
+                    id: copyHead
+                    x: parent.width - Theme.px(16) - chooseList.removeColumn - chooseList.gap - chooseList.copyColumn
+                    width: chooseList.copyColumn
+                    horizontalAlignment: Text.AlignHCenter
+                    text: Tr.tr("move.plug.col.copy")
+                    color: Theme.muted
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(12.5)
+                }
+                Text {
+                    x: parent.width - Theme.px(16) - chooseList.removeColumn
+                    width: chooseList.removeColumn
+                    horizontalAlignment: Text.AlignHCenter
+                    text: Tr.tr("move.plug.col.remove")
+                    color: Theme.muted
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(12.5)
+                    elide: Text.ElideRight
+                }
             }
             Repeater {
-                model: root.mode === "choose" ? root.plugGames : []
-                SettingRow {
-                    width: parent.width
-                    text: modelData.title
-                    aside: GameInfo.sizeAuto(modelData.size)
-                    checked: root.chosen[modelData.dir] === true
-                    onActivated: root.toggle(modelData.dir)
+                model: root.mode === "choose" ? [{ dir: "", title: Tr.tr("move.plug.all"), size: root.plugGames.reduce((a, g) => a + g.size, 0) }].concat(root.plugGames) : []
+                Rectangle {
+                    readonly property bool all: modelData.dir === ""
+                    readonly property bool copied: all ? root.chosenGames.length === root.plugGames.length : root.chosen[modelData.dir] === true
+                    width: chooseList.width
+                    height: Math.max(label.implicitHeight, copySwitch.implicitHeight) + Theme.px(12)
+                    radius: Theme.radiusS + Theme.px(2)
+                    color: Theme.surface
+                    border.color: Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                    Row {
+                        anchors { left: parent.left; leftMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
+                        width: parent.width - Theme.px(32) - chooseList.copyColumn - chooseList.removeColumn - 2 * chooseList.gap
+                        spacing: Theme.px(6)
+                        Text {
+                            id: label
+                            width: Math.min(implicitWidth, parent.width - sizeText.implicitWidth - parent.spacing)
+                            text: modelData.title
+                            color: Theme.fg
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(14.5)
+                            elide: Text.ElideRight
+                        }
+                        Text {
+                            id: sizeText
+                            anchors.baseline: label.baseline
+                            text: "· " + GameInfo.sizeAuto(modelData.size)
+                            color: Theme.muted
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(12.5)
+                        }
+                    }
+                    SwitchCell {
+                        id: copySwitch
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: parent.width - Theme.px(16) - chooseList.removeColumn - chooseList.gap - chooseList.copyColumn + (chooseList.copyColumn - width) / 2
+                        checked: parent.copied
+                        onActivated: root.toggle(modelData.dir)
+                    }
+                    SwitchCell {
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: parent.width - Theme.px(16) - chooseList.removeColumn + (chooseList.removeColumn - width) / 2
+                        checked: parent.all ? root.allRemoved : root.removing[modelData.dir] === true
+                        available: !root.fromReadOnly && (parent.all ? root.chosenGames.length > 0 : parent.copied)
+                        onActivated: root.toggleRemove(modelData.dir)
+                    }
                 }
             }
         }
+    }
+    Text {                                // what happens to the originals (6.6c)
+        visible: root.mode === "choose"
+        width: Theme.px(720)
+        anchors.horizontalCenter: parent.horizontalCenter
+        horizontalAlignment: Text.AlignHCenter
+        text: root.originalsNote(root.chosenGames)
+        color: Theme.muted
+        font.family: Theme.textFont
+        font.pixelSize: Theme.fs(12.5)
+        wrapMode: Text.Wrap
     }
     Column {                              // the confirmation's switch
         visible: root.mode === "confirm"
@@ -412,7 +526,7 @@ Dialog {
         spacing: Theme.px(10)
         Repeater {
             model: [["copy", Tr.tr("move.step.copy", { disk: root.toName })], ["check", Tr.tr("move.step.check")],
-                    ["remove", root.remove ? Tr.tr("move.step.remove", { disk: root.fromName }) : Tr.tr("move.step.keep", { disk: root.fromName })]]
+                    ["remove", root.currentRemove ? Tr.tr("move.step.remove", { disk: root.fromName }) : Tr.tr("move.step.keep", { disk: root.fromName })]]
                    .slice(0, root.mode === "failed" ? 2 : 3)
             Column {
                 readonly property string step: modelData[0]

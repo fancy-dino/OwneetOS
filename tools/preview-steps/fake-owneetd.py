@@ -491,13 +491,15 @@ class Handler(BaseHTTPRequestHandler):
             games = body.get("games") or []
             with lock:
                 state["moves"] = {"state": "copy", "paused": False, "index": 0, "count": len(games), "title": games[0]["title"],
-                                  "percent": 0, "remove": bool(body.get("remove")), "failed": [], "moved": [], "stop": False}
+                                  "percent": 0, "remove": bool(body.get("remove")) or bool(games[0].get("remove")),
+                                  "failed": [], "moved": [], "stop": False}
+            remove_all = bool(body.get("remove"))   # or each game's own "remove" (6.6c)
 
             def run():
                 mv = state["moves"]
                 for i, g in enumerate(games):
                     with lock:
-                        mv.update(state="copy", index=i, title=g["title"], percent=0)
+                        mv.update(state="copy", index=i, title=g["title"], percent=0, remove=remove_all or bool(g.get("remove")))
                     for pct in range(0, 101, 5):
                         while mv["paused"] and not mv["stop"]:
                             time.sleep(0.1)
