@@ -3427,10 +3427,22 @@ FocusScope {
             Text { text: root.termsAddress; color: Theme.fg; font.family: Theme.displayFont; font.weight: Font.Bold; font.pixelSize: Theme.fs(14.5) }
         }
         Column {                          // details: facts about the game (Steam: its download, 4.2c)
+            id: factsBox
             visible: dialog.mode === "details" && dialog.game !== null
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Theme.px(6)
+            // a value never wider than the window: a long one (an installer's file name) is
+            // shortened in the middle with "…" (owner, 2026-11-10)
+            readonly property real labelWidth: {
+                let w = 0;
+                for (let i = 0; i < factsGrid.children.length; i++)
+                    if (factsGrid.children[i].factLabel === true)
+                        w = Math.max(w, factsGrid.children[i].implicitWidth);
+                return w;
+            }
+            readonly property real valueMax: Math.max(Theme.px(80), parent.width - labelWidth - factsGrid.columnSpacing)
             Grid {
+                id: factsGrid
                 anchors.horizontalCenter: parent.horizontalCenter
                 columns: 2
                 columnSpacing: Theme.px(18)
@@ -3438,10 +3450,13 @@ FocusScope {
                 Repeater {
                     model: dialog.game && dialog.mode === "details" ? root.detailsFacts(dialog.game).reduce((a, f) => a.concat(f), []) : []
                     Text {
+                        readonly property bool factLabel: index % 2 === 0
+                        width: factLabel ? implicitWidth : Math.min(implicitWidth, factsBox.valueMax)
                         text: modelData
-                        color: index % 2 === 0 ? Theme.muted : Theme.fg
+                        color: factLabel ? Theme.muted : Theme.fg
                         font.family: Theme.textFont
                         font.pixelSize: Theme.fs(14.5)
+                        elide: Text.ElideMiddle
                     }
                 }
             }

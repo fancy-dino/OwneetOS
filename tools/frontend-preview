@@ -204,9 +204,9 @@ with zipfile.ZipFile(buf, "w") as z:
                    f"{n}. A clause of the licence, long enough to need scrolling with the right stick on the console's screen." for n in range(1, 25)))
 open(sys.argv[1], "wb").write(b"#!/bin/sh\n# This script was generated using Makeself 2.4.0\n" + b"#" * 4000 + b"\nexit 0\n" + buf.getvalue())
 PY
-    printf 'MZ... Inno Setup Setup Data (6.2.0)' > "$g/Shadow Harbor/setup_shadow_harbor_1.4.2.exe"
-    head -c 3000000 /dev/zero >> "$g/Shadow Harbor/setup_shadow_harbor_1.4.2.exe"
-    : > "$g/Shadow Harbor/setup_shadow_harbor_1.4.2-1.bin"
+    printf 'MZ... Inno Setup Setup Data (6.2.0)' > "$g/Shadow Harbor/setup_shadow_harbor_the_complete_edition_with_every_expansion_1.4.2_(52714).exe"
+    head -c 3000000 /dev/zero >> "$g/Shadow Harbor/setup_shadow_harbor_the_complete_edition_with_every_expansion_1.4.2_(52714).exe"
+    : > "$g/Shadow Harbor/setup_shadow_harbor_the_complete_edition_with_every_expansion_1.4.2_(52714)-1.bin"
     printf 'MZ... Inno Setup Setup Data (6.2.0)' > "$g/Titan Fields/setup_titan_fields_2.0.exe"
     truncate -s 300G "$g/Titan Fields/setup_titan_fields_2.0.exe"
     : > "$g/Treasure Adventure Game/GOG_Galaxy_Treasure_Adventure_Game.exe"

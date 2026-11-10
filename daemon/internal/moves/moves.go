@@ -326,6 +326,8 @@ func (m *Manager) run(req Request, dest string) {
 			m.set(func(s *Status) { s.State = "remove" }, true)
 			if err := os.RemoveAll(g.Dir); err != nil {
 				m.Log.Warn("the original could not be removed", "game", g.Title, "err", err)
+			} else {
+				m.carry(g.Title, g.Dir, target)
 			}
 		}
 		m.set(func(s *Status) { s.Moved = append(s.Moved, target) }, true)

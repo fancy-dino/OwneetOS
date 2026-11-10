@@ -1,0 +1,18 @@
+@owneetd
+@disk
+# The details window of a Windows installer with a long file name (owner, 2026-11-10): the
+# name is shortened in the middle with "…", inside the window.
+wait 10
+pad rb
+wait 1
+pad rt rt rt rt
+wait 1
+pad down down down
+wait 1
+pad menu
+wait 1
+shot 01-options
+pad right
+pad a
+wait 1.5
+shot 02-details
