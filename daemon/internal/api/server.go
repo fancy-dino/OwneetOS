@@ -163,6 +163,7 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("POST /v1/moves/pause", s.handleMovesPause)
 		mux.HandleFunc("POST /v1/moves/resume", s.handleMovesResume)
 		mux.HandleFunc("POST /v1/moves/stop", s.handleMovesStop)
+		mux.HandleFunc("POST /v1/moves/skip", s.handleMovesSkip)
 	}
 	mux.HandleFunc("GET /v1/installer", s.handleInstaller)
 	mux.HandleFunc("GET /v1/installer/disks", s.handleInstallerDisks)

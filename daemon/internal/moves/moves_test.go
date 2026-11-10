@@ -118,16 +118,16 @@ func TestCheckFindsADifferentCopy(t *testing.T) {
 	if err := m.copyTree(game, other); err != nil {
 		t.Fatal(err)
 	}
-	if err := same(game, other); err != nil {
+	if err := same(game, other, nil); err != nil {
 		t.Fatalf("a good copy: %v", err)
 	}
 	os.WriteFile(filepath.Join(other, "TYRIAN.EXE"), []byte("gamf"), 0o755)
-	if same(game, other) == nil {
+	if same(game, other, nil) == nil {
 		t.Error("a different file passed the check")
 	}
 	os.WriteFile(filepath.Join(other, "TYRIAN.EXE"), []byte("game"), 0o755)
 	os.WriteFile(filepath.Join(other, "extra"), nil, 0o644)
-	if same(game, other) == nil {
+	if same(game, other, nil) == nil {
 		t.Error("a copy with another file passed the check")
 	}
 }
@@ -184,5 +184,85 @@ func TestRemoveGameByGame(t *testing.T) {
 	}
 	if len(seen) != 2 || !seen[0] || seen[1] {
 		t.Errorf("remove per game in the status: %v", seen)
+	}
+}
+
+// Copying several games, the player stops only one game's copy (approved demo 6.6d): its partial
+// copy goes, its original stays, the next game is copied.
+func TestSkipStopsOnlyThisGamesCopy(t *testing.T) {
+	m, game, media := setup(t)
+	other := filepath.Join(media, "USB", "Giochi", "Cayne")
+	os.MkdirAll(other, 0o755)
+	os.WriteFile(filepath.Join(other, "CAYNE.EXE"), []byte("other"), 0o755)
+	// paused before the first byte (as Start, but waiting): the skip comes during the first copy
+	m.running, m.paused = true, true
+	m.resume, m.stop, m.skip = make(chan struct{}), make(chan struct{}), make(chan struct{})
+	m.st = Status{Count: 2, Failed: []string{}, Skipped: []string{}, Moved: []string{}}
+	dest, _ := m.gamesFolder(Internal)
+	go m.run(Request{Games: []Game{{Dir: game, Title: "Tyrian", Remove: true}, {Dir: other, Title: "Cayne"}}, To: Internal}, dest)
+	for i := 0; m.Status().State != "copy"; i++ {
+		if i > 500 {
+			t.Fatal("the copy never started")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if err := m.Skip(); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Skip(); !errors.Is(err, ErrIdle) {
+		t.Errorf("a second skip of the same game: %v", err)
+	}
+	st := finish(t, m)
+	if len(st.Skipped) != 1 || st.Skipped[0] != "Tyrian" || len(st.Moved) != 1 || len(st.Failed) != 0 {
+		t.Fatalf("status %+v", st)
+	}
+	if _, err := os.Stat(filepath.Join(m.Home, "Games", "Tyrian")); !os.IsNotExist(err) {
+		t.Error("the stopped game's partial copy is still there")
+	}
+	if _, err := os.Stat(filepath.Join(game, "TYRIAN.EXE")); err != nil {
+		t.Error("the stopped game's original was touched")
+	}
+	if _, err := os.Stat(filepath.Join(m.Home, "Games", "Cayne", "CAYNE.EXE")); err != nil {
+		t.Error("the next game was not copied")
+	}
+}
+
+// The check and the removal tell their own percentage, up to 100.
+func TestCheckAndRemovalTellTheirProgress(t *testing.T) {
+	m, game, media := setup(t)
+	ch, stop := m.Broker.Subscribe(1024)
+	defer stop()
+	if err := m.Start(Request{Games: []Game{{Dir: game, Title: "Tyrian"}}, To: filepath.Join(media, "HDD"), Remove: true}); err != nil {
+		t.Fatal(err)
+	}
+	finish(t, m)
+	most := map[string]int{}
+	for len(ch) > 0 {
+		if s, ok := (<-ch).Data.(Status); ok {
+			most[s.State] = max(most[s.State], s.Percent)
+		}
+	}
+	if _, ok := most["check"]; !ok {
+		t.Fatalf("no check in the status: %v", most)
+	}
+	if _, ok := most["remove"]; !ok {
+		t.Fatalf("no removal in the status: %v", most)
+	}
+	// the last value of each step is sent at once only at the step's change: the percentages
+	// themselves come at most a few times a second, so here the counters are checked directly
+	moved, read := filepath.Join(media, "HDD", "Games", "Tyrian"), 0
+	if err := same(moved, moved, func(n int64) { read += int(n) }); err != nil || int64(read) != 2*size(moved) || read == 0 {
+		t.Errorf("the check read %d of %d: %v", read, 2*size(moved), err)
+	}
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "a", "b"), 0o755)
+	os.WriteFile(filepath.Join(dir, "a", "b", "f"), nil, 0o644)
+	os.Symlink("f", filepath.Join(dir, "a", "l"))
+	total, removed := entries(dir), int64(0)
+	if err := removeTree(dir, func(n int64) { removed += n }); err != nil || removed != total || total != 5 {
+		t.Errorf("removed %d of %d: %v", removed, total, err)
+	}
+	if _, err := os.Lstat(dir); !os.IsNotExist(err) {
+		t.Error("the folder is still there")
 	}
 }

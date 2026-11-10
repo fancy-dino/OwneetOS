@@ -13,7 +13,10 @@
 // first so that one A copies them all; a disk with one game skips it), then which disk (the
 // originals stay); B goes back one window. Approved demo 6.6c: next to "Copy", each game has a
 // "Remove the original" switch (off at first, only for a copied game, never on a read-only disk):
-// its original is removed from the USB disk once its copy has passed the check.
+// its original is removed from the USB disk once its copy has passed the check. Approved demo
+// 6.6d: the check and the removal of the original show their own percentage and bar, as the copy;
+// a copy that keeps the original shows no step for it; copying several games, "Stop?" offers
+// "Stop this game" (the next games go on) and "Stop all" while games are left after this one.
 import QtQuick 2.15
 import "foundation"
 
@@ -248,13 +251,26 @@ Dialog {
         Nav.feedback("sheet-open");
         mode = "ask";
         title = Tr.tr("move.cancel.ask");
-        text = Tr.tr("move.cancel.text", { title: current.title, disk: fromName });
-        buttons = [{ text: Tr.tr("move.cancel.keep"), style: "primary", action: () => root.keepGoing() },
-                   { text: Tr.tr("move.cancel.stop"), action: () => owneetd.post("/v1/moves/stop", {}, () => {}) }];
+        // 6.6d: games left after this one: stop only this game, or all
+        const more = (st.index || 0) + 1 < games.length;
+        text = Tr.tr(more ? "move.cancel.text.many" : "move.cancel.text", { title: current.title, disk: fromName });
+        const stopAll = () => owneetd.post("/v1/moves/stop", {}, () => {});
+        buttons = [{ text: Tr.tr("move.cancel.keep"), style: "primary", action: () => root.keepGoing() }].concat(more
+            ? [{ text: Tr.tr("move.cancel.one"), action: () => root.stopOne() },
+               { text: Tr.tr("move.cancel.all"), action: stopAll }]
+            : [{ text: Tr.tr("move.cancel.stop"), action: stopAll }]);
         prompts = [{ buttons: ["a"], label: Tr.tr("prompt.select") }, { buttons: ["b"], label: Tr.tr("move.cancel.keep") }];
         backAction = () => root.keepGoing();
         defaultIndex = 0;
         Qt.callLater(focusDefault);
+    }
+    // only this game's copy: its partial copy removed, the next game goes on (6.6d)
+    function stopOne() {
+        const game = current.title;
+        owneetd.post("/v1/moves/skip", {}, () => {});
+        Nav.feedback("sheet-close");
+        if (root.toast) root.toast.show(Tr.tr("move.cancelled", { title: game, disk: fromName }));
+        showRun();
     }
     function keepGoing() {
         owneetd.post("/v1/moves/resume", {}, () => {});
@@ -262,12 +278,13 @@ Dialog {
         showRun();
     }
     readonly property var failedTitles: st.failed || []
+    readonly property var skippedTitles: st.skipped || []     // stopped alone by the player (6.6d)
     property string failText: ""
     function showFailed() {
         mode = "failed";
         Nav.feedback("error");
         const several = games.length > 1;
-        title = several ? Tr.tr("move.fail.some", { ok: games.length - failedTitles.length, n: games.length, to: toName })
+        title = several ? Tr.tr("move.fail.some", { ok: games.length - failedTitles.length - skippedTitles.length, n: games.length, to: toName })
                         : Tr.tr("move.fail.title", { title: failedTitles[0] });
         text = "";                        // under the steps, as in the demo
         failText = (several ? Tr.tr("move.fail.some.text", { titles: failedTitles.join(", ") }) + " " : "")
@@ -285,20 +302,21 @@ Dialog {
     }
     // the end: the games read again where they are now, and the notice
     function finish() {
-        const ok = games.length - failedTitles.length;
+        // the games copied: not the ones stopped alone (6.6d)
+        const copied = games.filter(g => skippedTitles.indexOf(g.title) < 0 && failedTitles.indexOf(g.title) < 0);
         close(true);
         if (root.theme) {
             root.theme.readGamesQuietly();
-            if (ok > 0 && failedTitles.length === 0) {
+            if (copied.length > 0 && failedTitles.length === 0) {
                 // what happened to the originals (6.6c)
-                const gone = games.filter(g => removing[g.dir]);
+                const gone = copied.filter(g => removing[g.dir]);
                 const detail = !plugged ? "" : gone.length === 0 ? { key: "move.plug.where.text", args: {} }
                              : gone.length === 1 ? { key: "move.plug.removed.one", args: { title: gone[0].title } }
                              : { key: "move.plug.removed.many", args: { count: gone.length } };
-                if (plugged && games.length > 1)
-                    root.theme.notify({ key: "move.plug.done", args: Object.assign({ n: games.length, disk: toName }, detail.args), detailKey: detail.key, icon: "check", kind: "info" });
+                if (plugged && copied.length > 1)
+                    root.theme.notify({ key: "move.plug.done", args: Object.assign({ n: copied.length, disk: toName }, detail.args), detailKey: detail.key, icon: "check", kind: "info" });
                 else if (plugged)
-                    root.theme.notify({ key: "copy.done", args: Object.assign({ title: games[0].title, disk: toName }, detail.args), detailKey: detail.key, icon: "check", kind: "info" });
+                    root.theme.notify({ key: "copy.done", args: Object.assign({ title: copied[0].title, disk: toName }, detail.args), detailKey: detail.key, icon: "check", kind: "info" });
                 else
                     root.theme.notify({ key: remove ? "move.done" : "copy.done", args: { title: games[0].title, disk: toName },
                                         detailKey: remove ? "move.done.text" : "copy.done.text", icon: "check", kind: "info" });
@@ -525,9 +543,9 @@ Dialog {
         anchors.horizontalCenter: parent.horizontalCenter
         spacing: Theme.px(10)
         Repeater {
-            model: [["copy", Tr.tr("move.step.copy", { disk: root.toName })], ["check", Tr.tr("move.step.check")],
-                    ["remove", root.currentRemove ? Tr.tr("move.step.remove", { disk: root.fromName }) : Tr.tr("move.step.keep", { disk: root.fromName })]]
-                   .slice(0, root.mode === "failed" ? 2 : 3)
+            // 6.6d: a kept original has no step
+            model: [["copy", Tr.tr("move.step.copy", { disk: root.toName })], ["check", Tr.tr("move.step.check")]]
+                   .concat(root.mode !== "failed" && root.currentRemove ? [["remove", Tr.tr("move.step.remove", { disk: root.fromName })]] : [])
             Column {
                 readonly property string step: modelData[0]
                 readonly property var order: ["copy", "check", "remove", "end"]
@@ -570,7 +588,7 @@ Dialog {
                     }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: parent.parent.step === "copy" && parent.parent.state === "now"
+                        visible: parent.parent.state === "now"      // 6.6d: every step's own percentage
                         text: (root.st.percent || 0) + "%"
                         color: Theme.fg
                         font.family: Theme.textFont
@@ -578,7 +596,7 @@ Dialog {
                     }
                 }
                 Rectangle {
-                    visible: parent.step === "copy" && parent.state === "now"
+                    visible: parent.state === "now"
                     x: Theme.fs(22) + Theme.px(10)
                     width: parent.width - x; height: Theme.px(8); radius: height / 2
                     color: Theme.raised

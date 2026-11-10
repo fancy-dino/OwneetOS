@@ -18,6 +18,7 @@ type Moves interface {
 	Pause() error
 	Resume() error
 	Stop() error
+	Skip() error
 }
 
 func (s *Server) handleMoves(w http.ResponseWriter, _ *http.Request) {
@@ -53,8 +54,9 @@ func (s *Server) movesReply(w http.ResponseWriter, err error) {
 	}
 }
 
-// handleMovesPause, Resume, Stop: the copy waits while the player is asked "Stop?", goes on, or
-// stops (the partial copy is removed).
+// handleMovesPause, Resume, Stop, Skip: the copy waits while the player is asked "Stop?", goes on,
+// stops (the partial copy is removed), or stops only the current game's copy (the next game goes
+// on, approved demo 6.6d).
 func (s *Server) handleMovesPause(w http.ResponseWriter, _ *http.Request) {
 	s.movesReply(w, s.Moves.Pause())
 }
@@ -63,4 +65,7 @@ func (s *Server) handleMovesResume(w http.ResponseWriter, _ *http.Request) {
 }
 func (s *Server) handleMovesStop(w http.ResponseWriter, _ *http.Request) {
 	s.movesReply(w, s.Moves.Stop())
+}
+func (s *Server) handleMovesSkip(w http.ResponseWriter, _ *http.Request) {
+	s.movesReply(w, s.Moves.Skip())
 }

@@ -5,7 +5,10 @@
 // can wait while the player is asked "Stop?", and stop: the partial copy is removed), the check of
 // the copy (every file's size and SHA-256 against the original), and only then the original
 // removed, never before ([[user-data]]). A copy that fails, or does not pass its check, is removed
-// and the original is never touched; with several games the others go on.
+// and the original is never touched; with several games the others go on. The copy, the check and
+// the removal each tell their own percentage; with several games the player can stop only the
+// current game's copy (its partial copy is removed, the next game goes on) or all of them
+// (approved demo 6.6d).
 package moves
 
 import (
@@ -57,10 +60,12 @@ type Status struct {
 	Index   int    `json:"index"`  // the game being moved, from 0
 	Count   int    `json:"count"`
 	Title   string `json:"title"`
-	Percent int    `json:"percent"` // of the current game's copy
+	Percent int    `json:"percent"` // of the current game's current step (copy, check, remove)
 	Remove  bool   `json:"remove"`  // the current game's original is removed after its check
 	// Failed: the titles whose copy did not work (the originals untouched)
 	Failed []string `json:"failed"`
+	// Skipped: the titles whose copy the player stopped alone (the originals untouched)
+	Skipped []string `json:"skipped"`
 	// Moved: where each game that worked is now
 	Moved []string `json:"moved"`
 }
@@ -73,7 +78,10 @@ var (
 	ErrIdle    = errors.New("no copy is running")
 )
 
-var errStopped = errors.New("stopped")
+var (
+	errStopped = errors.New("stopped")
+	errSkipped = errors.New("this game's copy stopped")
+)
 
 // Manager runs one move at a time.
 type Manager struct {
@@ -90,6 +98,7 @@ type Manager struct {
 	paused   bool
 	resume   chan struct{}
 	stop     chan struct{}
+	skip     chan struct{} // the current game's copy only; a new one for each game
 	lastSent time.Time
 }
 
@@ -107,6 +116,7 @@ func (m *Manager) Status() Status {
 	defer m.mu.Unlock()
 	st := m.st
 	st.Failed = append([]string{}, m.st.Failed...)
+	st.Skipped = append([]string{}, m.st.Skipped...)
 	st.Moved = append([]string{}, m.st.Moved...)
 	return st
 }
@@ -209,9 +219,9 @@ func (m *Manager) Start(req Request) error {
 		return ErrBusy
 	}
 	m.running, m.paused = true, false
-	m.resume, m.stop = make(chan struct{}), make(chan struct{})
+	m.resume, m.stop, m.skip = make(chan struct{}), make(chan struct{}), make(chan struct{})
 	m.st = Status{State: "copy", Count: len(req.Games), Title: req.Games[0].Title, Remove: req.Remove || req.Games[0].Remove,
-		Failed: []string{}, Moved: []string{}}
+		Failed: []string{}, Skipped: []string{}, Moved: []string{}}
 	m.mu.Unlock()
 	m.Log.Info("moving games", "count", len(req.Games), "to", dest, "remove", req.Remove)
 	m.publish(true)
@@ -220,10 +230,27 @@ func (m *Manager) Start(req Request) error {
 }
 
 // Pause makes the copy wait (the player is asked "Stop?"); Resume goes on; Stop ends it: the
-// partial copy is removed and the game stays where it was. Only during the copy.
+// partial copy is removed and the game stays where it was; Skip stops only the current game's
+// copy (its partial copy removed) and the next game goes on. Only during the copy.
 func (m *Manager) Pause() error  { return m.control(func() { m.paused = true; m.st.Paused = true }) }
 func (m *Manager) Resume() error { return m.control(m.unpause) }
 func (m *Manager) Stop() error   { return m.control(func() { close(m.stop); m.unpause() }) }
+func (m *Manager) Skip() error {
+	var err error
+	cerr := m.control(func() {
+		select {
+		case <-m.skip:
+			err = ErrIdle // already asked for this game
+		default:
+			close(m.skip)
+			m.unpause()
+		}
+	})
+	if cerr != nil {
+		return cerr
+	}
+	return err
+}
 
 func (m *Manager) unpause() {
 	if m.paused {
@@ -252,15 +279,18 @@ func (m *Manager) control(f func()) error {
 	return nil
 }
 
-// wait blocks while paused; errStopped when the player stopped the copy.
+// wait blocks while paused; errStopped when the player stopped the copy, errSkipped when only
+// this game's.
 func (m *Manager) wait() error {
 	for {
 		m.mu.Lock()
-		paused, resume, stop := m.paused, m.resume, m.stop
+		paused, resume, stop, skip := m.paused, m.resume, m.stop, m.skip
 		m.mu.Unlock()
 		select {
 		case <-stop:
 			return errStopped
+		case <-skip:
+			return errSkipped
 		default:
 		}
 		if !paused {
@@ -270,6 +300,8 @@ func (m *Manager) wait() error {
 		case <-resume:
 		case <-stop:
 			return errStopped
+		case <-skip:
+			return errSkipped
 		}
 	}
 }
@@ -302,6 +334,13 @@ func (m *Manager) run(req Request, dest string) {
 	}()
 	for i, g := range req.Games {
 		remove := req.Remove || g.Remove
+		m.mu.Lock()
+		select {
+		case <-m.skip: // the previous game's
+			m.skip = make(chan struct{})
+		default:
+		}
+		m.mu.Unlock()
 		m.set(func(s *Status) { s.State, s.Index, s.Title, s.Percent, s.Remove = "copy", i, g.Title, 0, remove }, true)
 		target := freeName(filepath.Join(dest, filepath.Base(g.Dir)))
 		err := m.copyTree(g.Dir, target)
@@ -311,9 +350,15 @@ func (m *Manager) run(req Request, dest string) {
 			m.set(func(s *Status) { s.State = "cancelled" }, true)
 			return
 		}
+		if errors.Is(err, errSkipped) {
+			os.RemoveAll(target)
+			m.Log.Info("this game's copy stopped by the player: the partial copy removed, the next game goes on", "game", g.Title)
+			m.set(func(s *Status) { s.Skipped = append(s.Skipped, g.Title) }, true)
+			continue
+		}
 		if err == nil {
-			m.set(func(s *Status) { s.State, s.Percent = "check", 100 }, true)
-			err = same(g.Dir, target)
+			m.set(func(s *Status) { s.State, s.Percent = "check", 0 }, true)
+			err = same(g.Dir, target, m.percent(2*size(g.Dir)))
 		}
 		if err != nil {
 			// the copy did not work: it goes, the original is never touched
@@ -323,8 +368,8 @@ func (m *Manager) run(req Request, dest string) {
 			continue
 		}
 		if remove {
-			m.set(func(s *Status) { s.State = "remove" }, true)
-			if err := os.RemoveAll(g.Dir); err != nil {
+			m.set(func(s *Status) { s.State, s.Percent = "remove", 0 }, true)
+			if err := removeTree(g.Dir, m.percent(entries(g.Dir))); err != nil {
 				m.Log.Warn("the original could not be removed", "game", g.Title, "err", err)
 			} else {
 				m.carry(g.Title, g.Dir, target)
@@ -333,6 +378,53 @@ func (m *Manager) run(req Request, dest string) {
 		m.set(func(s *Status) { s.Moved = append(s.Moved, target) }, true)
 	}
 	m.set(func(s *Status) { s.State = "done" }, true)
+}
+
+// percent returns a counter of the current step's progress: n more of total (bytes read, files
+// removed) sets the status's percentage.
+func (m *Manager) percent(total int64) func(n int64) {
+	var done int64
+	return func(n int64) {
+		done += n
+		if total > 0 {
+			pct := int(min(100, done*100/total))
+			m.set(func(s *Status) { s.Percent = pct }, false)
+		}
+	}
+}
+
+// entries counts what removeTree removes: every file, link and folder.
+func entries(dir string) int64 {
+	var n int64
+	_ = filepath.WalkDir(dir, func(_ string, _ fs.DirEntry, err error) error {
+		if err == nil {
+			n++
+		}
+		return nil
+	})
+	return n
+}
+
+// removeTree removes a folder as os.RemoveAll does, telling each entry removed: the contents
+// before their folder (the walk's order, backwards).
+func removeTree(dir string, removed func(n int64)) error {
+	var paths []string
+	if err := filepath.WalkDir(dir, func(path string, _ fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		paths = append(paths, path)
+		return nil
+	}); err != nil {
+		return err
+	}
+	for i := len(paths) - 1; i >= 0; i-- {
+		if err := os.Remove(paths[i]); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		removed(1)
+	}
+	return nil
 }
 
 // freeName: the folder's name, or "name (2)", "name (3)"… when the disk already has one.
@@ -421,8 +513,8 @@ func (m *Manager) copyTree(src, dst string) error {
 }
 
 // same checks that the copy is the original: the same files and links, each file's size and
-// SHA-256.
-func same(src, dst string) error {
+// SHA-256. read (may be nil) is told the bytes read, of both.
+func same(src, dst string, read func(n int64)) error {
 	count := 0
 	err := filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -442,11 +534,11 @@ func same(src, dst string) error {
 				return fmt.Errorf("%s: link differs", rel)
 			}
 		case d.Type().IsRegular():
-			a, err := digest(path)
+			a, err := digest(path, read)
 			if err != nil {
 				return err
 			}
-			b, err := digest(other)
+			b, err := digest(other, read)
 			if err != nil || a != b {
 				return fmt.Errorf("%s: differs", rel)
 			}
@@ -473,15 +565,33 @@ func same(src, dst string) error {
 	return nil
 }
 
-func digest(path string) (string, error) {
+func digest(path string, read func(n int64)) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", err
 	}
 	defer f.Close()
 	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
+	var r io.Reader = f
+	if read != nil {
+		r = &counting{r: f, read: read}
+	}
+	if _, err := io.Copy(h, r); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+// counting tells the bytes read through it.
+type counting struct {
+	r    io.Reader
+	read func(n int64)
+}
+
+func (c *counting) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	if n > 0 {
+		c.read(int64(n))
+	}
+	return n, err
 }
