@@ -10,13 +10,17 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
+
+	"github.com/fancy-dino/OwneetOS/daemon/internal/atomicfile"
 )
 
 // A game's own folders on the console's disk, named after the game's folder (owneet-frontend's
 // DiskGames::gameDataDir): a Windows game's prefix (its saves, its settings, what its installer
 // wrote) and a DOS game's data. They go with the game when it moves (owner, 2026-11-10,
 // [[step-6.6-moving-games-and-media-between-disks]]); otherwise the moved game would start
-// with new, empty ones and the old ones would stay behind.
+// with new, empty ones and the old ones would stay behind. A copy (the original kept) gets a copy
+// of them (owner, 2026-11-10).
 var dataKinds = []string{"windows/prefixes", "dos"}
 
 var notSlug = regexp.MustCompile(`[^a-z0-9]+`)
@@ -84,4 +88,94 @@ func (m *Manager) carry(title, from, to string) {
 		return
 	}
 	m.Log.Info("the install's link follows the game", "game", title, "link", mark.Link, "to", to)
+}
+
+// ownSize is the bytes a game's own folders take.
+func (m *Manager) ownSize(gameDir string) int64 {
+	var n int64
+	for _, kind := range dataKinds {
+		n += size(dataDir(m.Home, kind, gameDir))
+	}
+	return n
+}
+
+// sameDisk tells whether two folders are on the same file system (false when one is unknown).
+func sameDisk(a, b string) bool {
+	var sa, sb syscall.Stat_t
+	return syscall.Stat(a, &sa) == nil && syscall.Stat(b, &sb) == nil && sa.Dev == sb.Dev
+}
+
+// copyOwn gives a copied game (its original kept, at from) a copy of the original's own folders.
+// Only a shutdown stops it (errStopped), as the check. On an error the copies it made are removed.
+// A new place that already has its own folder keeps it.
+func (m *Manager) copyOwn(title, from, to string) error {
+	stop := func() error {
+		if m.isAborting() {
+			return errStopped
+		}
+		return nil
+	}
+	var made []string
+	for _, kind := range dataKinds {
+		old, now := dataDir(m.Home, kind, from), dataDir(m.Home, kind, to)
+		if _, err := os.Lstat(old); err != nil {
+			continue
+		}
+		if _, err := os.Lstat(now); err == nil {
+			m.Log.Warn("the game's own folder not copied: the new place has one already", "game", title, "from", old, "to", now)
+			continue
+		}
+		made = append(made, now)
+		err := os.MkdirAll(filepath.Dir(now), 0o755)
+		if err == nil {
+			err = copyFiles(old, now, stop, nil)
+		}
+		if err != nil {
+			for _, d := range made {
+				os.RemoveAll(d)
+			}
+			return err
+		}
+		m.Log.Info("the game's own folder copied with it", "game", title, "from", old, "to", now)
+	}
+	return nil
+}
+
+// choicesFile is owneet-frontend's disk-games.json (DiskGames::choose): { "<game folder>":
+// "<the file it starts with, relative to it>" }.
+func (m *Manager) choicesFile() string {
+	return filepath.Join(m.Home, ".config", "owneet-frontend", "disk-games.json")
+}
+
+// keepChoice gives a moved or copied game the file chosen to start the original (owner,
+// 2026-11-10: otherwise the interface asks again, and may be answered with another file, 3k);
+// a moved game's old entry goes. Written before the interface reads the game at its new place.
+func (m *Manager) keepChoice(title, from, to string, moved bool) {
+	path := m.choicesFile()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return // nothing chosen yet
+	}
+	var choices map[string]json.RawMessage
+	if err := json.Unmarshal(data, &choices); err != nil {
+		m.Log.Warn("the file chosen to start the game not kept: the choices cannot be read", "game", title, "err", err)
+		return
+	}
+	file, ok := choices[from]
+	if !ok {
+		return
+	}
+	choices[to] = file
+	if moved {
+		delete(choices, from)
+	}
+	out, err := json.MarshalIndent(choices, "", "    ")
+	if err == nil {
+		err = atomicfile.Write(path, append(out, '\n'), 0o644)
+	}
+	if err != nil {
+		m.Log.Warn("the file chosen to start the game not kept", "game", title, "err", err)
+		return
+	}
+	m.Log.Info("the file chosen to start the game kept", "game", title, "file", string(file), "to", to)
 }

@@ -195,7 +195,7 @@ func (m *Manager) Start(req Request) error {
 	if err != nil {
 		return err
 	}
-	var need int64
+	var need, own int64
 	for i, g := range req.Games {
 		dir, err := m.gameDir(g.Dir)
 		if err != nil || within(dest, dir) || filepath.Dir(dir) == dest {
@@ -203,6 +203,13 @@ func (m *Manager) Start(req Request) error {
 		}
 		req.Games[i].Dir = dir
 		need += size(dir)
+		if !req.Remove && !g.Remove {
+			own += m.ownSize(dir)
+		}
+	}
+	// the copies' own folders go on the console's disk: counted when the games go there too
+	if sameDisk(filepath.Dir(dest), m.Home) {
+		need += own
 	}
 	freeAt := m.Free
 	if freeAt == nil {
@@ -421,14 +428,32 @@ func (m *Manager) run(req Request, dest string) {
 			m.set(func(s *Status) { s.Failed = append(s.Failed, g.Title) }, true)
 			continue
 		}
+		if !remove {
+			// a copy: it gets a copy of the original's own folders (without its prefix a Windows
+			// game may not start, 3j); like the check, only a shutdown stops it
+			if err := m.copyOwn(g.Title, g.Dir, target); err != nil {
+				os.RemoveAll(target)
+				if errors.Is(err, errStopped) {
+					m.Log.Info("the copy of the game's own folders stopped, the console shuts down: the copy removed, the original untouched", "game", g.Title)
+					m.set(func(s *Status) { s.State = "cancelled" }, true)
+					return
+				}
+				m.Log.Warn("the game's own folders could not be copied: the copy removed, the original untouched", "game", g.Title, "err", err)
+				m.set(func(s *Status) { s.Failed = append(s.Failed, g.Title) }, true)
+				continue
+			}
+		}
+		removed := false
 		if remove {
 			m.set(func(s *Status) { s.State, s.Percent = "remove", 0 }, true)
 			if err := removeTree(g.Dir, m.percent(entries(g.Dir))); err != nil {
 				m.Log.Warn("the original could not be removed", "game", g.Title, "err", err)
 			} else {
+				removed = true
 				m.carry(g.Title, g.Dir, target)
 			}
 		}
+		m.keepChoice(g.Title, g.Dir, target, removed)
 		m.set(func(s *Status) { s.Moved = append(s.Moved, target) }, true)
 	}
 	m.set(func(s *Status) { s.State = "done" }, true)
@@ -494,16 +519,30 @@ func freeName(path string) string {
 	}
 }
 
-// copyTree copies a folder with its files' permissions and links, telling the progress.
+// copyTree copies a game's folder with its files' permissions and links, telling the progress;
+// the player can pause it and stop it.
 func (m *Manager) copyTree(src, dst string) error {
 	total := size(src)
 	var done int64
+	return copyFiles(src, dst, m.wait, func(n int64) {
+		done += n
+		if total > 0 {
+			pct := int(done * 100 / total)
+			m.set(func(s *Status) { s.Percent = pct }, false)
+		}
+	})
+}
+
+// copyFiles copies a folder with its files' permissions and links. step is asked before each
+// entry and each block: an error from it stops the copy and is returned as it is; copied (may be
+// nil) is told the bytes written.
+func copyFiles(src, dst string, step func() error, copied func(n int64)) error {
 	buf := make([]byte, 1<<20)
 	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if err := m.wait(); err != nil {
+		if err := step(); err != nil {
 			return err
 		}
 		rel, _ := filepath.Rel(src, path)
@@ -534,7 +573,7 @@ func (m *Manager) copyTree(src, dst string) error {
 			return err
 		}
 		for {
-			if err := m.wait(); err != nil {
+			if err := step(); err != nil {
 				o.Close()
 				return err
 			}
@@ -544,10 +583,8 @@ func (m *Manager) copyTree(src, dst string) error {
 					o.Close()
 					return werr
 				}
-				done += int64(n)
-				if total > 0 {
-					pct := int(done * 100 / total)
-					m.set(func(s *Status) { s.Percent = pct }, false)
+				if copied != nil {
+					copied(int64(n))
 				}
 			}
 			if rerr == io.EOF {
