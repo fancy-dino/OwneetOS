@@ -1646,6 +1646,9 @@ FocusScope {
         console.log("Installs changed: reading the games again, quietly");
         diskGames.quietReading = true;
         Internal.settings.reloadProviders();
+        // and the disks' free space (owner, 2026-11-10: after a move it changed only when the
+        // library was shown again)
+        library.refreshVolumes();
     }
     // The home screen's notice of the install in progress (and how many wait)
     readonly property var installNotices: {

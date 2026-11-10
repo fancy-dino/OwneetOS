@@ -309,3 +309,13 @@ func TestTheCheckCanBeStopped(t *testing.T) {
 		t.Errorf("the check went on: %v after %d reads", err, read)
 	}
 }
+
+// syncDisk syncs the disk of a folder; a folder that is not there is an error.
+func TestSyncDisk(t *testing.T) {
+	if err := syncDisk(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	if err := syncDisk(filepath.Join(t.TempDir(), "gone")); err == nil {
+		t.Fatal("no error for a missing folder")
+	}
+}

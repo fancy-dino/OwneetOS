@@ -83,7 +83,7 @@ console from their authors' official releases, the first time a Windows game is 
 |---|---|---|---|
 | [Go](https://go.dev) | The Go Authors | BSD-3-Clause | The language and standard library of `owneetd` |
 | [godbus/dbus](https://github.com/godbus/dbus) | Georg Reinke and contributors | BSD-2-Clause | D-Bus: Bluetooth, network, power, apps |
-| [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys) | The Go Authors | BSD-3-Clause | Low-level system calls (used by godbus) |
+| [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys) | The Go Authors | BSD-3-Clause | Low-level system calls (used by godbus; owneetd: syncfs after a move) |
 | [jfreymuth/pulse](https://github.com/jfreymuth/pulse) | Johann Freymuth | MIT | Talks to PipeWire for volume and outputs |
 | [jezek/xgb](https://github.com/jezek/xgb) | The XGB Authors (originally by Andrew Gallant), maintained by jezek | BSD-3-Clause | Talks to gamescope to choose what is on screen |
 
