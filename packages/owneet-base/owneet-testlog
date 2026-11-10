@@ -78,7 +78,13 @@ PY
     echo "--- disks (games on a USB disk, 4.3)"
     lsblk -o NAME,TRAN,FSTYPE,LABEL,SIZE,RO,MOUNTPOINTS 2>&1
     systemctl list-units --all --no-pager --plain 'owneet-mount@*' 2>&1 | head -8
-    echo "--- disk reads (sectors read, ms reading)"; awk '$3 ~ /^sd[a-z]+$/ { print $3, $6, $7 }' /proc/diskstats
+    # Reads and writes of each disk, the data waiting in memory to be written, and a copy between
+    # disks (6.6): a copy that seems stuck shows which disk holds it back (2026-11-10: a 2 TB SMR disk
+    # slowed down to about 0.5 MB/s after a few GB, the USB disk it read from stayed idle)
+    echo "--- disk reads and writes (sectors read, ms reading, sectors written, ms writing)"
+    awk '$3 ~ /^(sd[a-z]+|nvme[0-9]+n[0-9]+)$/ { print $3, $6, $7, $10, $11 }' /proc/diskstats
+    echo "--- memory waiting to be written (kB)"; grep -E '^(Dirty|Writeback):' /proc/meminfo
+    echo "--- /v1/moves"; owneetd_get /v1/moves
     # A game that does not show up (e.g. CAYNE, 4.3): what its processes are doing
     echo "--- the console user's busiest processes"
     ps -u owneet -o pid,stat,pcpu,rss,etime,wchan:24,args --sort=-pcpu 2>&1 | cut -c1-200 | head -12
@@ -139,6 +145,18 @@ report > "$base.report.txt" 2>&1
   journalctl -b -1 -n 300 -o short-precise --no-pager 2>&1; } >> "$base.report.txt"
 # Once the console has started: the monitors seen by ddcutil, then a report every 10 s
 sleep 60
+# The console's own disk: its room and what takes it (2026-11-10: about 23 GB went in a day; a game
+# installed on it). Once per start: measuring the folders takes a while.
+{ echo "--- the console's disk: room, and the biggest folders"
+  df -h / /home 2>&1
+  du -xsh /home/owneet/Giochi /home/owneet/Games /home/owneet/.local/share/Steam /home/owneet/.local/share/owneet/windows \
+      /home/owneet/.local/share/umu /home/owneet/.cache /var/cache/pacman/pkg /var/log 2>/dev/null
+  echo "- the biggest folders in the console user's home"
+  du -xh -d3 /home/owneet 2>/dev/null | sort -h | tail -20
+  echo "- btrfs: subvolumes and space"
+  btrfs subvolume list / 2>&1 | head -20
+  timeout 120 btrfs filesystem du -s /.snapshots/* 2>&1 | head -12
+  btrfs filesystem usage -T / 2>&1 | head -16; } >> "$base.report.txt"
 { echo "--- ddcutil detect (as the console user, like owneetd)"
   runuser -u owneet -- env HOME=/home/owneet ddcutil detect --verbose 2>&1 | head -80; } >> "$base.report.txt"
 # The windows of the console session, every 10 s (gamescope's X server): with the test tool
