@@ -4,7 +4,10 @@
      approved demo 6.6c. NEW IN 6.6d (owner's report, 2026-11-10: "Checking the copy" showed nothing
      that said whether it worked or was stuck): the check reads the original and the copy again, as
      long as the copy itself, so its step shows its own percentage and bar, as the copy's, from 0 %
-     to 100 %. Nothing else changes (the check is never stopped half way, so it has no Cancel).
+     to 100 %. Owner's corrections (2026-11-10): the removal of the original shows its progress too;
+     when the original is kept there is no step for it (the window shows the copy and its check only).
+     The window is no longer drawn again at each moment of the copy, so Cancel can be clicked too.
+     Nothing else changes (the check and the removal are never stopped half way: no Cancel then).
      Approved demo 6.6c, on the approved demo 6.6b. NEW IN 6.6c (owner, 2026-11-10: remove single games from the original, game
      by game): "Which games to copy?" has two switches on each row, under two headings: "Copy" (as
      in 6.6b) and "Remove the original" (off at first; it can be on only for a game that is copied;
@@ -268,7 +271,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 <p class="help"><b>New in 4.3:</b> a disk with a “Games” folder: its games in the Library (title = the folder's name, cover from <code>cover.jpg</code> or drawn); <b>Lantern Keep</b> has several files to start: A asks once, then remembers; Menu → <b>Choose the file to start</b> changes it; X shows the disk. Windows games and installers are not shown yet (4.5, 4.6).<br>
 <b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A play, B menu (back in windows), X details, Y sort, Menu options, LT/RT filters, LB/RB sections.
 <b>Keyboard:</b> arrows, Page Up/Down = right stick, Enter = A, Esc = B, X, Y, M = Menu, Z/C = LT/RT, Q/E = LB/RB.<br>
-<b>New in 6.6d:</b> <b>Check the copy</b> shows its percentage and bar, as the copy.<br><b>New in 6.6c:</b> in <b>Which games to copy?</b> each game has a second switch, <b>Remove the original</b> (left / right between the two; only for a game that is copied); R makes the USB disk read only.<br><b>New in 6.6b:</b> plugging in the USB disk (U), <b>Copy to the console</b> asks <b>Which games to copy?</b>: A switches a game or all of them, the button below copies the ones that are on (selected at first: one A copies them all).<br><b>New in 6.6:</b> each cover says its disk; Menu on a game → <b>Move to another disk</b> (a Steam game: Steam moves it); plugging in the USB disk asks <b>Play from here / Copy to the console</b>, then which disk.<br><b>Demo only:</b> K the next check fails, U plug in / unplug the disk (<span id="disk-state">plugged in</span>), F forget the choice of Lantern Keep, P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#disk=0&amp;filter=local&amp;pal=ember&amp;lang=it&amp;open=choose|options|details|plug</code></p>
+<b>New in 6.6d:</b> <b>Check the copy</b> and the removal of the original show their percentage and bar, as the copy; a copy that keeps the original shows no step for it.<br><b>New in 6.6c:</b> in <b>Which games to copy?</b> each game has a second switch, <b>Remove the original</b> (left / right between the two; only for a game that is copied); R makes the USB disk read only.<br><b>New in 6.6b:</b> plugging in the USB disk (U), <b>Copy to the console</b> asks <b>Which games to copy?</b>: A switches a game or all of them, the button below copies the ones that are on (selected at first: one A copies them all).<br><b>New in 6.6:</b> each cover says its disk; Menu on a game → <b>Move to another disk</b> (a Steam game: Steam moves it); plugging in the USB disk asks <b>Play from here / Copy to the console</b>, then which disk.<br><b>Demo only:</b> K the next check fails, U plug in / unplug the disk (<span id="disk-state">plugged in</span>), F forget the choice of Lantern Keep, P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#disk=0&amp;filter=local&amp;pal=ember&amp;lang=it&amp;open=choose|options|details|plug</code></p>
 
 <script src="sounds.js"></script>
 <script>
@@ -859,14 +862,15 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
         $('#sheet-prompts').innerHTML = `<div class="set">${P(['a'], tr('p.select'))}${P(['b'], tr('fail.close'))}</div>`;
         return;
       }
-      const steps = [['copy', tr('step.copy', { disk: diskName(to) })], ['check', tr('step.check')],
-        ['remove', removeOf(g()) ? tr('step.remove', { disk: diskName(from) }) : tr('step.keep', { disk: diskName(from) })]];
+      // 6.6d: a kept original has no step; the removal has one with its progress
+      const steps = [['copy', tr('step.copy', { disk: diskName(to) })], ['check', tr('step.check')]]
+        .concat(removeOf(g()) ? [['remove', tr('step.remove', { disk: diskName(from) })]] : []);
       const order = ['copy', 'check', 'remove', 'end'];
       const state = k => order.indexOf(k) < order.indexOf(phase) ? 'done' : k === phase ? 'now' : '';
       const title = list.length > 1 ? tr('plug.copying', { title: g().title, i: i + 1, n: list.length }) : tr(removeOf(g()) ? 'move.title' : 'copy.title', { title: g().title });
       $('#sheet').innerHTML = `<span class="disp t-l">${title}</span><div class="steps-list t-m">${steps.map(([k, l]) =>
-        `<div class="st ${state(k)}"><span class="mark">${state(k) === 'done' ? '✓' : ''}</span><span>${l}</span><span class="t-s">${(k === 'copy' || k === 'check') && k === phase ? p + '%' : ''}</span>
-          ${(k === 'copy' || k === 'check') && k === phase ? `<span class="bar"><i style="width:${p}%"></i></span>` : ''}</div>`).join('')}</div>
+        `<div class="st ${state(k)}"><span class="mark">${state(k) === 'done' ? '✓' : ''}</span><span>${l}</span><span class="t-s"${k === phase ? ' data-pct' : ''}>${k === phase ? p + '%' : ''}</span>
+          ${k === phase ? `<span class="bar"><i data-bar style="width:${p}%"></i></span>` : ''}</div>`).join('')}</div>
         ${phase === 'copy' ? `<div class="list t-m"><button class="item" data-f data-cancel>${tr('p.cancel')}</button></div>` : ''}`;
       focus($('#sheet [data-cancel]'), true);
       $('#sheet-prompts').innerHTML = phase === 'copy' ? `<div class="set">${P(['a'], tr('p.cancel'))}</div>` : '<div class="set"></div>';
@@ -889,18 +893,21 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     let wait = 0;
     runTimer = setInterval(() => {
       if (asking) return;
-      if (phase === 'copy') { p = Math.min(100, p + 4); if (p >= 100) { phase = 'check'; p = 0; wait = 0; } }
+      const was = phase;
+      if (phase === 'copy') { p = Math.min(100, p + 2); if (p >= 100) { phase = 'check'; p = 0; wait = 0; } }
       else if (phase === 'check') {
         // 6.6d: the check reads both again, about as long as the copy, with its own percentage
-        p = Math.min(100, p + 4);
+        p = Math.min(100, p + 3);
         if (p >= 100) {
+          p = 0;
           wait = 0;
           // the copy is not the same as the original: it is removed, the original stays as it was
           if (failNext) { failNext = false; failed.push(g()); phase = 'skip'; }
           else phase = removeOf(g()) ? 'remove' : 'end';
         }
       }
-      else if (phase === 'remove') { if (++wait > 6) phase = 'end'; }
+      // 6.6d: the removal with its own percentage
+      else if (phase === 'remove') { p = Math.min(100, p + 8); if (p >= 100) phase = 'end'; }
       if (phase === 'end' || phase === 'skip') {
         if (phase === 'end') {
           const from = diskOf(origin[i]);
@@ -916,7 +923,11 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
         }
         i++; p = 0; phase = 'copy';
       }
-      draw();
+      // the same step: only its percentage and bar change (the buttons stay, so a click lands)
+      if (phase === was && $('#sheet [data-pct]')) {
+        $('#sheet [data-pct]').textContent = p + '%';
+        $('#sheet [data-bar]').style.width = p + '%';
+      } else draw();
     }, 160);
   }
   // (demo) K: the next check fails
