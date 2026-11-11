@@ -221,6 +221,32 @@ linux_games_libs() {
     done
 }
 (( small )) || linux_games_libs >> "$base.report.txt" 2>&1
+# How the Linux games start, once per start (2026-11-11: The Witcher 2's launcher for the TV ended
+# at once, "basic_string::_S_construct null not valid"): a copy of each game's small scripts (the
+# chain of launchers, the variables they set) in $base.games/linux-<game>, and the names that look
+# like environment variables inside its programs called *launcher* (what they may expect from Steam)
+linux_games_scripts() {
+    local dir game f out
+    for dir in /home/owneet/[Gg]ames /home/owneet/[Gg]iochi /run/media/owneet/*/[Gg]ames /run/media/owneet/*/[Gg]iochi; do
+        [[ -d "$dir" ]] || continue
+        for game in "$dir"/*/; do
+            out="$base.games/linux-$(basename "$game" | tr -c 'A-Za-z0-9._\n-' '_')"
+            find "$game" -maxdepth 3 -type f -size -16k \( -name '*.sh' -o -perm -u+x -o -name gameinfo \) 2>/dev/null \
+                | head -40 | while IFS= read -r f; do
+                    [[ "$(od -An -tx1 -N4 "$f" 2>/dev/null | tr -d ' \n')" == 7f454c46 ]] && continue
+                    mkdir -p "$out"
+                    cp "$f" "$out/$(realpath --relative-to="$game" "$f" | tr '/' '_')" 2>/dev/null
+                done
+            find "$game" -maxdepth 3 -type f -iname '*launcher*' -size +1k 2>/dev/null | head -8 | while IFS= read -r f; do
+                [[ "$(od -An -tx1 -N4 "$f" 2>/dev/null | tr -d ' \n')" == 7f454c46 ]] || continue
+                mkdir -p "$out"
+                grep -aoE '(Steam[A-Za-z_]+|[A-Z][A-Z0-9]*_[A-Z0-9_]+|[A-Z]{4,})' "$f" 2>/dev/null | sort -u | head -300 \
+                    > "$out/names-in-$(basename "$f").txt"
+            done
+        done
+    done
+}
+(( small )) || linux_games_scripts
 { echo "--- ddcutil detect (as the console user, like owneetd)"
   runuser -u owneet -- env HOME=/home/owneet ddcutil detect --verbose 2>&1 | head -80; } >> "$base.report.txt"
 # The windows of the console session, every 10 s (gamescope's X server): with the test tool
