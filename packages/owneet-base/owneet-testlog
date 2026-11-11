@@ -78,6 +78,9 @@ PY
     echo "--- disks (games on a USB disk, 4.3)"
     lsblk -o NAME,TRAN,FSTYPE,LABEL,SIZE,RO,MOUNTPOINTS 2>&1
     systemctl list-units --all --no-pager --plain 'owneet-mount@*' 2>&1 | head -8
+    # each disk's room, in bytes: what a move, an uninstall or a deletion freed (2026-11-11: the
+    # library rounds a 2 TB disk's free space to 0.1 TB)
+    echo "--- disks' room (bytes)"; df -B1 --output=target,size,used,avail / /home /run/media/owneet/* 2>/dev/null
     # Reads and writes of each disk, the data waiting in memory to be written, and a copy between
     # disks (6.6): a copy that seems stuck shows which disk holds it back (2026-11-10: a 2 TB SMR disk
     # slowed down to about 0.5 MB/s after a few GB, the USB disk it read from stayed idle)
@@ -144,6 +147,15 @@ report > "$base.report.txt" 2>&1
 # logs on the stick had stopped (the way from the home screen to "Shutting down", 2026-11-09)
 { echo "--- the previous power-off (end of the previous start's journal)"
   journalctl -b -1 -n 300 -o short-precise --no-pager 2>&1; } >> "$base.report.txt"
+# The whole journals of the three previous starts (kept on the console's disk), compressed: a test
+# made without the stick can still be read (2026-11-11: an install failed before the stick was in)
+if (( ! small )); then
+    mkdir -p "$base.previous"
+    for b in 1 2 3; do
+        journalctl -b -$b -o short-precise --no-pager 2>&1 | gzip > "$base.previous/boot-minus-$b.txt.gz"
+    done
+    journalctl --list-boots --no-pager > "$base.previous/boots.txt" 2>&1
+fi
 # Once the console has started: the monitors seen by ddcutil, then a report every 10 s
 sleep 60
 # The console's own disk: its room and what takes it (2026-11-10: about 23 GB went in a day; a game
@@ -162,25 +174,33 @@ sleep 60
 # disks must not fill up over time; [[open-items]] 3p): one line per file, folder or link (type,
 # bytes, date, path), compressed, one file per disk in $base.files. The console's disk is read
 # subvolume by subvolume as mounted (/, /home, /var/log, the packages); its snapshots are only
-# measured above. Slow on a big disk: behind everything else, at the lowest priority.
+# measured above. Behind everything else, at the lowest priority; each listing is made in memory
+# and copied to the stick once whole (the stick is mounted "sync": writing it bit by bit took
+# minutes, and a power-off left a cut listing, 2026-11-11).
 disk_files() {
-    local src m name
+    local src m name tmp
     renice -n 19 -p "$BASHPID" >/dev/null 2>&1
     ionice -c 3 -p "$BASHPID" >/dev/null 2>&1
+    tmp="$(mktemp -d /run/owneet-testlog-files.XXXXXX)" || return
     mkdir -p "$base.files"
+    list() {
+        { df -B1 "$1"; find "$1" -xdev -printf '%y\t%s\t%TY-%Tm-%Td %TH:%TM\t%p\n' 2>&1; } | gzip > "$tmp/$2.txt.gz" \
+            && cp "$tmp/$2.txt.gz" "$base.files/" && sync
+        rm -f "$tmp/$2.txt.gz"
+    }
     src="$(findmnt -n -o SOURCE / | sed 's/\[.*//')"
     while read -r m; do
         [[ "$m" == /.snapshots || "$m" == /.snapshots/* ]] && continue
         name="console${m//\//-}"
         [[ "$m" == / ]] && name=console-root
-        { df -B1 "$m"; find "$m" -xdev -printf '%y\t%s\t%TY-%Tm-%Td %TH:%TM\t%p\n' 2>&1; } | gzip > "$base.files/$name.txt.gz"
+        list "$m" "$name"
     done < <(findmnt -n -l -o TARGET --source "$src")
     for m in /run/media/owneet/*; do
         mountpoint -q "$m" || continue
-        name="disk-$(basename "$m" | tr -c 'A-Za-z0-9._\n-' '_')"
-        { df -B1 "$m"; find "$m" -xdev -printf '%y\t%s\t%TY-%Tm-%Td %TH:%TM\t%p\n' 2>&1; } | gzip > "$base.files/$name.txt.gz"
+        list "$m" "disk-$(basename "$m" | tr -c 'A-Za-z0-9._\n-' '_')"
     done
-    sync
+    rmdir "$tmp"
+    echo "done $(date '+%F %T')" > "$base.files/complete.txt"
 }
 (( small )) || disk_files &
 { echo "--- ddcutil detect (as the console user, like owneetd)"
