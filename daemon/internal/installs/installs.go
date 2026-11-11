@@ -267,6 +267,7 @@ func (m *Manager) Inspect(installer, kind string) (Info, error) {
 	if kind == KindSh {
 		a, err := openArchive(path)
 		if err != nil {
+			m.Log.Warn("the installer cannot be read", "installer", path, "err", err)
 			return Info{}, ErrInvalid
 		}
 		info.Need, info.Exact, info.Licence = a.total, true, a.licence()
