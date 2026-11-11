@@ -203,6 +203,24 @@ disk_files() {
     echo "done $(date '+%F %T')" > "$base.files/complete.txt"
 }
 (( small )) || disk_files &
+# The libraries the Linux games' programs miss, once per start (2026-11-11: The Witcher 2's GOG
+# launcher needs 32-bit GTK 2, which the system does not have, and the game ended at once): each
+# program (ELF) up to four folders deep in a games folder, its class and what ldd does not find,
+# read as the console user
+linux_games_libs() {
+    local dir f class
+    echo "--- Linux games: programs and the libraries they miss"
+    for dir in /home/owneet/[Gg]ames /home/owneet/[Gg]iochi /run/media/owneet/*/[Gg]ames /run/media/owneet/*/[Gg]iochi; do
+        [[ -d "$dir" ]] || continue
+        find "$dir" -mindepth 2 -maxdepth 5 -type f -perm -u+x -size +1k 2>/dev/null | head -400 | while IFS= read -r f; do
+            [[ "$(head -c 4 "$f" 2>/dev/null)" == $'\x7fELF' ]] || continue
+            class="$(od -An -tu1 -j4 -N1 "$f" 2>/dev/null | tr -d ' ')"
+            echo "$f ($([[ "$class" == 1 ]] && echo 32 || echo 64)-bit)"
+            runuser -u owneet -- timeout 10 ldd "$f" 2>&1 | grep -E 'not found|not a dynamic' | sed 's/^/    /'
+        done
+    done
+}
+(( small )) || linux_games_libs >> "$base.report.txt" 2>&1
 { echo "--- ddcutil detect (as the console user, like owneetd)"
   runuser -u owneet -- env HOME=/home/owneet ddcutil detect --verbose 2>&1 | head -80; } >> "$base.report.txt"
 # The windows of the console session, every 10 s (gamescope's X server): with the test tool
