@@ -7,10 +7,12 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode/utf8"
 )
@@ -272,4 +274,92 @@ func (a *archive) file(ctx context.Context, f *zip.File, target string, perm os.
 		return n, err
 	}
 	return n, os.Chmod(target, perm) // the umask may have taken bits away
+}
+
+// splitList is GOG's list of the files that come in parts (one path per line, from the game's
+// folder), which GOG's support/postinst.sh joins after an install.
+const splitList = "support/split_files"
+
+// joinSplitFiles does what GOG's support/postinst.sh does after an install (the installer is
+// extracted, never run): a file too big for the archive comes in parts, FILE.split00,
+// FILE.split01, …, which are joined into FILE (FrankenPC, 2026-11-11: The Witcher 2's main data,
+// game/CookedPC/pack0.dzip, 10.5 GB, stayed in three parts and the game could not start). The first
+// part becomes the file and the others are appended to it, each removed once appended: at most one
+// part more on the disk (and none where the file system shares the blocks, as btrfs does).
+func joinSplitFiles(ctx context.Context, dest string) error {
+	data, err := os.ReadFile(filepath.Join(dest, splitList))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		rel := strings.TrimSpace(line)
+		if rel == "" {
+			continue
+		}
+		target, ok := safeJoin(dest, rel)
+		if !ok {
+			return fmt.Errorf("a split file outside the game: %q", rel)
+		}
+		parts, err := filepath.Glob(globEscape(target) + ".split*")
+		if err != nil {
+			return err
+		}
+		if len(parts) == 0 {
+			continue
+		}
+		sort.Strings(parts)
+		if err := joinParts(ctx, target, parts); err != nil {
+			return fmt.Errorf("joining %s: %w", rel, err)
+		}
+	}
+	return nil
+}
+
+func joinParts(ctx context.Context, target string, parts []string) error {
+	for _, p := range parts {
+		if st, err := os.Lstat(p); err != nil || !st.Mode().IsRegular() {
+			return fmt.Errorf("%s is not a file", filepath.Base(p))
+		}
+	}
+	if err := os.Rename(parts[0], target); err != nil {
+		return err
+	}
+	// not O_APPEND: copy_file_range (and so btrfs's shared blocks) refuses it
+	out, err := os.OpenFile(target, os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	if _, err := out.Seek(0, io.SeekEnd); err != nil {
+		out.Close()
+		return err
+	}
+	for _, p := range parts[1:] {
+		if err := ctx.Err(); err != nil {
+			out.Close()
+			return err
+		}
+		in, err := os.Open(p)
+		if err != nil {
+			out.Close()
+			return err
+		}
+		_, err = io.Copy(out, in)
+		in.Close()
+		if err != nil {
+			out.Close()
+			return err
+		}
+		if err := os.Remove(p); err != nil {
+			out.Close()
+			return err
+		}
+	}
+	if err := out.Sync(); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
 }

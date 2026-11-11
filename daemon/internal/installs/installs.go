@@ -558,7 +558,10 @@ func (m *Manager) install(ctx context.Context, j *job) (link string, err error) 
 			return "", err
 		}
 		defer a.Close()
-		return "", a.extract(ctx, j.Dest, func(done int64) { m.progress(j, done) })
+		if err := a.extract(ctx, j.Dest, func(done int64) { m.progress(j, done) }); err != nil {
+			return "", err
+		}
+		return "", joinSplitFiles(ctx, j.Dest)
 	}
 	return m.windowsInstall(ctx, j)
 }
