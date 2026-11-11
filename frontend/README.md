@@ -9,6 +9,9 @@ The **console interface**, `owneet-frontend`:
 - the **OwneetOS theme** in QML, inside the fork under `src/themes/`: design tokens, palettes,
   i18n message files, home, library, settings, on-screen keyboard.
 
+- [`known-games/`](known-games/): the games OwneetOS knows (the file a game starts with when
+  GOG's `start.sh` does not start the game itself).
+
 As Pegasus's licence requires, the modified frontend is not called "Pegasus" and does not use
 Pegasus's logos. Architecture, build, and what changes in C++ and in QML:
 [[frontend-architecture]]. The approved look is in

@@ -34,6 +34,9 @@ public:
     static void applyChoice(model::Game& game, const QString& game_dir, const QString& file);
     /// A Windows game's own prefix, in the console's disk ([[step-4.5-windows-games-proton]])
     static QString windowsPrefix(const QString& game_dir);
+    // The name of the folder a game is installed into: its game folder's name with ": " written
+    // " - " (owner, 2026-11-11; owneetd's installs.FolderName, the same rule)
+    static QString installFolderName(const QString& name);
     /// A game's own folder on the console's disk: ~/.local/share/owneet/KIND/<name>-<hash>
     static QString gameDataDir(const QString& kind, const QString& game_dir);
 

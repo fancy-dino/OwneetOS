@@ -37,11 +37,11 @@ QtObject {
     // Installed by the console: it can be uninstalled
     function installedHere(game) { return onDisk(game) && game.extra["disk.installed"] === true; }
     // The install of a game in progress or waiting: its folder on the console's disk has the
-    // game's folder name
+    // game's folder name, without ":" ("disk.install.folder")
     function install(game) {
         if (!hasInstaller(game))
             return null;
-        const name = String(game.extra["disk.dir"]).split("/").pop();
+        const name = String(game.extra["disk.install.folder"] || String(game.extra["disk.dir"]).split("/").pop());
         return installs.find(i => String(i.dest).split("/").pop() === name) || null;
     }
     // The same game after the games were read again (new objects): by app id, folder or title

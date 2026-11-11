@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-frontend
-pkgver=0.38.15
+pkgver=0.38.16
 pkgrel=1
 pkgdesc="OwneetOS console interface, a modified version of Pegasus Frontend by Mátyás Mustoha and contributors"
 arch=('x86_64')
@@ -74,6 +74,8 @@ package() {
   install -Dm755 build/src/app/owneet-frontend "$pkgdir/usr/bin/owneet-frontend"
   # Interface translations (docs/translating.md)
   install -Dm644 -t "$pkgdir/usr/share/owneet-frontend/i18n" frontend/i18n/*.json
+  # The games OwneetOS knows: the file a game starts with (frontend/known-games/README.md)
+  install -Dm644 frontend/known-games/known-games.json "$pkgdir/usr/share/owneet-frontend/known-games.json"
   # Interface sounds (3.12, 7.7): the owner's (GPL-3.0-or-later)
   install -Dm644 -t "$pkgdir/usr/share/owneet-frontend/sounds" build/sounds/*.wav
   local src=frontend/owneet-frontend lic="$pkgdir/usr/share/licenses/$pkgname"

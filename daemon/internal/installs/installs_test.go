@@ -6,6 +6,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"os"
@@ -234,6 +235,73 @@ func TestInstallerInTheGamesFolder(t *testing.T) {
 	}
 }
 
+// Colons in a game's folder name (owner, 2026-11-11): the console installs into a folder without
+// them (the interface asks for that name); a folder on the console's disk is renamed first; the
+// title keeps them.
+func TestFolderNamesWithoutColons(t *testing.T) {
+	for in, want := range map[string]string{
+		"The Witcher 2: Assassin of kings": "The Witcher 2 - Assassin of kings",
+		"Re:Volt":                          "Re - Volt",
+		"A : B:":                           "A - B -",
+		"Stargunner":                       "Stargunner",
+	} {
+		if got := FolderName(in); got != want {
+			t.Errorf("FolderName(%q) = %q, want %q", in, got, want)
+		}
+	}
+
+	m, home, _, ch := newManager(t)
+	// a name with ":" is never installed into
+	in := filepath.Join(home, "Giochi", "W2 - AoK")
+	os.MkdirAll(in, 0o755)
+	installer := filepath.Join(in, "w2.sh")
+	gogScript(t, installer, 100)
+	if err := m.Install(Request{Installer: installer, Kind: KindSh, Dest: filepath.Join(home, "Giochi", "W2: AoK")}); err != ErrInvalid {
+		t.Fatalf("a name with colons: %v", err)
+	}
+	os.RemoveAll(in)
+
+	// the game's folder on the console's disk: renamed, then installed in it
+	orig := filepath.Join(home, "Giochi", "The Witcher 2: Assassin of kings")
+	os.MkdirAll(orig, 0o755)
+	installer = filepath.Join(orig, "w2.sh")
+	gogScript(t, installer, 100)
+	os.WriteFile(filepath.Join(orig, "cover.jpg"), []byte("jpg"), 0o644)
+	dest := filepath.Join(home, "Giochi", "The Witcher 2 - Assassin of kings")
+	// the new name taken by another folder: nothing is renamed
+	os.MkdirAll(dest, 0o755)
+	if err := m.Install(Request{Installer: installer, Kind: KindSh, Dest: dest}); err != ErrExists || !exists(installer) {
+		t.Fatalf("new name taken: %v", err)
+	}
+	os.Remove(dest)
+	run(t, m)
+	title := "The Witcher 2: Assassin of kings"
+	if err := m.Install(Request{Installer: installer, Kind: KindSh, Dest: dest, Title: title}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "install.done")
+	if exists(orig) || !exists(filepath.Join(dest, "w2.sh")) || !exists(filepath.Join(dest, "start.sh")) {
+		t.Fatal("not renamed and installed")
+	}
+	var mark struct {
+		Installer string   `json:"installer"`
+		Title     string   `json:"title"`
+		Keep      []string `json:"keep"`
+	}
+	data, _ := os.ReadFile(filepath.Join(dest, MarkInstalled))
+	if err := json.Unmarshal(data, &mark); err != nil || mark.Title != title || mark.Installer != filepath.Join(dest, "w2.sh") || len(mark.Keep) != 2 {
+		t.Fatalf("mark %s: %v", data, err)
+	}
+	// uninstalled: the installer and the cover stay in the renamed folder
+	if err := m.Uninstall(dest); err != nil {
+		t.Fatal(err)
+	}
+	if !exists(filepath.Join(dest, "w2.sh")) || !exists(filepath.Join(dest, "cover.jpg")) || exists(filepath.Join(dest, "start.sh")) {
+		t.Fatal("uninstall")
+	}
+
+}
+
 func TestWindowsInstallers(t *testing.T) {
 	m, home, _, ch := newManager(t)
 	src := filepath.Join(home, "Giochi", "Shadow Harbor setup")
@@ -315,13 +383,13 @@ func TestWindowsInstallers(t *testing.T) {
 		dir := strings.ReplaceAll(strings.TrimPrefix(win, "Z:"), `\`, "/")
 		return os.WriteFile(filepath.Join(dir, "game.exe"), []byte("MZ"), 0o644)
 	}
-	dest4 := filepath.Join(home, "Giochi", "The Witcher 2: Assassins of Kings")
-	if err := m.Install(Request{Installer: setup, Kind: KindInno, Dest: dest4, Prefix: filepath.Join(prefixes, "witcher-2")}); err != nil {
+	dest4 := filepath.Join(home, "Giochi", "Who? Me?")
+	if err := m.Install(Request{Installer: setup, Kind: KindInno, Dest: dest4, Prefix: filepath.Join(prefixes, "who-me")}); err != nil {
 		t.Fatal(err)
 	}
 	next(t, ch, "install.done")
 	argv = runner.argv[len(runner.argv)-1]
-	if last := argv[len(argv)-1]; !strings.HasPrefix(last, "/DIR=Z:") || strings.Contains(strings.TrimPrefix(last, "/DIR=Z:"), ":") ||
+	if last := argv[len(argv)-1]; !strings.HasPrefix(last, "/DIR=Z:") || strings.Contains(last, "?") ||
 		!exists(filepath.Join(dest4, "game.exe")) {
 		t.Fatalf("Inno argv %q, installed %v", argv, exists(filepath.Join(dest4, "game.exe")))
 	}

@@ -36,6 +36,13 @@ QString quoted(const QString& path)
     const QChar quote = path.contains(QChar('"')) ? QChar('\'') : QChar('"');
     return quote + path + quote;
 }
+
+// An ELF program (not a script)
+bool is_elf(const QString& path)
+{
+    QFile file(path);
+    return file.open(QIODevice::ReadOnly) && file.read(4) == QByteArray("\x7f" "ELF");
+}
 } // namespace
 
 
@@ -97,11 +104,16 @@ void DiskGames::applyChoice(model::Game& game, const QString& game_dir, const QS
     }
     // Scripts run with bash and AppImages unpack themselves (no FUSE in the system): neither
     // needs anything written on the disk, which is mounted read only
+    // A program starts with its own folder among the libraries' folders, as GOG's start.sh does
+    // (The Witcher 2's libopenal-eon.so.1 is next to it; owner, 2026-11-11), unless the folder's
+    // name has ":", the separator of that list
     QString cmd;
     if (suffix == QLatin1String("sh"))
         cmd = QStringLiteral("/usr/bin/bash ") + quoted(path);
     else if (suffix == QLatin1String("appimage"))
         cmd = QStringLiteral("/usr/bin/env APPIMAGE_EXTRACT_AND_RUN=1 ") + quoted(path);
+    else if (is_elf(path) && !finfo.absolutePath().contains(QChar(':')))
+        cmd = QStringLiteral("/usr/bin/env ") + quoted(QStringLiteral("LD_LIBRARY_PATH=") + finfo.absolutePath()) + QChar(' ') + quoted(path);
     else
         cmd = quoted(path);
     game.setLaunchCmd(cmd).setLaunchWorkdir(finfo.absolutePath());
@@ -131,6 +143,12 @@ QString DiskGames::gameDataDir(const QString& kind, const QString& game_dir)
     return paths::homePath() + QStringLiteral("/.local/share/owneet/") + kind + QChar('/') + slug + QChar('-') + hash;
 }
 
+QString DiskGames::installFolderName(const QString& name)
+{
+    static const QRegularExpression colons(QStringLiteral("\\s*:\\s*"));
+    return QString(name).replace(colons, QStringLiteral(" - ")).trimmed();
+}
+
 QVariantMap DiskGames::installRequest(QObject* game_obj, const QString& language) const
 {
     const auto* game = qobject_cast<model::Game*>(game_obj);
@@ -143,8 +161,11 @@ QVariantMap DiskGames::installRequest(QObject* game_obj, const QString& language
     if (installer.isEmpty() || game_dir.isEmpty())
         return {};
     QString dest;
+    const QString folder = installFolderName(QFileInfo(game_dir).fileName());
     if (extra.value(QStringLiteral("disk.root")).toString() == QLatin1String("internal")) {
-        dest = game_dir;                 // already on the console's disk: installed in place
+        // already on the console's disk: installed in place (owneetd first renames a folder whose
+        // name has ":")
+        dest = QFileInfo(game_dir).absolutePath() + QChar('/') + folder;
     } else {
         // the home folder's games folder, or a new one named in the console's language
         QString games_dir;
@@ -157,7 +178,7 @@ QVariantMap DiskGames::installRequest(QObject* game_obj, const QString& language
         }
         if (games_dir.isEmpty())
             games_dir = home.filePath(language.startsWith(QLatin1String("it")) ? QStringLiteral("Giochi") : QStringLiteral("Games"));
-        dest = games_dir + QChar('/') + QFileInfo(game_dir).fileName();
+        dest = games_dir + QChar('/') + folder;
     }
     QVariantMap out {
         { QStringLiteral("installer"), installer },

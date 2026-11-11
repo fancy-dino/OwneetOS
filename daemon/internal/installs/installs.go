@@ -21,6 +21,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -202,6 +203,17 @@ func within(path, dir string) bool {
 	return strings.HasPrefix(path, dir+string(filepath.Separator))
 }
 
+// colons are refused in an installed game's folder name: Linux uses ":" to separate the folders
+// of a list (the libraries' folders, ICU's data folders: The Witcher 2 could not start).
+var colons = regexp.MustCompile(`\s*:\s*`)
+
+// FolderName is the name of the folder a game is installed into: its game folder's name, with
+// ": " written " - " (owner, 2026-11-11, [[games-on-disk]]). The interface uses the same rule
+// (DiskGames::installFolderName).
+func FolderName(name string) string {
+	return strings.TrimSpace(colons.ReplaceAllString(name, " - "))
+}
+
 // gamesDest checks that dest is a game's folder in a games folder of the home folder.
 func (m *Manager) gamesDest(dest string) (string, error) {
 	dest = filepath.Clean(dest)
@@ -298,11 +310,24 @@ func (m *Manager) Install(req Request) error {
 			return ErrInvalid
 		}
 	}
+	if FolderName(filepath.Base(dest)) != filepath.Base(dest) {
+		return ErrInvalid
+	}
+	// A game's folder on the console's disk whose name has ":" is renamed before its game is
+	// installed in it (owner, 2026-11-11): the interface asks for the new name
+	from := dest
+	if dir := filepath.Dir(installer); dir != dest && filepath.Dir(dir) == filepath.Dir(dest) &&
+		FolderName(filepath.Base(dir)) == filepath.Base(dest) {
+		if exists(dest) {
+			return ErrExists
+		}
+		from = dir
+	}
 	// the folder may exist only when the installer is in it (a game's folder on the console's
 	// disk): its files are kept, and stay when the game is uninstalled
 	var keep []string
-	if entries, err := os.ReadDir(dest); err == nil {
-		if filepath.Dir(installer) != dest || exists(filepath.Join(dest, MarkInstalled)) {
+	if entries, err := os.ReadDir(from); err == nil {
+		if filepath.Dir(installer) != from || exists(filepath.Join(from, MarkInstalled)) {
 			return ErrExists
 		}
 		for _, e := range entries {
@@ -326,6 +351,15 @@ func (m *Manager) Install(req Request) error {
 			m.mu.Unlock()
 			return nil // already queued
 		}
+	}
+	if from != dest {
+		if err := os.Rename(from, dest); err != nil {
+			m.mu.Unlock()
+			m.Log.Warn("cannot rename the game's folder", "from", from, "to", dest, "err", err)
+			return err
+		}
+		installer = filepath.Join(dest, filepath.Base(installer))
+		m.Log.Info("game folder renamed", "from", from, "to", dest)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	total := int64(0)
@@ -518,7 +552,7 @@ func (m *Manager) run(ctx context.Context, j *job) {
 		}
 	} else {
 		mark, _ := json.Marshal(map[string]any{"installer": j.req.Installer, "kind": j.Kind, "keep": j.keep,
-			"link": link, "installed": time.Now().UTC().Format(time.RFC3339)})
+			"link": link, "title": j.Title, "installed": time.Now().UTC().Format(time.RFC3339)})
 		if werr := os.WriteFile(filepath.Join(j.Dest, MarkInstalled), mark, 0o644); werr != nil {
 			m.Log.Warn("cannot mark the game installed", "dest", j.Dest, "err", werr)
 		}

@@ -8,9 +8,11 @@
 //   and AppImages, searched in the sub-folders too; never uninstallers, configurators,
 //   redistributables, crash reporters, installers (makeself / MojoSetup scripts), nor the support
 //   and documentation folders;
-// - the file to start: the user's choice, else game.txt's "start", else start.sh at the top of
-//   the folder (GOG's games), else the only file found; otherwise the theme asks once;
-// - the title: game.txt's "title", else the folder's name as the user wrote it (never rewritten);
+// - the file to start: the user's choice, else game.txt's "start", else the file of a game OwneetOS
+//   knows (known-games.json: GOG's games whose start.sh does not start the game), else start.sh at
+//   the top of the folder (GOG's games), else the only file found; otherwise the theme asks once;
+// - the title: game.txt's "title", else the title a game installed by the console had (its
+//   folder's name has no ":"), else the folder's name as the user wrote it (never rewritten);
 // - the cover: cover.jpg / cover.png (cover.jpeg, cover.webp) at the top of the folder.
 //
 // game.txt holds "key: value" lines (title, start, description; "#" starts a comment).
@@ -25,7 +27,7 @@
 // "disk.installer.kind" (sh: GOG's Linux installer, extracted; inno, nsis, msi: Windows
 // installers, run silently; galaxy: GOG Galaxy's online installer, and unknown: not usable yet).
 // A folder being installed (.owneet-installing) is not listed; the installed copy, in the home
-// folder's games folder under the same name, hides its installer and has "disk.installed" (it can
+// folder's games folder under the same name (without ":", DiskGames::installFolderName), hides its installer and has "disk.installed" (it can
 // be uninstalled). The other extras the theme reads: "disk.dir" (the
 // game folder), "disk.root" (the disk's mount folder, "internal" for the home folder),
 // "disk.files" (what can start, relative to the game folder), "disk.start" (the file it starts
@@ -344,6 +346,34 @@ GogTask read_gog_task(const QString& game_dir)
     return {};
 }
 
+// The games OwneetOS knows ([[games-on-disk]], owner 2026-11-11): the file to start when GOG's
+// start.sh does not start the game itself (The Witcher 2's starts a launcher window the console
+// cannot show). { "gog": { "<GOG id>": { "title": "…", "start": "<file, relative to the game>" } } }
+const QJsonObject& known_games()
+{
+    static const QJsonObject known = [] {
+        const QString env = qEnvironmentVariable("OWNEET_KNOWN_GAMES");
+        QFile file(env.isEmpty() ? QStringLiteral("/usr/share/owneet-frontend/known-games.json") : env);
+        if (!file.open(QIODevice::ReadOnly))
+            return QJsonObject();
+        return QJsonDocument::fromJson(file.readAll()).object();
+    }();
+    return known;
+}
+
+// The file a known game starts with: by the GOG id in GOG's gameinfo (its 5th line)
+QString known_start(const QString& game_dir)
+{
+    QFile file(game_dir + QStringLiteral("/gameinfo"));
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    const QStringList lines = QString::fromUtf8(file.read(4096)).split(QChar('\n'));
+    if (lines.size() < 5 || lines.at(4).trimmed().isEmpty())
+        return {};
+    return known_games().value(QStringLiteral("gog")).toObject()
+        .value(lines.at(4).trimmed()).toObject().value(QStringLiteral("start")).toString();
+}
+
 QString find_cover(const QString& game_dir)
 {
     const QStringList names = QDir(game_dir).entryList(QDir::Files);
@@ -417,7 +447,9 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                     }
                     // Only an installer (step 4.6): a game "not installed", unless the console has
                     // installed it already (the installed copy is listed instead)
-                    if (root.second != QLatin1String("internal") && installed_here.contains(game_folder)) {
+                    const QString install_folder = owneet::DiskGames::installFolderName(game_folder);
+                    if (root.second != QLatin1String("internal")
+                        && (installed_here.contains(game_folder) || installed_here.contains(install_folder))) {
                         Log::info(display_name(), LOGMSG("`%1`: installed on the console's disk").arg(game_folder));
                         continue;
                     }
@@ -440,6 +472,8 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                     extra.insert(QStringLiteral("disk.start"), QString());
                     extra.insert(QStringLiteral("disk.installer"), found.installer.path);
                     extra.insert(QStringLiteral("disk.installer.kind"), found.installer.kind);
+                    // the folder it is installed into (no ":"), which an install in progress names
+                    extra.insert(QStringLiteral("disk.install.folder"), install_folder);
                     Log::info(display_name(), LOGMSG("`%1`: an installer (%2): `%3`")
                         .arg(title, found.installer.kind, QDir(game_dir).relativeFilePath(found.installer.path)));
                     continue;
@@ -455,6 +489,11 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                     start.clear();
                 if (start.isEmpty() && txt_start)
                     start = txt.start;
+                if (start.isEmpty()) {
+                    const QString known = known_start(game_dir);
+                    if (files.contains(known))
+                        start = known;
+                }
                 if (start.isEmpty() && files.contains(QStringLiteral("start.sh")))
                     start = QStringLiteral("start.sh");
                 if (start.isEmpty() && files.size() == 1)
@@ -465,7 +504,13 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                 model::Game* game = sctx.create_game_for(*collection);
                 sctx.game_add_filepath(*game, game_dir);
                 sctx.game_add_to(*game, *collection);
-                const QString title = txt.title.isEmpty() ? game_folder : txt.title;
+                // installed by the console (4.6): it can be uninstalled; its installer stays where
+                // it is; the title it was installed under (its folder's name has no ":")
+                QFile mark(game_dir + QChar('/') + MARK_INSTALLED);
+                const bool installed = mark.open(QIODevice::ReadOnly);
+                const QJsonObject mark_info = installed ? QJsonDocument::fromJson(mark.read(64 * 1024)).object() : QJsonObject();
+                const QString mark_title = mark_info.value(QStringLiteral("title")).toString().trimmed();
+                const QString title = !txt.title.isEmpty() ? txt.title : !mark_title.isEmpty() ? mark_title : game_folder;
                 game->setTitle(title).setSortBy(title);
                 if (!txt.description.isEmpty())
                     game->setDescription(txt.description);
@@ -476,12 +521,9 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                 extra.insert(QStringLiteral("disk.dir"), game_dir);
                 extra.insert(QStringLiteral("disk.root"), root.second);
                 extra.insert(QStringLiteral("disk.files"), files);
-                // installed by the console (4.6): it can be uninstalled; its installer stays where it is
-                QFile mark(game_dir + QChar('/') + MARK_INSTALLED);
-                if (mark.open(QIODevice::ReadOnly)) {
+                if (installed) {
                     extra.insert(QStringLiteral("disk.installed"), true);
-                    extra.insert(QStringLiteral("disk.installed.from"),
-                        QJsonDocument::fromJson(mark.read(64 * 1024)).object().value(QStringLiteral("installer")).toString());
+                    extra.insert(QStringLiteral("disk.installed.from"), mark_info.value(QStringLiteral("installer")).toString());
                 }
                 // GOG's DOS games: GOG's play task starts its DOSBox for Windows
                 const bool dos = windows && QFileInfo(gog.path).fileName().compare(QLatin1String("dosbox.exe"), Qt::CaseInsensitive) == 0;
