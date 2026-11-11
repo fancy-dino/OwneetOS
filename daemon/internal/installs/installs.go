@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/syncdisk"
 )
 
 // Kinds of installers the console can use.
@@ -401,7 +402,9 @@ func (m *Manager) Uninstall(dest string) error {
 		}
 	}
 	m.mu.Unlock()
-	if err := m.remove(dest, mark.Keep); err != nil {
+	err = m.remove(dest, mark.Keep)
+	m.synced(filepath.Dir(dest))
+	if err != nil {
 		return err
 	}
 	if mark.Link != "" && within(filepath.Clean(mark.Link), m.linksDir()) {
@@ -409,6 +412,14 @@ func (m *Manager) Uninstall(dest string) error {
 	}
 	m.Log.Info("game uninstalled", "dest", dest)
 	return nil
+}
+
+// synced makes the room freed on dir's disk shown at once (syncdisk: btrfs frees it only when it
+// commits, up to 30 s later; owner, 2026-11-11: as after a move).
+func (m *Manager) synced(dir string) {
+	if err := syncdisk.Dir(dir); err != nil {
+		m.Log.Warn("the disk not synced: its free space may show late", "dir", dir, "err", err)
+	}
 }
 
 // remove deletes the folder, or only what is not in keep.

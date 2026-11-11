@@ -119,7 +119,9 @@ func (m *Manager) Delete(dest string) error {
 		return err
 	}
 	mark, _, _ := readMark(dest)
-	if err := os.RemoveAll(dest); err != nil {
+	err = os.RemoveAll(dest)
+	m.synced(filepath.Dir(dest))
+	if err != nil {
 		return err
 	}
 	if mark.Link != "" && within(filepath.Clean(mark.Link), m.linksDir()) {
@@ -161,10 +163,12 @@ func (m *Manager) DeleteInstaller(dest string) error {
 				continue // only the files at the top of the folder are the installer's
 			}
 			if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
+				m.synced(dest)
 				return err
 			}
 			gone[filepath.Base(f)] = true
 		}
+		m.synced(dest)
 		var keep []string
 		for _, k := range mark.Keep {
 			if !gone[k] {
@@ -188,7 +192,9 @@ func (m *Manager) DeleteInstaller(dest string) error {
 		if err := m.deletable(folder); err != nil {
 			return err
 		}
-		if err := os.RemoveAll(folder); err != nil {
+		err := os.RemoveAll(folder)
+		m.synced(filepath.Dir(folder))
+		if err != nil {
 			return err
 		}
 	}

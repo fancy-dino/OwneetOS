@@ -136,7 +136,8 @@ else
     journalctl -b -f -n all -o short-precise > "$base.journal.txt" 2>&1 &
 fi
 journal=$!
-trap 'kill "$journal" 2>/dev/null; sync; umount "$mnt"; exit 0' TERM INT
+# (and the disks' listing, if still running)
+trap 'kill "$journal" $(jobs -p) 2>/dev/null; sync; umount "$mnt"; exit 0' TERM INT
 
 report > "$base.report.txt" 2>&1
 # The end of the previous start's journal (kept on the disk): how the last power-off went, after the
@@ -157,6 +158,31 @@ sleep 60
   btrfs subvolume list / 2>&1 | head -20
   timeout 120 btrfs filesystem du -s /.snapshots/* 2>&1 | head -12
   btrfs filesystem usage -T / 2>&1 | head -16; } >> "$base.report.txt"
+# The whole content of every disk, once per start (owner, 2026-11-11: no junk files may stay, the
+# disks must not fill up over time; [[open-items]] 3p): one line per file, folder or link (type,
+# bytes, date, path), compressed, one file per disk in $base.files. The console's disk is read
+# subvolume by subvolume as mounted (/, /home, /var/log, the packages); its snapshots are only
+# measured above. Slow on a big disk: behind everything else, at the lowest priority.
+disk_files() {
+    local src m name
+    renice -n 19 -p "$BASHPID" >/dev/null 2>&1
+    ionice -c 3 -p "$BASHPID" >/dev/null 2>&1
+    mkdir -p "$base.files"
+    src="$(findmnt -n -o SOURCE / | sed 's/\[.*//')"
+    while read -r m; do
+        [[ "$m" == /.snapshots || "$m" == /.snapshots/* ]] && continue
+        name="console${m//\//-}"
+        [[ "$m" == / ]] && name=console-root
+        { df -B1 "$m"; find "$m" -xdev -printf '%y\t%s\t%TY-%Tm-%Td %TH:%TM\t%p\n' 2>&1; } | gzip > "$base.files/$name.txt.gz"
+    done < <(findmnt -n -l -o TARGET --source "$src")
+    for m in /run/media/owneet/*; do
+        mountpoint -q "$m" || continue
+        name="disk-$(basename "$m" | tr -c 'A-Za-z0-9._\n-' '_')"
+        { df -B1 "$m"; find "$m" -xdev -printf '%y\t%s\t%TY-%Tm-%Td %TH:%TM\t%p\n' 2>&1; } | gzip > "$base.files/$name.txt.gz"
+    done
+    sync
+}
+(( small )) || disk_files &
 { echo "--- ddcutil detect (as the console user, like owneetd)"
   runuser -u owneet -- env HOME=/home/owneet ddcutil detect --verbose 2>&1 | head -80; } >> "$base.report.txt"
 # The windows of the console session, every 10 s (gamescope's X server): with the test tool

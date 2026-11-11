@@ -25,9 +25,8 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/syncdisk"
 )
 
 // Internal is the console's own disk as a destination: the games folder of the home folder.
@@ -451,7 +450,7 @@ func (m *Manager) run(req Request, dest string) {
 			err := removeTree(g.Dir, m.percent(entries(g.Dir)))
 			// the room freed is told at once: btrfs (the console's disk) counts it only once it
 			// commits, up to 30 s later (owner, 2026-11-10: the free space came very late)
-			if serr := syncDisk(filepath.Dir(g.Dir)); serr != nil {
+			if serr := syncdisk.Dir(filepath.Dir(g.Dir)); serr != nil {
 				m.Log.Warn("the disk of the original not synced: its free space may show late", "game", g.Title, "err", serr)
 			}
 			if err != nil {
@@ -490,17 +489,6 @@ func entries(dir string) int64 {
 		return nil
 	})
 	return n
-}
-
-// syncDisk writes to the disk what its file system still holds for the folder's disk (syncfs):
-// on btrfs the room of removed files is free only after that.
-func syncDisk(dir string) error {
-	f, err := os.Open(dir)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return unix.Syncfs(int(f.Fd()))
 }
 
 // removeTree removes a folder as os.RemoveAll does, telling each entry removed: the contents
