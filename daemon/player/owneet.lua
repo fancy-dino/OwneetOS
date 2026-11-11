@@ -391,9 +391,9 @@ local function draw_video(out)
     end
     if #subs > 0 then
         local t, i = current_track("sub")
-        states[#states + 1] = { "y", fill(T("player.state.subtitles"), { l = t and language(t, i) or T("player.off") }) }
+        states[#states + 1] = { "menu", fill(T("player.state.subtitles"), { l = t and language(t, i) or T("player.off") }) }
     end
-    states[#states + 1] = { "menu", fill(T("media.autoplay"), { state = T(autoplay and "media.on" or "media.off") }) }
+    states[#states + 1] = { "y", fill(T("media.autoplay"), { state = T(autoplay and "media.on" or "media.off") }) }
     local x = RX - 64
     local bottom = RY - 96
     for k = #states, 1, -1 do
@@ -583,7 +583,7 @@ local function audio()
     mp.set_property_number("aid", list[n].id)
     say(fill(T("player.audio"), { l = language(list[n], n), i = n, n = #list }))
 end
--- Y: subtitles off, then each track in turn
+-- Menu: subtitles off, then each track in turn
 local function subtitles()
     local list = tracks("sub")
     if not video or #list == 0 then show(); return end
@@ -596,8 +596,8 @@ local function subtitles()
         say(fill(T("player.subtitles"), { l = language(list[i + 1], i + 1) }))
     end
 end
--- Autoplay (videos): on, the next video of the folder starts when one ends; off, the player
--- stops at the end (keep-open) and goes back to the list
+-- Y, Autoplay (videos), as Y in the Videos page: on, the next video of the folder starts when one
+-- ends; off, the player stops at the end (keep-open) and goes back to the list
 local function apply_autoplay() mp.set_property("keep-open", (video and not autoplay) and "always" or "no") end
 local function toggle_autoplay()
     if not video then show(); return end

@@ -324,7 +324,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   </div>
 </div></div>
 <p class="help"><b>New in 5.6:</b> the <b>Videos</b> and <b>Music</b> tiles open their pages: the Videos / Music folders of every disk together, the folders as on the disk. Videos: <b>Continue watching</b>, the progress of started videos, Menu on one: <b>Resume / Watch from the start</b>, Y switches <b>Autoplay</b>. Music: LT / RT switch <b>Folders / Artists</b> (the songs are read on the first visit, with a spinner). A plays.
-<b>In the player:</b> A pause, D-pad left / right -10 / +10 s, LT / RT previous / next (LT in the first 5 s: the previous one; later: back to the start), X audio, Y subtitles, Menu Autoplay (videos), B back to the list (the position kept); any other button only shows the display. H (Guide) shows the console while it keeps playing, with Resume on Home; in cage hold H for 2 s to close it.<br>
+<b>In the player:</b> A pause, D-pad left / right -10 / +10 s, LT / RT previous / next (LT in the first 5 s: the previous one; later: back to the start), X audio, Menu subtitles, Y Autoplay (videos, as in the Videos page), B back to the list (the position kept); any other button only shows the display. H (Guide) shows the console while it keeps playing, with Resume on Home; in cage hold H for 2 s to close it.<br>
 <b>Gamepad:</b> D-pad / stick move, right stick fast scroll, A, B, X, Y, Menu, LT/RT, LB/RB sections, Guide. <b>Keyboard:</b> arrows, Page Up/Down = right stick, Enter = A, Esc = B, X, Y, M = Menu, Z/C = LT/RT, Q/E = LB/RB, H = Guide.<br>
 <b>Demo only:</b> S session (<span id="ses-state">gamescope</span>), U plug in / unplug the USB disk (<span id="usb-state">plugged in</span>), W no Videos or Music folders, J jump to 8 s before the end, R read the songs again, K a game running, P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>). Address: <code>#page=videos|music&amp;view=artists&amp;play=video|song&amp;session=cage&amp;usb=0&amp;empty=1&amp;open=options&amp;pal=ember&amp;lang=it</code></p>
 
@@ -1066,10 +1066,11 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       case 'x':
         if (video && t.audio.length > 1) { player.aid = (player.aid + 1) % t.audio.length; plMsg(tr('msg.audio', { l: langName(t.audio[player.aid]), i: player.aid + 1, n: t.audio.length })); renderPlayer(); }
         break;
-      case 'y':
+      // Y switches Autoplay, as in the Videos page; Menu the subtitles (owner, 2026-11-11)
+      case 'menu':
         if (video && t.subs.length) { player.sid = player.sid + 1 >= t.subs.length ? -1 : player.sid + 1; plMsg(tr('msg.subs', { l: player.sid < 0 ? tr('subs.off') : langName(t.subs[player.sid]) })); renderPlayer(); }
         break;
-      case 'menu': if (video) toggleAutoplay(true); break;
+      case 'y': if (video) toggleAutoplay(true); break;
       case 'b': leavePlayer(); return;
       case 'up': case 'down': case 'l3': case 'r3': break;   // only the display
       default: return;
@@ -1092,8 +1093,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       $('#osd-crumb').textContent = path(it.folder); $('#osd-name').textContent = it.name;
       $('#scene-what').textContent = `${tr('pl.what')}\n${[path(it.folder), it.name].filter(Boolean).join(' › ')}`;
       $('#osd-states').innerHTML = (t.audio.length > 1 ? state('x', tr('v.audio', { l: langName(t.audio[player.aid]) })) : '')
-        + (t.subs.length ? state('y', tr('v.subs', { l: player.sid < 0 ? tr('subs.off') : langName(t.subs[player.sid]) })) : '')
-        + state('menu', tr('v.autoplay', { s: tr(autoplay ? 'on' : 'off') }));
+        + (t.subs.length ? state('menu', tr('v.subs', { l: player.sid < 0 ? tr('subs.off') : langName(t.subs[player.sid]) })) : '')
+        + state('y', tr('v.autoplay', { s: tr(autoplay ? 'on' : 'off') }));
     } else {
       const img = imageOf(it.folder, false), a = $('#np-art');
       a.className = 'np-art' + (img ? ' photo' : ''); a.style.setProperty('--h', hue(albumName(it)));

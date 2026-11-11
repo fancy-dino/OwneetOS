@@ -58,11 +58,12 @@ func TestBindings(t *testing.T) {
 	want := map[string]string{
 		"GAMEPAD_ACTION_DOWN": "play-pause", "GAMEPAD_DPAD_LEFT": "back-10", "GAMEPAD_DPAD_RIGHT": "forward-10",
 		"GAMEPAD_LEFT_TRIGGER": "previous", "GAMEPAD_RIGHT_TRIGGER": "next", "GAMEPAD_ACTION_LEFT": "audio",
-		"GAMEPAD_ACTION_UP": "subtitles", "GAMEPAD_START": "autoplay", "GAMEPAD_ACTION_RIGHT": "leave",
+		// Y Autoplay as in the Videos page, Menu the subtitles (owner, 2026-11-11)
+		"GAMEPAD_ACTION_UP": "autoplay", "GAMEPAD_START": "subtitles", "GAMEPAD_ACTION_RIGHT": "leave",
 		"GAMEPAD_DPAD_UP": "show", "GAMEPAD_DPAD_DOWN": "show", "GAMEPAD_LEFT_STICK": "show", "GAMEPAD_RIGHT_STICK": "show",
 		// the keyboard fallback: the same meanings
 		"ENTER": "play-pause", "SPACE": "play-pause", "LEFT": "back-10", "RIGHT": "forward-10", "z": "previous",
-		"c": "next", "x": "audio", "y": "subtitles", "m": "autoplay", "ESC": "leave", "BS": "leave",
+		"c": "next", "x": "audio", "y": "autoplay", "m": "subtitles", "ESC": "leave", "BS": "leave",
 		"CLOSE_WIN": "quit",
 	}
 	for key, name := range want {

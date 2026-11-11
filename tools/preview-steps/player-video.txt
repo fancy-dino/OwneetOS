@@ -18,14 +18,14 @@ pad x
 shot 05-audio-italian
 pad x
 # the file's English subtitles are on at the start (its default track): Italian, off, English
-pad y
+pad menu
 shot 06-subtitles-italian
-pad y
+pad menu
 shot 07-subtitles-off
+pad menu
 pad y
-pad menu
 shot 08-autoplay-off
-pad menu
+pad y
 state
 # LT from 0:05 on: back to the start; in the first 5 s: the previous one (here the first: its start)
 pad lt
