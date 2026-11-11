@@ -85,3 +85,15 @@ func TestStreamPID(t *testing.T) {
 		t.Fatalf("bad pid: %d", got)
 	}
 }
+
+// A stream through PipeWire's ALSA plugin has no process id: its client's is used.
+func TestClientPIDs(t *testing.T) {
+	clients := proto.GetClientInfoListReply{
+		{ClientIndex: 3, Properties: proto.PropList{"application.process.id": proto.PropListString("29436")}},
+		{ClientIndex: 4, Properties: proto.PropList{"pipewire.sec.pid": proto.PropListString("775")}},
+	}
+	got := clientPIDs(clients)
+	if got[3] != 29436 || len(got) != 1 {
+		t.Fatalf("clientPIDs = %v", got)
+	}
+}

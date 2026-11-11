@@ -6,7 +6,9 @@
 // screen says the game is starting and waits for the game (or for Steam, if it needs the user).
 // It is never shown without internet when Steam needs it (the shell says so instead).
 // A Windows game ([[step-4.5-windows-games-proton]], approved demo 4.5) uses it too: "Preparing
-// {game}…" until the game's first picture, longer the first time (its prefix is made).
+// {game}…" until the game's first picture, longer the first time (its prefix is made). The other
+// games on a disk (Linux, DOS) too, with "Starting {game}…" (owner, 2026-11-11: The Witcher 2
+// took 13 s to show, and the banner alone was gone after a second).
 // While Steam downloads what a game needs before starting it (its version for Windows and what
 // runs it, an update), the percentage of those downloads (demo 4.5, approved 2026-10-18).
 // A web app's first opening ([[step-5.4-netflix]]) uses it too, with its own title and text:
@@ -24,6 +26,7 @@ NavArea {
     property bool firstTime: false          // Steam has never started here: the long download
     property string gameTitle: ""           // started for this game: Steam stays hidden
     property bool windows: false            // a Windows game (not Steam)
+    property bool diskGame: false           // a game on a disk (Linux, DOS): until its window, or its end
     property bool steamRestart: false       // Steam closes and starts again for the game (4.5)
     // Given by the shell, they replace Steam's texts (a web app's first opening, 5.4)
     property string title: ""
@@ -38,10 +41,11 @@ NavArea {
         return total > 0 ? Math.min(100, Math.floor(100 * done / total)) : -1;
     }
 
-    function start(first, title, windowsGame) {
+    function start(first, title, windowsGame, diskGameStart) {
         firstTime = first;
         gameTitle = title || "";
         windows = !!windowsGame;
+        diskGame = !!diskGameStart;
         steamRestart = false;
         if (!visible)
             Nav.feedback("sheet-open");

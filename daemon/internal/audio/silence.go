@@ -34,6 +34,19 @@ func streamPID(props proto.PropList) int {
 	return pid
 }
 
+// clientPIDs: the process of each client of the audio server, by client index. A stream played
+// through PipeWire's ALSA plugin (32-bit games: The Witcher 2's eON, owner 2026-11-11) has no
+// "application.process.id" of its own: only its client has it.
+func clientPIDs(clients proto.GetClientInfoListReply) map[uint32]int {
+	pids := map[uint32]int{}
+	for _, c := range clients {
+		if pid := streamPID(c.Properties); pid > 0 {
+			pids[c.ClientIndex] = pid
+		}
+	}
+	return pids
+}
+
 // ApplySilence mutes the streams that must be silent now and unmutes the ones it muted that need
 // not be any more. Called when what is on screen changes and when a stream starts.
 func (p *Pulse) ApplySilence() {
@@ -57,10 +70,21 @@ func (p *Pulse) ApplySilence() {
 	if p.silenced == nil {
 		p.silenced = map[uint32]bool{}
 	}
+	var clients map[uint32]int // read once, only when a stream needs it
 	seen := map[uint32]bool{}
 	for _, s := range streams {
 		seen[s.SinkInputIndex] = true
 		pid := streamPID(s.Properties)
+		if pid == 0 {
+			if clients == nil {
+				var list proto.GetClientInfoListReply
+				if err := client.Request(&proto.GetClientInfoList{}, &list); err != nil {
+					p.Log.Debug("cannot list the sound clients", "err", err)
+				}
+				clients = clientPIDs(list)
+			}
+			pid = clients[s.ClientIndex]
+		}
 		silent := pid > 0 && rule(pid)
 		mine := p.silenced[s.SinkInputIndex]
 		switch {

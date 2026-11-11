@@ -9,7 +9,8 @@
 //   redistributables, crash reporters, installers (makeself / MojoSetup scripts), nor the support
 //   and documentation folders;
 // - the file to start: the user's choice, else game.txt's "start", else the file of a game OwneetOS
-//   knows (known-games.json: GOG's games whose start.sh does not start the game), else start.sh at
+//   knows (known-games.json: GOG's games whose start.sh does not work; its "fix-key-files" are
+//   fixed on the console's disk), else start.sh at
 //   the top of the folder (GOG's games), else the only file found; otherwise the theme asks once;
 // - the title: game.txt's "title", else the title a game installed by the console had (its
 //   folder's name has no ":"), else the folder's name as the user wrote it (never rewritten);
@@ -53,6 +54,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSaveFile>
 #include <QStorageInfo>
 #include <QTextStream>
 
@@ -347,8 +349,10 @@ GogTask read_gog_task(const QString& game_dir)
 }
 
 // The games OwneetOS knows ([[games-on-disk]], owner 2026-11-11): the file to start when GOG's
-// start.sh does not start the game itself (The Witcher 2's starts a launcher window the console
-// cannot show). { "gog": { "<GOG id>": { "title": "…", "start": "<file, relative to the game>" } } }
+// start.sh does not start the game itself (The Witcher 2's opens a desktop window that needs 32-bit
+// GTK 2), and the game's GLib key files to fix ("fix-key-files": escapes today's GLib refuses, which
+// make The Witcher 2's TV launcher abort). { "gog": { "<GOG id>": { "title": "…", "start": "<file,
+// relative to the game>", "fix-key-files": ["<folder/*.ini>"] } } }
 const QJsonObject& known_games()
 {
     static const QJsonObject known = [] {
@@ -361,8 +365,8 @@ const QJsonObject& known_games()
     return known;
 }
 
-// The file a known game starts with: by the GOG id in GOG's gameinfo (its 5th line)
-QString known_start(const QString& game_dir)
+// A known game: by the GOG id in GOG's gameinfo (its 5th line)
+QJsonObject known_game(const QString& game_dir)
 {
     QFile file(game_dir + QStringLiteral("/gameinfo"));
     if (!file.open(QIODevice::ReadOnly))
@@ -370,8 +374,58 @@ QString known_start(const QString& game_dir)
     const QStringList lines = QString::fromUtf8(file.read(4096)).split(QChar('\n'));
     if (lines.size() < 5 || lines.at(4).trimmed().isEmpty())
         return {};
-    return known_games().value(QStringLiteral("gog")).toObject()
-        .value(lines.at(4).trimmed()).toObject().value(QStringLiteral("start")).toString();
+    return known_games().value(QStringLiteral("gog")).toObject().value(lines.at(4).trimmed()).toObject();
+}
+
+// A GLib key file's value with a backslash that starts no escape GLib knows (\s \n \t \r \\):
+// the backslash written twice, as GLib wants it. Comments and group lines stay as they are.
+QByteArray fixed_key_file(const QByteArray& data)
+{
+    QList<QByteArray> lines = data.split('\n');
+    for (QByteArray& line : lines) {
+        const int eq = line.indexOf('=');
+        const QByteArray head = line.trimmed();
+        if (eq < 0 || head.startsWith('#') || head.startsWith('['))
+            continue;
+        QByteArray out = line.left(eq + 1);
+        for (int i = eq + 1; i < line.size(); ++i) {
+            out.append(line.at(i));
+            if (line.at(i) != '\\')
+                continue;
+            if (i + 1 < line.size() && QByteArray("sntr\\").contains(line.at(i + 1)))
+                out.append(line.at(++i));   // a known escape: kept
+            else
+                out.append('\\');           // a lone backslash: written twice
+        }
+        line = out;
+    }
+    return lines.join('\n');
+}
+
+// Fixes a known game's key files on the console's disk; files already right are not written
+void fix_key_files(const QString& game_dir, const QJsonArray& patterns)
+{
+    for (const QJsonValue& v : patterns) {
+        const QFileInfo pattern(QDir(game_dir), v.toString());
+        if (v.toString().isEmpty() || !pattern.absolutePath().startsWith(game_dir + QChar('/')))
+            continue;
+        const QFileInfoList files = QDir(pattern.absolutePath()).entryInfoList({pattern.fileName()}, QDir::Files);
+        for (const QFileInfo& info : files) {
+            QFile in(info.filePath());
+            if (!in.open(QIODevice::ReadOnly))
+                continue;
+            const QByteArray data = in.readAll();
+            in.close();
+            const QByteArray fixed = fixed_key_file(data);
+            if (fixed == data)
+                continue;
+            QSaveFile out(info.filePath());
+            if (out.open(QIODevice::WriteOnly) && out.write(fixed) == fixed.size() && out.commit())
+                Log::info(LOGMSG("Games on disks: `%1`: escapes fixed for today's GLib").arg(info.filePath()));
+            else
+                Log::warning(LOGMSG("Games on disks: cannot fix `%1`").arg(info.filePath()));
+        }
+    }
 }
 
 QString find_cover(const QString& game_dir)
@@ -489,11 +543,11 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                     start.clear();
                 if (start.isEmpty() && txt_start)
                     start = txt.start;
-                if (start.isEmpty()) {
-                    const QString known = known_start(game_dir);
-                    if (files.contains(known))
-                        start = known;
-                }
+                const QJsonObject known = known_game(game_dir);
+                if (!known.isEmpty() && root.second == QLatin1String("internal"))
+                    fix_key_files(game_dir, known.value(QStringLiteral("fix-key-files")).toArray());
+                if (start.isEmpty() && files.contains(known.value(QStringLiteral("start")).toString()))
+                    start = known.value(QStringLiteral("start")).toString();
                 if (start.isEmpty() && files.contains(QStringLiteral("start.sh")))
                     start = QStringLiteral("start.sh");
                 if (start.isEmpty() && files.size() == 1)

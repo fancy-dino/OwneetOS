@@ -2,7 +2,8 @@
   "gog": {
     "1207658930": {
       "title": "The Witcher 2: Assassins of Kings Enhanced Edition",
-      "start": "game/witcher2"
+      "start": "game/tenfoot-launcher",
+      "fix-key-files": ["game/bin/config/lang/*.ini"]
     }
   }
 }

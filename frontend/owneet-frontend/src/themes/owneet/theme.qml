@@ -727,6 +727,8 @@ FocusScope {
         Nav.feedback("launch");
         if (GameInfo.isWindows(game))               // "Preparing {game}…" until its first picture (4.5)
             steamPrep.start(diskGames.firstStart(game), game.title, true);
+        else if (GameInfo.onDisk(game))             // "Starting {game}…" until its first picture (owner, 2026-11-11)
+            steamPrep.start(false, game.title, false, true);
         else
             toast.show(Tr.tr("toast.launch", { title: game.title }));
         if (GameInfo.isSteam(game) && owneetd.connected) {
@@ -4309,7 +4311,7 @@ FocusScope {
             // Steam behind until then), or Steam, if it needs the user (focus.changed)
             const steamWindow = id === "steam" && steamPrep.gameTitle === "";
             if ((type === "app.window" && (steamWindow || id.startsWith("steam:")))
-                    || (type === "app.exited" && ((id === "steam" && !steamPrep.steamRestart) || id.startsWith("steam:") || steamPrep.windows))
+                    || (type === "app.exited" && ((id === "steam" && !steamPrep.steamRestart) || id.startsWith("steam:") || steamPrep.windows || steamPrep.diskGame))
                     || (type === "focus.changed" && data.focus !== "home"))
                 steamPrep.close(true);
         }
