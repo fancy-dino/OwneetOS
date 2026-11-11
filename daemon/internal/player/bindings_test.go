@@ -33,6 +33,10 @@ func TestBindings(t *testing.T) {
 			continue
 		}
 		f := strings.Fields(line)
+		if line == "CLOSE_WIN quit" { // owneetd's close and the window's: quit, saving the position
+			bound["CLOSE_WIN"] = "quit"
+			continue
+		}
 		if len(f) != 3 || f[1] != "script-binding" || !strings.HasPrefix(f[2], "owneet/") {
 			t.Errorf("line %d: %q is not `KEY script-binding owneet/NAME`", n+1, line)
 			continue
@@ -59,6 +63,7 @@ func TestBindings(t *testing.T) {
 		// the keyboard fallback: the same meanings
 		"ENTER": "play-pause", "SPACE": "play-pause", "LEFT": "back-10", "RIGHT": "forward-10", "z": "previous",
 		"c": "next", "x": "audio", "y": "subtitles", "m": "autoplay", "ESC": "leave", "BS": "leave",
+		"CLOSE_WIN": "quit",
 	}
 	for key, name := range want {
 		if bound[key] != name {
@@ -76,5 +81,10 @@ func TestBindings(t *testing.T) {
 		if !regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(line) + `$`).Match(conf) {
 			t.Errorf("mpv.conf lacks %q", line)
 		}
+	}
+	// mpv quits on SIGTERM (owneetd's close) only with its terminal input: without it SDL takes
+	// the signal and mpv keeps playing (the owner's test, 2026-11-11)
+	if regexp.MustCompile(`(?m)^(no-)?input-terminal(=no)?$`).Match(conf) {
+		t.Error("mpv.conf turns off input-terminal: mpv would ignore owneetd's close")
 	}
 }

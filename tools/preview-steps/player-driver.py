@@ -263,6 +263,15 @@ def main(steps):
                     print("   saved:", text)
             if not any("redirect entry" not in open(os.path.join(WATCH_LATER, n)).read() for n in names):
                 print("   saved: (none)")
+        elif w[0] == "close":    # as owneetd closes an app: systemd's SIGTERM
+            t0 = time.time()
+            player.proc.terminate()
+            try:
+                code = player.proc.wait(timeout=12)
+                print(f"   mpv quit {time.time() - t0:.1f} s after SIGTERM: {code}")
+            except subprocess.TimeoutExpired:
+                print("   mpv is still running 12 s after SIGTERM")
+                player.proc.kill()
         elif w[0] == "exit":
             try:
                 print("   mpv quit:", player.proc.wait(timeout=15))

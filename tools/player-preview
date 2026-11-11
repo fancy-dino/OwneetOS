@@ -30,6 +30,7 @@
 #   state              the last "owneet-state" message
 #   files              the saved positions (the watch-later folder)
 #   exit               wait until mpv has quit (at most 15 s) and print its exit code
+#   close              stop mpv as owneetd closes an app (SIGTERM) and print how long it took
 #   # …                comment
 # The player's log is out/player-preview/log.txt. The mpv command is the one owneetd builds
 # (daemon/internal/player/player.go, Args), with X11 output and no sound device: keep the two alike.
