@@ -58,6 +58,9 @@ console from their authors' official releases, the first time a Windows game is 
 | [DOSBox Staging](https://www.dosbox-staging.org) | The DOSBox Staging Team and contributors, on DOSBox by the DOSBox Team | GPL-2.0-or-later | Runs GOG's DOS games, in place of the Windows DOSBox they come with (built by OwneetOS from source) |
 | [iir1](https://github.com/berndporr/iir1) | Bernd Porr and contributors | MIT | Audio filters inside DOSBox Staging |
 | [Munt (libmt32emu)](https://github.com/munt/munt) | The Munt team | LGPL-2.1-or-later | Roland MT-32 emulation inside DOSBox Staging |
+| [sdl2-compat](https://github.com/libsdl-org/sdl2-compat) | Sam Lantinga and the SDL contributors | Zlib | 32-bit SDL2 for 32-bit Linux games (built by OwneetOS from source) |
+| [SDL_image](https://github.com/libsdl-org/SDL_image) | Sam Lantinga and the SDL contributors (stb_image: Sean Barrett) | Zlib (stb_image: MIT or public domain) | 32-bit SDL2_image for 32-bit Linux games (built by OwneetOS from source) |
+| [SDL_ttf](https://github.com/libsdl-org/SDL_ttf) | Sam Lantinga and the SDL contributors | Zlib | 32-bit SDL2_ttf for 32-bit Linux games (built by OwneetOS from source) |
 
 ## Sound, network, Bluetooth, system services
 

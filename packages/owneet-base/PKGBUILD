@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.63
+pkgver=0.0.64
 pkgrel=1
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
@@ -18,6 +18,9 @@ depends=('base' 'owneet-keyring' 'owneet-session' 'owneet-branding' 'owneet-hard
          # GOG's DOS games: DOSBox Staging (built by OwneetOS, packages/dosbox-staging) instead of
          # the Windows DOSBox GOG ships (owneet-dos-run)
          'dosbox-staging'
+         # 32-bit Linux games: 32-bit SDL2, SDL2_image and SDL2_ttf (built by OwneetOS, not in Arch's
+         # multilib; [[games-on-disk]], 2026-11-11)
+         'lib32-sdl2-compat' 'lib32-sdl2_image' 'lib32-sdl2_ttf'
          # the installed system's file systems (btrfs root, FAT32 boot partition); disks prepared
          # for games (ext4) and the check that nothing uses them (fuser)
          'btrfs-progs' 'dosfstools' 'e2fsprogs' 'psmisc')
@@ -37,7 +40,7 @@ sha256sums=('SKIP'
             'e739678148442c4770b5c7cf793df180bc475cd33cf1bcb347affdb978f84fc3'
             'dfcdb91edaa6fd46121f8f3a2ce95b0a8e461c5f04c6f9325a1babe45e53cdea'
             '7aa102a2a26cc2ca15321aeaa244044df5077d6c3b75aff6d756982be8ac33a2'
-            'afde0a596b14a513e2ab054482928da7d12006593f70a423659c10a6399ccc36'
+            'd4b75d159d08b39bf551a3ddd07848560e5940fb54fb13dfc47c619736bc0d99'
             '21a26bf30666c8897ec0425f967e0a415352e22a92ba3a243e0d57fca3e55a9b'
             'c1380a518174ea5d23be5afa65ddb4d53ae89da705ac7a643f0587dec659579a'
             '9aa02524ad29c812ce67973e7f01c811b7e559a5ace44ad5e4418db58373b001'

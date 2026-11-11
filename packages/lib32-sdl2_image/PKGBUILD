@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
+#
+# 32-bit SDL2_image for 32-bit Linux games (owner, 2026-11-11, [[games-on-disk]]: The Witcher 2's
+# GOG Linux version), not in Arch's multilib; built from source ([[supply-chain-security]]). The
+# release and its signature were checked on 2026-11-11 in the builder VM: good signature by Sam
+# Lantinga (0900104363B4C9D4223DE149D913FE7D4B61D39B), and the same SHA-512 as Arch's
+# sdl2_image 2.8.12-2 recipe. PNG and JPEG with the stb_image built in (no other 32-bit
+# libraries); TIFF, WebP, AVIF and JPEG XL left out.
+
+pkgname=lib32-sdl2_image
+pkgver=2.8.12
+pkgrel=1
+pkgdesc="32-bit SDL2_image (PNG and JPEG, among others), for 32-bit Linux games in OwneetOS"
+arch=('x86_64')
+url="https://github.com/libsdl-org/SDL_image"
+license=('Zlib')
+depends=('lib32-sdl2-compat' 'lib32-glibc')
+makedepends=('sdl2-compat' 'lib32-gcc-libs' 'pkgconf')
+options=('!debug')
+source=("https://github.com/libsdl-org/SDL_image/releases/download/release-$pkgver/SDL2_image-$pkgver.tar.gz")
+sha512sums=('c2574d83f8ee89b97cc992fe6a579c87a1b9a1aa7a8a3cfb6bf58f10d3880a157d70cd053767cc2ade1bd124e102356a50274d688e24b2e04a375588e54114ac')
+
+build() {
+  cd "SDL2_image-$pkgver"
+  export CC="gcc -m32" CXX="g++ -m32" PKG_CONFIG_PATH=/usr/lib32/pkgconfig
+  ./configure --prefix=/usr --libdir=/usr/lib32 --disable-static --disable-sdltest \
+    --enable-stb-image --disable-tif --disable-webp --disable-avif --disable-jxl
+  make
+}
+
+# A 32-bit program starts SDL2_image with PNG and JPEG
+check() {
+  cat > imgtest.c <<'C'
+#include <SDL_image.h>
+#include <stdio.h>
+int main(void) {
+  int want = IMG_INIT_PNG | IMG_INIT_JPG, got = IMG_Init(want);
+  printf("SDL2_image: PNG %d, JPEG %d\n", !!(got & IMG_INIT_PNG), !!(got & IMG_INIT_JPG));
+  IMG_Quit();
+  return (got & want) == want ? 0 : 1;
+}
+C
+  gcc -m32 -o imgtest imgtest.c $(PKG_CONFIG_PATH=/usr/lib32/pkgconfig pkg-config --cflags sdl2) \
+    -I"SDL2_image-$pkgver/include" -L"SDL2_image-$pkgver/.libs" -lSDL2_image -L/usr/lib32 -lSDL2
+  LD_LIBRARY_PATH="$PWD/SDL2_image-$pkgver/.libs" ./imgtest
+}
+
+package() {
+  cd "SDL2_image-$pkgver"
+  make DESTDIR="$pkgdir" install
+  rm -rf "$pkgdir"/usr/{include,share}
+  install -Dm644 LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

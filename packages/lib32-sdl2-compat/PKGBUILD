@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
+#
+# 32-bit SDL2 for 32-bit Linux games (owner, 2026-11-11, [[games-on-disk]]: The Witcher 2's GOG
+# Linux version): Arch's multilib has only lib32-sdl3, so OwneetOS builds sdl2-compat (SDL2 over
+# SDL3) for 32 bits, from source ([[supply-chain-security]]). The release and its signature were
+# checked on 2026-11-11 in the builder VM: good signature by Sam Lantinga (0900104363B4C9D4223DE149D913FE7D4B61D39B),
+# and the same SHA-512 as Arch's sdl2-compat 2.32.72-1 recipe. Arch's recipe was read and rewritten.
+
+pkgname=lib32-sdl2-compat
+pkgver=2.32.72
+pkgrel=1
+pkgdesc="32-bit SDL2 (the SDL2 compatibility layer over SDL3), for 32-bit Linux games in OwneetOS"
+arch=('x86_64')
+url="https://github.com/libsdl-org/sdl2-compat"
+license=('Zlib')
+depends=('lib32-sdl3' 'lib32-glibc')
+makedepends=('cmake' 'ninja' 'lib32-gcc-libs')
+provides=("lib32-sdl2=$pkgver")
+conflicts=('lib32-sdl2')
+options=('!debug')
+source=("https://github.com/libsdl-org/sdl2-compat/releases/download/release-$pkgver/sdl2-compat-$pkgver.tar.gz")
+sha512sums=('0d5d8b26bbb92e25a102e734daeed8b2345957eec95c01ccfcb1461030c8e12300e19488a1eec45d217c56b64cefe8722d84f3e5c5d013efea9128161174b785')
+
+build() {
+  export CC="gcc -m32" CXX="g++ -m32" PKG_CONFIG_PATH=/usr/lib32/pkgconfig
+  cmake -S "sdl2-compat-$pkgver" -B build -G Ninja -W no-dev \
+    -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib32 -DCMAKE_BUILD_TYPE=Release \
+    -DSDL2COMPAT_TESTS=OFF
+  cmake --build build
+}
+
+# A 32-bit program starts SDL2 (and SDL3 behind it) with this library
+check() {
+  cat > sdltest.c <<'C'
+#include <SDL.h>
+#include <stdio.h>
+int main(void) {
+  SDL_version v;
+  if (SDL_Init(SDL_INIT_EVENTS) != 0) { printf("SDL_Init: %s\n", SDL_GetError()); return 1; }
+  SDL_GetVersion(&v);
+  printf("SDL %d.%d.%d, 32-bit: %d\n", v.major, v.minor, v.patch, (int)(sizeof(void *) == 4));
+  SDL_Quit();
+  return sizeof(void *) == 4 ? 0 : 1;
+}
+C
+  # SDL_config_unix.h is made in the build folder
+  local config
+  config="$(dirname "$(find build -name SDL_config_unix.h -print -quit)")"
+  gcc -m32 -o sdltest sdltest.c -I"$config" -I"sdl2-compat-$pkgver/include/SDL2" -Lbuild -l:libSDL2-2.0.so.0
+  SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy LD_LIBRARY_PATH="$PWD/build" ./sdltest
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+  ln -s sdl2-compat.pc "$pkgdir/usr/lib32/pkgconfig/sdl2.pc"
+  # the headers and tools are the 64-bit sdl2-compat's
+  rm -rf "$pkgdir"/usr/{include,bin,share}
+  install -Dm644 "sdl2-compat-$pkgver/LICENSE.txt" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
