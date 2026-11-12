@@ -60,7 +60,7 @@ Item {
             elide: Text.ElideRight
             lineHeight: 0.95
         }
-        Text {               // the disk it is on (6.6)
+        FitText {               // the disk it is on (6.6)
             visible: root.disk !== ""
             width: parent.width
             text: root.disk
@@ -70,7 +70,6 @@ Item {
             styleColor: "#80000000"
             font.family: Theme.textFont
             font.pixelSize: Theme.fs(12.5)
-            elide: Text.ElideRight
         }
         Text {               // the state: "Not installed", "Downloading · 45%"…
             visible: root.stateText !== ""

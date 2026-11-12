@@ -43,6 +43,7 @@ Item {
         colours.start();
     }
     function done() {
+        console.log("The start-up animation is over");     // tools/frontend-preview waits for it
         Nav.inputPaused = false;
         visible = false;
         if (pages) pages.opacity = 1;
@@ -59,12 +60,12 @@ Item {
         id: content
         anchors.fill: parent
         Rectangle {                     // the palette's background, under the splash's black
-            anchors.fill: parent
+            anchors { fill: parent; margins: -Theme.bleed }   // to the screen's edges (display area)
             color: Theme.bg
         }
         Rectangle {
             id: backdrop
-            anchors.fill: parent
+            anchors { fill: parent; margins: -Theme.bleed }
             color: Theme.splashBg
         }
         Item {                          // in the middle, unscaled, with the slogan's room below it

@@ -4,6 +4,7 @@
 // home: [[step-3.6-home-screen]] (design/demos/3.6-home.html). Library (3.7) and Settings (3.9) are
 // temporary pages for now.
 import QtQuick 2.15
+import QtQuick.Window 2.15
 import "foundation"
 
 FocusScope {
@@ -13,9 +14,15 @@ FocusScope {
     // ---- Preferences, saved in the theme's memory (moved to Settings in [[step-3.9-settings]])
     Binding { target: Theme; property: "width"; value: root.width }
     Binding { target: Theme; property: "height"; value: root.height }
+    // The display area: the frontend's main.qml draws the theme inside it (3y)
+    readonly property real displayAreaX: Theme.areaX
+    readonly property real displayAreaY: Theme.areaY
+    readonly property real screenWidth: Window.width        // the whole screen (an Item reads it)
+    readonly property real screenHeight: Window.height
+    Binding { target: Theme; property: "bleed"; value: Math.ceil(Math.max(Theme.areaX * root.screenWidth, Theme.areaY * root.screenHeight)) + 2 }
     readonly property var prefs: [
         ["palette", "paletteKey"], ["textScale", "textScale"], ["glyphs", "glyphSetting"],
-        ["reduceMotion", "reduceMotion"], ["showSafeArea", "showSafeArea"], ["uiSounds", "uiSounds"],
+        ["reduceMotion", "reduceMotion"], ["displayAreaX", "areaX"], ["displayAreaY", "areaY"], ["uiSounds", "uiSounds"],
         ["uiSoundsVolume", "uiSoundsVolume"], ["keyboard", "keyboardSetting"]
     ]
     property string librarySort: "recent"
@@ -69,7 +76,8 @@ FocusScope {
         function onTextScaleChanged() { save("textScale", Theme.textScale); }
         function onGlyphSettingChanged() { save("glyphs", Theme.glyphSetting); }
         function onReduceMotionChanged() { save("reduceMotion", Theme.reduceMotion); }
-        function onShowSafeAreaChanged() { save("showSafeArea", Theme.showSafeArea); }
+        function onAreaXChanged() { save("displayAreaX", Theme.areaX); }
+        function onAreaYChanged() { save("displayAreaY", Theme.areaY); }
         function onUiSoundsChanged() { save("uiSounds", Theme.uiSounds); }
         function onUiSoundsVolumeChanged() { save("uiSoundsVolume", Theme.uiSoundsVolume); }
         function onKeyboardSettingChanged() { save("keyboard", Theme.keyboardSetting); root.applyKeyboard(); }
@@ -224,7 +232,7 @@ FocusScope {
     readonly property bool modalOpen: firstStart.visible || installer.visible || windowOpen
     // a window over the pages (the first start is not one: the Wi-Fi window opens over it)
     readonly property bool windowOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
-                                       || zoneSheet.visible || clockSheet.visible || moveSheet.visible || versionsSheet.visible
+                                       || zoneSheet.visible || clockSheet.visible || displayArea.visible || moveSheet.visible || versionsSheet.visible
                                        || notices.visible || quick.visible || controls.visible || steamPrep.visible || webPrep.visible
                                        || webKeys.shown
     function backToPage() {
@@ -2787,8 +2795,8 @@ FocusScope {
         dialog.open();
     }
 
-    Rectangle {
-        anchors.fill: parent
+    Rectangle {             // also past the display area, to the screen's edges
+        anchors { fill: parent; margins: -Theme.bleed }
         color: Theme.bg
     }
 
@@ -3040,6 +3048,7 @@ FocusScope {
             onInstall: root.openInstaller()
             focus: visible
             onOpenPalettes: palettes.openPicker()
+            onAdjustDisplayArea: displayArea.open()
             onOpenLanguages: languages.openPicker()
             onOpenTimeZones: root.openTimeZones()
             onOpenClock: root.online ? toast.show(Tr.tr("language.time.auto")) : root.openClock()
@@ -3084,21 +3093,6 @@ FocusScope {
         globalPrompts: [{ buttons: ["lb", "rb"], label: Tr.tr("prompt.sections") }, { buttons: ["guide"], label: Tr.tr("prompt.home") }]
     }
 
-    // ---- TV safe area outline (Appearance → Show TV safe area)
-    Rectangle {
-        visible: Theme.showSafeArea
-        anchors {
-            fill: parent
-            leftMargin: Theme.safeX; rightMargin: Theme.safeX
-            topMargin: Theme.safeTop; bottomMargin: Theme.safeBottom
-        }
-        color: "transparent"
-        border.color: Theme.muted
-        border.width: Math.max(1, Theme.px(1))
-        radius: Theme.px(8)
-        opacity: 0.7
-        z: 50
-    }
 
     // ---- Windows
     Dialog {
@@ -3168,14 +3162,13 @@ FocusScope {
             }
             Repeater {
                 model: dialog.updateLines
-                Text {
+                FitText {
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
                     text: modelData
                     color: Theme.fg
                     font.family: Theme.textFont
                     font.pixelSize: Theme.fs(14.5)
-                    elide: Text.ElideRight
                 }
             }
         }
@@ -3255,16 +3248,15 @@ FocusScope {
                             height: Theme.px(34)
                             radius: Theme.radiusS
                             color: Theme.surface
-                            Text {
+                            FitText {
                                 anchors { left: parent.left; leftMargin: Theme.px(12); right: fromText.left; rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
                                 text: modelData.name
                                 color: Theme.fg
                                 font.family: Theme.textFont
                                 font.weight: Font.Medium
                                 font.pixelSize: Theme.fs(14.5)
-                                elide: Text.ElideRight
                             }
-                            Text {
+                            FitText {
                                 id: fromText
                                 x: parent.width - Theme.px(428)
                                 width: Theme.px(200)
@@ -3273,9 +3265,8 @@ FocusScope {
                                 color: Theme.muted
                                 font.family: Theme.textFont
                                 font.pixelSize: Theme.fs(14.5)
-                                elide: Text.ElideRight
                             }
-                            Text {
+                            FitText {
                                 x: parent.width - Theme.px(212)
                                 width: Theme.px(200)
                                 anchors.verticalCenter: parent.verticalCenter
@@ -3283,7 +3274,6 @@ FocusScope {
                                 color: Theme.fg
                                 font.family: Theme.textFont
                                 font.pixelSize: Theme.fs(14.5)
-                                elide: Text.ElideRight
                             }
                         }
                     }
@@ -4272,6 +4262,12 @@ FocusScope {
         z: 101
         toast: toast
         onChosen: root.refreshTime()
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
+    // ---- The display area (Settings → Display, 3y)
+    DisplayArea {
+        id: displayArea
+        toast: toast
         onVisibleChanged: if (!visible) root.backToPage()
     }
     ClockSheet {

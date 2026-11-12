@@ -326,14 +326,13 @@ Rectangle {
                             anchors { left: parent.left; leftMargin: Theme.px(18); verticalCenter: parent.verticalCenter }
                             width: parent.width * 0.6
                             spacing: Theme.px(3)
-                            Text {
+                            FitText {
                                 width: parent.width
                                 text: modelData.model || modelData.path
                                 color: Theme.fg
                                 font.family: Theme.textFont
                                 font.weight: Font.Medium
                                 font.pixelSize: Theme.fs(17)
-                                elide: Text.ElideRight
                             }
                             Text {
                                 text: GameInfo.size(modelData.size)
@@ -388,14 +387,13 @@ Rectangle {
                             anchors { left: parent.left; leftMargin: Theme.px(18); verticalCenter: parent.verticalCenter }
                             width: parent.width * 0.55
                             spacing: Theme.px(3)
-                            Text {
+                            FitText {
                                 width: parent.width
                                 text: modelData.model || modelData.path
                                 color: Theme.fg
                                 font.family: Theme.textFont
                                 font.weight: Font.Medium
                                 font.pixelSize: Theme.fs(17)
-                                elide: Text.ElideRight
                             }
                             Text {
                                 text: GameInfo.size(modelData.size) + " · " + Tr.tr(parent.parent.on ? "installer.others.prepare" : "installer.others.leave")
@@ -468,13 +466,12 @@ Rectangle {
                             font.family: Theme.textFont
                             font.pixelSize: Theme.fs(14.5)
                         }
-                        Text {
+                        FitText {
                             width: parent.width
                             text: root.gameNames[modelData.path] || ""
                             color: Theme.fg
                             font.family: Theme.textFont
                             font.pixelSize: Theme.fs(24)
-                            elide: Text.ElideRight
                         }
                     }
                     FocusFrame {}
@@ -516,13 +513,12 @@ Rectangle {
                         font.family: Theme.textFont
                         font.pixelSize: Theme.fs(14.5)
                     }
-                    Text {
+                    FitText {
                         width: parent.width
                         text: root.consoleName
                         color: Theme.fg
                         font.family: Theme.textFont
                         font.pixelSize: Theme.fs(24)
-                        elide: Text.ElideRight
                     }
                 }
                 FocusFrame {}

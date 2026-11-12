@@ -258,6 +258,31 @@ windows() {
     { echo "===== $(date '+%F %T')"
       runuser -u owneet -- env DISPLAY=:0 timeout 5 "$probe" 2>&1; } >> "$base.windows.txt"
 }
+# What the screen shows, every 30 seconds (owner, 2026-11-12: faults of the look seen as the tester saw
+# them, open item 3w): gamescope's own screenshot, a game included, in $base.screens/HHMMSS.png; the last
+# 240 are kept (two hours). None in the reduced session (no gamescope) or on the OwneetOS stick itself
+# (too little room). Read back as the console user, never through a link as root.
+last_shot=-30
+screenshot() {
+    (( SECONDS - last_shot >= 30 )) || return 0
+    last_shot=$SECONDS
+    local uid run tmp
+    uid="$(id -u owneet 2>/dev/null)" || return 0
+    run="/run/user/$uid"
+    [[ -S "$run/gamescope-0" ]] || return 0
+    tmp="$run/owneet-testlog-screen.png"
+    runuser -u owneet -- rm -f "$tmp"
+    runuser -u owneet -- env XDG_RUNTIME_DIR="$run" GAMESCOPE_WAYLAND_DISPLAY=gamescope-0 \
+        timeout 10 gamescopectl screenshot "$tmp" >/dev/null 2>&1 || return 0
+    # gamescope writes the file when its next frame is ready: at most 5 s
+    for _ in $(seq 1 25); do [[ -s "$tmp" ]] && break; sleep 0.2; done
+    [[ -s "$tmp" ]] || return 0
+    mkdir -p "$base.screens"
+    runuser -u owneet -- cat "$tmp" > "$base.screens/$(date +%H%M%S).png"
+    runuser -u owneet -- rm -f "$tmp"
+    find "$base.screens" -maxdepth 1 -name '*.png' -printf '%f\n' | sort | head -n -240 \
+        | while IFS= read -r old; do rm -f "$base.screens/$old"; done
+}
 # On the OwneetOS stick itself: stop adding to a file once it reaches 1 MB
 room() { (( ! small )) || (( $(stat -c %s "$1" 2>/dev/null || echo 0) < 1000000 )); }
 while true; do
@@ -266,6 +291,7 @@ while true; do
     (( small )) || steam_logs
     (( small )) || game_logs
     room "$base.windows.txt" && windows
+    (( small )) || screenshot
     sync
     sleep 10 &
     wait $!

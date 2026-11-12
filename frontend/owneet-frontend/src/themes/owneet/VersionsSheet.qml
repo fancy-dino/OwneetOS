@@ -112,7 +112,7 @@ Dialog {
                     radius: Theme.px(14)
                     color: Theme.raised
                     opacity: navigable ? 1 : 0.55
-                    Text {
+                    FitText {
                         id: name
                         anchors { left: parent.left; leftMargin: Theme.px(26); right: tag.left; rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
                         text: "OwneetOS " + modelData.version
@@ -120,7 +120,6 @@ Dialog {
                         font.family: Theme.textFont
                         font.weight: Font.Medium
                         font.pixelSize: Theme.fs(17)
-                        elide: Text.ElideRight
                     }
                     Text {
                         id: tag

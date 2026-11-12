@@ -38,7 +38,7 @@ Rectangle {
                 crossed: root.crossed
                 color: Theme.fg
             }
-            Text {
+            FitText {
                 id: label
                 x: icon.visible ? icon.width + Theme.px(10) : 0
                 width: parent.width - x - valueText.implicitWidth - Theme.px(16)
@@ -46,7 +46,6 @@ Rectangle {
                 color: Theme.fg
                 font.family: Theme.textFont
                 font.pixelSize: Theme.fs(14.5)
-                elide: Text.ElideRight
             }
             Text {
                 id: valueText

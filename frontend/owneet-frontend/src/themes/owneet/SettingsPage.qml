@@ -59,6 +59,7 @@ NavArea {
     }
 
     signal openPalettes()
+    signal adjustDisplayArea()           // Display → "Display area" (3y)
     signal openLanguages()
     signal openTimeZones()              // Language → Time zone (6.1)
     signal openClock()                  // Language → Date and time: by hand without the internet
@@ -103,6 +104,11 @@ NavArea {
         return [P("a", "prompt.select"), P("b", "prompt.back")];
     }
 
+    // 96%, 99,5 %: the part of the screen the display area uses, in the language's numbers
+    function displayAreaPercent(side) {
+        const v = Math.round((1 - 2 * side) * 1000) / 10;
+        return Tr.tr("area.percent", { n: Number(v).toLocaleString(Qt.locale(), "f", v % 1 === 0 ? 0 : 1) });
+    }
     function navItem(name) {
         for (let i = 0; i < navColumn.children.length; i++)
             if (navColumn.children[i].section === name)
@@ -349,9 +355,10 @@ NavArea {
                                  language: "globe", storage: "disks", system: "gear" })[modelData]
                         color: parent.shown ? Theme.fg : Theme.muted
                     }
-                    Text {
+                    FitText {           // too long for the list: "…", or scrolling while selected (3s)
                         id: navText
                         anchors { left: navIcon.right; leftMargin: Theme.px(14); verticalCenter: parent.verticalCenter }
+                        width: parent.width - x - Theme.px(16) - (updateDot.visible ? updateDot.width + Theme.px(10) : 0)
                         text: Tr.tr("settings." + modelData)
                         color: parent.shown ? Theme.fg : Theme.muted
                         font.family: Theme.textFont
@@ -359,6 +366,7 @@ NavArea {
                         font.pixelSize: Theme.fs(17)
                     }
                     Rectangle {             // System: an update is available (7.1)
+                        id: updateDot
                         visible: modelData === "system" && page.updatesOnline && page.online && page.systemUpdate.state === "available"
                         anchors { right: parent.right; rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
                         width: Theme.px(9); height: width
@@ -470,7 +478,7 @@ NavArea {
                                     level: modelData.strength >= 67 ? 3 : modelData.strength >= 34 ? 2 : 1
                                     color: Theme.fg
                                 }
-                                Text {
+                                FitText {
                                     id: ssid
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: Math.min(implicitWidth, netRow.width * 0.55)
@@ -478,7 +486,6 @@ NavArea {
                                     color: Theme.fg
                                     font.family: Theme.textFont
                                     font.pixelSize: Theme.fs(14.5)
-                                    elide: Text.ElideRight
                                 }
                             }
                             Row {
@@ -576,13 +583,12 @@ NavArea {
                                 anchors { left: padIcon.right; leftMargin: Theme.px(10); verticalCenter: parent.verticalCenter }
                                 width: parent.width * 0.6
                                 spacing: Theme.px(2)
-                                Text {
+                                FitText {
                                     width: parent.width
                                     text: modelData.name
                                     color: Theme.fg
                                     font.family: Theme.textFont
                                     font.pixelSize: Theme.fs(14.5)
-                                    elide: Text.ElideRight
                                 }
                                 Text {
                                     text: Tr.tr("pad.connection." + (["usb", "bluetooth", "dongle"].indexOf(modelData.connection) >= 0 ? modelData.connection : "other"))
@@ -754,6 +760,17 @@ NavArea {
                         width: parent.width
                         text: Tr.tr("display.native")
                     }
+                    // For a TV that cuts the edges of the picture (3y, approved demo 3.9c-display-area);
+                    // it replaces "Show TV safe area" in Appearance
+                    SettingRow {
+                        width: parent.width
+                        kind: "picker"
+                        text: Tr.tr("area.title")
+                        detail: Tr.tr("area.detail")
+                        value: Theme.areaX === 0 && Theme.areaY === 0 ? Tr.tr("area.full")
+                               : Tr.tr("area.size", { w: page.displayAreaPercent(Theme.areaX), h: page.displayAreaPercent(Theme.areaY) })
+                        onActivated: page.adjustDisplayArea()
+                    }
                 }
 
                 // ---- Appearance
@@ -807,12 +824,6 @@ NavArea {
                         detail: Tr.tr("appearance.reduce_motion.detail")
                         checked: Theme.reduceMotion
                         onActivated: Theme.reduceMotion = !Theme.reduceMotion
-                    }
-                    SettingRow {
-                        width: parent.width
-                        text: Tr.tr("appearance.safe_area")
-                        checked: Theme.showSafeArea
-                        onActivated: Theme.showSafeArea = !Theme.showSafeArea
                     }
                 }
 

@@ -33,14 +33,13 @@ Rectangle {
         Row {
             width: parent.width
             spacing: Theme.px(6)
-            Text {
+            FitText {
                 id: label
                 width: Math.min(implicitWidth, parent.width - (asideText.visible ? asideText.implicitWidth + parent.spacing : 0))
                 text: root.text
                 color: Theme.fg
                 font.family: Theme.textFont
                 font.pixelSize: Theme.fs(14.5)
-                elide: Text.ElideRight
             }
             Text {
                 id: asideText

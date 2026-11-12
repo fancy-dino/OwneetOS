@@ -237,10 +237,19 @@ mkfifo /tmp/vpad.in
 python3 /vpad.py /tmp/vpad.in > /tmp/vpad.out 2>&1 &
 exec 3>/tmp/vpad.in
 sleep 1
-# @startup: the first picture at once, to see the start-up animation (otherwise it is over by then)
-START_WAIT=7
-if grep -q '^@startup' /steps.txt; then START_WAIT=1; fi
-start() { owneet-frontend >> /out/log.txt 2>&1 & FE=$!; sleep "$START_WAIT"; }
+# The steps start once the start-up animation is over (every button is ignored while it plays; the
+# theme logs its end; after a restart there is none, at most 30 s); with @startup, the first picture
+# at once, to see the animation
+STARTUP=0
+if grep -q '^@startup' /steps.txt; then STARTUP=1; fi
+start() {
+    owneet-frontend >> /out/log.txt 2>&1 & FE=$!
+    sleep 1
+    [ "$STARTUP" = 1 ] && return
+    i=0
+    while [ "$i" -lt 300 ] && ! grep -q 'The start-up animation is over' /out/log.txt; do sleep 0.1; i=$((i + 1)); done
+    sleep 0.5
+}
 start
 while IFS= read -r line; do
     set -- $line

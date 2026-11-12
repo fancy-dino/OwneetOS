@@ -8,6 +8,7 @@
         <file>owneet/CageWindow.qml</file>
         <file>owneet/WebKeyboard.qml</file>
         <file>owneet/ClockSheet.qml</file>
+        <file>owneet/DisplayArea.qml</file>
         <file>owneet/CreditsSheet.qml</file>
         <file>owneet/FirstStart.qml</file>
         <file>owneet/Installer.qml</file>
@@ -38,6 +39,7 @@
         <file>owneet/foundation/Theme.qml</file>
         <file>owneet/foundation/Choice.qml</file>
         <file>owneet/foundation/FocusFrame.qml</file>
+        <file>owneet/foundation/FitText.qml</file>
         <file>owneet/foundation/Glyph.qml</file>
         <file>owneet/foundation/Label.qml</file>
         <file>owneet/foundation/LanguagePicker.qml</file>

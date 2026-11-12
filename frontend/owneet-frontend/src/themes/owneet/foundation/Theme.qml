@@ -20,7 +20,11 @@ QtObject {
     // ---- Preferences (saved by the theme root)
     property real textScale: 1.0                         // 0.9, 1.0, 1.2, 1.4
     property bool reduceMotion: false
-    property bool showSafeArea: false                    // dashed outline of the TV safe area
+    // Display area (Settings → Display, [[screens-and-display]]): the part of each side a TV cuts,
+    // left out (0 to 0.1); the theme is drawn inside the rest (DisplayArea.qml, frontend main.qml)
+    property real areaX: 0
+    property real areaY: 0
+    property real bleed: 0                               // px past the area to paint the background to
     property bool uiSounds: true                         // [[step-3.12-interface-sounds]]
     property int uiSoundsVolume: 70
     property string keyboardSetting: "same"              // "same" as the language, or a layout

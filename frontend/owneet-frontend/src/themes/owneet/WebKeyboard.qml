@@ -119,11 +119,10 @@ FocusScope {
                 x: Theme.px(16); y: Theme.px(12)
                 width: parent.width - Theme.px(32)
                 spacing: Theme.px(4)
-                Text {
+                FitText {
                     visible: text !== ""
                     width: parent.width
                     text: root.fieldLabel
-                    elide: Text.ElideRight
                     color: Theme.muted
                     font.family: Theme.textFont
                     font.pixelSize: Theme.fs(14.5)

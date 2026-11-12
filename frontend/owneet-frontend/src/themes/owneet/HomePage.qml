@@ -497,7 +497,7 @@ NavArea {
                                 anchors { right: parent.right; top: parent.top; rightMargin: Theme.px(10); topMargin: Theme.px(10) }
                                 width: Theme.fs(18); height: width
                             }
-                            Text {
+                            FitText {
                                 id: appName
                                 anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: Theme.px(12); bottomMargin: Theme.px(10) }
                                 text: parent.webApp && parent.webApp.busy
@@ -507,7 +507,6 @@ NavArea {
                                 opacity: parent.dim
                                 font.family: Theme.textFont
                                 font.pixelSize: Theme.fs(14.5)
-                                elide: Text.ElideRight
                             }
                             FocusFrame {}
                         }

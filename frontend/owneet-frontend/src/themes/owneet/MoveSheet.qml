@@ -502,7 +502,7 @@ Dialog {
                     font.family: Theme.textFont
                     font.pixelSize: Theme.fs(12.5)
                 }
-                Text {
+                FitText {
                     x: parent.width - Theme.px(16) - chooseList.removeColumn
                     width: chooseList.removeColumn
                     horizontalAlignment: Text.AlignHCenter
@@ -510,7 +510,6 @@ Dialog {
                     color: Theme.muted
                     font.family: Theme.textFont
                     font.pixelSize: Theme.fs(12.5)
-                    elide: Text.ElideRight
                 }
             }
             Repeater {
@@ -528,14 +527,13 @@ Dialog {
                         anchors { left: parent.left; leftMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
                         width: parent.width - Theme.px(32) - chooseList.copyColumn - chooseList.removeColumn - 2 * chooseList.gap
                         spacing: Theme.px(6)
-                        Text {
+                        FitText {
                             id: label
                             width: Math.min(implicitWidth, parent.width - sizeText.implicitWidth - parent.spacing)
                             text: modelData.title
                             color: Theme.fg
                             font.family: Theme.textFont
                             font.pixelSize: Theme.fs(14.5)
-                            elide: Text.ElideRight
                         }
                         Text {
                             id: sizeText
@@ -634,7 +632,7 @@ Dialog {
                             from: 0; to: 360; duration: 1000; loops: Animation.Infinite
                         }
                     }
-                    Text {
+                    FitText {
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - Theme.fs(22) - Theme.px(80)
                         text: modelData[1]
@@ -642,7 +640,6 @@ Dialog {
                         font.family: Theme.textFont
                         font.weight: parent.parent.state === "now" || parent.parent.state === "bad" ? Font.Medium : Font.Normal
                         font.pixelSize: Theme.fs(17)
-                        elide: Text.ElideRight
                     }
                     Text {
                         anchors.verticalCenter: parent.verticalCenter

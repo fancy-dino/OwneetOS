@@ -808,13 +808,12 @@ Rectangle {
             anchors { left: parent.left; leftMargin: Theme.px(18); verticalCenter: parent.verticalCenter }
             width: parent.width * 0.62
             spacing: Theme.px(3)
-            Text {
+            FitText {
                 width: parent.width
                 text: row.label !== "" ? row.label : row.text
                 color: row.label !== "" ? Theme.muted : Theme.fg
                 font.family: Theme.textFont
                 font.pixelSize: Theme.fs(17)
-                elide: Text.ElideRight
             }
             Text {
                 visible: row.detail !== ""

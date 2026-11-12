@@ -1,0 +1,22 @@
+@owneetd
+# Settings → Display → "Display area" (open item 3y, approved demo design/demos/3.9c-display-area.html):
+# the adjustment on the whole screen, then the console drawn inside the area.
+pad lb down down down right
+pad down down down down down down
+shot 01-area-row
+pad a
+wait 1
+shot 02-adjust
+pad left left left left left left left left left left left left left left left left
+pad down down down down down down down down down down down down
+shot 03-smaller
+pad a
+wait 1
+shot 04-inside-area
+pad a
+wait 1
+pad x
+shot 05-whole-screen-chosen
+pad b
+wait 1
+shot 06-cancelled

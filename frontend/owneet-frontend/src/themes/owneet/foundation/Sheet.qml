@@ -64,7 +64,7 @@ NavArea {
         border.width: Math.max(1, Theme.px(1))
         radius: Theme.radiusL
 
-        Text {
+        FitText {
             id: heading
             anchors { left: parent.left; right: parent.right; top: parent.top }
             anchors { leftMargin: Theme.px(24); rightMargin: Theme.px(24); topMargin: Theme.px(20) }
@@ -73,7 +73,6 @@ NavArea {
             font.family: Theme.displayFont
             font.weight: Font.Bold
             font.pixelSize: Theme.fs(24)
-            elide: Text.ElideRight
         }
         Flickable {
             id: flick

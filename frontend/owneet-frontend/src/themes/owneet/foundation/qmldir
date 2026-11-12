@@ -9,6 +9,7 @@ Button 1.0 Button.qml
 Choice 1.0 Choice.qml
 Cover 1.0 Cover.qml
 Dialog 1.0 Dialog.qml
+FitText 1.0 FitText.qml
 FocusFrame 1.0 FocusFrame.qml
 GameArt 1.0 GameArt.qml
 Icon 1.0 Icon.qml
