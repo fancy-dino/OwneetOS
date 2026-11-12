@@ -75,9 +75,14 @@ local function tracks(kind)
 end
 -- a track's language by the console's names (two-letter codes; Matroska and MP4 files have
 -- three-letter ones), else its title, else "Track 2"
-local function language(t, i)
+-- a track's language as a two-letter code where the console knows it ("ita" → "it")
+local function code_of(t)
     local code = tostring(t.lang or ""):lower():gsub("[-_].*$", "")
-    if #code == 3 then code = (S.codes or {})[code] or "" end
+    if #code == 3 then code = (S.codes or {})[code] or code end
+    return code:match("^%a%a%a?$") and code or ""
+end
+local function language(t, i)
+    local code = code_of(t)
     local name = code ~= "" and (S.languages or {})[code] or nil
     if name then return name end
     if t.title and t.title ~= "" then return t.title end
@@ -92,6 +97,9 @@ local function current_track(kind)
 end
 
 local autoplay = S.autoplay ~= false
+-- the console's preferred languages for videos (owner, 2026-11-12, [[local-media]]): the audio
+-- track last chosen with X, the subtitles last chosen with Menu ("off" too); "" until a choice
+local pref_audio, pref_subs = S.audio_language or "", S.subtitles or ""
 local on_screen = true             -- owneetd says when the console is on screen over the player
 local failed = ""                  -- the last file that could not be played
 local picture = false              -- a song shows its picture (mpv draws it as the video)
@@ -101,7 +109,7 @@ local function send_state()
     mp.commandv("script-message", "owneet-state", utils.format_json({
         index = index() - 1, path = mp.get_property("path") or (item().path or ""),
         position = position(), duration = duration(), paused = paused(),
-        autoplay = autoplay, error = failed,
+        autoplay = autoplay, error = failed, audio_language = pref_audio, subtitles = pref_subs,
     }))
 end
 
@@ -581,7 +589,10 @@ local function audio()
     local _, i = current_track("audio")
     local n = i % #list + 1
     mp.set_property_number("aid", list[n].id)
+    -- its language becomes the preferred one (a track without a language changes nothing)
+    if code_of(list[n]) ~= "" then pref_audio = code_of(list[n]) end
     say(fill(T("player.audio"), { l = language(list[n], n), i = n, n = #list }))
+    send_state()
 end
 -- Menu: subtitles off, then each track in turn
 local function subtitles()
@@ -590,12 +601,32 @@ local function subtitles()
     local _, i = current_track("sub")
     if i >= #list then
         mp.set_property("sid", "no")
+        pref_subs = "off"
         say(fill(T("player.subtitles"), { l = T("player.off") }))
     else
         mp.set_property_number("sid", list[i + 1].id)
+        if code_of(list[i + 1]) ~= "" then pref_subs = code_of(list[i + 1]) end
         say(fill(T("player.subtitles"), { l = language(list[i + 1], i + 1) }))
     end
+    send_state()
 end
+-- A video opens with the preferred languages, before mpv chooses its tracks: the track in that
+-- language, else the video's own default; subtitles "off" stay off (a .srt beside it too)
+mp.add_hook("on_preloaded", 50, function()
+    if not video then return end
+    if pref_audio ~= "" then
+        for _, t in ipairs(tracks("audio")) do
+            if code_of(t) == pref_audio then mp.set_property_number("aid", t.id); break end
+        end
+    end
+    if pref_subs == "off" then
+        mp.set_property("sid", "no")
+    elseif pref_subs ~= "" then
+        for _, t in ipairs(tracks("sub")) do
+            if code_of(t) == pref_subs then mp.set_property_number("sid", t.id); break end
+        end
+    end
+end)
 -- Y, Autoplay (videos), as Y in the Videos page: on, the next video of the folder starts when one
 -- ends; off, the player stops at the end (keep-open) and goes back to the list
 local function apply_autoplay() mp.set_property("keep-open", (video and not autoplay) and "always" or "no") end

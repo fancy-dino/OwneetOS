@@ -137,6 +137,7 @@ def session(kind, opts):
         items = [{"path": f"{MEDIA}/Music/{p}", "title": t, "artist": a, "album": al, "hue": hue(al)}
                  for p, t, a, al in SONGS]
     return {"kind": kind, "mode": opts["session"], "autoplay": opts["autoplay"], "items": items,
+            "audio_language": opts["audio"], "subtitles": opts["subs"],
             "texts": texts, "languages": languages, "codes": codes, "look": look}
 
 
@@ -155,6 +156,8 @@ class Player:
             except FileNotFoundError:
                 pass
         json.dump(self.s, open(SESSION, "w"), ensure_ascii=False)
+        with open(RUN + "/player.m3u", "w") as f:
+            f.write("#EXTM3U\n" + "".join(i["path"] + "\n" for i in self.s["items"]))
         # as owneetd builds it (daemon/internal/player/player.go, args)
         args = ["mpv", "--config-dir=/usr/share/owneet/player", f"--input-ipc-server={SOCK}",
                 f"--script-opts=owneet-session={SESSION}", f"--watch-later-dir={WATCH_LATER}"]
@@ -163,8 +166,7 @@ class Player:
         # The preview only: X11 output, the last of the list owneetd gives under gamescope (the
         # container's software OpenGL is captured half-drawn); no sound device, and without
         # --ao=null mpv drops the audio track (the console plays through PipeWire)
-        args += ["--vo=x11", f"--playlist-start={start}", "--ao=null", "--"]
-        args += [i["path"] for i in self.s["items"]]
+        args += ["--vo=x11", f"--playlist={RUN}/player.m3u", f"--playlist-start={start}", "--ao=null"]
         self.log = open(OUT + "/log.txt", "a")
         self.proc = subprocess.Popen(args, stdout=self.log, stderr=subprocess.STDOUT,
                                      env=dict(os.environ, HOME=HOME, XDG_RUNTIME_DIR="/tmp/run"))
@@ -203,7 +205,7 @@ class Player:
 
 def main(steps):
     opts = {"lang": "en", "palette": "dusk", "glyphs": "xbox", "textscale": 1.0, "session": "gamescope",
-            "autoplay": True}
+            "autoplay": True, "audio": "", "subs": ""}
     lines = [l.strip() for l in open(steps) if l.strip()]
     kind = "music" if lines and lines[0] == "@music" else "videos"
     make_media()
@@ -221,6 +223,8 @@ def main(steps):
             opts["textscale"] = float(w[1])
         elif w[0] == "autoplay":
             opts["autoplay"] = w[1] == "on"
+        elif w[0] == "prefer":      # the console's preferred languages ("-": none chosen yet)
+            opts["audio"], opts["subs"] = ("" if w[1] == "-" else w[1]), ("" if w[2] == "-" else w[2])
         elif w[0] == "saved":
             path = session(kind, opts)["items"][int(w[1])]["path"]
             with open(watch_later(path), "w") as f:

@@ -462,7 +462,8 @@ class Handler(BaseHTTPRequestHandler):
             player = {"open": True, "kind": body.get("kind"), "index": i, "count": len(items), "path": it.get("path", ""),
                       "title": it.get("title", ""), "folder": it.get("folder", ""), "artist": it.get("artist", ""),
                       "album": it.get("album", ""), "position": 95 if video else 30, "duration": 1500 if video else 214,
-                      "paused": False, "autoplay": body.get("autoplay", True)}
+                      "paused": False, "autoplay": body.get("autoplay", True),
+                      "audio_language": body.get("audio_language", ""), "subtitles": body.get("subtitles", "")}
             app = {"id": "player", "name": it.get("title", ""), "kind": "media"}
             with lock:
                 state["apps"] = [a for a in state["apps"] if a["id"] != "player"] + [app]

@@ -23,11 +23,19 @@ FocusScope {
     // Videos (5.6): the next video of the folder starts by itself (on for a new console)
     property bool mediaAutoplay: true
     onMediaAutoplayChanged: save("mediaAutoplay", mediaAutoplay)
+    // Videos (5.6): the preferred audio and subtitle language, the last chosen in the player (X,
+    // Menu; subtitles also "off"; "" until a choice), for every video ([[local-media]])
+    property string mediaAudioLanguage: ""
+    onMediaAudioLanguageChanged: save("mediaAudioLanguage", mediaAudioLanguage)
+    property string mediaSubtitles: ""
+    onMediaSubtitlesChanged: save("mediaSubtitles", mediaSubtitles)
     property bool loaded: false
     Component.onCompleted: {
         prefs.forEach(p => { if (api.memory.has(p[0])) Theme[p[1]] = api.memory.get(p[0]); });
         if (api.memory.has("librarySort")) librarySort = api.memory.get("librarySort");
         if (api.memory.has("mediaAutoplay")) mediaAutoplay = api.memory.get("mediaAutoplay") === true;
+        if (api.memory.has("mediaAudioLanguage")) mediaAudioLanguage = String(api.memory.get("mediaAudioLanguage"));
+        if (api.memory.has("mediaSubtitles")) mediaSubtitles = String(api.memory.get("mediaSubtitles"));
         loaded = true;
         // The interface restarts when the console moves to another screen (and when it comes
         // back): it opens again on Settings → Display, where the move was asked
@@ -818,6 +826,11 @@ FocusScope {
         // Autoplay switched in the player (Menu): the Videos page and the next start follow
         if (data.open && data.kind === "videos" && data.autoplay !== undefined && data.autoplay !== mediaAutoplay)
             mediaAutoplay = data.autoplay;
+        // a language chosen in the player (X, Menu) becomes the preferred one
+        if (data.open && data.kind === "videos" && typeof data.audio_language === "string")
+            mediaAudioLanguage = data.audio_language;
+        if (data.open && data.kind === "videos" && typeof data.subtitles === "string")
+            mediaSubtitles = data.subtitles;
     }
     readonly property var playerTexts: ["player.play", "player.pause", "player.seek", "player.prevnext", "prompt.back",
         "prompt.home", "player.hold", "player.state.audio", "player.state.subtitles", "player.off", "media.autoplay",
@@ -855,7 +868,8 @@ FocusScope {
         Object.keys(codes).forEach(k => { const c = codes[k]; if (!(c in languages)) languages[c] = MediaText.language(c); });
         const request = {
             kind: music ? "music" : "videos", items: items, index: Math.max(0, list.findIndex(e => e.path === entry.path)),
-            from_start: fromStart === true, autoplay: mediaAutoplay, texts: texts, languages: languages, codes: codes,
+            from_start: fromStart === true, autoplay: mediaAutoplay, audio_language: mediaAudioLanguage,
+            subtitles: mediaSubtitles, texts: texts, languages: languages, codes: codes,
             look: { bg: hex(Theme.bg), surface: hex(Theme.surface), raised: hex(Theme.raised), line: hex(Theme.line),
                     fg: hex(Theme.fg), muted: hex(Theme.muted), accent: hex(Theme.accent), onAccent: hex(Theme.onAccent),
                     displayFont: Theme.displayFont, textFont: Theme.textFont, textScale: Theme.textScale, glyphs: Theme.glyphs }

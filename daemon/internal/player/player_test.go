@@ -106,19 +106,18 @@ func setup(t *testing.T) (*Manager, *fakeApps, Request) {
 }
 
 func TestArgs(t *testing.T) {
-	got := Args("/cfg", "/run/user/1000/owneet", "/home/o/.local/state/owneet/watch_later", "gamescope", "videos", 2,
-		[]string{"/media/a.mkv", "/media/b.mkv"})
+	got := Args("/cfg", "/run/user/1000/owneet", "/home/o/.local/state/owneet/watch_later", "gamescope", "videos", 2)
 	want := []string{"mpv", "--config-dir=/cfg", "--input-ipc-server=/run/user/1000/owneet/player.sock",
 		"--script-opts=owneet-session=/run/user/1000/owneet/player.json",
 		"--watch-later-dir=/home/o/.local/state/owneet/watch_later",
-		"--vo=gpu-next,gpu,x11", "--gpu-context=x11egl,x11vk", "--playlist-start=2", "--", "/media/a.mkv", "/media/b.mkv"}
+		"--vo=gpu-next,gpu,x11", "--gpu-context=x11egl,x11vk", "--playlist=/run/user/1000/owneet/player.m3u", "--playlist-start=2"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("videos in gamescope:\n got %q\nwant %q", got, want)
 	}
-	got = Args("/cfg", "/r", "/w", "cage", "music", 0, []string{"/m/--odd.mp3"})
+	got = Args("/cfg", "/r", "/w", "cage", "music", 0)
 	want = []string{"mpv", "--config-dir=/cfg", "--input-ipc-server=/r/player.sock", "--script-opts=owneet-session=/r/player.json",
 		"--watch-later-dir=/w", "--profile=owneet-music", "--vo=gpu-next,gpu,wlshm", "--gpu-context=wayland,waylandvk",
-		"--playlist-start=0", "--", "/m/--odd.mp3"}
+		"--playlist=/r/player.m3u", "--playlist-start=0"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("music in cage:\n got %q\nwant %q", got, want)
 	}
@@ -140,11 +139,13 @@ func TestOpenStartsThePlayer(t *testing.T) {
 		}
 	}
 	req.FromStart = true
+	req.AudioLanguage, req.Subtitles = "it", "off"
 	st, err := m.Open(req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !st.Open || st.Index != 1 || st.Count != 2 || st.Title != "Episode 2" || st.Folder != "Harbour Tales › Season 1" || !st.Autoplay {
+	if !st.Open || st.Index != 1 || st.Count != 2 || st.Title != "Episode 2" || st.Folder != "Harbour Tales › Season 1" || !st.Autoplay ||
+		st.AudioLanguage != "it" || st.Subtitles != "off" {
 		t.Fatalf("state: %+v", st)
 	}
 	if _, err := os.Stat(saved); !os.IsNotExist(err) {
@@ -160,9 +161,14 @@ func TestOpenStartsThePlayer(t *testing.T) {
 	if l.ID != AppID || l.Kind != apps.KindMedia || l.Name != "Episode 2" {
 		t.Fatalf("launch: %+v", l)
 	}
-	want := Args(m.ConfigDir, m.RuntimeDir, m.WatchLaterDir, "cage", "videos", 1, []string{req.Items[0].Path, req.Items[1].Path})
+	want := Args(m.ConfigDir, m.RuntimeDir, m.WatchLaterDir, "cage", "videos", 1)
 	if !reflect.DeepEqual(l.Command, want) {
 		t.Fatalf("command:\n got %q\nwant %q", l.Command, want)
+	}
+	// the list, in a playlist file (any length, never on the command line)
+	list, err := os.ReadFile(filepath.Join(m.RuntimeDir, "player.m3u"))
+	if err != nil || string(list) != "#EXTM3U\n"+req.Items[0].Path+"\n"+req.Items[1].Path+"\n" {
+		t.Fatalf("playlist %q %v", list, err)
 	}
 	// the session file the script reads: private, with the session's mode and what was sent
 	path := filepath.Join(m.RuntimeDir, "player.json")
@@ -176,7 +182,7 @@ func TestOpenStartsThePlayer(t *testing.T) {
 		t.Fatal(err)
 	}
 	if s.Kind != "videos" || s.Mode != "cage" || !s.Autoplay || len(s.Items) != 2 || s.Texts["player.resumed"] != "Resumed at {t}" ||
-		s.Codes["eng"] != "en" || s.Look.Accent != "#FF8A5B" {
+		s.Codes["eng"] != "en" || s.Look.Accent != "#FF8A5B" || s.AudioLanguage != "it" || s.Subtitles != "off" {
 		t.Fatalf("session: %+v", s)
 	}
 	select {
@@ -201,6 +207,8 @@ func TestOpenRefuses(t *testing.T) {
 		"glyphs":   func(r *Request) { r.Look.Glyphs = "sega" },
 		"font":     func(r *Request) { r.Look.TextFont = `Lexend\b1` },
 		"scale":    func(r *Request) { r.Look.TextScale = 0 },
+		"audio":    func(r *Request) { r.AudioLanguage = "Italian" },
+		"subs":     func(r *Request) { r.Subtitles = "Off" },
 	}
 	for name, change := range bad {
 		r := req
@@ -224,6 +232,25 @@ func TestOpenRefuses(t *testing.T) {
 	}
 	if len(fa.launched) != 0 {
 		t.Error("launched anyway")
+	}
+}
+
+// A list of any length: a folder of 10,000 songs opens (sub-step 5 had a cap of 5,000)
+func TestOpenLongList(t *testing.T) {
+	m, fa, req := setup(t)
+	first := req.Items[0]
+	req.Kind, req.Index = "music", 0
+	req.Items = []Item{first}
+	for i := 1; i < 10000; i++ {
+		req.Items = append(req.Items, Item{Path: filepath.Join(filepath.Dir(first.Path), "song.flac"), Title: "A song"})
+	}
+	st, err := m.Open(req)
+	if err != nil || st.Count != 10000 || len(fa.launched) != 1 {
+		t.Fatalf("10,000 songs: %+v %v", st, err)
+	}
+	list, _ := os.ReadFile(filepath.Join(m.RuntimeDir, "player.m3u"))
+	if n := strings.Count(string(list), "\n"); n != 10001 {
+		t.Fatalf("playlist lines %d", n)
 	}
 }
 
@@ -304,13 +331,14 @@ func TestFollowsThePlayer(t *testing.T) {
 		}
 	}
 	msg, _ := json.Marshal(map[string]any{"event": "client-message", "args": []string{"owneet-state",
-		`{"index":0,"path":"` + req.Items[0].Path + `","position":95.5,"duration":2465,"paused":true,"autoplay":false,"error":""}`}})
+		`{"index":0,"path":"` + req.Items[0].Path + `","position":95.5,"duration":2465,"paused":true,"autoplay":false,"error":"","audio_language":"it","subtitles":"off"}`}})
 	go func() {
 		conn.Write([]byte(`{"event":"file-loaded"}` + "\n"))
 		conn.Write(append(msg, '\n'))
 	}()
 	st := changed()
-	if st.Index != 0 || st.Title != "Episode 1" || st.Position != 95.5 || !st.Paused || st.Autoplay || !st.Open {
+	if st.Index != 0 || st.Title != "Episode 1" || st.Position != 95.5 || !st.Paused || st.Autoplay || !st.Open ||
+		st.AudioLanguage != "it" || st.Subtitles != "off" {
 		t.Fatalf("state %+v", st)
 	}
 	if got := m.Status(); got.Title != "Episode 1" || !got.Open {

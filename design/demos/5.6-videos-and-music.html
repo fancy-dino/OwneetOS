@@ -982,7 +982,15 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   function toast(text) { const t = $('#toast'); t.textContent = text; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2200); }
 
   /* ---------- The player (mpv): started like a game, one app at a time ---------- */
-  const tracksAtStart = it => ({ aid: 0, sid: it.kind === 'video' && it.tracks.side ? 0 : -1 });   // a .srt beside the video shows by itself
+  // One preferred audio and subtitle language for every video (owner, 2026-11-12): the last chosen
+  // with X and Menu ('off' too); a video without it, and before any choice, starts with its own
+  // tracks (a .srt beside the video shows by itself)
+  let prefAudio = '', prefSubs = '';
+  const tracksAtStart = it => {
+    if (it.kind !== 'video') return { aid: 0, sid: -1 };
+    const a = it.tracks.audio.indexOf(prefAudio), s = it.tracks.subs.indexOf(prefSubs);
+    return { aid: a >= 0 ? a : 0, sid: prefSubs === 'off' ? -1 : s >= 0 ? s : it.tracks.side ? 0 : -1 };
+  };
   const snapshot = () => ({ sub, vStack: [...vStack], mView, folders: [...mStack.folders], artists: [...mStack.artists] });
   function play(it, list, fromStart) {
     if (gameOn) { feedback('edge'); toast(tr('toast.busy', { name: GAMES[0].title })); return; }
@@ -1064,11 +1072,11 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       case 'lt': prevItem(); break;
       case 'rt': nextItem(); break;
       case 'x':
-        if (video && t.audio.length > 1) { player.aid = (player.aid + 1) % t.audio.length; plMsg(tr('msg.audio', { l: langName(t.audio[player.aid]), i: player.aid + 1, n: t.audio.length })); renderPlayer(); }
+        if (video && t.audio.length > 1) { player.aid = (player.aid + 1) % t.audio.length; prefAudio = t.audio[player.aid]; plMsg(tr('msg.audio', { l: langName(t.audio[player.aid]), i: player.aid + 1, n: t.audio.length })); renderPlayer(); }
         break;
       // Y switches Autoplay, as in the Videos page; Menu the subtitles (owner, 2026-11-11)
       case 'menu':
-        if (video && t.subs.length) { player.sid = player.sid + 1 >= t.subs.length ? -1 : player.sid + 1; plMsg(tr('msg.subs', { l: player.sid < 0 ? tr('subs.off') : langName(t.subs[player.sid]) })); renderPlayer(); }
+        if (video && t.subs.length) { player.sid = player.sid + 1 >= t.subs.length ? -1 : player.sid + 1; prefSubs = player.sid < 0 ? 'off' : t.subs[player.sid]; plMsg(tr('msg.subs', { l: player.sid < 0 ? tr('subs.off') : langName(t.subs[player.sid]) })); renderPlayer(); }
         break;
       case 'y': if (video) toggleAutoplay(true); break;
       case 'b': leavePlayer(); return;

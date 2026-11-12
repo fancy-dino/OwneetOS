@@ -17,8 +17,9 @@ type Player interface {
 	Status() player.State
 }
 
-// maxPlayerBody: a folder's or an album's list (player.MaxItems) with the player's texts
-const maxPlayerBody = 4 << 20
+// maxPlayerBody: a folder's or an album's list, of any reasonable length (about 300,000 files),
+// with the player's texts
+const maxPlayerBody = 64 << 20
 
 func (s *Server) playerAvailable(w http.ResponseWriter) bool {
 	if s.Player == nil {

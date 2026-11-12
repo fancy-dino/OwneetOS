@@ -16,7 +16,8 @@
 #                      subtitles, a subtitle file beside one) / an album with its pictures, one
 #                      with a cover.jpg, one with nothing
 #   lang en|it, palette KEY, glyphs xbox|ps|nintendo, textscale N, session gamescope|cage,
-#   autoplay on|off    the console's choices, before `start`
+#   autoplay on|off, prefer AUDIO SUBS (preferred languages, e.g. "prefer it off"; "-": none)
+#                      the console's choices, before `start`
 #   saved N SECONDS    a saved position for item N (0 = the first), as mpv writes it
 #   start N [fromstart]  open the player on item N (from the start: its saved position removed,
 #                      as owneetd does)

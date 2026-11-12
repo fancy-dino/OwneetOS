@@ -37,9 +37,6 @@ import (
 // AppID is the player's id among the running apps.
 const AppID = "player"
 
-// MaxItems is the longest list the player takes (a folder's videos, an album's songs).
-const MaxItems = 5000
-
 // Item is a video or a song of the list, with what the display shows.
 type Item struct {
 	Path   string  `json:"path"`
@@ -73,6 +70,10 @@ type Request struct {
 	Index     int    `json:"index"`      // the one to play first
 	FromStart bool   `json:"from_start"` // a video's saved position is forgotten first
 	Autoplay  bool   `json:"autoplay"`
+	// AudioLanguage and Subtitles are the console's preferred languages for videos (two- or
+	// three-letter codes; Subtitles also "off"; "": none chosen yet), [[local-media]]
+	AudioLanguage string `json:"audio_language"`
+	Subtitles     string `json:"subtitles"`
 	// Texts are the player's messages, already translated (placeholders such as {t} left in)
 	Texts map[string]string `json:"texts"`
 	// Languages names tracks by their two-letter codes; Codes turns three-letter ones into them
@@ -83,14 +84,16 @@ type Request struct {
 
 // session is the file owneet.lua reads.
 type session struct {
-	Kind      string            `json:"kind"`
-	Mode      string            `json:"mode"` // gamescope or cage (Guide's prompt)
-	Autoplay  bool              `json:"autoplay"`
-	Items     []Item            `json:"items"`
-	Texts     map[string]string `json:"texts"`
-	Languages map[string]string `json:"languages"`
-	Codes     map[string]string `json:"codes"`
-	Look      Look              `json:"look"`
+	Kind          string            `json:"kind"`
+	Mode          string            `json:"mode"` // gamescope or cage (Guide's prompt)
+	Autoplay      bool              `json:"autoplay"`
+	AudioLanguage string            `json:"audio_language"`
+	Subtitles     string            `json:"subtitles"`
+	Items         []Item            `json:"items"`
+	Texts         map[string]string `json:"texts"`
+	Languages     map[string]string `json:"languages"`
+	Codes         map[string]string `json:"codes"`
+	Look          Look              `json:"look"`
 }
 
 // State is the body of GET /v1/player and of the "player.changed" event: what plays.
@@ -108,6 +111,9 @@ type State struct {
 	Duration float64 `json:"duration"`
 	Paused   bool    `json:"paused"`
 	Autoplay bool    `json:"autoplay"`
+	// The preferred languages, as the player last chose them (X, Menu)
+	AudioLanguage string `json:"audio_language"`
+	Subtitles     string `json:"subtitles"`
 	// Error is a file that could not be played (the last one: the player closed)
 	Error string `json:"error,omitempty"`
 }
@@ -150,7 +156,10 @@ type Manager struct {
 	conn  net.Conn
 }
 
-var colourRE = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
+var (
+	colourRE   = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
+	languageRE = regexp.MustCompile(`^([a-z]{2,3})?$`)
+)
 
 func validate(req *Request) error {
 	bad := func(format string, a ...any) error {
@@ -159,8 +168,8 @@ func validate(req *Request) error {
 	if req.Kind != "videos" && req.Kind != "music" {
 		return bad(`kind is "videos" or "music"`)
 	}
-	if len(req.Items) == 0 || len(req.Items) > MaxItems {
-		return bad("1 to %d items", MaxItems)
+	if len(req.Items) == 0 {
+		return bad("no items")
 	}
 	if req.Index < 0 || req.Index >= len(req.Items) {
 		return bad("index out of the list")
@@ -172,6 +181,9 @@ func validate(req *Request) error {
 		if len(it.Title) > 500 || len(it.Folder) > 2000 || len(it.Artist) > 500 || len(it.Album) > 500 {
 			return bad("text too long")
 		}
+	}
+	if !languageRE.MatchString(req.AudioLanguage) || (req.Subtitles != "off" && !languageRE.MatchString(req.Subtitles)) {
+		return bad(`languages are two or three letters (subtitles also "off")`)
 	}
 	if len(req.Texts) > 200 || len(req.Languages) > 500 || len(req.Codes) > 500 {
 		return bad("too many texts")
@@ -211,9 +223,10 @@ func WatchLaterFile(dir, path string) string {
 
 // Args is the mpv command: the player's configuration, the session's output (as
 // owneet-placeholder: only the methods that fit the compositor; the last works without a GPU), the
-// control socket, the session file, the saved positions, songs' profile, the files. Keep
-// tools/preview-steps/player-driver.py alike.
-func Args(configDir, runtimeDir, watchLaterDir, mode, kind string, index int, files []string) []string {
+// control socket, the session file, the saved positions, songs' profile, the list (a playlist
+// file: a list of any length, never on the command line). Keep tools/preview-steps/player-driver.py
+// alike.
+func Args(configDir, runtimeDir, watchLaterDir, mode, kind string, index int) []string {
 	argv := []string{"mpv", "--config-dir=" + configDir,
 		"--input-ipc-server=" + filepath.Join(runtimeDir, "player.sock"),
 		"--script-opts=owneet-session=" + filepath.Join(runtimeDir, "player.json"),
@@ -226,8 +239,18 @@ func Args(configDir, runtimeDir, watchLaterDir, mode, kind string, index int, fi
 	} else {
 		argv = append(argv, "--vo=gpu-next,gpu,x11", "--gpu-context=x11egl,x11vk")
 	}
-	argv = append(argv, "--playlist-start="+strconv.Itoa(index), "--")
-	return append(argv, files...)
+	return append(argv, "--playlist="+filepath.Join(runtimeDir, "player.m3u"), "--playlist-start="+strconv.Itoa(index))
+}
+
+// playlist is the list for mpv: one absolute path a line (validate refuses line breaks in them).
+func playlist(items []Item) []byte {
+	var b strings.Builder
+	b.WriteString("#EXTM3U\n")
+	for _, it := range items {
+		b.WriteString(it.Path)
+		b.WriteByte('\n')
+	}
+	return []byte(b.String())
 }
 
 func (m *Manager) running() bool {
@@ -302,7 +325,8 @@ func (m *Manager) Open(req Request) (State, error) {
 	if err := os.MkdirAll(m.WatchLaterDir, 0o700); err != nil {
 		return State{}, err
 	}
-	data, err := json.Marshal(session{Kind: req.Kind, Mode: sess.Mode, Autoplay: req.Autoplay, Items: req.Items,
+	data, err := json.Marshal(session{Kind: req.Kind, Mode: sess.Mode, Autoplay: req.Autoplay,
+		AudioLanguage: req.AudioLanguage, Subtitles: req.Subtitles, Items: req.Items,
 		Texts: req.Texts, Languages: req.Languages, Codes: req.Codes, Look: req.Look})
 	if err != nil {
 		return State{}, err
@@ -310,18 +334,18 @@ func (m *Manager) Open(req Request) (State, error) {
 	if err := atomicfile.Write(filepath.Join(m.RuntimeDir, "player.json"), data, 0o600); err != nil {
 		return State{}, err
 	}
-	files := make([]string, len(req.Items))
-	for i, it := range req.Items {
-		files[i] = it.Path
+	if err := atomicfile.Write(filepath.Join(m.RuntimeDir, "player.m3u"), playlist(req.Items), 0o600); err != nil {
+		return State{}, err
 	}
 	m.disconnect()
-	argv := Args(m.ConfigDir, m.RuntimeDir, m.WatchLaterDir, sess.Mode, req.Kind, req.Index, files)
+	argv := Args(m.ConfigDir, m.RuntimeDir, m.WatchLaterDir, sess.Mode, req.Kind, req.Index)
 	if _, err := m.Apps.Launch(apps.LaunchRequest{ID: AppID, Name: first.Title, Kind: apps.KindMedia, Command: argv}); err != nil {
 		return State{}, err
 	}
 	m.mu.Lock()
 	m.items = req.Items
-	m.state = State{Open: true, Kind: req.Kind, Count: len(req.Items), Autoplay: req.Autoplay}
+	m.state = State{Open: true, Kind: req.Kind, Count: len(req.Items), Autoplay: req.Autoplay,
+		AudioLanguage: req.AudioLanguage, Subtitles: req.Subtitles}
 	m.setIndex(req.Index, first.Path)
 	st := m.state
 	m.mu.Unlock()
@@ -439,6 +463,7 @@ func (m *Manager) readSession() {
 	if json.Unmarshal(data, &s) == nil {
 		m.items = s.Items
 		m.state.Kind, m.state.Count, m.state.Autoplay = s.Kind, len(s.Items), s.Autoplay
+		m.state.AudioLanguage, m.state.Subtitles = s.AudioLanguage, s.Subtitles
 	}
 }
 
@@ -467,6 +492,8 @@ type scriptState struct {
 	Paused   bool    `json:"paused"`
 	Autoplay bool    `json:"autoplay"`
 	Error    string  `json:"error"`
+	Audio    string  `json:"audio_language"`
+	Subs     string  `json:"subtitles"`
 }
 
 func (m *Manager) follow(conn net.Conn) {
@@ -489,6 +516,7 @@ func (m *Manager) follow(conn net.Conn) {
 		m.setIndex(s.Index, s.Path)
 		m.state.Position, m.state.Duration, m.state.Paused = s.Position, s.Duration, s.Paused
 		m.state.Autoplay, m.state.Error = s.Autoplay, s.Error
+		m.state.AudioLanguage, m.state.Subtitles = s.Audio, s.Subs
 		m.state.Open = true
 		st := m.state
 		m.mu.Unlock()

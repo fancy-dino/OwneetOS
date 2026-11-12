@@ -59,15 +59,15 @@ func TestPlayerEndpoints(t *testing.T) {
 			t.Errorf("%s: %d %s, want %d %s", body, code, errCode, want.code, want.err)
 		}
 	}
-	// a long album: more than the other routes take
-	items := make([]string, 3000)
+	// a long album: much more than the other routes take
+	items := make([]string, 30000)
 	for i := range items {
 		items[i] = `{"path":"/media/Music/Some artist/Some album/a song with a long name.flac","title":"A song with a long name"}`
 	}
 	if code, errCode := post(t, c, "/v1/player", `{"kind":"music","index":0,"items":[`+strings.Join(items, ",")+`]}`); code != 201 {
-		t.Fatalf("3000 songs: %d %s", code, errCode)
+		t.Fatalf("30,000 songs: %d %s", code, errCode)
 	}
-	if n := len(fp.opened); n != 2 || len(fp.opened[1].Items) != 3000 {
+	if n := len(fp.opened); n != 2 || len(fp.opened[1].Items) != 30000 {
 		t.Fatalf("opened %d", n)
 	}
 }
