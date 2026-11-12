@@ -1,0 +1,275 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS - interactive demo: long texts (open item 3s, 3w a). A text that does not fit scrolls while it is
+     highlighted, so it can be read whole; the texts not highlighted end with "…". Shown on Settings with text
+     size XL. Open in a browser; drive it with a gamepad or the keyboard. Fonts are loaded from Google Fonts
+     for the demo only: the console bundles the font files (SIL Open Font License). -->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS - Long texts (demo 3.3b)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1.4; --motion: 1;
+  --bg: #0E1424; --surface: #172036; --raised: #222D4A; --line: #2E3A5C; --fg: #EEF1F8; --muted: #8F9AB5; --accent: #FF8A5B; --on-accent: #1E0E06; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+.frame { position: relative; flex: none; }
+.stage {
+  width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px;
+  display: grid; grid-template-rows: auto 1fr auto; gap: 20px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350;
+}
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+
+[data-f] { outline: none; position: relative; transition: transform calc(.16s * var(--motion)) ease, box-shadow calc(.16s * var(--motion)) ease; }
+[data-f].focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); transform: scale(calc(1 + .02 * var(--motion))); z-index: 2; }
+
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 36px; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.status .clock { color: var(--fg); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.settings { display: grid; grid-template-columns: 290px 1fr; gap: 28px; min-height: 0; }
+.nav { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.nav-item { display: flex; align-items: center; gap: 14px; padding: 11px 16px; border-radius: 14px; color: var(--muted); min-width: 0; }
+.nav-item svg { width: calc(22px * var(--ts)); height: calc(22px * var(--ts)); flex: none; }
+.nav-item[aria-current="true"] { background: var(--surface); color: var(--fg); font-weight: 500; }
+.panel { min-height: 0; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.panel h2 { margin: 0 0 4px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); width: 100%; min-height: 54px; min-width: 0; }
+.row .left { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.row .right { color: var(--muted); flex: none; }
+
+/* ---------- The rule: a text that does not fit ends with "…"; highlighted, it scrolls ---------- */
+.clip { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.clip > span { display: inline; }
+.clip.scrolling > span { display: inline-block; }
+.clip.scrolling { text-overflow: clip;
+  /* soft edges while it moves, so letters do not look cut */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%); }
+.clip.scrolling.at-start { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 14px), transparent 100%); mask-image: linear-gradient(90deg, #000 calc(100% - 14px), transparent 100%); }
+.clip.scrolling.at-end { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px); mask-image: linear-gradient(90deg, transparent 0, #000 14px); }
+
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 24px; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+
+.demo-bar { display: flex; gap: 22px; align-items: center; color: #8a90a0; font: 12px/1.4 system-ui, sans-serif; flex-wrap: wrap; justify-content: center; }
+.demo-bar .grp { display: inline-flex; gap: 6px; align-items: center; }
+.demo-bar button { padding: 3px 10px; border-radius: 999px; border: 1px solid #333a4a; color: #c9cdd8; font: inherit; }
+.demo-bar button[aria-pressed="true"] { background: #c9cdd8; color: #05070C; }
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <header class="top">
+    <div class="top-left">
+      <span class="mark">Owneet<i>OS</i></span>
+      <nav class="tabs t-s"><span class="tab" data-t="tab.home"></span><span class="tab" data-t="tab.library"></span><span class="tab" aria-current="page" data-t="tab.settings"></span></nav>
+    </div>
+    <div class="status t-s"><span class="clock" id="clock">20:41</span></div>
+  </header>
+  <main class="settings">
+    <nav class="nav t-m" id="nav"></nav>
+    <section class="panel" id="panel"></section>
+  </main>
+  <footer class="prompts t-s"><div class="set" id="pl"></div><div class="set" id="pr"></div></footer>
+</div></div>
+
+<div class="demo-bar" id="demo-bar">
+  <span class="grp"><span>Speed:</span><button data-speed="30">Slow</button><button data-speed="45" aria-pressed="true">Medium</button><button data-speed="70">Fast</button></span>
+  <span class="grp"><span>Pause before / after:</span><button data-pause="1000">1 s</button><button data-pause="1500" aria-pressed="true">1.5 s</button><button data-pause="2500">2.5 s</button></span>
+  <span class="grp"><span>Text size:</span><button data-ts="1">M</button><button data-ts="1.2">L</button><button data-ts="1.4" aria-pressed="true">XL</button></span>
+  <span class="grp"><span>Language:</span><button data-lang="it" aria-pressed="true">Italiano</button><button data-lang="en">English</button></span>
+</div>
+<p class="help"><b>Gamepad:</b> D-pad / stick move (up/down in a list, right into the panel, left back to the sections).
+<b>Keyboard:</b> arrows. The other buttons do nothing in this demo.</p>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+
+  const EN = {
+    'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings',
+    's.network': 'Network', 's.controllers': 'Controllers and Bluetooth', 's.audio': 'Sound', 's.display': 'Display',
+    's.appearance': 'Appearance', 's.language': 'Language', 's.storage': 'Disks', 's.system': 'System',
+    'p.select': 'Select', 'p.back': 'Back', 'p.sections': 'Sections', 'p.home': 'Home',
+    'c.connected': 'Connected controllers', 'c.pair': 'Pair a new controller or headset', 'c.vibration': 'Controller vibration while playing',
+    'n.wifi': 'Wi-Fi', 'n.on': 'On', 'n.net': 'Upstairs living room network 5 GHz extender', 'n.connected': 'Connected',
+    'a.output': 'Sound output', 'a.hdmi': 'TV (HDMI)', 'a.volume': 'Sounds of the console’s interface',
+    'd.disk': 'External hard disk with the games and the installers', 'd.free': '1.2 TB free',
+    'other': 'Nothing more in this section for the demo',
+  };
+  const IT = {
+    'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni',
+    's.network': 'Rete', 's.controllers': 'Controller e Bluetooth', 's.audio': 'Suono', 's.display': 'Schermo',
+    's.appearance': 'Aspetto', 's.language': 'Lingua', 's.storage': 'Dischi', 's.system': 'Sistema',
+    'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.sections': 'Sezioni', 'p.home': 'Home',
+    'c.connected': 'Controller collegati', 'c.pair': 'Associa un nuovo controller o delle cuffie', 'c.vibration': 'Vibrazione del controller durante il gioco',
+    'n.wifi': 'Wi-Fi', 'n.on': 'Attivo', 'n.net': 'Rete del soggiorno al piano di sopra ripetitore 5 GHz', 'n.connected': 'Connessa',
+    'a.output': 'Uscita audio', 'a.hdmi': 'TV (HDMI)', 'a.volume': 'Suoni dell’interfaccia della console',
+    'd.disk': 'Disco esterno con i giochi e gli installer', 'd.free': '1,2 TB liberi',
+    'other': 'Nient’altro in questa sezione per la demo',
+  };
+  let lang = 'it';
+  const tr = k => (lang === 'it' ? IT : EN)[k] || EN[k] || k;
+
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const G = { a: letter('A'), b: letter('B'), lb: pill('LB', 34), rb: pill('RB', 34), guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`) };
+  const P = (b, l) => `<span class="prompt">${b.map(x => G[x]).join('')}<span>${tr(l)}</span></span>`;
+  const ICON = {
+    network: '<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/>',
+    controllers: '<path d="M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z"/>',
+    audio: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9a4 4 0 0 1 0 6"/>',
+    display: '<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/>',
+    appearance: '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/>',
+    language: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+    storage: '<rect x="3" y="5" width="18" height="6" rx="1.5"/><rect x="3" y="13" width="18" height="6" rx="1.5"/>',
+    system: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+  };
+  const icon = n => `<svg viewBox="0 0 24 24" ${S}>${ICON[n]}</svg>`;
+  const SECTIONS = ['network', 'controllers', 'audio', 'display', 'appearance', 'language', 'storage', 'system'];
+  const clip = (text, cls = '') => `<span class="clip ${cls}"><span>${text}</span></span>`;
+  const row = (label, value) => `<button class="row t-m" data-f data-row><span class="left">${clip(tr(label))}</span>${value ? `<span class="right t-s">${tr(value)}</span>` : ''}</button>`;
+  const PANELS = {
+    network: () => row('n.wifi', 'n.on') + row('n.net', 'n.connected'),
+    controllers: () => row('c.connected', '2') + row('c.pair') + row('c.vibration'),
+    audio: () => row('a.output', 'a.hdmi') + row('a.volume'),
+    storage: () => row('d.disk', 'd.free'),
+  };
+
+  let section = 'controllers', focused = null;
+  function draw(keepFocus) {
+    document.documentElement.lang = lang;
+    $$('[data-t]').forEach(el => { el.textContent = tr(el.dataset.t); });
+    $('#nav').innerHTML = SECTIONS.map(s => `<button class="nav-item" data-f data-section="${s}" aria-current="${s === section}">${icon(s)}${clip(tr('s.' + s))}</button>`).join('');
+    $('#panel').innerHTML = `<h2 class="disp t-l">${clip(tr('s.' + section))}</h2>` + (PANELS[section] ? PANELS[section]() : `<p class="muted t-m">${tr('other')}</p>`);
+    $('#pl').innerHTML = P(['a'], 'p.select') + P(['b'], 'p.back');
+    $('#pr').innerHTML = P(['lb', 'rb'], 'p.sections') + P(['guide'], 'p.home');
+    if (keepFocus === 'panel' && $('#panel [data-f]')) focus($('#panel [data-f]'));
+    else focus($(`[data-section="${section}"]`));
+  }
+
+  /* ---------- Scrolling: wait, move at a steady speed, wait at the end, come back, repeat ---------- */
+  let speed = 45, pause = 1500, run = null;
+  function stopScroll() {
+    if (!run) return;
+    cancelAnimationFrame(run.raf);
+    run.clip.classList.remove('scrolling', 'at-start', 'at-end');
+    run.inner.style.transform = ''; run.inner.style.transition = ''; run = null;
+  }
+  function startScroll(el) {
+    stopScroll();
+    const c = el.querySelector('.clip'); if (!c) return;
+    const inner = c.firstElementChild, over = c.scrollWidth - c.clientWidth;
+    if (over <= 1) return;                                 // it fits: nothing moves
+    const dist = over + 14;                                // to past the soft right edge
+    const travel = dist / speed * 1000;
+    run = { clip: c, inner, raf: 0, t0: performance.now() };
+    c.classList.add('scrolling', 'at-start');
+    const tick = now => {
+      if (!run) return;
+      const t = (now - run.t0) % (pause + travel + pause + 400);
+      const end = pause + travel + pause;
+      let x, shown = true;
+      if (t < pause) x = 0;
+      else if (t < pause + travel) x = (t - pause) / travel * dist;
+      else if (t < end) x = dist;
+      else { x = t < end + 200 ? dist : 0; shown = false; } // back to the start: fade out, jump, fade in
+      c.classList.toggle('at-start', x === 0);
+      c.classList.toggle('at-end', x === dist);
+      inner.style.opacity = shown ? 1 : 0;
+      inner.style.transform = `translateX(${-x}px)`;
+      run.raf = requestAnimationFrame(tick);
+    };
+    inner.style.transition = 'opacity .2s';
+    run.raf = requestAnimationFrame(tick);
+  }
+
+  function focus(el) {
+    if (!el) return;
+    if (focused) focused.classList.remove('focus');
+    focused = el; el.classList.add('focus');
+    startScroll(el);
+  }
+  function move(dir) {
+    const inNav = focused.hasAttribute('data-section');
+    const list = inNav ? $$('#nav [data-f]') : $$('#panel [data-f]');
+    const i = list.indexOf(focused);
+    if (dir === 'up' && i > 0) list[i - 1].dataset.section ? (section = list[i - 1].dataset.section, draw()) : focus(list[i - 1]);
+    else if (dir === 'down' && i < list.length - 1) list[i + 1].dataset.section ? (section = list[i + 1].dataset.section, draw()) : focus(list[i + 1]);
+    else if (dir === 'right' && inNav && $('#panel [data-f]')) focus($('#panel [data-f]'));
+    else if (dir === 'left' && !inNav) focus($(`[data-section="${section}"]`));
+  }
+
+  document.addEventListener('keydown', e => {
+    const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    if (dirs[e.key]) { e.preventDefault(); move(dirs[e.key]); }
+  });
+  let repeatAt = 0, lastDir = null;
+  function poll(ts) {
+    const pad = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean)[0] : null;
+    if (pad) {
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+
+  $('#demo-bar').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    $$('button', b.closest('.grp')).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    if (b.dataset.speed) speed = +b.dataset.speed;
+    if (b.dataset.pause) pause = +b.dataset.pause;
+    if (b.dataset.ts) document.documentElement.style.setProperty('--ts', b.dataset.ts);
+    if (b.dataset.lang) lang = b.dataset.lang;
+    const where = focused && !focused.hasAttribute('data-section') ? 'panel' : null;
+    draw(where); b.blur();
+  });
+
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 70) / 720);
+    stage.style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+  const clock = () => { $('#clock').textContent = new Date().toTimeString().slice(0, 5); };
+  clock(); setInterval(clock, 10000);
+
+  /* ---------- Optional start state: #lang=en&ts=1&at=panel ---------- */
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get('lang') === 'en') lang = 'en';
+  if (q.get('ts')) document.documentElement.style.setProperty('--ts', q.get('ts'));
+  draw(q.get('at') === 'panel' ? 'panel' : null);
+})();
+</script>
+</body>
+</html>

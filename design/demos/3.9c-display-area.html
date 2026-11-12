@@ -1,0 +1,343 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS - interactive demo: Settings -> Display -> "Display area" (open item 3y), the TV display-area
+     adjustment that replaces "Show TV safe area". Open in a browser; drive it with a gamepad or the keyboard.
+     The picture is shown on a simulated TV that cuts its edges (overscan), as many TVs do. Fonts are loaded
+     from Google Fonts for the demo only: the console bundles the font files (SIL Open Font License). -->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS - Display area (demo 3.9c)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1; --motion: 1;
+  /* Dusk palette */
+  --bg: #0E1424; --surface: #172036; --raised: #222D4A; --line: #2E3A5C; --fg: #EEF1F8; --muted: #8F9AB5; --accent: #FF8A5B; --on-accent: #1E0E06; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+
+/* ---------- The simulated TV: its panel shows only the middle of the picture (overscan) ---------- */
+.frame { position: relative; flex: none; }
+.tv { position: absolute; top: 0; left: 0; width: 1312px; height: 752px; transform-origin: top left;
+      background: #111; border-radius: 18px; padding: 16px; box-shadow: 0 0 0 1px #222, 0 30px 80px -30px #000; }
+.panel-glass { width: 1280px; height: 720px; overflow: hidden; position: relative; border-radius: 4px; background: #000; }
+/* The picture the console sends (1280 x 720 here), enlarged by the TV so that its edges fall outside the glass */
+.signal { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; transform-origin: center; background: var(--bg); }
+
+/* ---------- The console's screens, drawn inside the display area ---------- */
+.ui {
+  position: absolute; left: 0; top: 0; width: 1280px; height: 720px; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px;
+  display: grid; grid-template-rows: auto 1fr auto; gap: 20px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350;
+  transition: transform calc(.2s * var(--motion)) ease;
+}
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); } .t-xl { font-size: calc(40px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+
+[data-f] { outline: none; position: relative; transition: transform calc(.16s * var(--motion)) ease, box-shadow calc(.16s * var(--motion)) ease; }
+[data-f].focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); transform: scale(calc(1 + .02 * var(--motion))); z-index: 2; }
+
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 36px; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.status { display: flex; align-items: center; gap: 16px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status .clock { color: var(--fg); font-weight: 500; }
+
+.settings { display: grid; grid-template-columns: 290px 1fr; gap: 28px; min-height: 0; }
+.nav { display: grid; gap: 6px; align-content: start; }
+.nav-item { display: flex; align-items: center; gap: 14px; padding: 11px 16px; border-radius: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-item svg { width: calc(22px * var(--ts)); height: calc(22px * var(--ts)); flex: none; }
+.nav-item[aria-current="true"] { background: var(--surface); color: var(--fg); font-weight: 500; }
+.panel { min-height: 0; display: grid; gap: 12px; align-content: start; }
+.panel h2 { margin: 0 0 4px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); width: 100%; min-height: 54px; }
+.row .left { display: grid; gap: 2px; }
+.row .right { display: flex; align-items: center; gap: 12px; color: var(--muted); flex: none; }
+.row .value::after { content: " ›"; }
+
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 24px; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+.toast { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); padding: 9px 18px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; white-space: nowrap; }
+.toast.show { opacity: 1; }
+
+/* ---------- The adjustment screen: drawn on the whole picture, not inside the area ---------- */
+.adjust { position: absolute; inset: 0; background: var(--bg); color: var(--fg); display: none; z-index: 30; font-size: 16px; line-height: 1.35; }
+.adjust.open { display: block; }
+.area { position: absolute; border: 3px solid var(--fg); border-radius: 2px; transition: inset calc(.12s * var(--motion)) ease; }
+/* Arrows in the four corners, pointing out: their tips are the area's corners */
+.corner { position: absolute; width: 74px; height: 74px; color: var(--accent); }
+.corner svg { width: 100%; height: 100%; display: block; }
+.corner.tl { left: -3px; top: -3px; }
+.corner.tr { right: -3px; top: -3px; transform: scaleX(-1); }
+.corner.bl { left: -3px; bottom: -3px; transform: scaleY(-1); }
+.corner.br { right: -3px; bottom: -3px; transform: scale(-1, -1); }
+.adjust-body { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; text-align: center; gap: 14px; padding: 0 200px; }
+.adjust-body p { margin: 0; max-width: 700px; }
+.readout { display: flex; gap: 28px; font-variant-numeric: tabular-nums; }
+.readout b { color: var(--fg); font-weight: 600; }
+.adjust .prompts { position: absolute; left: 0; right: 0; bottom: 0; justify-content: center; gap: 30px; }
+.adjust .prompts .set { gap: 26px; }
+
+/* ---------- Outside the TV: demo controls and help ---------- */
+.demo-bar { display: flex; gap: 22px; align-items: center; color: #8a90a0; font: 12px/1.4 system-ui, sans-serif; flex-wrap: wrap; justify-content: center; }
+.demo-bar .grp { display: inline-flex; gap: 6px; align-items: center; }
+.demo-bar button { padding: 3px 10px; border-radius: 999px; border: 1px solid #333a4a; color: #c9cdd8; font: inherit; }
+.demo-bar button[aria-pressed="true"] { background: #c9cdd8; color: #05070C; }
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="frame" id="frame"><div class="tv" id="tv"><div class="panel-glass"><div class="signal" id="signal">
+
+  <!-- The console's screens -->
+  <div class="ui" id="ui">
+    <header class="top">
+      <div class="top-left">
+        <span class="mark">Owneet<i>OS</i></span>
+        <nav class="tabs t-s">
+          <span class="tab" data-t="tab.home"></span>
+          <span class="tab" data-t="tab.library"></span>
+          <span class="tab" aria-current="page" data-t="tab.settings"></span>
+        </nav>
+      </div>
+      <div class="status t-s"><span class="clock" id="clock">20:41</span></div>
+    </header>
+
+    <main class="settings">
+      <nav class="nav t-m" id="nav"></nav>
+      <section class="panel">
+        <h2 class="disp t-l" data-t="s.display"></h2>
+        <button class="row t-m" data-f data-act="screen"><span class="left"><span data-t="display.screen"></span><span class="t-s muted" data-t="display.screen.detail"></span></span><span class="right"><span class="value t-s">LG TV (HDMI-A-1)</span></span></button>
+        <button class="row t-m" data-f data-act="res"><span class="left" data-t="display.resolution"></span><span class="right"><span class="value t-s" data-t="display.auto"></span></span></button>
+        <button class="row t-m" data-f data-act="rate"><span class="left" data-t="display.rate"></span><span class="right"><span class="value t-s" data-t="display.auto"></span></span></button>
+        <button class="row t-m" data-f data-act="area" id="area-row"><span class="left"><span data-t="area.title"></span><span class="t-s muted" data-t="area.detail"></span></span><span class="right"><span class="value t-s" id="area-value"></span></span></button>
+      </section>
+    </main>
+
+    <footer class="prompts t-s">
+      <div class="set" id="prompts-left"></div>
+      <div class="set" id="prompts-right"></div>
+    </footer>
+    <div class="toast t-s" id="toast"></div>
+  </div>
+
+  <!-- The adjustment screen -->
+  <div class="adjust" id="adjust">
+    <div class="area" id="area">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <div class="prompts t-s" id="adjust-prompts" style="bottom: 34px"></div>
+    </div>
+    <div class="adjust-body">
+      <span class="disp t-xl" data-t="area.title"></span>
+      <p class="t-m" data-t="area.text"></p>
+      <div class="readout t-s muted" id="readout"></div>
+    </div>
+  </div>
+
+</div></div></div></div>
+
+<div class="demo-bar" id="demo-bar">
+  <span class="grp"><span>Simulated TV, edges it cuts:</span>
+    <button data-cut="0">0%</button><button data-cut="0.025">2.5%</button><button data-cut="0.04" aria-pressed="true">4%</button><button data-cut="0.06">6%</button></span>
+  <span class="grp"><span>Language:</span><button data-lang="it" aria-pressed="true">Italiano</button><button data-lang="en">English</button></span>
+  <span class="grp"><span>Text size:</span><button data-ts="1" aria-pressed="true">M</button><button data-ts="1.4">XL</button></span>
+</div>
+<p class="help"><b>Gamepad:</b> D-pad / stick move, A select, B back; in the adjustment D-pad left/right width, up/down height, X full screen, A confirm, B cancel.
+<b>Keyboard:</b> arrows, Enter = A, Esc = B, X.</p>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const W = 1280, H = 720;
+
+  /* ---------- Texts (the console uses the JSON message files) ---------- */
+  const EN = {
+    'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings',
+    's.network': 'Network', 's.controllers': 'Controllers and Bluetooth', 's.audio': 'Sound', 's.display': 'Display',
+    's.appearance': 'Appearance', 's.language': 'Language', 's.storage': 'Disks', 's.system': 'System',
+    'display.screen': 'Screen used by the console', 'display.screen.detail': 'The other screens are turned off',
+    'display.resolution': 'Resolution', 'display.rate': 'Refresh rate', 'display.auto': 'Automatic (recommended)',
+    'area.title': 'Display area', 'area.detail': 'If the TV cuts the edges of the picture, make the console fit',
+    'area.full': 'Whole screen', 'area.size': '{w}% × {h}%',
+    'area.text': 'Use the D-pad until the tips of the four arrows touch the edges of your screen and each arrow is whole.',
+    'area.width': 'Width', 'area.height': 'Height',
+    'p.open': 'Open', 'p.back': 'Back', 'p.sections': 'Sections', 'p.home': 'Home',
+    'p.width': 'Width', 'p.height': 'Height', 'p.full': 'Whole screen', 'p.confirm': 'Confirm', 'p.cancel': 'Cancel',
+    'toast.saved': 'Display area saved', 'toast.cancel': 'Nothing changed', 'toast.other': 'Not part of this demo',
+  };
+  const IT = {
+    'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni',
+    's.network': 'Rete', 's.controllers': 'Controller e Bluetooth', 's.audio': 'Suono', 's.display': 'Schermo',
+    's.appearance': 'Aspetto', 's.language': 'Lingua', 's.storage': 'Dischi', 's.system': 'Sistema',
+    'display.screen': 'Schermo usato dalla console', 'display.screen.detail': 'Gli altri schermi vengono spenti',
+    'display.resolution': 'Risoluzione', 'display.rate': 'Frequenza di aggiornamento', 'display.auto': 'Automatica (consigliata)',
+    'area.title': 'Area dello schermo', 'area.detail': 'Se la TV taglia i bordi dell’immagine, adatta la console',
+    'area.full': 'Tutto lo schermo', 'area.size': '{w}% × {h}%',
+    'area.text': 'Usa la croce direzionale finché le punte delle quattro frecce toccano i bordi dello schermo e ogni freccia si vede per intero.',
+    'area.width': 'Larghezza', 'area.height': 'Altezza',
+    'p.open': 'Apri', 'p.back': 'Indietro', 'p.sections': 'Sezioni', 'p.home': 'Home',
+    'p.width': 'Larghezza', 'p.height': 'Altezza', 'p.full': 'Tutto lo schermo', 'p.confirm': 'Conferma', 'p.cancel': 'Annulla',
+    'toast.saved': 'Area dello schermo salvata', 'toast.cancel': 'Nessuna modifica', 'toast.other': 'Non fa parte di questa demo',
+  };
+  let lang = 'it';
+  const tr = (k, a = {}) => ((lang === 'it' ? IT : EN)[k] || EN[k] || k).replace(/\{(\w+)\}/g, (_, x) => a[x] ?? '');
+
+  /* ---------- Glyphs and icons (drawn for OwneetOS, no third-party logos) ---------- */
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const G = { a: letter('A'), b: letter('B'), x: letter('X'), lb: pill('LB', 34), rb: pill('RB', 34),
+    guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`),
+    lr: `<svg class="g" viewBox="0 0 44 26"><rect x="1" y="1" width="42" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15 8l-5 5 5 5M29 8l5 5-5 5" ${S}/></svg>`,
+    ud: `<svg class="g" viewBox="0 0 26 34"><rect x="1" y="1" width="24" height="32" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 11l5-5 5 5M8 23l5 5 5-5" ${S}/></svg>` };
+  const P = (b, l) => `<span class="prompt">${b.map(x => G[x]).join('')}<span>${tr(l)}</span></span>`;
+  const ICON = {
+    network: '<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/>',
+    controllers: '<path d="M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z"/>',
+    audio: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9a4 4 0 0 1 0 6"/>',
+    display: '<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/>',
+    appearance: '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/>',
+    language: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+    storage: '<rect x="3" y="5" width="18" height="6" rx="1.5"/><rect x="3" y="13" width="18" height="6" rx="1.5"/>',
+    system: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+  };
+  const icon = n => `<svg viewBox="0 0 24 24" ${S}>${ICON[n]}</svg>`;
+  const SECTIONS = ['network', 'controllers', 'audio', 'display', 'appearance', 'language', 'storage', 'system'];
+  const ARROW = `<svg viewBox="0 0 74 74"><path d="M0 0 L46 0 L34 12 L64 42 L42 64 L12 34 L0 46 Z" fill="currentColor"/></svg>`;
+  $$('.corner').forEach(c => { c.innerHTML = ARROW; });
+
+  /* ---------- State: the area is a margin per side, in fractions of the screen ---------- */
+  const STEP = 0.0025, MAX = 0.1;          // 0.25% of the screen per press and side, up to 10%
+  let area = { x: 0, y: 0 }, editing = null, cut = 0.04;
+  const pct = m => Math.round((1 - 2 * m) * 1000) / 10;
+
+  function place() {
+    // The TV enlarges the picture so that `cut` of each edge falls outside its glass
+    $('#signal').style.transform = `scale(${1 / (1 - 2 * cut)})`;
+    // The console's screens: scaled to the area (same ratio), centred in it
+    const s = Math.min(1 - 2 * area.x, 1 - 2 * area.y);
+    $('#ui').style.transform = `translate(${(W - W * s) / 2}px, ${(H - H * s) / 2}px) scale(${s})`;
+    $('#area-value').textContent = area.x === 0 && area.y === 0 ? tr('area.full') : tr('area.size', { w: pct(area.x), h: pct(area.y) });
+    if (editing) {
+      const a = $('#area');
+      a.style.inset = `${editing.y * H}px ${editing.x * W}px`;
+      $('#readout').innerHTML = `<span>${tr('area.width')} <b>${pct(editing.x)}%</b></span><span>${tr('area.height')} <b>${pct(editing.y)}%</b></span>`;
+    }
+  }
+
+  function texts() {
+    document.documentElement.lang = lang;
+    $$('[data-t]').forEach(el => { el.textContent = tr(el.dataset.t); });
+    $('#nav').innerHTML = SECTIONS.map(s => `<button class="nav-item" data-section="${s}" aria-current="${s === 'display'}">${icon(s)}<span>${tr('s.' + s)}</span></button>`).join('');
+    $('#prompts-left').innerHTML = P(['a'], 'p.open') + P(['b'], 'p.back');
+    $('#prompts-right').innerHTML = P(['lb', 'rb'], 'p.sections') + P(['guide'], 'p.home');
+    $('#adjust-prompts').innerHTML = `<span class="set">${P(['lr'], 'p.width')}${P(['ud'], 'p.height')}${P(['x'], 'p.full')}</span><span class="set">${P(['a'], 'p.confirm')}${P(['b'], 'p.cancel')}</span>`;
+    place();
+  }
+
+  let toastTimer;
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 1400); }
+
+  /* ---------- Focus in the Display panel ---------- */
+  let focused = null;
+  function focus(el) { if (focused) focused.classList.remove('focus'); focused = el; el.classList.add('focus'); }
+  function move(dir) {
+    if (editing) {
+      const d = { left: ['x', 1], right: ['x', -1], up: ['y', -1], down: ['y', 1] }[dir];
+      editing[d[0]] = Math.min(MAX, Math.max(0, Math.round((editing[d[0]] + d[1] * STEP) * 10000) / 10000));
+      place(); return;
+    }
+    const rows = $$('.panel [data-f]'), i = rows.indexOf(focused);
+    if (dir === 'up' && i > 0) focus(rows[i - 1]);
+    if (dir === 'down' && i < rows.length - 1) focus(rows[i + 1]);
+  }
+  function openAdjust() { editing = { ...area }; $('#adjust').classList.add('open'); place(); }
+  function closeAdjust(save) {
+    if (save) area = editing;
+    editing = null; $('#adjust').classList.remove('open'); place();
+    toast(tr(save ? 'toast.saved' : 'toast.cancel'));
+  }
+  const press = {
+    a: () => editing ? closeAdjust(true) : focused.dataset.act === 'area' ? openAdjust() : toast(tr('toast.other')),
+    b: () => editing ? closeAdjust(false) : toast(tr('toast.other')),
+    x: () => { if (editing) { editing = { x: 0, y: 0 }; place(); } },
+  };
+
+  document.addEventListener('keydown', e => {
+    const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    const keys = { Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b', x: 'x', X: 'x' };
+    if (dirs[e.key]) { e.preventDefault(); move(dirs[e.key]); }
+    else if (keys[e.key]) { e.preventDefault(); press[keys[e.key]](); }
+  });
+  document.addEventListener('click', e => {
+    const row = e.target.closest('.panel [data-f]');
+    if (row && !editing) { focus(row); press.a(); }
+  });
+
+  /* ---------- Gamepad (standard mapping), with repeat while held ---------- */
+  const prev = {};
+  let repeatAt = 0, lastDir = null;
+  function poll(ts) {
+    const pad = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean)[0] : null;
+    if (pad) {
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const edge = i => { const p = on(i), was = prev[i]; prev[i] = p; return p && !was; };
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (lastDir === dir ? 90 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+      [['a', 0], ['b', 1], ['x', 2]].forEach(([n, i]) => { if (edge(i)) press[n](); });
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+
+  /* ---------- Demo controls (outside the TV) ---------- */
+  $('#demo-bar').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const grp = b.closest('.grp');
+    $$('button', grp).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    if (b.dataset.cut) { cut = +b.dataset.cut; place(); }
+    if (b.dataset.lang) { lang = b.dataset.lang; texts(); }
+    if (b.dataset.ts) document.documentElement.style.setProperty('--ts', b.dataset.ts);
+    b.blur();
+  });
+
+  function fit() {
+    const s = Math.min(innerWidth / 1312, (innerHeight - 70) / 752);
+    $('#tv').style.transform = `scale(${s})`;
+    $('#frame').style.width = 1312 * s + 'px'; $('#frame').style.height = 752 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+  setInterval(() => { $('#clock').textContent = new Date().toTimeString().slice(0, 5); }, 10000);
+  $('#clock').textContent = new Date().toTimeString().slice(0, 5);
+
+  /* ---------- Optional start state: #area=0.04&adjust=1&lang=en ---------- */
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get('lang') === 'en') $('[data-lang="en"]').click();
+  if (q.get('area')) area = { x: +q.get('area'), y: +q.get('area') };
+  texts();
+  focus($('#area-row'));
+  if (q.get('adjust') === '1') openAdjust();
+})();
+</script>
+</body>
+</html>
