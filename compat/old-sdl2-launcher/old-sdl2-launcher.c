@@ -23,7 +23,8 @@
 //    button never means two things on one screen.
 //
 // The library takes itself out of LD_PRELOAD when it loads, so the game the launcher starts does
-// not get it.
+// not get it; OWNEET_GAME_PRELOAD, when set, takes its place: the library the game gets
+// (no-crash-reporter, owner 2026-11-12).
 
 #define _GNU_SOURCE
 #include <dlfcn.h>
@@ -64,17 +65,19 @@ static void *next_symbol(const char *name)
     return dlsym(RTLD_NEXT, name);
 }
 
-// LD_PRELOAD without this library (entries are separated by ':' or ' ')
+// LD_PRELOAD without this library (entries are separated by ':' or ' '), with the game's own
+// library (OWNEET_GAME_PRELOAD) instead
 __attribute__((constructor)) static void leave_ld_preload(void)
 {
     Dl_info self;
     const char *preload = getenv("LD_PRELOAD");
+    const char *game = getenv("OWNEET_GAME_PRELOAD");
     if (!preload || !dladdr((void *)leave_ld_preload, &self) || !self.dli_fname)
         return;
     const char *own = strrchr(self.dli_fname, '/');
     own = own ? own + 1 : self.dli_fname;
     char *copy = strdup(preload);
-    char *kept = calloc(strlen(preload) + 1, 1);
+    char *kept = calloc(strlen(preload) + (game ? strlen(game) : 0) + 2, 1);
     if (!copy || !kept) {
         free(copy);
         free(kept);
@@ -88,6 +91,12 @@ __attribute__((constructor)) static void leave_ld_preload(void)
             strcat(kept, ":");
         strcat(kept, entry);
     }
+    if (game && *game) {
+        if (*kept)
+            strcat(kept, ":");
+        strcat(kept, game);
+    }
+    unsetenv("OWNEET_GAME_PRELOAD");
     if (*kept)
         setenv("LD_PRELOAD", kept, 1);
     else

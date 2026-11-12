@@ -32,4 +32,5 @@ got="$(FAKE_EVENTS=0x650:1:20000,0x650:1:12000,0x650:1:0,0x650:0:-20000,0x650:0:
 [[ "$(run spawn)" == "" ]] || fail "starting the game did not end the program"
 [[ "$(run env)" == "[]" ]] || fail "the library stayed in LD_PRELOAD"
 [[ "$(LD_PRELOAD="/other.so:$lib" "$out/launcher" env 2>/dev/null)" == "[/other.so]" ]] || fail "other preloads were not kept"
+[[ "$(OWNEET_GAME_PRELOAD=/game.so run env)" == "[/game.so]" ]] || fail "the game's library did not take its place"
 echo "old-sdl2-launcher: all checks passed"

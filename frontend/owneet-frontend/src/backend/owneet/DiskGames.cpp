@@ -74,6 +74,8 @@ void DiskGames::applyChoice(model::Game& game, const QString& game_dir, const QS
     const QVariantMap launcher = game.extraMap().value(QStringLiteral("disk.launchers")).toMap().value(file).toMap();
     game.extraMapMut().insert(QStringLiteral("disk.handover"), launcher.value(QStringLiteral("hands-over")).toBool());
     const QString compat = compatLibrary(launcher.value(QStringLiteral("compat")).toString());
+    // the library the game the launcher starts gets (the launcher's library hands it over)
+    const QString gameCompat = compat.isEmpty() ? QString() : compatLibrary(launcher.value(QStringLiteral("game-compat")).toString());
     if (file.isEmpty()) {
         game.setLaunchCmd(QString()).setLaunchWorkdir(QString());
         return;
@@ -120,6 +122,7 @@ void DiskGames::applyChoice(model::Game& game, const QString& game_dir, const QS
     else if (is_elf(path) && !finfo.absolutePath().contains(QChar(':')))
         cmd = QStringLiteral("/usr/bin/env ")
             + (compat.isEmpty() ? QString() : quoted(QStringLiteral("LD_PRELOAD=") + compat) + QChar(' '))
+            + (gameCompat.isEmpty() ? QString() : quoted(QStringLiteral("OWNEET_GAME_PRELOAD=") + gameCompat) + QChar(' '))
             + quoted(QStringLiteral("LD_LIBRARY_PATH=") + finfo.absolutePath()) + QChar(' ') + quoted(path);
     else
         cmd = quoted(path);

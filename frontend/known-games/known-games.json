@@ -5,7 +5,7 @@
       "start": "game/tenfoot-launcher",
       "fix-key-files": ["game/bin/config/lang/*.ini"],
       "launchers": {
-        "game/tenfoot-launcher": { "compat": "old-sdl2-launcher", "hands-over": true }
+        "game/tenfoot-launcher": { "compat": "old-sdl2-launcher", "game-compat": "no-crash-reporter", "hands-over": true }
       }
     }
   }

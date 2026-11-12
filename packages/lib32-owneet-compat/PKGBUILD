@@ -4,10 +4,10 @@
 # OwneetOS's own 32-bit compatibility libraries for old Linux games, loaded only for the files the
 # list of known games names (frontend/known-games, [[games-on-disk]], owner 2026-11-12):
 # old-sdl2-launcher, what old launchers made for SDL2 expected from it (The Witcher 2's TV
-# launcher). Sources in compat/ (compat/README.md).
+# launcher); no-crash-reporter, a game's own crash reporter not started. Sources in compat/.
 
 pkgname=lib32-owneet-compat
-pkgver=0.3.0
+pkgver=0.4.0
 pkgrel=1
 pkgdesc="OwneetOS compatibility libraries for old 32-bit Linux games"
 arch=('x86_64')
@@ -20,18 +20,26 @@ options=('!debug')
 source=('lib32-owneet-compat-src.tar.gz')
 sha256sums=('SKIP')
 
+_libs=(old-sdl2-launcher no-crash-reporter)
+
 build() {
   cd compat
-  gcc -m32 $CFLAGS -shared -fPIC -Wall -Wextra -Werror $LDFLAGS \
-    -o libowneet-old-sdl2-launcher.so old-sdl2-launcher/old-sdl2-launcher.c -ldl
+  for lib in "${_libs[@]}"; do
+    gcc -m32 $CFLAGS -shared -fPIC -Wall -Wextra -Werror $LDFLAGS \
+      -o "libowneet-$lib.so" "$lib/$lib.c" -ldl
+  done
 }
 
 check() {
   cd compat
-  old-sdl2-launcher/test/run.sh "$srcdir/test-build"
+  for lib in "${_libs[@]}"; do
+    "$lib/test/run.sh" "$srcdir/test-build/$lib"
+  done
 }
 
 package() {
   cd compat
-  install -Dm755 libowneet-old-sdl2-launcher.so "$pkgdir/usr/lib32/owneet/libowneet-old-sdl2-launcher.so"
+  for lib in "${_libs[@]}"; do
+    install -Dm755 "libowneet-$lib.so" "$pkgdir/usr/lib32/owneet/libowneet-$lib.so"
+  done
 }
