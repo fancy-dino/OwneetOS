@@ -27,11 +27,13 @@ type fakeUnits struct {
 	workdirs []string
 	argvs    [][]string
 	stops    [][]string
+	whileAny []bool
 }
 
-func (f *fakeUnits) Start(unit, desc string, argv, stop, env []string, workdir string) error {
+func (f *fakeUnits) Start(unit, desc string, argv, stop, env []string, workdir string, whileAny bool) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.whileAny = append(f.whileAny, whileAny)
 	if unit == f.failAt {
 		return errors.New("exec failed")
 	}
@@ -758,6 +760,101 @@ func TestHomeWhenTheGamesProgramsEnd(t *testing.T) {
 	}
 	if _, ok := m.apps["game"]; !ok {
 		t.Fatal("the game is still running until its unit ends")
+	}
+}
+
+// A Linux launcher that hands over (owner, 2026-11-12, The Witcher 2's TV launcher): it starts the
+// game and ends before the game has a window; the app stays in front while its unit has a process,
+// and its unit lasts while any of its processes runs.
+func TestHandoverKeepsTheGame(t *testing.T) {
+	m, units, focus, _ := newManager(t, "gamescope")
+	procs := &fakeProcs{unit: map[int]string{}, cmd: map[int][]string{}, parent: map[int]int{}}
+	m.Procs = procs
+	m.UnitOf = func(pid int) string {
+		procs.mu.Lock()
+		defer procs.mu.Unlock()
+		return procs.unit[pid]
+	}
+	var mu sync.Mutex
+	ends := map[int]func(){}
+	m.watchExit = func(pid int, ended func()) bool {
+		mu.Lock()
+		defer mu.Unlock()
+		ends[pid] = ended
+		return true
+	}
+	end := func(pid int) {
+		procs.remove(pid)
+		mu.Lock()
+		f := ends[pid]
+		mu.Unlock()
+		if f == nil {
+			t.Fatalf("process %d not followed", pid)
+		}
+		f()
+	}
+	followed := func(pid int) {
+		deadline := time.Now().Add(2 * time.Second)
+		for {
+			mu.Lock()
+			_, ok := ends[pid]
+			mu.Unlock()
+			if ok {
+				return
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("process %d never followed", pid)
+			}
+			runtime.Gosched()
+		}
+	}
+	shown := func() []uint32 {
+		focus.mu.Lock()
+		defer focus.mu.Unlock()
+		return append([]uint32(nil), focus.shown...)
+	}
+	m.watchSession()
+	procs.add(10, 1, "home.service", "owneet-frontend")
+	focus.openWindow(10)
+	focus.Show([]uint32{HomeAppID})
+	if _, err := m.Launch(LaunchRequest{ID: "game", Name: "Game", Kind: KindGame, Command: []string{"/usr/bin/env"}, Handover: true}); err != nil {
+		t.Fatal(err)
+	}
+	units.mu.Lock()
+	whileAny := append([]bool(nil), units.whileAny...)
+	units.mu.Unlock()
+	if len(whileAny) != 1 || !whileAny[0] {
+		t.Fatalf("the unit does not last while any process runs: %v", whileAny)
+	}
+	unit := UnitName("game")
+	game := m.appIDOf("game")
+	procs.add(3001, 1, unit, "/games/w2/game/tenfoot-launcher")
+	focus.openWindow(3001)
+	m.checkWindows()
+	followed(3001)
+	// the launcher starts the game (no window yet), closes its window and ends
+	procs.add(3002, 3001, unit, "./witcher2")
+	focus.closeWindow(game)
+	end(3001)
+	if !sameIDs(shown(), []uint32{game}) || m.Status().Focus != "game" {
+		t.Fatalf("the launcher handed over: %v %q", shown(), m.Status().Focus)
+	}
+	// the game's window comes; quit from its menu: the home screen comes back
+	focus.openWindow(3002)
+	m.checkWindows()
+	followed(3002)
+	focus.closeWindow(game)
+	end(3002)
+	deadline := time.Now().Add(2 * time.Second)
+	for !sameIDs(shown(), []uint32{HomeAppID}) || m.Status().Focus != "home" {
+		if time.Now().After(deadline) {
+			t.Fatalf("the game ended: %v %q", shown(), m.Status().Focus)
+		}
+		runtime.Gosched()
+	}
+	// other games: the unit ends with its first program, as before
+	if _, err := m.Launch(LaunchRequest{ID: "other", Name: "Other", Kind: KindGame, Command: []string{"/usr/bin/env"}}); err == nil {
+		t.Fatal("two games at once")
 	}
 }
 

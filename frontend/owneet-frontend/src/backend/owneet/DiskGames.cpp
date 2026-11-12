@@ -69,6 +69,11 @@ QString DiskGames::savedChoice(const QString& game_dir)
 void DiskGames::applyChoice(model::Game& game, const QString& game_dir, const QString& file)
 {
     game.extraMapMut().insert(QStringLiteral("disk.start"), file);
+    // a known game's launcher (owner, 2026-11-12): the OwneetOS library it needs, and whether it
+    // hands over to the game (the app then lasts while any of its programs runs)
+    const QVariantMap launcher = game.extraMap().value(QStringLiteral("disk.launchers")).toMap().value(file).toMap();
+    game.extraMapMut().insert(QStringLiteral("disk.handover"), launcher.value(QStringLiteral("hands-over")).toBool());
+    const QString compat = compatLibrary(launcher.value(QStringLiteral("compat")).toString());
     if (file.isEmpty()) {
         game.setLaunchCmd(QString()).setLaunchWorkdir(QString());
         return;
@@ -113,7 +118,9 @@ void DiskGames::applyChoice(model::Game& game, const QString& game_dir, const QS
     else if (suffix == QLatin1String("appimage"))
         cmd = QStringLiteral("/usr/bin/env APPIMAGE_EXTRACT_AND_RUN=1 ") + quoted(path);
     else if (is_elf(path) && !finfo.absolutePath().contains(QChar(':')))
-        cmd = QStringLiteral("/usr/bin/env ") + quoted(QStringLiteral("LD_LIBRARY_PATH=") + finfo.absolutePath()) + QChar(' ') + quoted(path);
+        cmd = QStringLiteral("/usr/bin/env ")
+            + (compat.isEmpty() ? QString() : quoted(QStringLiteral("LD_PRELOAD=") + compat) + QChar(' '))
+            + quoted(QStringLiteral("LD_LIBRARY_PATH=") + finfo.absolutePath()) + QChar(' ') + quoted(path);
     else
         cmd = quoted(path);
     game.setLaunchCmd(cmd).setLaunchWorkdir(finfo.absolutePath());
@@ -141,6 +148,19 @@ QString DiskGames::gameDataDir(const QString& kind, const QString& game_dir)
     slug = slug.left(40).remove(QRegularExpression(QStringLiteral("^-+|-+$")));
     const QString hash = QString::fromLatin1(QCryptographicHash::hash(game_dir.toUtf8(), QCryptographicHash::Sha1).toHex().left(10));
     return paths::homePath() + QStringLiteral("/.local/share/owneet/") + kind + QChar('/') + slug + QChar('-') + hash;
+}
+
+QString DiskGames::compatLibrary(const QString& name)
+{
+    static const QRegularExpression valid(QStringLiteral("^[a-z0-9-]+$"));
+    if (!valid.match(name).hasMatch())
+        return {};
+    const QString path = QStringLiteral("/usr/lib32/owneet/libowneet-") + name + QStringLiteral(".so");
+    if (!QFileInfo::exists(path)) {
+        Log::warning(LOGMSG("OwneetOS's library `%1` is not installed").arg(path));
+        return {};
+    }
+    return path;
 }
 
 QString DiskGames::installFolderName(const QString& name)

@@ -66,6 +66,7 @@ private:
     QString m_title;
     QString m_game_path;
     QString m_steam_appid;  // OwneetOS: a Steam game, started by Steam through owneetd
+    bool m_handover = false; // OwneetOS: a known game's launcher that hands over to the game
     void runWithDaemon(const QString&, const QStringList&, const QString&);
     void runSteamGame();
     void onDaemonEvent(const QString& type, const QVariant& data);

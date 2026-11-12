@@ -3,7 +3,10 @@
     "1207658930": {
       "title": "The Witcher 2: Assassins of Kings Enhanced Edition",
       "start": "game/tenfoot-launcher",
-      "fix-key-files": ["game/bin/config/lang/*.ini"]
+      "fix-key-files": ["game/bin/config/lang/*.ini"],
+      "launchers": {
+        "game/tenfoot-launcher": { "compat": "old-sdl2-launcher", "hands-over": true }
+      }
     }
   }
 }

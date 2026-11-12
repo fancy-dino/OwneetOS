@@ -352,7 +352,8 @@ GogTask read_gog_task(const QString& game_dir)
 // start.sh does not start the game itself (The Witcher 2's opens a desktop window that needs 32-bit
 // GTK 2), and the game's GLib key files to fix ("fix-key-files": escapes today's GLib refuses, which
 // make The Witcher 2's TV launcher abort). { "gog": { "<GOG id>": { "title": "…", "start": "<file,
-// relative to the game>", "fix-key-files": ["<folder/*.ini>"] } } }
+// relative to the game>", "fix-key-files": ["<folder/*.ini>"], "launchers": { "<file>": { "compat":
+// "<OwneetOS library>", "hands-over": true } } } } } (launchers: owner, 2026-11-12)
 const QJsonObject& known_games()
 {
     static const QJsonObject known = [] {
@@ -575,6 +576,9 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                 extra.insert(QStringLiteral("disk.dir"), game_dir);
                 extra.insert(QStringLiteral("disk.root"), root.second);
                 extra.insert(QStringLiteral("disk.files"), files);
+                // a known game's launchers: OwneetOS's library each needs, whether it hands over
+                if (!known.value(QStringLiteral("launchers")).toObject().isEmpty())
+                    extra.insert(QStringLiteral("disk.launchers"), known.value(QStringLiteral("launchers")).toObject().toVariantMap());
                 if (installed) {
                     extra.insert(QStringLiteral("disk.installed"), true);
                     extra.insert(QStringLiteral("disk.installed.from"), mark_info.value(QStringLiteral("installer")).toString());

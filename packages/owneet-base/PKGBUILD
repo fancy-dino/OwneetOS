@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.65
+pkgver=0.0.66
 pkgrel=1
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
@@ -21,6 +21,9 @@ depends=('base' 'owneet-keyring' 'owneet-session' 'owneet-branding' 'owneet-hard
          # 32-bit Linux games: 32-bit SDL2, SDL2_image and SDL2_ttf (built by OwneetOS, not in Arch's
          # multilib; [[games-on-disk]], 2026-11-11)
          'lib32-sdl2-compat' 'lib32-sdl2_image' 'lib32-sdl2_ttf'
+         # OwneetOS's compatibility libraries for old games, loaded only for the known games'
+         # files that ask for them (packages/lib32-owneet-compat, owner 2026-11-12)
+         'lib32-owneet-compat'
          # the installed system's file systems (btrfs root, FAT32 boot partition); disks prepared
          # for games (ext4) and the check that nothing uses them (fuser)
          'btrfs-progs' 'dosfstools' 'e2fsprogs' 'psmisc')

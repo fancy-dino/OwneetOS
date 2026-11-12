@@ -64,6 +64,8 @@ type App struct {
 	// and flashes windows while it starts: the console's "Preparing Steam" screen covers that)
 	settle bool
 	steady int // checks in a row with a window
+	// handover: started by a launcher that hands over to the game and ends (LaunchRequest.Handover)
+	handover bool
 	// steamBehind: a Steam game whose window has not appeared yet; Steam's window is left out of
 	// what gamescope may show (Silksong, FrankenPC 2026-10-16: Steam's window was on screen for
 	// 10 s before the game's), the home screen's "Starting …" covers the wait (steam.go)
@@ -112,6 +114,10 @@ type LaunchRequest struct {
 	// Stop closes the app cleanly before its processes are stopped (owneetd's own apps only:
 	// Steam).
 	Stop []string `json:"-"`
+	// Handover: the program starts the game and ends (an old launcher); the app lasts while any of
+	// its programs runs, instead of ending with the first one. Only for the games the list of known
+	// games names (owner, 2026-11-12, [[games-on-disk]]).
+	Handover bool `json:"handover,omitempty"`
 }
 
 // Errors returned to the API.
@@ -130,7 +136,8 @@ var (
 type Units interface {
 	// stop, when not nil, is run to close the app (systemd's ExecStop) before its processes are
 	// stopped.
-	Start(unit, description string, argv, stop, env []string, workdir string) error
+	// whileAny: the unit lasts while any of its processes runs, not only the first (ExitType=cgroup).
+	Start(unit, description string, argv, stop, env []string, workdir string, whileAny bool) error
 	Stop(unit string) error
 	Kill(unit string) error
 	// Running lists the app units already running (owneetd restarted): unit and description.
@@ -658,7 +665,7 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 		}
 	}
 	app := &App{ID: req.ID, Name: req.Name, Kind: req.Kind, Started: time.Now(), unit: UnitName(req.ID),
-		appID: m.newAppID(req.ID), settle: req.ID == SteamID}
+		appID: m.newAppID(req.ID), settle: req.ID == SteamID, handover: req.Handover}
 	m.apps[app.ID] = app // reserved while starting
 	m.order = append(m.order, app.ID)
 	m.mu.Unlock()
@@ -674,7 +681,7 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 			m.Log.Debug("cannot choose what gamescope shows", "err", err)
 		}
 	}
-	if err := m.Units.Start(app.unit, description(app.Kind, app.Name), argv, req.Stop, sess.Env, req.Workdir); err != nil {
+	if err := m.Units.Start(app.unit, description(app.Kind, app.Name), argv, req.Stop, sess.Env, req.Workdir, req.Handover); err != nil {
 		m.forget(app.ID)
 		return App{}, err
 	}

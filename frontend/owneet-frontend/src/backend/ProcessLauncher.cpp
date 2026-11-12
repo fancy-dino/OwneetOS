@@ -233,6 +233,7 @@ void ProcessLauncher::onLaunchRequested(const model::GameFile* q_gamefile)
     m_title = game.title();
     m_game_path = gamefile.fileinfo().absoluteFilePath();
     m_steam_appid = gamefile.uri().startsWith(QLatin1String("steam:")) ? gamefile.uri().mid(6) : QString();
+    m_handover = game.extraMap().value(QStringLiteral("disk.handover")).toBool();
     if (m_daemon && m_daemon->available())  // OwneetOS: the console session
         runWithDaemon(command, args, workdir);
     else
@@ -300,6 +301,9 @@ void ProcessLauncher::runWithDaemon(const QString& command, const QStringList& a
         {QStringLiteral("kind"), QStringLiteral("game")},
         {QStringLiteral("command"), QStringList(command) + args},
         {QStringLiteral("workdir"), workdir},
+        // a known game's launcher that starts the game and ends: the app lasts while any of its
+        // programs runs (owner, 2026-11-12)
+        {QStringLiteral("handover"), m_handover},
     };
     m_daemon->request(QStringLiteral("POST"), QStringLiteral("/v1/apps/launch"), body, [this, id](int status, const QVariant& data) {
         if (status == 201) {

@@ -121,8 +121,14 @@ func (m *Manager) programEnded(id string, pid int) {
 	}
 	appID := a.appID
 	front := len(m.shown) == 1 && m.shown[0] == appID
+	handover, unit, procs := a.handover, a.unit, m.Procs
 	m.mu.Unlock()
 	if !front {
+		return
+	}
+	// a launcher that hands over: the game it started has no window yet; the app is not over
+	// while its unit still has a process
+	if handover && procs != nil && len(procs.InUnit(unit)) > 0 {
 		return
 	}
 	sess, err := m.Session()

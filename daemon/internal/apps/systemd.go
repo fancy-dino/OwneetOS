@@ -151,7 +151,7 @@ type execCommand struct {
 }
 
 // Start starts a transient service and waits until the program has been executed.
-func (s *Systemd) Start(unit, description string, argv, stop, env []string, workdir string) error {
+func (s *Systemd) Start(unit, description string, argv, stop, env []string, workdir string, whileAny bool) error {
 	if workdir == "" {
 		workdir, _ = os.UserHomeDir()
 	}
@@ -165,6 +165,10 @@ func (s *Systemd) Start(unit, description string, argv, stop, env []string, work
 		// Closing stops every process of the app; after 10 s they are killed.
 		{"KillMode", dbus.MakeVariant("control-group")},
 		{"TimeoutStopUSec", dbus.MakeVariant(uint64(10 * time.Second / time.Microsecond))},
+	}
+	if whileAny {
+		// a launcher that hands over to the game and ends: the app lasts while the game runs
+		props = append(props, property{"ExitType", dbus.MakeVariant("cgroup")})
 	}
 	if stop != nil {
 		// The app closes itself first (e.g. Steam saving its state); 20 s in all

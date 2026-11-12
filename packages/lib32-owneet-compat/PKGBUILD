@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
+#
+# OwneetOS's own 32-bit compatibility libraries for old Linux games, loaded only for the files the
+# list of known games names (frontend/known-games, [[games-on-disk]], owner 2026-11-12):
+# old-sdl2-launcher, what old launchers made for SDL2 expected from it (The Witcher 2's TV
+# launcher). Sources in compat/ (compat/README.md).
+
+pkgname=lib32-owneet-compat
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="OwneetOS compatibility libraries for old 32-bit Linux games"
+arch=('x86_64')
+url="https://github.com/fancy-dino/OwneetOS"
+license=('GPL-3.0-or-later')
+depends=('lib32-glibc')
+makedepends=('lib32-gcc-libs')
+options=('!debug')
+# lib32-owneet-compat-src.tar.gz is generated from compat/ by tools/build-packages (source-dirs).
+source=('lib32-owneet-compat-src.tar.gz')
+sha256sums=('SKIP')
+
+build() {
+  cd compat
+  gcc -m32 $CFLAGS -shared -fPIC -Wall -Wextra -Werror $LDFLAGS \
+    -o libowneet-old-sdl2-launcher.so old-sdl2-launcher/old-sdl2-launcher.c -ldl
+}
+
+check() {
+  cd compat
+  old-sdl2-launcher/test/run.sh "$srcdir/test-build"
+}
+
+package() {
+  cd compat
+  install -Dm755 libowneet-old-sdl2-launcher.so "$pkgdir/usr/lib32/owneet/libowneet-old-sdl2-launcher.so"
+}

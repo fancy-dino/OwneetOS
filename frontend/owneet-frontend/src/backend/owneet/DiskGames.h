@@ -37,6 +37,9 @@ public:
     // The name of the folder a game is installed into: its game folder's name with ": " written
     // " - " (owner, 2026-11-11; owneetd's installs.FolderName, the same rule)
     static QString installFolderName(const QString& name);
+    // OwneetOS's compatibility library a known game's launcher needs (packages/lib32-owneet-compat:
+    // /usr/lib32/owneet/libowneet-NAME.so), "" when the name is not valid or it is not installed
+    static QString compatLibrary(const QString& name);
     /// A game's own folder on the console's disk: ~/.local/share/owneet/KIND/<name>-<hash>
     static QString gameDataDir(const QString& kind, const QString& game_dir);
 
