@@ -1428,7 +1428,7 @@ FocusScope {
         dialog.prompts = dialog.defaultPrompts;
         dialog.backAction = null;
         dialog.title = Tr.tr("installer.ask.title", { title: game.title });
-        dialog.text = Tr.tr("installer.ask.text", { size: GameInfo.sizeAuto(info.need) });
+        dialog.text = Tr.tr("installer.ask.text", { size: GameInfo.sizeAuto(info.need), disk: root.installDisk(game) });
         dialog.buttons = [
             { text: Tr.tr("installer.read"), action: () => root.showInstallLicence(game, info) },
             { text: Tr.tr("installer.go"), style: "primary", action: () => { dialog.close(true); root.requestInstall(game); } },
@@ -1461,7 +1461,7 @@ FocusScope {
         dialog.prompts = dialog.defaultPrompts;
         dialog.backAction = null;
         dialog.title = Tr.tr("installer.space.title", { title: game.title });
-        dialog.text = Tr.tr("installer.space.text", { title: game.title, size: GameInfo.sizeAuto(info.need), free: GameInfo.sizeAuto(info.free) });
+        dialog.text = Tr.tr("installer.space.text", { title: game.title, size: GameInfo.sizeAuto(info.need), free: GameInfo.sizeAuto(info.free), disk: root.installDisk(game) });
         dialog.buttons = [{ text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() }];
         dialog.defaultIndex = 0;
         dialog.open();
@@ -1490,7 +1490,7 @@ FocusScope {
             }
             const code = data && data.error ? data.error.code : "";
             if (code === "installs.no_space") { root.inspectInstaller(game, info => root.showInstallSpace(game, info)); return; }
-            toast.show(Tr.tr(code === "installs.exists" ? "error.install.exists" : "error.installer"));
+            toast.show(code === "installs.exists" ? Tr.tr("error.install.exists", { disk: root.diskOf(req.dest) }) : Tr.tr("error.installer"));
             Nav.feedback("error");
         });
     }
@@ -1561,6 +1561,10 @@ FocusScope {
             return false;
         const v = storage.volumes().find(v => v.key === root);
         return !!v && v.readOnly === true;
+    }
+    // The disk a game is installed on: its installer's, or the console's own (owner, 2026-11-12)
+    function installDisk(game) {
+        return root.diskOf(diskGames.installRequest(game, Tr.language).dest);
     }
     function diskOf(path) {
         const v = storage.volumes().find(v => v.key !== "internal" && String(path).startsWith(v.key + "/"));
@@ -1634,7 +1638,7 @@ FocusScope {
         } else if (data.reason === "source_gone") {
             notify({ key: "notices.install.stopped", args: { name: data.title }, icon: "usb", kind: "info" });
         } else if (data.reason === "no_space") {
-            notify({ key: "notices.install.space", args: { name: data.title }, icon: "alert", kind: "attention" });
+            notify({ key: "notices.install.space", args: { name: data.title, disk: root.diskOf(data.dest) }, icon: "alert", kind: "attention" });
         } else if (data.reason === "windows") {
             toast.show(Tr.tr("error.install.windows"));
         } else if (data.reason !== "cancelled") {

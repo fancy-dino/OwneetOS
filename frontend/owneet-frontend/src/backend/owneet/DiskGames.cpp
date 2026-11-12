@@ -13,6 +13,7 @@
 #include <QJsonObject>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QStorageInfo>
 
 
 namespace {
@@ -185,9 +186,11 @@ QVariantMap DiskGames::installRequest(QObject* game_obj, const QString& language
         return {};
     QString dest;
     const QString folder = installFolderName(QFileInfo(game_dir).fileName());
-    if (extra.value(QStringLiteral("disk.root")).toString() == QLatin1String("internal")) {
-        // already on the console's disk: installed in place (owneetd first renames a folder whose
-        // name has ":")
+    // installed where its installer is, in place (owner, 2026-11-12: the user chooses the disk by
+    // putting the installer there; owneetd first renames a folder whose name has ":"); a disk read
+    // only: on the console's own disk
+    if (extra.value(QStringLiteral("disk.root")).toString() == QLatin1String("internal")
+        || !QStorageInfo(game_dir).isReadOnly()) {
         dest = QFileInfo(game_dir).absolutePath() + QChar('/') + folder;
     } else {
         // the home folder's games folder, or a new one named in the console's language

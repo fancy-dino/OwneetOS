@@ -10,7 +10,7 @@
 //   and documentation folders;
 // - the file to start: the user's choice, else game.txt's "start", else the file of a game OwneetOS
 //   knows (known-games.json: GOG's games whose start.sh does not work; its "fix-key-files" are
-//   fixed on the console's disk), else start.sh at
+//   fixed on any disk the console can write), else start.sh at
 //   the top of the folder (GOG's games), else the only file found; otherwise the theme asks once;
 // - the title: game.txt's "title", else the title a game installed by the console had (its
 //   folder's name has no ":"), else the folder's name as the user wrote it (never rewritten);
@@ -27,8 +27,10 @@
 // console installs on its own disk through owneetd: "disk.installer" (the file) and
 // "disk.installer.kind" (sh: GOG's Linux installer, extracted; inno, nsis, msi: Windows
 // installers, run silently; galaxy: GOG Galaxy's online installer, and unknown: not usable yet).
-// A folder being installed (.owneet-installing) is not listed; the installed copy, in the home
-// folder's games folder under the same name (without ":", DiskGames::installFolderName), hides its installer and has "disk.installed" (it can
+// A folder being installed (.owneet-installing) is not listed; a game is installed in place, on its
+// installer's disk (owner, 2026-11-12), or, from a disk read only, in the home folder's games folder
+// under the same name (without ":", DiskGames::installFolderName), which hides its installer; an
+// installed game has "disk.installed" (it can
 // be uninstalled). The other extras the theme reads: "disk.dir" (the
 // game folder), "disk.root" (the disk's mount folder, "internal" for the home folder),
 // "disk.files" (what can start, relative to the game folder), "disk.start" (the file it starts
@@ -545,7 +547,8 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                 if (start.isEmpty() && txt_start)
                     start = txt.start;
                 const QJsonObject known = known_game(game_dir);
-                if (!known.isEmpty() && root.second == QLatin1String("internal"))
+                // on any disk the console can write (games are installed on their installer's disk)
+                if (!known.isEmpty() && !QStorageInfo(game_dir).isReadOnly())
                     fix_key_files(game_dir, known.value(QStringLiteral("fix-key-files")).toArray());
                 if (start.isEmpty() && files.contains(known.value(QStringLiteral("start")).toString()))
                     start = known.value(QStringLiteral("start")).toString();

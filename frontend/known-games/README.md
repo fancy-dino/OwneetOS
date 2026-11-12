@@ -8,7 +8,7 @@ folder on a disk:
   `game.txt`'s `start` win over it.
 - `fix-key-files`: the game's GLib key files (a folder and a `*` pattern, relative to the game's
   folder) whose values have a lone backslash that today's GLib refuses; the interface writes it
-  twice (`\` → `\\`), only on the console's disk and only in files that need it.
+  twice (`\` → `\\`), on any disk the console can write and only in files that need it.
 - `launchers` (owner, 2026-11-12): for a file of the game, `compat`, the OwneetOS library it is
   started with (`compat/`, installed as `/usr/lib32/owneet/libowneet-<name>.so`, `LD_PRELOAD`), and
   `hands-over`, a launcher that starts the game and ends: the app then lasts while any of its

@@ -302,6 +302,51 @@ func TestFolderNamesWithoutColons(t *testing.T) {
 
 }
 
+// A game is installed on its installer's disk, in place (owner, 2026-11-12): the free space is
+// that disk's; it can be uninstalled there; an install cut short on a disk not plugged in is kept
+// for a later start.
+func TestInstallOnTheInstallersDisk(t *testing.T) {
+	m, _, disk, ch := newManager(t)
+	m.Media = filepath.Dir(disk)
+	var asked []string
+	m.Free = func(p string) (int64, error) { asked = append(asked, p); return 1 << 40, nil }
+	orig := filepath.Join(disk, "Giochi", "The Witcher 2: Assassin of kings")
+	os.MkdirAll(orig, 0o755)
+	installer := filepath.Join(orig, "w2.sh")
+	gogScript(t, installer, 100)
+	if _, err := m.Inspect(installer, KindSh); err != nil {
+		t.Fatal(err)
+	}
+	if len(asked) != 1 || asked[0] != orig {
+		t.Fatalf("free space asked for %v, not the installer's disk", asked)
+	}
+	run(t, m)
+	dest := filepath.Join(disk, "Giochi", "The Witcher 2 - Assassin of kings")
+	if err := m.Install(Request{Installer: installer, Kind: KindSh, Dest: dest, Title: "The Witcher 2: Assassin of kings"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "install.done")
+	if exists(orig) || !exists(filepath.Join(dest, "start.sh")) || !exists(filepath.Join(dest, "w2.sh")) || !exists(filepath.Join(dest, MarkInstalled)) {
+		t.Fatal("not installed in place on the installer's disk")
+	}
+	if err := m.Uninstall(dest); err != nil || exists(filepath.Join(dest, "start.sh")) || !exists(filepath.Join(dest, "w2.sh")) {
+		t.Fatalf("uninstall on the disk: %v", err)
+	}
+	// a games folder that is not at the top of a disk: refused
+	if err := m.Install(Request{Installer: filepath.Join(dest, "w2.sh"), Kind: KindSh, Dest: filepath.Join(disk, "x", "Giochi", "W2")}); err != ErrInvalid {
+		t.Fatalf("deeper games folder: %v", err)
+	}
+	// cut short on a disk that is not plugged in at the next start: kept until it is
+	gone := filepath.Join(m.Media, "Other disk", "Giochi", "Game")
+	data, _ := json.Marshal([]string{gone})
+	os.WriteFile(filepath.Join(m.StateDir, "installs.json"), data, 0o644)
+	m.cleanCutShort()
+	kept, _ := os.ReadFile(filepath.Join(m.StateDir, "installs.json"))
+	if !strings.Contains(string(kept), "Other disk") {
+		t.Fatalf("the install cut short on an unplugged disk was forgotten: %s", kept)
+	}
+}
+
 func TestWindowsInstallers(t *testing.T) {
 	m, home, _, ch := newManager(t)
 	src := filepath.Join(home, "Giochi", "Shadow Harbor setup")
