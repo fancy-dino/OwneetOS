@@ -254,7 +254,16 @@ NavArea {
                 width: parent.width - Theme.px(68)
                 readonly property bool art: (page.hero !== null || page.running !== null) && !page.webOpen
                 y: art ? parent.height - height - Theme.px(30) : (parent.height - height) / 2
-                spacing: Theme.px(12)
+                // 12 px between its rows; less (at least 4 px) when they would not fit in the card with
+                // 30 px above and below, e.g. text size XL and a title on two lines (owner 2026-11-12, 3w d)
+                readonly property real rows: {
+                    let h = 0;
+                    for (let i = 0; i < visibleChildren.length; i++)
+                        h += visibleChildren[i].height;
+                    return h;
+                }
+                readonly property int gaps: Math.max(1, visibleChildren.length - 1)
+                spacing: Math.max(Theme.px(4), Math.min(Theme.px(12), (parent.height - Theme.px(60) - rows) / gaps))
                 readonly property color ink: art ? "#FFFFFF" : Theme.fg
 
                 Rectangle {                     // an open web app: its letter, no art

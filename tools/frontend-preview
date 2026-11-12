@@ -33,6 +33,7 @@
 #   @gamescope       (with @owneetd) the pretend session is gamescope's (Resume, the pointer)
 #   @firststart      the first start (6.1) is shown, as on a new console (otherwise it counts as done)
 #   @startup         the first shots come at once, during the start-up animation
+#   @longtitle       "Copper Coast" (the home's first game) gets a long invented title, on two lines
 #   @live            (with @owneetd) started from the USB stick (6.2: owneetd's mode is "live")
 #   @installfail     (with @owneetd) the installation (6.4) stops while copying (copy_failed)
 #   @movefail        (with @owneetd) moving a game (6.6): its copy does not pass the check
@@ -151,6 +152,9 @@ printf 'collection: Test games\nshortname: test\n\n' > "$HOME/games/metadata.peg
 if ! grep -q '^@nogames' /steps.txt; then
     for g in "Nebula Drift" "Moss Garden" "Ember Run" "Tiny Tactics" "Harbor Lights" "Pixel Quest" \
              "Starfall" "Velvet Road" "Copper Coast" "Lantern Keep" "Quiet Orbit" "Saltwind"; do
+        if [ "$g" = "Copper Coast" ] && grep -q '^@longtitle' /steps.txt; then
+            g="Copper Coast: The Long Voyage of the Lantern Keeper"
+        fi
         f="$HOME/games/$(echo "$g" | tr ' ' _).sh"; touch "$f"
         printf 'game: %s\nfile: %s\nlaunch: /bin/true\n\n' "$g" "$f" >> "$HOME/games/metadata.pegasus.txt"
     done
