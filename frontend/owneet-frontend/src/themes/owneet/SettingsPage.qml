@@ -731,13 +731,8 @@ NavArea {
                         text: Tr.tr("display.one")
                         value: page.screenName(page.screens[0])
                     }
-                    SettingSlider {              // only on screens that allow it (laptops, many monitors)
-                        visible: page.display !== null && page.display.brightness !== undefined
-                        width: parent.width
-                        text: Tr.tr("display.brightness")
-                        value: page.display && page.display.brightness !== undefined ? page.display.brightness : 0
-                        onMoved: owneetd.put("/v1/display/brightness", { value: value })
-                    }
+                    // No brightness here in Wave 1 (owner, 2026-11-12: it did nothing on the FrankenPC);
+                    // brightness comes back in Wave 2 (owneetd keeps /v1/display/brightness)
                     SettingRow {
                         visible: page.modes.length > 0
                         width: parent.width

@@ -145,6 +145,8 @@ vm/test.sh stop | reset | destroy
 
   Only packages with a higher version than the installed ones are installed (raise `pkgver` or
   `pkgrel`). The image is made anew each time: the logs the VM wrote on it are lost.
+- **Screen size:** `OWNEET_VM_RES=1920x1080 vm/test.sh boot …` gives the VM a virtual screen of that size
+  (a Full HD TV); unset, QEMU's own size (1280×800).
 - **Extra kernel arguments:** `--kargs "..."` is passed through SMBIOS and appended by systemd-boot
   (e.g. `owneet.session=cage`); `--journal` sends the system journal to the serial log.
 - **Debug shell:** `--debug-shell` starts a root shell on a virtio console (`hvc0`, kernel argument

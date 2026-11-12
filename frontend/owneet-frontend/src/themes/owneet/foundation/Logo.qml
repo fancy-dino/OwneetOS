@@ -14,7 +14,10 @@ Canvas {
     property color symbol: Theme.accent
 
     readonly property bool above: layout === "above"
-    width: above ? size : size * (LogoData.leftSize + LogoData.leftGap + LogoData.wordWidth) / LogoData.leftSize
+    // on the left: the word ends exactly at the drawing's right edge, so a width rounded down cut the
+    // last pixel of the "S" (owner, 2026-11-12, a 1920×1080 TV): whole pixels and 2 more, the drawing
+    // unchanged (its scale comes from the height)
+    width: above ? size : Math.ceil(size * (LogoData.leftSize + LogoData.leftGap + LogoData.wordWidth) / LogoData.leftSize) + 2
     height: above ? size * (LogoData.aboveSize + LogoData.aboveGap + LogoData.wordHeight) / LogoData.wordWidth : size
 
     onWidthChanged: requestPaint()

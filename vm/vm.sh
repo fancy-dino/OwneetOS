@@ -313,8 +313,17 @@ cmd_start() {
         args+=(-nic none)
     fi
 
+    # OWNEET_VM_RES=WIDTHxHEIGHT: the virtual screen's size (e.g. 1920x1080, a Full HD TV); unset: QEMU's own
+    local res="" xres yres
+    if [[ -n "${OWNEET_VM_RES:-}" ]]; then
+        [[ "$OWNEET_VM_RES" =~ ^([0-9]{3,4})x([0-9]{3,4})$ ]] || die "OWNEET_VM_RES must be WIDTHxHEIGHT, e.g. 1920x1080"
+        xres="${BASH_REMATCH[1]}" yres="${BASH_REMATCH[2]}"
+        res=",xres=$xres,yres=$yres"
+    fi
     if (( headless )); then
-        if (( gl )); then args+=(-device virtio-vga-gl -display egl-headless); else args+=(-display none); fi
+        if (( gl )); then args+=(-device "virtio-vga-gl$res" -display egl-headless)
+        elif [[ -n "$res" ]]; then args+=(-device "virtio-vga$res" -display none)
+        else args+=(-display none); fi
         args+=(-daemonize)
         qemu-system-x86_64 "${args[@]}" 2>"$run/qemu.log" || die "QEMU failed to start, see vm/run/$name/qemu.log"
         info "VM '$name' running in the background (pid $(cat "$run/qemu.pid")); serial log: vm/run/$name/serial.log"
@@ -323,7 +332,9 @@ cmd_start() {
             die "QEMU cannot open windows on this host. Install its GUI support (Debian/Ubuntu/Mint: qemu-system-gui;
        Arch: qemu-ui-gtk), or use --headless."
         fi
-        if (( gl )); then args+=(-device virtio-vga-gl -display "gtk,gl=on"); else args+=(-vga virtio -display gtk); fi
+        if (( gl )); then args+=(-device "virtio-vga-gl$res" -display "gtk,gl=on")
+        elif [[ -n "$res" ]]; then args+=(-device "virtio-vga$res" -display gtk)
+        else args+=(-vga virtio -display gtk); fi
         info "starting VM '$name' in a window; close the window to power it off"
         qemu-system-x86_64 "${args[@]}"
     fi
