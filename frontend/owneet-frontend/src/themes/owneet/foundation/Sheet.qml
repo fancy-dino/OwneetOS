@@ -40,12 +40,12 @@ NavArea {
     onCancelled: close()
 
     function ensureVisible(item) {
-        const p = item.mapToItem(body, 0, 0);
-        const pad = Theme.px(12);
-        if (p.y - pad < flick.contentY)
-            flick.contentY = Math.max(0, p.y - pad);
-        else if (p.y + item.height + pad > flick.contentY + flick.height)
-            flick.contentY = Math.min(body.height - flick.height, p.y + item.height + pad - flick.height);
+        const y = item.mapToItem(body, 0, 0).y + body.y;
+        const pad = body.y;
+        if (y - pad < flick.contentY)
+            flick.contentY = Math.max(0, y - pad);
+        else if (y + item.height + pad > flick.contentY + flick.height)
+            flick.contentY = Math.min(flick.contentHeight - flick.height, y + item.height + pad - flick.height);
     }
 
     Rectangle {          // dims the screen below; in the palette's own background color, so the
@@ -78,24 +78,25 @@ NavArea {
             id: flick
             anchors {
                 left: parent.left; right: parent.right; top: heading.bottom; bottom: parent.bottom
-                leftMargin: Theme.px(16); rightMargin: Theme.px(16)
-                topMargin: Theme.px(6); bottomMargin: Theme.px(10)
+                leftMargin: Theme.px(2); rightMargin: Theme.px(2)
+                topMargin: 0; bottomMargin: Theme.px(4)
             }
             clip: true
             interactive: false
             contentWidth: width
-            contentHeight: body.height
+            contentHeight: body.y + body.height
             Behavior on contentY {
                 enabled: !Theme.reduceMotion
                 NumberAnimation { duration: Theme.motionMs; easing.type: Easing.OutCubic }
             }
             Item {
                 id: body
-                // inner padding leaves room for the focus ring
-                x: Theme.px(8)
-                y: Theme.px(8)
-                width: flick.width - Theme.px(16)
-                height: childrenRect.height + Theme.px(16)
+                // inner padding leaves room for the focus ring and the lift of the selected row (3w c:
+                // 8 px cut the ring of a wide row); the rows stay where they were
+                x: Theme.px(22)
+                y: Theme.px(14)
+                width: flick.width - Theme.px(44)
+                height: childrenRect.height + Theme.px(14)
             }
         }
     }
