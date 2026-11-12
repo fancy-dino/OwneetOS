@@ -589,8 +589,8 @@ local function audio()
     local _, i = current_track("audio")
     local n = i % #list + 1
     mp.set_property_number("aid", list[n].id)
-    -- its language becomes the preferred one (a track without a language changes nothing)
-    if code_of(list[n]) ~= "" then pref_audio = code_of(list[n]) end
+    -- its language becomes the preferred one (a track without a language: none, each video's own)
+    pref_audio = code_of(list[n])
     say(fill(T("player.audio"), { l = language(list[n], n), i = n, n = #list }))
     send_state()
 end
@@ -605,7 +605,7 @@ local function subtitles()
         say(fill(T("player.subtitles"), { l = T("player.off") }))
     else
         mp.set_property_number("sid", list[i + 1].id)
-        if code_of(list[i + 1]) ~= "" then pref_subs = code_of(list[i + 1]) end
+        pref_subs = code_of(list[i + 1])   -- (no language: none, each video's own subtitles)
         say(fill(T("player.subtitles"), { l = language(list[i + 1], i + 1) }))
     end
     send_state()
