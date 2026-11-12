@@ -7,7 +7,7 @@
 # launcher). Sources in compat/ (compat/README.md).
 
 pkgname=lib32-owneet-compat
-pkgver=0.1.0
+pkgver=0.3.0
 pkgrel=1
 pkgdesc="OwneetOS compatibility libraries for old 32-bit Linux games"
 arch=('x86_64')

@@ -11,6 +11,10 @@ typedef union { uint32_t type; uint8_t padding[56]; } Event;
 int SDL_WaitEventTimeout(Event *event, int timeout);
 int SDL_PollEvent(Event *event);
 int g_spawn_command_line_async(const char *command_line, void **error);
+void *SDL_JoystickOpen(int index);
+void *SDL_GameControllerOpen(int index);
+extern int fake_controllers_opened;
+void _ZdlPv(void *block); // operator delete(void*)
 
 int main(int argc, char **argv)
 {
@@ -23,8 +27,30 @@ int main(int argc, char **argv)
         clock_gettime(CLOCK_MONOTONIC, &b);
         printf("%ld\n", (b.tv_sec - a.tv_sec) * 1000 + (b.tv_nsec - a.tv_nsec) / 1000000);
     } else if (strcmp(argv[1], "poll") == 0) {
+        // every event the launcher would get: keys as "down:SYM" / "up:SYM", others as their type
         Event e;
-        SDL_PollEvent(&e);
+        while (SDL_PollEvent(&e)) {
+            int32_t sym;
+            memcpy(&sym, e.padding + 20, 4);
+            if (e.type == 0x300 || e.type == 0x301)
+                printf("%s:%d ", e.type == 0x300 ? "down" : "up", sym & ~(1 << 30));
+            else
+                printf("0x%x ", e.type);
+        }
+        printf("opened=%d\n", fake_controllers_opened);
+        return 0;
+    } else if (strcmp(argv[1], "open") == 0) {
+        printf("joystick=%s controller=%s\n", SDL_JoystickOpen(0) ? "open" : "none",
+               SDL_GameControllerOpen(0) ? "open" : "none");
+        return 0;
+    } else if (strcmp(argv[1], "delete") == 0) {
+        // a 24-byte block, like a std::map node, read after it is deleted (the launcher's bug)
+        volatile uint32_t *node = malloc(24);
+        for (int i = 0; i < 6; i++)
+            node[i] = 0x11111111u * (uint32_t)(i + 1);
+        _ZdlPv((void *)node);
+        printf("%s\n", node[1] == 0x22222222u && node[3] == 0x44444444u ? "kept" : "changed");
+        return 0;
     } else if (strcmp(argv[1], "spawn") == 0) {
         g_spawn_command_line_async("./game", NULL);
     } else if (strcmp(argv[1], "env") == 0) {
