@@ -1,0 +1,21 @@
+@owneetd
+@gamescope
+# The home's big card that does not fit (open item 3ab, approved demo design/demos/3.6c-hero-card-fit.html):
+# text size XL, a running game with a long title: the title on one line scrolling while a button of the
+# card is selected, the buttons clipped and sliding to the selected one.
+pad lb down down down down right down
+pad right right right a
+wait 1
+pad b rb
+wait 1
+event app.started {"id":"steam:2001","name":"The Long Voyage of the Lantern Keeper: Tales of the Saltwind Isles","kind":"game","started":"2026-11-13T09:00:00Z"}
+wait 2
+shot 01-card-first-button
+pad right right
+wait 1
+shot 02-card-last-button
+wait 3
+shot 03-title-scrolling
+pad down
+wait 1
+shot 04-selection-below
