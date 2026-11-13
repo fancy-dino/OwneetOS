@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The packages' cache keeps the newest two versions of each package (owneet-clean-cache, 6.11)
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = *
+
+[Action]
+Description = Keeping the newest two versions of each package in the cache...
+When = PostTransaction
+Exec = /usr/lib/owneet/owneet-clean-cache

@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.78
+pkgver=0.0.79
 pkgrel=1
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
@@ -37,7 +37,8 @@ source=('owneet-base-src.tar.gz' 'owneet-release' 'owneet-diagnostics' 'owneet-d
         'owneet-apps-install@.service' 'owneet-apps-remove@.service' '50-owneet-apps.rules'
         'brave-policies.json' 'owneet-mount' 'owneet-mount@.service' '90-owneet-disks.rules'
         'owneet-mode' 'owneet-mode.service' 'owneet-prepare-disk' 'owneet-prepare-disk.service'
-        '50-owneet-disks.rules' 'owneet-base.tmpfiles')
+        '50-owneet-disks.rules' 'owneet-base.tmpfiles'
+        'owneet-clean-cache' 'owneet-clean-cache.hook' 'owneet-coredump.conf')
 sha256sums=('SKIP'
             '74f473c3e5cec980798421ac667c84f3938a1e93160b37112300a25aa2ea0400'
             'e739678148442c4770b5c7cf793df180bc475cd33cf1bcb347affdb978f84fc3'
@@ -66,7 +67,10 @@ sha256sums=('SKIP'
             '8beca6060c1650f84b1ab0a0e835cd7dac53b32965d39c2b63c77e2ddff49660'
             '01a0e23a1cd17a762d3c6b4124132fd86d21abc06909986153703c09dadf9b0f'
             '316fbb08c79fdef6579b2fecd7085a51c900593d5a39ff1c1507681d62617b84'
-            '614c20e481e78dc443e427504bc55163a832b8525cdec3c002d069b40d49eec6')
+            '614c20e481e78dc443e427504bc55163a832b8525cdec3c002d069b40d49eec6'
+            'b1fc585e7246c0412a235f7789c168e3f8ccf2d5bcbfe83934f364f99a7e4ca5'
+            'b2d73904507bd45f5de843bcce7a8e0f2f034dd6a9ce56c456e268bcf3086dc1'
+            'b2c488ab39263f1574b98a4ac8de49ba56a790a605413ba1aed0b5a11bc2537a')
 
 package() {
   install -Dm644 owneet-release "$pkgdir/usr/share/owneet/owneet-release"
@@ -124,4 +128,9 @@ package() {
   install -Dm644 owneet-mode.service -t "$pkgdir/usr/lib/systemd/system/"
   install -Dm644 50-owneet-base.preset "$pkgdir/usr/lib/systemd/system-preset/50-owneet-base.preset"
   install -Dm644 CREDITS.md "$pkgdir/usr/share/doc/owneetos/CREDITS.md"
+  # The console cleans its own leftovers ([[step-6.11-simplified-file-manager]]): the packages' cache
+  # keeps the newest two versions of each package; crash dumps take at most 100 MB
+  install -Dm755 owneet-clean-cache "$pkgdir/usr/lib/owneet/owneet-clean-cache"
+  install -Dm644 owneet-clean-cache.hook "$pkgdir/usr/share/libalpm/hooks/owneet-clean-cache.hook"
+  install -Dm644 owneet-coredump.conf "$pkgdir/usr/lib/systemd/coredump.conf.d/owneet.conf"
 }
