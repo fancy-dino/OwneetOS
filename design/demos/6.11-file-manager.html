@@ -2,7 +2,9 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!-- OwneetOS - interactive demo for [[step-6.11-simplified-file-manager]] (owner 2026-11-13): Settings gets a new section,
      Advanced, at its end, with "File manager". It opens on the whole screen on places named for the user, never on
-     technical folders: each disk's games folder; "Windows games' data" (one per game, with its name, "Game no longer
+     technical folders, laid out as a desktop file manager does (owner, second round 2026-11-13: folder-shaped icons in a
+     grid, as on Windows or Linux, in the console's colours; a bar under the grid tells the selected item's size and
+     date): each disk's games folder; "Windows games' data" (one per game, with its name, "Game no longer
      here" when it is gone); "Games' logs"; "Steam's leftovers" (shader caches, Windows data and unfinished downloads
      of games no longer installed). A opens a folder, B goes up; Options (Menu) on an item: Delete. Delete shows the
      room it frees and asks, Cancel selected; Windows data (also Steam's) first say they may hold saves (owner). Steam's
@@ -57,11 +59,23 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .row .left { display: grid; gap: 2px; min-width: 0; }
 
 /* File manager */
-#files { grid-template-rows: auto auto 1fr auto; display: none; }
+#files { grid-template-rows: auto auto 1fr auto auto; display: none; gap: 16px; }
 #files.on { display: grid; }
 .crumbs { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
 .crumbs .sep { color: var(--muted); }
-.list { display: grid; gap: 8px; align-content: start; overflow: hidden; padding: 8px; margin: -8px; }
+.list { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px 14px; align-content: start; overflow: hidden; padding: 8px; margin: -8px; }
+.list .empty, .list .note { grid-column: 1 / -1; }
+.tile { display: grid; justify-items: center; align-content: start; gap: 6px; padding: 12px 8px 10px; border-radius: 16px; text-align: center; min-width: 0; height: calc(150px + 26px * var(--ts)); }
+.tile .ic { width: 96px; height: 80px; position: relative; }
+.tile .ic svg.big { width: 96px; height: 80px; }
+.tile .emblem { position: absolute; right: 2px; bottom: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--bg);
+  border: 2px solid var(--line); display: grid; place-items: center; color: var(--fg); }
+.tile .emblem svg { width: 20px; height: 20px; }
+.tile .nm { font-weight: 500; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+.tile .sub { line-height: 1.2; }
+.tile.focus { background: var(--surface); }
+.status { display: flex; gap: 22px; align-items: center; padding: 10px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); min-height: 48px; }
+.status b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
 .item { display: grid; grid-template-columns: 34px 1fr auto auto; gap: 16px; align-items: center; padding: 10px 16px; border-radius: 14px;
   background: var(--surface); border: 1px solid var(--line); width: 100%; min-height: 56px; }
 .item svg { width: 26px; height: 26px; color: var(--muted); }
@@ -120,6 +134,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     <header class="top"><span class="disp t-xl" data-t="fm.title"></span><span class="clock t-s" id="clock2">16:05</span></header>
     <div class="crumbs t-m" id="crumbs"></div>
     <main class="list" id="list"></main>
+    <div class="status t-s" id="status"></div>
     <footer class="prompts t-s"><div class="set" id="fpl"></div><div class="set" id="fpr"></div></footer>
   </div>
   <div class="dim" id="dim"></div>
@@ -189,8 +204,11 @@ Esc = B, M = Menu. Start: Settings → Advanced → File manager. Nothing is rea
       { k: 'games-sata', place: 'games', disk: 'disk.sata', kids: [
         { name: 'The Witcher 2 - Assassin of kings', folder: true, size: 45.3e9, date: '13/11/2026', kids: [
           { name: 'game', folder: true, size: 24.1e9, date: '13/11/2026', kids: [] },
+          { name: 'docs', folder: true, size: 2.1e6, date: '13/11/2026', kids: [] },
+          { name: 'support', folder: true, size: 0.6e6, date: '13/11/2026', kids: [] },
           { name: 'the_witcher_2_assassins_of_kings_enhanced_edition_en_release_3.sh', size: 21.2e9, date: '09/11/2026' },
-          { name: 'start.sh', size: 4e3, date: '13/11/2026' }] },
+          { name: 'start.sh', size: 4e3, date: '13/11/2026' },
+          { name: 'gameinfo', size: 1e3, date: '13/11/2026' }] },
         { name: 'Lantern Keep', folder: true, size: 3.4e9, date: '02/11/2026', kids: [] }] },
       { k: 'games-int', place: 'games', disk: 'disk.int', kids: [] },
       { k: 'windows', place: 'windows', disk: 'disk.int', kids: [
@@ -226,6 +244,21 @@ Esc = B, M = Menu. Start: Settings → Advanced → File manager. Nothing is rea
     steam: '<circle cx="12" cy="12" r="9"/><circle cx="15" cy="10" r="2.5"/><path d="M4 14l6 2.5"/>',
   };
   const icon = n => `<svg viewBox="0 0 24 24" ${S}>${ICON[n]}</svg>`;
+  // a folder in the console's colours (its accent), or a document with its kind written on it
+  const FOLDER = `<svg class="big" viewBox="0 0 96 80"><path d="M6 14a6 6 0 0 1 6-6h22l8 8h42a6 6 0 0 1 6 6v4H6z" fill="var(--accent)" opacity=".75"/>
+    <rect x="4" y="22" width="88" height="54" rx="7" fill="var(--accent)"/><rect x="4" y="22" width="88" height="8" rx="4" fill="#fff" opacity=".18"/></svg>`;
+  const DOC = ext => `<svg class="big" viewBox="0 0 96 80"><path d="M28 4h30l14 14v58H28z" fill="var(--raised)" stroke="var(--line)" stroke-width="2"/>
+    <path d="M58 4v14h14" fill="none" stroke="var(--line)" stroke-width="2"/>
+    <text x="50" y="58" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="12" fill="var(--muted)">${ext}</text></svg>`;
+  function tileIcon(x, place) {
+    if (x.place) return FOLDER + `<span class="emblem">${icon(x.place)}</span>`;
+    if (x.folder) return FOLDER;
+    if (x.kind === 'wdata' || x.kind === 'swdata') return FOLDER + `<span class="emblem">${icon('windows')}</span>`;
+    if (x.kind === 'shaders' || x.kind === 'download') return FOLDER + `<span class="emblem">${icon('steam')}</span>`;
+    if (x.kind === 'log') return DOC('LOG');
+    const m = /\.([A-Za-z0-9]{1,4})$/.exec(x.name || '');
+    return DOC(m ? m[1].toUpperCase() : '');
+  }
   const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
   const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
   const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
@@ -261,20 +294,20 @@ Esc = B, M = Menu. Start: Settings → Advanced → File manager. Nothing is rea
     $('#crumbs').innerHTML = [tr('fm.places')].concat(path.map(p => p.place ? placeName(p) : p.name))
       .map((c, i, a) => `<span class="${i === a.length - 1 ? '' : 'muted'}">${c}</span>`).join('<span class="sep">›</span>');
     let html = '';
-    if (path.length === 0) {
-      html = list.map((p, i) => `<button class="item t-m${i === index ? ' focus' : ''}" data-f>${icon(p.place)}
-        <span class="name"><b>${placeName(p)}</b><span class="t-s muted">${placeSub(p)}</span></span>
-        <span class="size">${p.kids.length ? gb(sum(p.kids)) : ''}</span><span class="date t-s"></span></button>`).join('');
-    } else {
-      const place = path[0];
-      html = list.length ? list.map((x, i) => `<button class="item t-m${i === index ? ' focus' : ''}" data-f>${icon(x.folder ? 'folder' : x.kind === 'log' ? 'logs' : x.kind ? place.place : 'file')}
-        <span class="name"><b>${itemName(x)}</b>${x.state ? `<span class="t-s ${x.state === 'gone' ? 'tag' : 'muted'}">${tr(x.state)}</span>` : x.folder ? `<span class="t-s muted">${tr('folder')}</span>` : ''}</span>
-        <span class="size">${gb(x.size)}</span><span class="date t-s">${x.date}</span></button>`).join('')
-        : `<p class="empty t-m">${tr('empty')}</p>`;
-      if (place.place === 'steam' && steamOpen) html = `<p class="note t-s">${tr('steam.open')}</p>` + html;
-    }
+    const place = path[0];
+    html = list.length ? list.map((x, i) => {
+      const name = x.place ? placeName(x) : itemName(x);
+      const sub = x.state ? `<span class="sub t-xs ${x.state === 'gone' ? 'tag' : 'muted'}">${tr(x.state)}</span>` : '';
+      return `<button class="tile t-s${i === index ? ' focus' : ''}" data-f><span class="ic">${tileIcon(x, place)}</span><span class="nm">${name}</span>${sub}</button>`;
+    }).join('') : `<p class="empty t-m">${tr('empty')}</p>`;
+    if (place && place.place === 'steam' && steamOpen) html = `<p class="note t-s">${tr('steam.open')}</p>` + html;
     $('#list').innerHTML = html;
     const sel = list[index];
+    // the selected item: its name, what it is, its size and date (as a desktop file manager's status bar)
+    $('#status').innerHTML = sel ? (sel.place
+        ? `<b>${placeName(sel)}</b><span class="muted">${placeSub(sel)}</span><span>${sel.kids.length ? gb(sum(sel.kids)) : ''}</span>`
+        : `<b>${itemName(sel)}</b><span class="muted">${sel.folder ? tr('folder') : sel.state ? tr(sel.state) : ''}</span><span>${gb(sel.size)}</span><span class="muted">${sel.date}</span>`)
+      : '';
     const canOpen = path.length === 0 || (sel && sel.folder);
     $('#fpl').innerHTML = (canOpen && list.length ? P(['a'], 'p.open') : '') + (path.length && sel ? P(['menu'], 'p.options') : '') + P(['b'], path.length ? 'p.up' : 'p.back');
     $('#fpr').innerHTML = P(['guide'], 'p.home');
@@ -330,8 +363,11 @@ Esc = B, M = Menu. Start: Settings → Advanced → File manager. Nothing is rea
     }
     if (inFiles) {
       const list = current();
-      if (a === 'up') index = Math.max(0, index - 1);
-      else if (a === 'down') index = Math.min(list.length - 1, index + 1);
+      const cols = 7;
+      if (a === 'left') index = Math.max(0, index - 1);
+      else if (a === 'right') index = Math.min(list.length - 1, index + 1);
+      else if (a === 'up') index = index >= cols ? index - cols : index;
+      else if (a === 'down') index = index + cols < list.length ? index + cols : index;
       else if (a === 'a') { const x = list[index]; if (x && (path.length === 0 || x.folder)) { path.push(x); index = 0; } }
       else if (a === 'menu') { if (path.length) options(); return; }
       else if (a === 'b') {
