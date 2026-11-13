@@ -269,8 +269,33 @@ wake_sources() {
         wake_stage "$now"
     done
 }
-if (( ! small )) && tr -d '\r' < "$mnt/owneet-debug.txt" 2>/dev/null | grep -qx 'owneet.debug.bt_wake=on'; then
-    bt_wake >> "$base.wake.txt" 2>&1 &
+# The test's end (owner, 2026-11-13: step 6.10 moved to Wave 2): owneet.debug.bt_wake=restore puts back
+# what BlueZ keeps from the test: every adapter switched on again (stage 1 switched the unused ones
+# off) and no paired device allowed to wake the PC. What the test set in /sys is gone at every start.
+bt_restore() {
+    local obj
+    echo "===== $(date '+%F %T') the wake test undone (test switch owneet.debug.bt_wake=restore)"
+    for _ in $(seq 1 60); do
+        busctl --list tree org.bluez 2>/dev/null | grep -qE '^/org/bluez/hci[0-9]+$' && break
+        sleep 1
+    done
+    busctl --list tree org.bluez 2>/dev/null | grep -E '^/org/bluez/hci[0-9]+$' | while IFS= read -r obj; do
+        busctl set-property org.bluez "$obj" org.bluez.Adapter1 Powered b true 2>&1
+        echo "$obj Powered: $(busctl get-property org.bluez "$obj" org.bluez.Adapter1 Powered 2>&1)"
+    done
+    busctl --list tree org.bluez 2>/dev/null | grep -E '^/org/bluez/hci[0-9]+/dev_[0-9A-F_]+$' | while IFS= read -r obj; do
+        [[ "$(busctl get-property org.bluez "$obj" org.bluez.Device1 Paired 2>/dev/null)" == "b true" ]] || continue
+        busctl set-property org.bluez "$obj" org.bluez.Device1 WakeAllowed b false 2>&1
+        echo "$obj $(busctl get-property org.bluez "$obj" org.bluez.Device1 Name 2>/dev/null)" \
+            "WakeAllowed: $(busctl get-property org.bluez "$obj" org.bluez.Device1 WakeAllowed 2>&1)"
+    done
+    echo "===== $(date '+%F %T') done"
+}
+if (( ! small )); then
+    case "$(tr -d '\r' < "$mnt/owneet-debug.txt" 2>/dev/null | sed -n 's/^owneet\.debug\.bt_wake=//p' | tail -n 1)" in
+        on) bt_wake >> "$base.wake.txt" 2>&1 & ;;
+        restore) bt_restore >> "$base.wake.txt" 2>&1 & ;;
+    esac
 fi
 
 report > "$base.report.txt" 2>&1
