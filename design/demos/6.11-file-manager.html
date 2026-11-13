@@ -1,0 +1,409 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS - interactive demo for [[step-6.11-simplified-file-manager]] (owner 2026-11-13): Settings gets a new section,
+     Advanced, at its end, with "File manager". It opens on the whole screen on places named for the user, never on
+     technical folders: each disk's games folder; "Windows games' data" (one per game, with its name, "Game no longer
+     here" when it is gone); "Games' logs"; "Steam's leftovers" (shader caches, Windows data and unfinished downloads
+     of games no longer installed). A opens a folder, B goes up; Options (Menu) on an item: Delete. Delete shows the
+     room it frees and asks, Cancel selected; Windows data (also Steam's) first say they may hold saves (owner). Steam's
+     leftovers are deleted only with Steam closed. System files are never shown. Wave 2 adds download, move, unzip,
+     rename. Open in a browser; drive it with a gamepad or the keyboard. Fonts are loaded from Google Fonts for the demo
+     only: the console bundles the font files (SIL Open Font License). -->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS - File manager (demo 6.11)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1;
+  --bg: #0E1424; --surface: #172036; --raised: #222D4A; --line: #2E3A5C; --fg: #EEF1F8; --muted: #8F9AB5; --accent: #FF8A5B; --on-accent: #1E0E06; --warn: #F5C451; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+.frame { position: relative; flex: none; }
+.stage { width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350; }
+.screen { position: absolute; inset: 0; padding: 36px 64px 28px; display: grid; gap: 20px; }
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); } .t-xl { font-size: calc(34px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+[data-f] { outline: none; position: relative; transition: transform .16s ease, box-shadow .16s ease; }
+[data-f].focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); z-index: 2; }
+
+/* Settings */
+#settings { grid-template-rows: auto 1fr auto; }
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 36px; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.clock { color: var(--fg); font-weight: 500; font-variant-numeric: tabular-nums; }
+.settings { display: grid; grid-template-columns: 290px 1fr; gap: 28px; min-height: 0; }
+.nav { display: grid; gap: 4px; align-content: start; }
+.nav-item { display: flex; align-items: center; gap: 14px; padding: 9px 16px; border-radius: 14px; color: var(--muted); }
+.nav-item svg { width: calc(22px * var(--ts)); height: calc(22px * var(--ts)); flex: none; }
+.nav-item[aria-current="true"] { background: var(--surface); color: var(--fg); font-weight: 500; }
+.panel { display: grid; gap: 12px; align-content: start; }
+.panel h2 { margin: 0 0 4px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line); width: 100%; min-height: 54px; }
+.row .left { display: grid; gap: 2px; min-width: 0; }
+
+/* File manager */
+#files { grid-template-rows: auto auto 1fr auto; display: none; }
+#files.on { display: grid; }
+.crumbs { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.crumbs .sep { color: var(--muted); }
+.list { display: grid; gap: 8px; align-content: start; overflow: hidden; padding: 8px; margin: -8px; }
+.item { display: grid; grid-template-columns: 34px 1fr auto auto; gap: 16px; align-items: center; padding: 10px 16px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line); width: 100%; min-height: 56px; }
+.item svg { width: 26px; height: 26px; color: var(--muted); }
+.item .name { display: grid; gap: 1px; min-width: 0; }
+.item .name b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .size { color: var(--fg); font-variant-numeric: tabular-nums; min-width: 90px; text-align: right; }
+.item .date { color: var(--muted); min-width: 120px; text-align: right; }
+.tag { color: var(--warn); }
+.empty { color: var(--muted); padding: 18px 4px; }
+.note { color: var(--muted); }
+
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 24px; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+
+/* windows */
+.dim { position: absolute; inset: 0; z-index: 5; background: rgba(8, 11, 20, .72); display: none; }
+.dim.on { display: block; }
+.sheet { position: absolute; z-index: 6; left: 50%; top: 50%; transform: translate(-50%, -58%); min-width: 520px; max-width: 900px;
+  padding: 26px 30px 28px; border-radius: 18px; background: var(--bg); border: 1px solid var(--line); display: none; text-align: center; }
+.sheet.on { display: grid; gap: 16px; justify-items: center; }
+.sheet .text { max-width: 700px; color: var(--muted); }
+.sheet .btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px 20px; }
+.sheet .btn { padding: 11px 26px; border-radius: 999px; font-weight: 500; background: var(--raised); white-space: nowrap; }
+.sheet .btn.primary { background: var(--accent); color: var(--on-accent); }
+.sheet .btn.focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent); }
+.sheet .warn { display: inline-flex; gap: 10px; align-items: center; color: var(--warn); }
+.sheet-prompts { position: absolute; z-index: 6; left: 64px; right: 64px; bottom: 28px; display: none; }
+.sheet-prompts.on { display: flex; }
+.toast { position: absolute; z-index: 9; right: 64px; top: 88px; padding: 14px 20px; border-radius: 14px; background: var(--surface);
+  border: 1px solid var(--line); opacity: 0; transition: opacity .2s; max-width: 520px; }
+.toast.on { opacity: 1; }
+
+.demo-bar { display: flex; gap: 22px; align-items: center; color: #8a90a0; font: 12px/1.4 system-ui, sans-serif; flex-wrap: wrap; justify-content: center; }
+.demo-bar .grp { display: inline-flex; gap: 6px; align-items: center; }
+.demo-bar button { padding: 3px 10px; border-radius: 999px; border: 1px solid #333a4a; color: #c9cdd8; font: inherit; }
+.demo-bar button[aria-pressed="true"] { background: #c9cdd8; color: #05070C; }
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <div class="screen" id="settings">
+    <header class="top">
+      <div class="top-left"><span class="mark">Owneet<i>OS</i></span>
+        <nav class="tabs t-s"><span class="tab" data-t="tab.home"></span><span class="tab" data-t="tab.library"></span><span class="tab" aria-current="page" data-t="tab.settings"></span></nav></div>
+      <span class="clock t-s" id="clock">16:05</span>
+    </header>
+    <main class="settings"><nav class="nav t-m" id="nav"></nav><section class="panel" id="panel"></section></main>
+    <footer class="prompts t-s"><div class="set" id="spl0"></div><div class="set" id="spr0"></div></footer>
+  </div>
+  <div class="screen" id="files">
+    <header class="top"><span class="disp t-xl" data-t="fm.title"></span><span class="clock t-s" id="clock2">16:05</span></header>
+    <div class="crumbs t-m" id="crumbs"></div>
+    <main class="list" id="list"></main>
+    <footer class="prompts t-s"><div class="set" id="fpl"></div><div class="set" id="fpr"></div></footer>
+  </div>
+  <div class="dim" id="dim"></div>
+  <div class="sheet" id="sheet"></div>
+  <footer class="prompts sheet-prompts t-s" id="sheetPrompts"><div class="set" id="shl"></div><div class="set" id="shr"></div></footer>
+  <div class="toast t-s" id="toast"></div>
+</div></div>
+
+<div class="demo-bar" id="demo-bar">
+  <span class="grp"><span>Steam:</span><button data-steam="closed" aria-pressed="true">closed</button><button data-steam="open">open</button></span>
+  <span class="grp"><span>Text size:</span><button data-ts="1" aria-pressed="true">M</button><button data-ts="1.2">L</button><button data-ts="1.4">XL</button></span>
+  <span class="grp"><span>Language:</span><button data-lang="it" aria-pressed="true">Italiano</button><button data-lang="en">English</button></span>
+  <span class="grp"><button data-reset="1">Start again</button></span>
+</div>
+<p class="help"><b>Gamepad:</b> D-pad / stick move, A select / open, B back / up, Menu (☰) Options. <b>Keyboard:</b> arrows, Enter = A,
+Esc = B, M = Menu. Start: Settings → Advanced → File manager. Nothing is really deleted.</p>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+
+  const EN = { 'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings',
+    's.network': 'Network', 's.controllers': 'Controllers and Bluetooth', 's.audio': 'Sound', 's.display': 'Display', 's.appearance': 'Appearance',
+    's.language': 'Language', 's.storage': 'Disks', 's.system': 'System', 's.advanced': 'Advanced',
+    'adv.fm': 'File manager', 'adv.fm.sub': 'Look through the files on the disks and delete what is not needed',
+    'other': 'Nothing in this section for the demo',
+    'fm.title': 'File manager', 'fm.places': 'Places',
+    'pl.games': 'Games', 'pl.windows': 'Windows games’ data', 'pl.windows.sub': 'Saves and settings of the games for Windows',
+    'pl.logs': 'Games’ logs', 'pl.logs.sub': 'What the games wrote about themselves, for finding faults',
+    'pl.steam': 'Steam’s leftovers', 'pl.steam.sub': 'What games no longer installed left in Steam',
+    'items': '{n} items', 'gone': 'Game no longer here', 'installed': 'Game installed', 'shaders': 'Shaders of {g}', 'wdata': 'Windows data of {g}',
+    'download': 'Unfinished download of {g}', 'folder': 'Folder',
+    'empty': 'Nothing here', 'p.open': 'Open', 'p.options': 'Options', 'p.back': 'Back', 'p.up': 'Up', 'p.select': 'Select', 'p.cancel': 'Cancel',
+    'p.sections': 'Sections', 'p.home': 'Home',
+    'o.delete': 'Delete', 'cancel': 'Cancel', 'continue': 'Continue',
+    'saves.title': 'It may hold saves', 'saves.text': 'These data may hold the saves and settings of {g}. Deleted, they cannot come back.',
+    'del.title': 'Delete {name}?', 'del.text': 'It frees {size} on {disk}. It cannot be undone.',
+    'steam.open': 'Steam is open: close it to delete its leftovers.',
+    'deleted': '{name} deleted: {size} freed', 'disk.int': 'Internal disk', 'disk.sata': '2TB HDD SATA' };
+  const IT = { 'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni',
+    's.network': 'Rete', 's.controllers': 'Controller e Bluetooth', 's.audio': 'Suono', 's.display': 'Schermo', 's.appearance': 'Aspetto',
+    's.language': 'Lingua', 's.storage': 'Dischi', 's.system': 'Sistema', 's.advanced': 'Avanzate',
+    'adv.fm': 'Gestione file', 'adv.fm.sub': 'Guarda i file sui dischi e cancella quello che non serve',
+    'other': 'In questa demo la sezione è vuota',
+    'fm.title': 'Gestione file', 'fm.places': 'Posti',
+    'pl.games': 'Giochi', 'pl.windows': 'Dati dei giochi Windows', 'pl.windows.sub': 'Salvataggi e impostazioni dei giochi per Windows',
+    'pl.logs': 'Registri dei giochi', 'pl.logs.sub': 'Quello che i giochi hanno scritto di sé, per trovare i guasti',
+    'pl.steam': 'Residui di Steam', 'pl.steam.sub': 'Quello che hanno lasciato in Steam i giochi non più installati',
+    'items': '{n} elementi', 'gone': 'Gioco non più presente', 'installed': 'Gioco installato', 'shaders': 'Shader di {g}', 'wdata': 'Dati Windows di {g}',
+    'download': 'Download non finito di {g}', 'folder': 'Cartella',
+    'empty': 'Qui non c’è niente', 'p.open': 'Apri', 'p.options': 'Opzioni', 'p.back': 'Indietro', 'p.up': 'Su', 'p.select': 'Seleziona', 'p.cancel': 'Annulla',
+    'p.sections': 'Sezioni', 'p.home': 'Home',
+    'o.delete': 'Elimina', 'cancel': 'Annulla', 'continue': 'Continua',
+    'saves.title': 'Potrebbe contenere salvataggi', 'saves.text': 'Questi dati potrebbero contenere i salvataggi e le impostazioni di {g}. Una volta eliminati, non si possono recuperare.',
+    'del.title': 'Eliminare {name}?', 'del.text': 'Libera {size} su {disk}. Non si può annullare.',
+    'steam.open': 'Steam è aperto: chiudilo per eliminarne i residui.',
+    'deleted': '{name} eliminato: {size} liberati', 'disk.int': 'Disco interno', 'disk.sata': '2TB HDD SATA' };
+  let lang = 'it';
+  const tr = (k, a = {}) => ((lang === 'it' ? IT : EN)[k] || EN[k] || k).replace(/\{(\w+)\}/g, (_, x) => a[x] !== undefined ? a[x] : '');
+  const gb = b => b >= 1e9 ? (b / 1e9).toLocaleString(lang, { maximumFractionDigits: 1 }) + ' GB' : b >= 1e6 ? Math.round(b / 1e6).toLocaleString(lang) + ' MB' : Math.max(1, Math.round(b / 1e3)).toLocaleString(lang) + ' KB';
+
+  /* ---------- The disks' content (invented) ---------- */
+  const T = () => ({
+    places: [
+      { k: 'games-sata', place: 'games', disk: 'disk.sata', kids: [
+        { name: 'The Witcher 2 - Assassin of kings', folder: true, size: 45.3e9, date: '13/11/2026', kids: [
+          { name: 'game', folder: true, size: 24.1e9, date: '13/11/2026', kids: [] },
+          { name: 'the_witcher_2_assassins_of_kings_enhanced_edition_en_release_3.sh', size: 21.2e9, date: '09/11/2026' },
+          { name: 'start.sh', size: 4e3, date: '13/11/2026' }] },
+        { name: 'Lantern Keep', folder: true, size: 3.4e9, date: '02/11/2026', kids: [] }] },
+      { k: 'games-int', place: 'games', disk: 'disk.int', kids: [] },
+      { k: 'windows', place: 'windows', disk: 'disk.int', kids: [
+        { kind: 'wdata', g: 'The Witcher 2 (Windows)', state: 'gone', size: 2.06e9, date: '13/11/2026' },
+        { kind: 'wdata', g: 'Ashen Gate', state: 'installed', size: 0.99e9, date: '10/11/2026' },
+        { kind: 'wdata', g: 'Copper Coast', state: 'gone', size: 0.29e9, date: '28/10/2026' }] },
+      { k: 'logs', place: 'logs', disk: 'disk.int', kids: [
+        { kind: 'log', g: 'The Witcher 2 (Windows)', state: 'gone', size: 1.09e9, date: '10/11/2026' },
+        { kind: 'log', g: 'Ashen Gate', state: 'installed', size: 0.12e9, date: '10/11/2026' }] },
+      { k: 'steam', place: 'steam', disk: 'disk.sata', kids: [
+        { kind: 'shaders', g: 'Glass Canyon', size: 0.46e9, date: '09/11/2026', steam: true },
+        { kind: 'swdata', g: 'Ember Run', size: 0.12e9, date: '18/10/2026', steam: true },
+        { kind: 'download', g: 'Old Racer', size: 0.24e9, date: '05/11/2026', steam: true }] },
+    ] });
+  let data = T(), steamOpen = false;
+
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const ICON = {
+    network: '<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/>',
+    controllers: '<path d="M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z"/>',
+    audio: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9a4 4 0 0 1 0 6"/>',
+    display: '<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/>',
+    appearance: '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/>',
+    language: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+    storage: '<rect x="3" y="5" width="18" height="6" rx="1.5"/><rect x="3" y="13" width="18" height="6" rx="1.5"/>',
+    system: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+    advanced: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    file: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',
+    games: '<path d="M7 8h10a5 5 0 0 1 4.8 6.3l-.9 3.2a2 2 0 0 1-3.3.9L15 16H9l-2.6 2.4a2 2 0 0 1-3.3-.9l-.9-3.2A5 5 0 0 1 7 8Z"/>',
+    windows: '<rect x="4" y="4" width="7" height="7"/><rect x="13" y="4" width="7" height="7"/><rect x="4" y="13" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/>',
+    logs: '<path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h4"/>',
+    steam: '<circle cx="12" cy="12" r="9"/><circle cx="15" cy="10" r="2.5"/><path d="M4 14l6 2.5"/>',
+  };
+  const icon = n => `<svg viewBox="0 0 24 24" ${S}>${ICON[n]}</svg>`;
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const G = { a: letter('A'), b: letter('B'), menu: circle(`<path d="M8.5 9.5h9M8.5 13h9M8.5 16.5h9" ${S}/>`), lb: pill('LB', 34), rb: pill('RB', 34),
+    guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`) };
+  const P = (b, l) => `<span class="prompt">${b.map(x => G[x]).join('')}<span>${tr(l)}</span></span>`;
+
+  /* ---------- Settings ---------- */
+  const SECTIONS = ['network', 'controllers', 'audio', 'display', 'appearance', 'language', 'storage', 'system', 'advanced'];
+  let section = 'advanced', inPanel = false;
+  function drawSettings() {
+    $('#nav').innerHTML = SECTIONS.map(s => `<button class="nav-item${!inPanel && s === section ? ' focus' : ''}" data-f aria-current="${s === section}">${icon(s)}<span>${tr('s.' + s)}</span></button>`).join('');
+    $('#panel').innerHTML = `<h2 class="disp t-l">${tr('s.' + section)}</h2>` + (section === 'advanced'
+      ? `<button class="row t-m${inPanel ? ' focus' : ''}" data-f><span class="left"><span>${tr('adv.fm')}</span><span class="t-s muted">${tr('adv.fm.sub')}</span></span><span class="muted">›</span></button>`
+      : `<p class="muted t-m">${tr('other')}</p>`);
+    $('#spl0').innerHTML = P(['a'], 'p.select') + P(['b'], 'p.back');
+    $('#spr0').innerHTML = P(['lb', 'rb'], 'p.sections') + P(['guide'], 'p.home');
+  }
+
+  /* ---------- File manager ---------- */
+  let path = [], index = 0;   // path: the open folders, from the place
+  const sum = list => list.reduce((t, x) => t + (x.size || 0), 0);
+  function placeName(p) { return p.place === 'games' ? tr('pl.games') + ' · ' + tr(p.disk) : tr('pl.' + p.place); }
+  function placeSub(p) { return p.place === 'games' ? tr('items', { n: p.kids.length }) : tr('pl.' + p.place + '.sub'); }
+  function itemName(x) {
+    return x.kind === 'wdata' || x.kind === 'swdata' ? (x.kind === 'swdata' ? tr('wdata', { g: x.g }) : x.g)
+      : x.kind === 'log' ? x.g : x.kind === 'shaders' ? tr('shaders', { g: x.g }) : x.kind === 'download' ? tr('download', { g: x.g }) : x.name;
+  }
+  function current() { return path.length === 0 ? data.places : path[path.length - 1].kids; }
+  function drawFiles() {
+    const list = current();
+    index = Math.min(index, Math.max(0, list.length - 1));
+    $('#crumbs').innerHTML = [tr('fm.places')].concat(path.map(p => p.place ? placeName(p) : p.name))
+      .map((c, i, a) => `<span class="${i === a.length - 1 ? '' : 'muted'}">${c}</span>`).join('<span class="sep">›</span>');
+    let html = '';
+    if (path.length === 0) {
+      html = list.map((p, i) => `<button class="item t-m${i === index ? ' focus' : ''}" data-f>${icon(p.place)}
+        <span class="name"><b>${placeName(p)}</b><span class="t-s muted">${placeSub(p)}</span></span>
+        <span class="size">${p.kids.length ? gb(sum(p.kids)) : ''}</span><span class="date t-s"></span></button>`).join('');
+    } else {
+      const place = path[0];
+      html = list.length ? list.map((x, i) => `<button class="item t-m${i === index ? ' focus' : ''}" data-f>${icon(x.folder ? 'folder' : x.kind === 'log' ? 'logs' : x.kind ? place.place : 'file')}
+        <span class="name"><b>${itemName(x)}</b>${x.state ? `<span class="t-s ${x.state === 'gone' ? 'tag' : 'muted'}">${tr(x.state)}</span>` : x.folder ? `<span class="t-s muted">${tr('folder')}</span>` : ''}</span>
+        <span class="size">${gb(x.size)}</span><span class="date t-s">${x.date}</span></button>`).join('')
+        : `<p class="empty t-m">${tr('empty')}</p>`;
+      if (place.place === 'steam' && steamOpen) html = `<p class="note t-s">${tr('steam.open')}</p>` + html;
+    }
+    $('#list').innerHTML = html;
+    const sel = list[index];
+    const canOpen = path.length === 0 || (sel && sel.folder);
+    $('#fpl').innerHTML = (canOpen && list.length ? P(['a'], 'p.open') : '') + (path.length && sel ? P(['menu'], 'p.options') : '') + P(['b'], path.length ? 'p.up' : 'p.back');
+    $('#fpr').innerHTML = P(['guide'], 'p.home');
+  }
+
+  /* ---------- Windows ---------- */
+  let sheet = null;
+  function openSheet(html, onPick, def = 0) {
+    $('#sheet').innerHTML = html;
+    $('#dim').classList.add('on'); $('#sheet').classList.add('on'); $('#sheetPrompts').classList.add('on');
+    $$('.screen .prompts').forEach(el => { el.style.visibility = 'hidden'; });
+    $('#shl').innerHTML = P(['a'], 'p.select') + P(['b'], 'p.cancel'); $('#shr').innerHTML = P(['guide'], 'p.home');
+    sheet = { items: $$('#sheet [data-k]'), index: def, onPick }; focusSheet();
+  }
+  function closeSheet() { sheet = null; $('#dim').classList.remove('on'); $('#sheet').classList.remove('on'); $('#sheetPrompts').classList.remove('on'); $$('.screen .prompts').forEach(el => { el.style.visibility = ''; }); }
+  function focusSheet() { sheet.items.forEach((el, i) => el.classList.toggle('focus', i === sheet.index)); }
+  const btns = list => `<div class="btns t-m">${list.map(([k, l, p]) => `<button class="btn${p ? ' primary' : ''}" data-k="${k}">${tr(l)}</button>`).join('')}</div>`;
+
+  function options() {
+    const x = current()[index]; if (!x) return;
+    openSheet(`<span class="disp t-l">${itemName(x)}</span>${btns([['delete', 'o.delete', true]])}`, k => { closeSheet(); askDelete(x); });
+  }
+  function askDelete(x) {
+    if (x.steam && steamOpen) { toast(tr('steam.open')); return; }
+    const name = itemName(x), disk = tr(path[0].disk);
+    const sure = () => openSheet(`<span class="disp t-l">${tr('del.title', { name })}</span><span class="text t-m">${tr('del.text', { size: gb(x.size), disk })}</span>${btns([['yes', 'o.delete'], ['no', 'cancel', true]])}`,
+      k => { closeSheet(); if (k === 'yes') remove(x); }, 1);
+    if (x.kind === 'wdata' || x.kind === 'swdata') {
+      // the owner's first question (2026-11-13): Windows data may hold saves
+      openSheet(`<span class="warn disp t-l"><svg viewBox="0 0 24 24" width="30" height="30" ${S}><path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18v.5"/></svg>${tr('saves.title')}</span>
+        <span class="text t-m">${tr('saves.text', { name, g: x.g })}</span>${btns([['go', 'continue'], ['no', 'cancel', true]])}`,
+        k => { closeSheet(); if (k === 'go') sure(); }, 1);
+    } else sure();
+  }
+  function remove(x) {
+    const list = current(), i = list.indexOf(x);
+    if (i >= 0) list.splice(i, 1);
+    toast(tr('deleted', { name: itemName(x), size: gb(x.size) }));
+    drawFiles();
+  }
+  let tt = 0;
+  function toast(t) { $('#toast').textContent = t; $('#toast').classList.add('on'); clearTimeout(tt); tt = setTimeout(() => $('#toast').classList.remove('on'), 2600); }
+
+  /* ---------- Input ---------- */
+  let inFiles = false;
+  function act(a) {
+    if (sheet) {
+      if (a === 'left' || a === 'up') { sheet.index = Math.max(0, sheet.index - 1); focusSheet(); }
+      else if (a === 'right' || a === 'down') { sheet.index = Math.min(sheet.items.length - 1, sheet.index + 1); focusSheet(); }
+      else if (a === 'a') sheet.onPick(sheet.items[sheet.index].dataset.k);
+      else if (a === 'b') closeSheet();
+      return;
+    }
+    if (inFiles) {
+      const list = current();
+      if (a === 'up') index = Math.max(0, index - 1);
+      else if (a === 'down') index = Math.min(list.length - 1, index + 1);
+      else if (a === 'a') { const x = list[index]; if (x && (path.length === 0 || x.folder)) { path.push(x); index = 0; } }
+      else if (a === 'menu') { if (path.length) options(); return; }
+      else if (a === 'b') {
+        if (path.length) { const was = path.pop(); index = Math.max(0, current().indexOf(was)); }
+        else { inFiles = false; $('#files').classList.remove('on'); $('#settings').style.display = ''; drawSettings(); return; }
+      }
+      drawFiles(); return;
+    }
+    const i = SECTIONS.indexOf(section);
+    if (!inPanel && a === 'up' && i > 0) section = SECTIONS[i - 1];
+    else if (!inPanel && a === 'down' && i < SECTIONS.length - 1) section = SECTIONS[i + 1];
+    else if (!inPanel && (a === 'right' || a === 'a') && section === 'advanced') inPanel = true;
+    else if (inPanel && (a === 'left' || a === 'b')) inPanel = false;
+    else if (inPanel && a === 'a') { inFiles = true; path = []; index = 0; $('#settings').style.display = 'none'; $('#files').classList.add('on'); drawFiles(); return; }
+    drawSettings();
+  }
+  document.addEventListener('keydown', e => {
+    const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', m: 'menu', M: 'menu' };
+    if (map[e.key]) { e.preventDefault(); act(map[e.key]); }
+  });
+  const BTN = { 0: 'a', 1: 'b', 9: 'menu' };
+  let prev = {}, repeatAt = 0, lastDir = null;
+  function poll(ts) {
+    const pad = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean)[0] : null;
+    if (pad) {
+      for (const [i, a] of Object.entries(BTN)) { const on = !!(pad.buttons[i] && pad.buttons[i].pressed); if (on && !prev[i]) act(a); prev[i] = on; }
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { act(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+
+  function redraw() { document.documentElement.lang = lang; $$('[data-t]').forEach(el => { el.textContent = tr(el.dataset.t); }); if (inFiles) drawFiles(); else drawSettings(); }
+  $('#demo-bar').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.reset) { data = T(); path = []; index = 0; }
+    else {
+      $$('button', b.closest('.grp')).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      if (b.dataset.steam) steamOpen = b.dataset.steam === 'open';
+      if (b.dataset.ts) document.documentElement.style.setProperty('--ts', b.dataset.ts);
+      if (b.dataset.lang) lang = b.dataset.lang;
+    }
+    if (sheet) closeSheet();
+    redraw(); b.blur();
+  });
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 70) / 720);
+    stage.style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+  const clock = () => { const t = new Date().toTimeString().slice(0, 5); $('#clock').textContent = t; $('#clock2').textContent = t; };
+  clock(); setInterval(clock, 10000);
+
+  /* ---------- Optional start state: #lang=en&at=places|windows|games|saves ---------- */
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get('lang') === 'en') lang = 'en';
+  redraw();
+  const at = q.get('at');
+  if (at) {
+    inFiles = true; $('#settings').style.display = 'none'; $('#files').classList.add('on');
+    if (at === 'windows') path = [data.places[2]];
+    if (at === 'games') path = [data.places[0], data.places[0].kids[0]];
+    if (at === 'saves') { path = [data.places[2]]; drawFiles(); askDelete(data.places[2].kids[0]); }
+    if (at === 'steam') path = [data.places[4]];
+    if (at !== 'saves') drawFiles();
+  }
+})();
+</script>
+</body>
+</html>
