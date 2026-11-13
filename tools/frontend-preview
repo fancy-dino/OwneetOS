@@ -23,6 +23,7 @@
 #   @nogames         (first line) start with no games, as on a new system
 #   @owneetd         (first line) with a pretend owneetd: invented networks, controllers and
 #                    Bluetooth devices (tools/preview-steps/fake-owneetd.py)
+#   @files           (6.11) invented Windows games' data and logs, and (with @steam) Steam's leftovers
 #   @steam           (with @owneetd) an invented Steam folder with owned games, installed or not
 #                    (tools/preview-steps/fake-steam.py); the pretend owneetd installs and
 #                    uninstalls them, with downloads
@@ -168,6 +169,22 @@ fi
 if grep -q '^@steam' /steps.txt; then
     python3 /fake-steam.py "$HOME/Steam"
     export OWNEET_STEAM_DIR="$HOME/Steam" FAKE_STEAM=1
+fi
+# @files: what the file manager shows (6.11): Windows games' data and logs (one of a game no longer
+# here), and Steam's leftovers of a game no longer installed (with @steam)
+if grep -q '^@files' /steps.txt; then
+    w="$HOME/.local/share/owneet/windows"
+    for d in the-witcher-2-win-b264e729e7 copper-coast-0123456789; do
+        mkdir -p "$w/prefixes/$d/pfx/drive_c" "$w/logs/$d"
+        head -c 3000000 /dev/zero > "$w/prefixes/$d/pfx/system.reg"
+        head -c 400000 /dev/zero > "$w/logs/$d/proton.log"
+    done
+    if [ -n "${OWNEET_STEAM_DIR:-}" ]; then
+        for k in shadercache compatdata downloading; do
+            mkdir -p "$OWNEET_STEAM_DIR/steamapps/$k/999001"
+            head -c 2000000 /dev/zero > "$OWNEET_STEAM_DIR/steamapps/$k/999001/data.bin"
+        done
+    fi
 fi
 
 if grep -q '^@disk' /steps.txt; then

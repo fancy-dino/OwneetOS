@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A small icon drawn for OwneetOS from an SVG path on a 24 x 24 grid (no icon fonts or images).
 // Named icons: "heart", "download", "controller", "wifi" (with `level` 0-3: arcs above it are
-// dimmed), "ethernet", "lock", "battery" (filled by `fill`, 0-1), the settings sections and the
+// dimmed), "ethernet", "lock", "battery" (filled by `fill`, 0-1), the settings sections, the file manager's places and the
 // on-screen keyboard's keys. `crossed` draws a slash over the icon
 // (e.g. offline).
 import QtQuick 2.15
@@ -65,6 +65,11 @@ Canvas {
         unplug: "M9 8V4M15 8V4M7 8h10v3a5 5 0 0 1-10 0zM12 16v4M4 4l16 16",
         warning: "M12 4 2.8 19.5h18.4zM12 10v4.5M12 17v.5",
         trash: "M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13",
+        // the file manager (6.11): Settings' Advanced, and its places' emblems
+        sliders: "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M16 4v4M10 10v4M18 16v4",
+        windows: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
+        logs: "M6 3h12v18H6zM9 8h6M9 12h6M9 16h4",
+        steam: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M15 7.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 1 0 0-5M4 14l6 2.5",
         check: "M5 12.5l4.5 4.5L19 7",
         info: "M21 12a9 9 0 1 1-18 0a9 9 0 1 1 18 0zM12 11v6M12 7.5v.5",
         pointer: "M6 3v15l4.2-4 3 7 2.8-1.2-3-6.8H18z",

@@ -14,6 +14,7 @@
         <file>owneet/Installer.qml</file>
         <file>owneet/MoveSheet.qml</file>
         <file>owneet/VersionsSheet.qml</file>
+        <file>owneet/FileManager.qml</file>
         <file>owneet/Intro.qml</file>
         <file>owneet/PoweringOff.qml</file>
         <file>owneet/NotificationsSheet.qml</file>

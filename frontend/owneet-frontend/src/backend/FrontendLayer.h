@@ -20,7 +20,7 @@
 #include <QObject>
 
 class QQmlApplicationEngine;
-namespace owneet { class Daemon; class DiskGames; class I18n; class Overlay; class Storage; class SystemInfo; }
+namespace owneet { class Daemon; class DiskGames; class FileManager; class I18n; class Overlay; class Storage; class SystemInfo; }
 
 
 /// Manages the dynamic reload of the frontend layer
@@ -60,4 +60,5 @@ private:
     owneet::SystemInfo* const m_system_info; // OwneetOS: version, credits, packages: `systemInfo`
     owneet::Overlay* const m_overlay; // OwneetOS: windows over the app in gamescope: `overlay`
     owneet::DiskGames* const m_disk_games; // OwneetOS: games on a disk, the file each starts: `diskGames`
+    owneet::FileManager* const m_files; // OwneetOS: the simplified file manager (6.11): `files`
 };

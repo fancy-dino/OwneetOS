@@ -5,6 +5,8 @@ target_sources(pegasus-backend PRIVATE
     Daemon.h
     DiskGames.cpp
     DiskGames.h
+    FileManager.cpp
+    FileManager.h
     I18n.cpp
     I18n.h
     Overlay.cpp

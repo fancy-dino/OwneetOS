@@ -11,7 +11,7 @@ import "foundation"
 NavArea {
     id: page
     property string section: "network"
-    readonly property var sections: ["network", "controllers", "audio", "display", "appearance", "language", "storage", "system"]
+    readonly property var sections: ["network", "controllers", "audio", "display", "appearance", "language", "storage", "system", "advanced"]
     property var network: null          // owneetd's network state (from the shell)
     property var controllers: []        // connected controllers (from the shell)
     property bool updatesFromStick: false   // a tester's PC: updates from the USB stick (4.2b)
@@ -60,6 +60,7 @@ NavArea {
 
     signal openPalettes()
     signal adjustDisplayArea()           // Display → "Display area" (3y)
+    signal openFiles()                   // Advanced → "File manager" (6.11)
     signal openLanguages()
     signal openTimeZones()              // Language → Time zone (6.1)
     signal openClock()                  // Language → Date and time: by hand without the internet
@@ -352,7 +353,7 @@ NavArea {
                         anchors.verticalCenter: parent.verticalCenter
                         width: Theme.fs(22); height: width
                         name: ({ network: "wifi", controllers: "controller", audio: "sound", display: "display", appearance: "palette",
-                                 language: "globe", storage: "disks", system: "gear" })[modelData]
+                                 language: "globe", storage: "disks", system: "gear", advanced: "sliders" })[modelData]
                         color: parent.shown ? Theme.fg : Theme.muted
                     }
                     FitText {           // too long for the list: "…", or scrolling while selected (3s)
@@ -1037,6 +1038,20 @@ NavArea {
                         text: Tr.tr("system.credits")
                         detail: Tr.tr("system.credits.detail")
                         onActivated: page.openCredits()
+                    }
+                }
+
+                // ---- Advanced (6.11, approved demo design/demos/6.11-file-manager.html)
+                Column {
+                    visible: page.section === "advanced"
+                    width: parent.width
+                    spacing: Theme.px(12)
+                    SettingRow {
+                        width: parent.width
+                        kind: "picker"
+                        text: Tr.tr("advanced.files")
+                        detail: Tr.tr("advanced.files.detail")
+                        onActivated: page.openFiles()
                     }
                 }
             }

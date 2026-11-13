@@ -232,11 +232,16 @@ FocusScope {
     readonly property bool modalOpen: firstStart.visible || installer.visible || windowOpen
     // a window over the pages (the first start is not one: the Wi-Fi window opens over it)
     readonly property bool windowOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
-                                       || zoneSheet.visible || clockSheet.visible || displayArea.visible || moveSheet.visible || versionsSheet.visible
+                                       || zoneSheet.visible || clockSheet.visible || displayArea.visible || fileManager.visible || moveSheet.visible || versionsSheet.visible
                                        || notices.visible || quick.visible || controls.visible || steamPrep.visible || webPrep.visible
                                        || webKeys.shown
     function backToPage() {
         Qt.callLater(() => {
+            // the file manager's own windows (6.11): back to it once they close
+            if (fileManager.visible && !dialog.visible && !osk.visible) {
+                fileManager.refocus();
+                return;
+            }
             if (root.windowOpen)
                 return;
             if (installer.visible)
@@ -1666,6 +1671,32 @@ FocusScope {
     // An install or uninstall changes the library at once, also while a game runs (owner,
     // 2026-10-19: the uninstalled game kept its place until the game on screen closed); the
     // reading is quiet and short (the games folders only change)
+    // The file manager's windows (6.11): Options (Delete), "it may hold saves" and "Delete …?", with
+    // Cancel selected; the answer goes back to it
+    function filesAsk(kind, item, answer) {
+        dialog.game = null;
+        dialog.mode = "files";
+        dialog.contentWidth = 0;
+        if (kind === "options") {
+            dialog.title = item.name;
+            dialog.text = "";
+            dialog.buttons = [{ text: Tr.tr("files.delete"), style: "primary", action: () => { dialog.close(true); answer(); } }];
+            dialog.defaultIndex = 0;
+        } else if (kind === "saves") {
+            dialog.title = Tr.tr("files.saves.title");
+            dialog.text = Tr.tr("files.saves.text", { g: item.game });
+            dialog.buttons = [{ text: Tr.tr("files.continue"), action: () => { dialog.close(true); answer(); } },
+                              { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+            dialog.defaultIndex = 1;
+        } else {
+            dialog.title = Tr.tr("files.delete.title", { name: item.name });
+            dialog.text = Tr.tr("files.delete.text", { size: item.size, disk: item.disk });
+            dialog.buttons = [{ text: Tr.tr("files.delete"), action: () => { dialog.close(true); answer(); } },
+                              { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+            dialog.defaultIndex = 1;
+        }
+        dialog.open();
+    }
     function readGamesQuietly() {
         console.log("Installs changed: reading the games again, quietly");
         diskGames.quietReading = true;
@@ -3063,6 +3094,7 @@ FocusScope {
             focus: visible
             onOpenPalettes: palettes.openPicker()
             onAdjustDisplayArea: displayArea.open()
+            onOpenFiles: fileManager.open()
             onOpenLanguages: languages.openPicker()
             onOpenTimeZones: root.openTimeZones()
             onOpenClock: root.online ? toast.show(Tr.tr("language.time.auto")) : root.openClock()
@@ -4283,6 +4315,17 @@ FocusScope {
         id: displayArea
         toast: toast
         onVisibleChanged: if (!visible) root.backToPage()
+    }
+    FileManager {
+        id: fileManager
+        toast: toast
+        games: root.games
+        steamRunning: root.apps.some(a => a.id === "steam")
+        diskName: root.diskName
+        covered: dialog.visible || osk.visible
+        onVisibleChanged: if (!visible) root.backToPage()
+        onDeletedInGames: root.readGamesQuietly()
+        onAsk: root.filesAsk(kind, item, answer)
     }
     ClockSheet {
         id: clockSheet

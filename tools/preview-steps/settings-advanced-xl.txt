@@ -1,0 +1,9 @@
+@owneetd
+# Settings with nine sections (Advanced, 6.11) at text size XL: the list of sections still fits
+pad lb down down down down right down
+pad right right right a
+wait 1
+pad b
+pad down down down down
+wait 1
+shot 01-advanced-xl
