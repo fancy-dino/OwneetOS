@@ -35,6 +35,10 @@ QtObject {
 
     // ---- Before the start-up animation: black, the same for every palette
     readonly property color splashBg: "#000000"
+    // the boot splash's own colours (owneet-branding), the same for every palette: its logo's grey and
+    // its spinner and message (the console's "Shutting down", 7.6b)
+    readonly property color splashLogo: "#A0A0A0"
+    readonly property color splashInk: "#FFFFFF"
 
     // ---- Fonts (bundled, SIL Open Font License)
     readonly property string displayFont: "Bricolage Grotesque"

@@ -1833,7 +1833,7 @@ FocusScope {
             dialog.buttons = [
                 { text: Tr.tr("update.restart"), style: "primary", action: () => {
                     dialog.close(true);
-                    owneetd.post("/v1/power/restart", {}, () => {});
+                    root.powerNow("restart");
                 } },
                 { text: Tr.tr("update.later"), action: () => dialog.close() }];
             dialog.defaultIndex = 0;
@@ -1875,9 +1875,7 @@ FocusScope {
                 notify({ key: "upd.notice", args: { v: st.version }, detailKey: "", icon: "download", kind: "info", action: "system" });
         }
         if (st.back === "done") {                   // the previous version starts at the restart
-            owneetd.post("/v1/power/restart", {}, status => {
-                if (status >= 300 || status === 0) toast.show(Tr.tr("error.power"));
-            });
+            powerNow("restart");
             return;
         }
         if (st.back === "failed") {
@@ -2034,9 +2032,7 @@ FocusScope {
         else Qt.callLater(dialog.focusDefault);
     }
     function restartForUpdate() {
-        owneetd.post("/v1/power/restart", {}, status => {
-            if (status >= 300 || status === 0) toast.show(Tr.tr("error.power"));
-        });
+        powerNow("restart");
     }
     // "Go back to the previous version": Cancel first; the console restarts once it is ready
     function goBackVersion() {
@@ -2440,8 +2436,18 @@ FocusScope {
         if (moveSheet.running && (action === "shutdown" || action === "restart")) { confirmPower(action); return; }
         quick.close(true);
         dialog.close(true);
+        powerNow(action);
+    }
+    // A shutdown or a restart shows "Shutting down" at once, while owneetd closes the apps (7.6b,
+    // approved demo design/demos/7.6b-shutting-down.html); refused, the console goes on
+    function powerNow(action) {
+        const off = action === "shutdown" || action === "restart";
+        if (off) poweringOff.show();
         owneetd.post("/v1/power/" + action, {}, status => {
-            if (status >= 300 || status === 0) toast.show(Tr.tr("error.power"));
+            if (status >= 300 || status === 0) {
+                if (off) poweringOff.hide();
+                toast.show(Tr.tr("error.power"));
+            }
         });
     }
     function confirmPower(action) {
@@ -2455,9 +2461,7 @@ FocusScope {
             { text: Tr.tr("system.power." + action), action: () => {
                 dialog.close();
                 quick.close(true);
-                owneetd.post("/v1/power/" + action, {}, status => {
-                    if (status >= 300 || status === 0) toast.show(Tr.tr("error.power"));
-                });
+                root.powerNow(action);
             } },
             { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }
         ];
@@ -4406,6 +4410,9 @@ FocusScope {
     Intro {
         id: intro
         pages: pages
+    }
+    PoweringOff {
+        id: poweringOff
     }
     Connections {
         target: sounds
