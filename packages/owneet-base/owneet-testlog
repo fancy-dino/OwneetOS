@@ -163,6 +163,8 @@ bt_wake() {
     # every adapter allowed, the FrankenPC woke the instant it went to sleep, its unused Intel adapter
     # failing a command as it went: "hci1: Opcode 0x0c24 failed")
     local used
+    unused_usb=()
+    used_usb=""
     used=" $(busctl --list tree org.bluez 2>/dev/null | grep -E '^/org/bluez/hci[0-9]+/dev_[0-9A-F_]+$' | while IFS= read -r obj; do
         [[ "$(busctl get-property org.bluez "$obj" org.bluez.Device1 Paired 2>/dev/null)" == "b true" ]] && echo "$obj" | cut -d/ -f4
     done | sort -u | tr '\n' ' ')"
@@ -187,8 +189,16 @@ bt_wake() {
                 echo disabled > "$p/power/wakeup" 2>/dev/null || echo "$p: cannot disable wakeup"
                 echo "$p: wakeup $(cat "$p/power/wakeup" 2>/dev/null)"
             fi
+            # stage 1: switched off in BlueZ (2026-11-13: it failed a command at every sleep)
+            busctl set-property org.bluez "/org/bluez/$(basename "$hci")" org.bluez.Adapter1 Powered b false 2>&1
+            echo "stage 1: $(basename "$hci") Powered: $(busctl get-property org.bluez "/org/bluez/$(basename "$hci")" org.bluez.Adapter1 Powered 2>&1)"
+            unused_usb+=("$p")
         fi
     done
+    used_usb="$(for hci in /sys/class/bluetooth/hci*; do
+        [[ "$(basename "$hci")" =~ ^hci[0-9]+$ && "$used" == *" $(basename "$hci") "* ]] || continue
+        p="$(readlink -f "$hci/device")"; [[ "$(basename "$p")" == *:* ]] && p="$(dirname "$p")"; echo "$p"
+    done | head -1)"
     echo "--- /proc/acpi/wakeup"
     cat /proc/acpi/wakeup 2>/dev/null
     echo "--- paired devices"
@@ -200,6 +210,32 @@ bt_wake() {
     done
     echo "===== $(date '+%F %T') done"
     wake_sources
+}
+# Stages, one after each wake (2026-11-13: the FrankenPC woke the instant it slept, also with its unused
+# Intel adapter kept from waking it). Stage 1 (at the start): the unused adapters switched off in
+# BlueZ. Stage 2 (after the first wake): their USB devices taken off the bus (authorized = 0), so none
+# can drop off during sleep. Stage 3 (after the second): the adapter in use may no longer wake the PC
+# either (only its hub and the USB controller may): if the PC still wakes at once, the cause is not
+# Bluetooth.
+unused_usb=()
+used_usb=""
+wake_stage() {
+    local d
+    case "$1" in
+        1)
+            echo "stage 2: the unused adapters' USB devices taken off the bus"
+            for d in "${unused_usb[@]}"; do
+                [[ -w "$d/authorized" ]] && echo 0 > "$d/authorized" 2>/dev/null
+                echo "$d: authorized $(cat "$d/authorized" 2>/dev/null)"
+            done ;;
+        2)
+            echo "stage 3: the adapter in use may no longer wake the PC"
+            if [[ -n "$used_usb" && -w "$used_usb/power/wakeup" ]]; then
+                echo disabled > "$used_usb/power/wakeup" 2>/dev/null
+                echo "$used_usb: wakeup $(cat "$used_usb/power/wakeup" 2>/dev/null)"
+            fi ;;
+        *) echo "no more stages" ;;
+    esac
 }
 # What woke the PC (2026-11-13: it woke by itself 11 s after going to sleep, with nobody touching
 # anything): the USB devices allowed to wake it, with their wake counts, now and after every wake
@@ -230,6 +266,7 @@ wake_sources() {
         last="$now"
         echo "===== $(date '+%F %T') back from sleep (sleeps so far: $now)"
         usb_wake_counts
+        wake_stage "$now"
     done
 }
 if (( ! small )) && tr -d '\r' < "$mnt/owneet-debug.txt" 2>/dev/null | grep -qx 'owneet.debug.bt_wake=on'; then
