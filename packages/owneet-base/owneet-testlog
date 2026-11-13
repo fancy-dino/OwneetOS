@@ -159,17 +159,35 @@ bt_wake() {
     done
     busctl --list tree org.bluez 2>/dev/null | grep -qE '^/org/bluez/hci[0-9]+$' \
         || echo "BlueZ has no adapter after a minute: paired devices not set"
+    # Only the adapters that have a paired device may wake the PC; the others never (2026-11-13: with
+    # every adapter allowed, the FrankenPC woke the instant it went to sleep, its unused Intel adapter
+    # failing a command as it went: "hci1: Opcode 0x0c24 failed")
+    local used
+    used=" $(busctl --list tree org.bluez 2>/dev/null | grep -E '^/org/bluez/hci[0-9]+/dev_[0-9A-F_]+$' | while IFS= read -r obj; do
+        [[ "$(busctl get-property org.bluez "$obj" org.bluez.Device1 Paired 2>/dev/null)" == "b true" ]] && echo "$obj" | cut -d/ -f4
+    done | sort -u | tr '\n' ' ')"
+    echo "adapters with a paired device:${used}"
     for hci in /sys/class/bluetooth/hci*; do
-        [[ -e "$hci/device" ]] || continue
+        [[ -e "$hci/device" && "$(basename "$hci")" =~ ^hci[0-9]+$ ]] || continue
         p="$(readlink -f "$hci/device")"
-        echo "--- $(basename "$hci"): $p"
-        while [[ "$p" == /sys/devices/* ]]; do
+        # the USB device of the adapter (the interface's parent)
+        [[ "$(basename "$p")" == *:* ]] && p="$(dirname "$p")"
+        if [[ "$used" == *" $(basename "$hci") "* ]]; then
+            echo "--- $(basename "$hci") (in use): $p"
+            while [[ "$p" == /sys/devices/* ]]; do
+                if [[ -w "$p/power/wakeup" ]]; then
+                    echo enabled > "$p/power/wakeup" 2>/dev/null || echo "$p: cannot enable wakeup"
+                    echo "$p: wakeup $(cat "$p/power/wakeup" 2>/dev/null)"
+                fi
+                p="$(dirname "$p")"
+            done
+        else
+            echo "--- $(basename "$hci") (no paired device): $p"
             if [[ -w "$p/power/wakeup" ]]; then
-                echo enabled > "$p/power/wakeup" 2>/dev/null || echo "$p: cannot enable wakeup"
+                echo disabled > "$p/power/wakeup" 2>/dev/null || echo "$p: cannot disable wakeup"
                 echo "$p: wakeup $(cat "$p/power/wakeup" 2>/dev/null)"
             fi
-            p="$(dirname "$p")"
-        done
+        fi
     done
     echo "--- /proc/acpi/wakeup"
     cat /proc/acpi/wakeup 2>/dev/null
