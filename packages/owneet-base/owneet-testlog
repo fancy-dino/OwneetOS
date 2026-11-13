@@ -280,7 +280,10 @@ games_folders() {
 witcher_folders() {
     local d f
     echo "--- everything named after The Witcher 2 (folders and files whose name has \"witcher\")"
-    find /home/owneet /run/media/owneet -xdev -maxdepth 7 -iname '*witcher*' -type d 2>/dev/null | sort | while IFS= read -r d; do
+    # each disk on its own (-xdev from /run/media/owneet did not enter them, 2026-11-13)
+    local roots=(/home/owneet) m
+    for m in /run/media/owneet/*; do mountpoint -q "$m" && roots+=("$m"); done
+    find "${roots[@]}" -xdev -maxdepth 7 -iname '*witcher*' -type d 2>/dev/null | sort | while IFS= read -r d; do
         echo "== [$d] $(du -sb "$d" 2>/dev/null | cut -f1) bytes, $(find "$d" -type f 2>/dev/null | wc -l) files, $(stat -c '%y %U' "$d" 2>/dev/null)"
         find "$d" -mindepth 1 -maxdepth 1 -printf '   %y %12s %TY-%Tm-%Td %TH:%TM  %f\n' 2>/dev/null | sort -k5
         for f in "$d"/.owneet-installing "$d"/.owneet-installed "$d"/game.txt "$d"/gameinfo; do
@@ -291,7 +294,7 @@ witcher_folders() {
         done
     done
     echo "- files"
-    find /home/owneet /run/media/owneet -xdev -maxdepth 7 -iname '*witcher*' -type f -printf '%12s %TY-%Tm-%Td %TH:%TM  %p\n' 2>/dev/null \
+    find "${roots[@]}" -xdev -maxdepth 7 -iname '*witcher*' -type f -printf '%12s %TY-%Tm-%Td %TH:%TM  %p\n' 2>/dev/null \
         | grep -v '/[^/]*[Ww]itcher[^/]*/.*/' | sort -k4 | head -200
 }
 (( small )) || witcher_folders >> "$base.report.txt" 2>&1
