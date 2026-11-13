@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -52,11 +53,25 @@ func UnitOfPID(pid int) string {
 	if err != nil {
 		return ""
 	}
-	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+	return unitOfCgroup(string(data))
+}
+
+// steamGameScope: Steam's client of November 2026 starts each game in a scope of its own
+// (app-steam-app<APPID>-<PID>.scope, in the user's app.slice), out of Steam's unit (FrankenPC,
+// 2026-11-12: a game ran behind Steam's window, never noticed). Its processes count as Steam's,
+// where owneetd looks for Steam's games (scanSteam) and their windows.
+var steamGameScope = regexp.MustCompile(`^app-steam-app[0-9]+-[0-9]+\.scope$`)
+
+// unitOfCgroup: the app unit of a /proc/PID/cgroup's content ("" when none).
+func unitOfCgroup(data string) string {
+	for _, line := range strings.Split(strings.TrimSpace(data), "\n") {
 		if path, ok := strings.CutPrefix(line, "0::"); ok {
 			for _, part := range strings.Split(path, "/") {
 				if strings.HasPrefix(part, "owneet-app-") && strings.HasSuffix(part, ".service") {
 					return part
+				}
+				if steamGameScope.MatchString(part) {
+					return UnitName(SteamID)
 				}
 			}
 		}

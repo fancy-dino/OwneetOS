@@ -327,17 +327,20 @@ FocusScope {
         }
     }
 
-    // ---- The grid: it scrolls with the selection and keeps room for the focus ring at both ends
+    // ---- The grid: it scrolls with the selection and keeps room for the focus ring at both ends.
+    // It starts right under the filters, never above them: 2 px over them let the covers scrolled up
+    // cut the filters' bottom edge (owner's screenshots, 2026-11-12, 3w); the covers stay 16 px below.
     GridView {
         id: grid
         readonly property real ring: Theme.px(18)
+        readonly property real ringTop: Theme.px(16)
         anchors {
             left: parent.left; right: parent.right; top: filterBar.bottom; bottom: parent.bottom
-            leftMargin: -ring; rightMargin: -ring; topMargin: Theme.px(16) - ring
+            leftMargin: -ring; rightMargin: -ring
         }
         // GridView lays the cells out in the width without its margins: the right margin is one gap
         // smaller, so that seven covers and six gaps fill the page exactly
-        leftMargin: ring; rightMargin: ring - Theme.px(14); topMargin: ring; bottomMargin: ring
+        leftMargin: ring; rightMargin: ring - Theme.px(14); topMargin: ringTop; bottomMargin: ring
         clip: true
         focus: true
         model: gridModel
@@ -345,7 +348,7 @@ FocusScope {
         cellHeight: (cellWidth - Theme.px(14)) * 1.25 + Theme.px(16)
         keyNavigationEnabled: false             // Nav.listKeys moves the selection
         highlightRangeMode: GridView.ApplyRange
-        preferredHighlightBegin: ring
+        preferredHighlightBegin: ringTop
         preferredHighlightEnd: height - ring
         highlightMoveDuration: Theme.motionMs
         delegate: Loader {
@@ -412,7 +415,7 @@ FocusScope {
     }
     Column {                                    // nothing to show for this filter
         visible: grid.count === 0
-        anchors { horizontalCenter: grid.horizontalCenter; top: grid.top; topMargin: Theme.px(120) }
+        anchors { horizontalCenter: grid.horizontalCenter; top: grid.top; topMargin: Theme.px(118) }
         spacing: Theme.px(8)
         Text {
             anchors.horizontalCenter: parent.horizontalCenter

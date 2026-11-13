@@ -115,6 +115,24 @@ func TestReaperAppID(t *testing.T) {
 	}
 }
 
+// A game Steam started in a scope of its own (Steam's client of November 2026) counts as Steam's: its
+// launcher is found where owneetd looks for Steam's games.
+func TestSteamGameInItsOwnScope(t *testing.T) {
+	const base = "0::/user.slice/user-1000.slice/user@1000.service/app.slice/"
+	for cgroup, want := range map[string]string{
+		base + "app-steam-app2102040-4267.scope":      "owneet-app-steam.service",
+		base + "owneet-app-steam.service":             "owneet-app-steam.service",
+		base + "owneet-app-brave.service":             "owneet-app-brave.service",
+		base + "app-org.chromium.Chromium-1234.scope": "",
+		base + "app-steam-appx-1.scope":               "",
+		"0::/system.slice/owneetd.service":            "",
+	} {
+		if got := unitOfCgroup(cgroup + "\n"); got != want {
+			t.Errorf("%q: got %q, want %q", cgroup, got, want)
+		}
+	}
+}
+
 func TestSteamStartsInTheConsoleLanguage(t *testing.T) {
 	m, units, _, _, _, _ := newSteamManager(t)
 	if err := m.Steam(SteamRequest{Open: "store", Language: "it"}); err != nil {
