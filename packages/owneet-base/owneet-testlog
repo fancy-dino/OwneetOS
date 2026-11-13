@@ -147,11 +147,12 @@ report > "$base.report.txt" 2>&1
 # logs on the stick had stopped (the way from the home screen to "Shutting down", 2026-11-09)
 { echo "--- the previous power-off (end of the previous start's journal)"
   journalctl -b -1 -n 300 -o short-precise --no-pager 2>&1; } >> "$base.report.txt"
-# The whole journals of the three previous starts (kept on the console's disk), compressed: a test
-# made without the stick can still be read (2026-11-11: an install failed before the stick was in)
+# The whole journals of the five previous starts (kept on the console's disk), compressed: a test
+# made without the stick can still be read (2026-11-11: an install failed before the stick was in;
+# 2026-11-13: five, a game folder doubled some starts before the stick was in)
 if (( ! small )); then
     mkdir -p "$base.previous"
-    for b in 1 2 3; do
+    for b in 1 2 3 4 5; do
         journalctl -b -$b -o short-precise --no-pager 2>&1 | gzip > "$base.previous/boot-minus-$b.txt.gz"
     done
     journalctl --list-boots --no-pager > "$base.previous/boots.txt" 2>&1
@@ -247,6 +248,32 @@ linux_games_scripts() {
     done
 }
 (( small )) || linux_games_scripts
+# The games folders, once per start (owner, 2026-11-13: a game's folder doubled, one name with ":"
+# and one with " - "): on every disk, each game folder as its name really is, its size and date,
+# what is at its top, and the files the console writes or reads there (the install marks, game.txt,
+# GOG's gameinfo), whole
+games_folders() {
+    local dir game f
+    echo "--- games folders: each one, its top, the console's own files in it"
+    for dir in /home/owneet/[Gg]ames /home/owneet/[Gg]iochi /run/media/owneet/*/[Gg]ames /run/media/owneet/*/[Gg]iochi; do
+        [[ -d "$dir" ]] || continue
+        for game in "$dir"/*/; do
+            game="${game%/}"
+            echo "== [$game] $(du -sb "$game" 2>/dev/null | cut -f1) bytes, $(find "$game" -type f 2>/dev/null | wc -l) files, $(stat -c '%y %U' "$game" 2>/dev/null)"
+            find "$game" -mindepth 1 -maxdepth 1 -printf '   %y %10s %TY-%Tm-%Td %TH:%TM  %f\n' 2>/dev/null | sort -k5
+            for f in "$game"/.owneet-installing "$game"/.owneet-installed "$game"/game.txt "$game"/gameinfo; do
+                [[ -f "$f" ]] || continue
+                echo "   --- $(basename "$f") ($(stat -c '%s bytes, %y' "$f"))"
+                head -c 4000 "$f" | sed 's/^/      /'
+                echo
+            done
+        done
+    done
+    echo "--- the files the user chose to start (~/.config/owneet-frontend/disk-games.json)"
+    cat /home/owneet/.config/owneet-frontend/disk-games.json 2>&1; echo
+    echo "--- owneetd's installs (/v1/installs)"; owneetd_get /v1/installs
+}
+(( small )) || games_folders >> "$base.report.txt" 2>&1
 { echo "--- ddcutil detect (as the console user, like owneetd)"
   runuser -u owneet -- env HOME=/home/owneet ddcutil detect --verbose 2>&1 | head -80; } >> "$base.report.txt"
 # The windows of the console session, every 10 s (gamescope's X server): with the test tool
