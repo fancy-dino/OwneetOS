@@ -12,6 +12,15 @@ console: Settings → System → Credits and licences); every package's licence 
 Licences are given as [SPDX](https://spdx.org/licenses/) identifiers, as declared by each package.
 "And contributors" is meant literally: these projects are the work of many people.
 
+## Authors
+
+OwneetOS is made by (also first in the console's credits):
+
+| Author | GitHub |
+|---|---|
+| Marco De Franco | [fancy-dino](https://github.com/fancy-dino) |
+| Daniele De Padova | [Danidepadawan](https://github.com/Danidepadawan) |
+
 ## Foundations
 
 | Project | Who | Licence | What it does in OwneetOS |

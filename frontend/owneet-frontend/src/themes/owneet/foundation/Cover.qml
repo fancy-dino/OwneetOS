@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A game's cover: its own image from local files when there is one, otherwise generated art with
-// the title. A badge shows where the game comes from (Steam, Local); a heart marks a favourite;
+// the title (one line: "…", scrolling while the cover is highlighted, approved demo 3.7b). A badge
+// shows where the game comes from (Steam, Local); a heart marks a favourite;
 // a game owned but not installed is dimmed, with a download mark; a Steam game being downloaded
 // shows its state and progress under its title (4.2c); so does a game being installed from its
 // installer (4.6: a moving bar when the installer tells no percentage), and one that cannot be
@@ -48,17 +49,13 @@ Item {
     Column {
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: Theme.px(10) }
         spacing: Theme.px(6)
-        Text {
+        FitText {           // the title on one line: "…", scrolling while the cover is highlighted (3.7b)
             width: parent.width
             text: root.game ? root.game.title : ""
             color: "#FFFFFF"
             font.family: Theme.displayFont
             font.weight: Font.Bold
             font.pixelSize: Theme.fs(17)
-            wrapMode: Text.Wrap
-            maximumLineCount: 3
-            elide: Text.ElideRight
-            lineHeight: 0.95
         }
         FitText {               // the disk it is on (6.6)
             visible: root.disk !== ""
