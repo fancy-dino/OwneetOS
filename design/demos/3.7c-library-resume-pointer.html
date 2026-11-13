@@ -1,0 +1,378 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS - interactive demo: "Resume with the pointer" in the library (open item 2, owner 2026-11-08). A game is
+     running (Copper Coast). In the library, Options (Menu) on that game offers what the home screen's card offers:
+     "Resume" first (today it says "Play"), then "Resume with the pointer" ("Turn the pointer off" while it is on), then
+     the game's usual options. Resume with the pointer shows the pointer's help the first time (as from the home
+     screen), then the game with the pointer; Guide comes back to the library. Two extras, off by default, for the
+     owner to choose (demo bar): "Close game" in Options too; on the library's cover the "Running" badge and A =
+     "Resume" in the prompt bar, as on the home screen. Open in a browser; drive it with a gamepad or the keyboard.
+     Fonts are loaded from Google Fonts for the demo only: the console bundles the font files (SIL Open Font
+     License). -->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS - Resume with the pointer in the library (demo 3.7c)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1;
+  --bg: #0E1424; --surface: #172036; --raised: #222D4A; --line: #2E3A5C; --fg: #EEF1F8; --muted: #8F9AB5; --accent: #FF8A5B; --on-accent: #1E0E06;
+  --running: #5BE38A; --running-ink: #06210F; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+.frame { position: relative; flex: none; }
+.stage {
+  width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px;
+  display: grid; grid-template-rows: auto auto auto 1fr auto; gap: 18px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350;
+}
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); } .t-xl { font-size: calc(40px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 36px; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.status .clock { color: var(--fg); font-weight: 500; font-variant-numeric: tabular-nums; }
+.head { display: flex; align-items: baseline; gap: 14px; }
+.head h1 { margin: 0; }
+.filters { display: flex; gap: 8px; }
+.chip { padding: 4px 14px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.chip[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 500; }
+
+.grid { display: grid; grid-template-columns: repeat(7, 152px); gap: 16px 14px; align-content: start; }
+.cover { position: relative; height: 190px; border-radius: 14px; color: #fff; }
+.cover .art, .cover .shade { position: absolute; inset: 0; border-radius: 14px; }
+.cover .shade { background: linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,.72) 100%); }
+.cover .badge { position: absolute; left: 8px; top: 8px; padding: 2px 9px; border-radius: 999px; background: rgba(0,0,0,.45); }
+.cover .run { position: absolute; right: 8px; top: 8px; padding: 2px 9px; border-radius: 999px; background: var(--running); color: var(--running-ink); font-weight: 600; }
+.cover .body { position: absolute; left: 10px; right: 10px; bottom: 10px; }
+.cover .title { font-size: calc(17px * var(--ts)); display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cover.focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); transform: scale(1.02); z-index: 2; }
+
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 24px; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+
+/* windows over the page, as the console's Dialog */
+.dim { position: absolute; inset: 0; z-index: 5; background: rgba(8, 11, 20, .72); display: none; }
+.dim.on { display: block; }
+.sheet { position: absolute; z-index: 6; left: 50%; top: 50%; transform: translate(-50%, -58%); min-width: 520px; max-width: 1060px;
+  padding: 26px 28px 28px; border-radius: 18px; background: var(--bg); border: 1px solid var(--line); display: none;
+  text-align: center; }
+.sheet.on { display: grid; gap: 18px; justify-items: center; }
+.sheet .list { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px 20px; }
+.sheet .item { padding: 11px 26px; border-radius: 999px; font-weight: 500; background: var(--raised); color: var(--fg); white-space: nowrap; }
+.sheet .item.primary { background: var(--accent); color: var(--on-accent); }
+.sheet .item.focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent); }
+.sheet .text { max-width: 640px; color: var(--muted); }
+.controls { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 10px 14px; align-items: center; text-align: left; }
+.check { display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px; border-radius: 999px; }
+.check .box { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--muted); display: grid; place-items: center; }
+.check.on .box { background: var(--accent); border-color: var(--accent); }
+.check.focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent); }
+.sheet-prompts { position: absolute; z-index: 6; left: 64px; right: 64px; bottom: 28px; display: none; }
+.sheet-prompts.on { display: flex; }
+
+/* the game, resumed */
+.game { position: absolute; inset: 0; z-index: 8; display: none; background: radial-gradient(120% 90% at 70% 10%, #8e4ce0, #1c0f33 80%); }
+.game.on { display: block; }
+.game .launcher { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 560px; padding: 28px; border-radius: 6px;
+  background: #e9e9ef; color: #222; font: 15px/1.4 system-ui, sans-serif; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.game .launcher b { display: block; font-size: 20px; margin-bottom: 10px; }
+.game .launcher .wbtn { display: inline-block; margin: 14px 10px 0 0; padding: 6px 18px; border: 1px solid #888; border-radius: 3px; background: #f7f7f7; }
+.game .launcher .wbtn.hover { background: #d6e4ff; border-color: #3b6fd6; }
+.game .ptr { position: absolute; width: 22px; height: 30px; pointer-events: none; }
+.game .hint { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; color: #fff; opacity: .8; font: 13px system-ui, sans-serif; }
+
+.toast { position: absolute; z-index: 9; right: 64px; top: 88px; padding: 14px 20px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line);
+  opacity: 0; transition: opacity .2s; }
+.toast.on { opacity: 1; }
+
+.demo-bar { display: flex; gap: 22px; align-items: center; color: #8a90a0; font: 12px/1.4 system-ui, sans-serif; flex-wrap: wrap; justify-content: center; }
+.demo-bar .grp { display: inline-flex; gap: 6px; align-items: center; }
+.demo-bar button { padding: 3px 10px; border-radius: 999px; border: 1px solid #333a4a; color: #c9cdd8; font: inherit; }
+.demo-bar button[aria-pressed="true"] { background: #c9cdd8; color: #05070C; }
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <header class="top">
+    <div class="top-left">
+      <span class="mark">Owneet<i>OS</i></span>
+      <nav class="tabs t-s"><span class="tab" data-t="tab.home"></span><span class="tab" aria-current="page" data-t="tab.library"></span><span class="tab" data-t="tab.settings"></span></nav>
+    </div>
+    <div class="status t-s"><span class="clock" id="clock">13:50</span></div>
+  </header>
+  <div class="head"><h1 class="disp t-xl" data-t="tab.library"></h1><span class="muted t-m" id="count"></span></div>
+  <div class="filters t-s"><span class="chip" aria-current="true" data-t="f.all"></span><span class="chip" data-t="f.installed"></span><span class="chip" data-t="f.local"></span></div>
+  <main class="grid" id="grid"></main>
+  <footer class="prompts t-s" id="pagePrompts"><div class="set" id="pl"></div><div class="set" id="pr"></div></footer>
+
+  <div class="dim" id="dim"></div>
+  <div class="sheet" id="sheet"></div>
+  <footer class="prompts sheet-prompts t-s" id="sheetPrompts"><div class="set" id="spl"></div><div class="set" id="spr"></div></footer>
+  <div class="game" id="game">
+    <div class="launcher" id="launcher"><b>Copper Coast - Settings</b><span data-t="g.text"></span><br>
+      <span class="wbtn" data-w="ok">OK</span><span class="wbtn" data-w="cancel">Cancel</span></div>
+    <svg class="ptr" id="ptr" viewBox="0 0 22 30"><path d="M2 2v22l6-6 4 9 4-2-4-9h8z" fill="#fff" stroke="#000" stroke-width="1.6"/></svg>
+    <div class="hint" id="hint"></div>
+  </div>
+  <div class="toast t-s" id="toast"></div>
+</div></div>
+
+<div class="demo-bar" id="demo-bar">
+  <span class="grp"><span>Extra, Options:</span><button data-x="close" aria-pressed="false">"Close game" too</button></span>
+  <span class="grp"><span>Extra, cover:</span><button data-x="badge" aria-pressed="false">"Running" badge, A = "Resume"</button></span>
+  <span class="grp"><span>Text size:</span><button data-ts="1" aria-pressed="true">M</button><button data-ts="1.2">L</button><button data-ts="1.4">XL</button></span>
+  <span class="grp"><span>Language:</span><button data-lang="it" aria-pressed="true">Italiano</button><button data-lang="en">English</button></span>
+  <span class="grp"><button data-reset="1">Show the pointer's help again</button></span>
+</div>
+<p class="help"><b>Gamepad:</b> D-pad / left stick move, A select, B back, Menu (☰) Options, Guide back from the game.
+<b>Keyboard:</b> arrows, Enter = A, Esc = B, M = Menu, H = Guide. Copper Coast (first cover) is the running game.</p>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+
+  const EN = { 'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings', 'f.all': 'All', 'f.installed': 'Installed', 'f.local': 'Local',
+    'local': 'Local', 'games': '{n} games', 'running': 'Running',
+    'p.play': 'Play', 'p.resume': 'Resume', 'p.details': 'Details', 'p.options': 'Options', 'p.sort': 'Sort', 'p.filter': 'Filter', 'p.menu': 'Menu',
+    'p.select': 'Select', 'p.back': 'Back', 'p.sections': 'Sections', 'p.home': 'Home',
+    'o.play': 'Play', 'o.resume': 'Resume', 'o.pointer': 'Resume with the pointer', 'o.pointerOff': 'Turn the pointer off', 'o.close': 'Close game',
+    'o.details': 'Details', 'o.move': 'Move to another disk', 'o.fav': 'Add to favorites',
+    'h.title': 'The controller as a mouse', 'h.text': 'For windows made for a mouse. It turns off by itself when another window takes the screen.',
+    'h.move': 'Moves the pointer', 'h.steps': 'Small steps', 'h.home': 'Home: the pointer off, and more', 'h.click': 'Click', 'h.right': 'Right click',
+    'h.scroll': 'Scrolls', 'h.type': 'Type text (a text field opens it by itself)', 'h.ok': 'Got it', 'h.never': "Don't show again",
+    't.off': 'The pointer is off', 't.closed': 'Copper Coast closed', 'g.text': 'Choose the screen resolution, then press OK. (A window made for a mouse.)',
+    'g.hint': 'Left stick / arrows move the pointer, A clicks. Guide (H) comes back to the library.', 'other': 'Only Copper Coast does something in this demo' };
+  const IT = { 'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni', 'f.all': 'Tutti', 'f.installed': 'Installati', 'f.local': 'Locali',
+    'local': 'Locale', 'games': '{n} giochi', 'running': 'In corso',
+    'p.play': 'Gioca', 'p.resume': 'Riprendi', 'p.details': 'Dettagli', 'p.options': 'Opzioni', 'p.sort': 'Ordina', 'p.filter': 'Filtro', 'p.menu': 'Menu',
+    'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.sections': 'Sezioni', 'p.home': 'Home',
+    'o.play': 'Gioca', 'o.resume': 'Riprendi', 'o.pointer': 'Riprendi col puntatore', 'o.pointerOff': 'Spegni il puntatore', 'o.close': 'Chiudi il gioco',
+    'o.details': 'Dettagli', 'o.move': 'Sposta su un altro disco', 'o.fav': 'Aggiungi ai preferiti',
+    'h.title': 'Il controller come mouse', 'h.text': 'Per le finestre fatte per il mouse. Si spegne da solo quando un’altra finestra prende lo schermo.',
+    'h.move': 'Muove il puntatore', 'h.steps': 'Piccoli passi', 'h.home': 'Home: spegnere il puntatore, e altro', 'h.click': 'Clic', 'h.right': 'Clic destro',
+    'h.scroll': 'Scorre', 'h.type': 'Scrivi (un campo di testo la apre da solo)', 'h.ok': 'Ho capito', 'h.never': 'Non mostrare più',
+    't.off': 'Puntatore spento', 't.closed': 'Copper Coast chiuso', 'g.text': 'Scegli la risoluzione dello schermo, poi premi OK. (Una finestra fatta per il mouse.)',
+    'g.hint': 'Stick sinistro / frecce muovono il puntatore, A fa clic. Guide (H) torna alla libreria.', 'other': 'In questa demo fa qualcosa solo Copper Coast' };
+  let lang = 'it';
+  const tr = (k, a = {}) => ((lang === 'it' ? IT : EN)[k] || EN[k] || k).replace(/\{(\w+)\}/g, (_, x) => a[x]);
+
+  const GAMES = [['Copper Coast', '#8e4ce0', '#2a1240'], ['Ember Run', '#3fd8a0', '#0c3024'], ['Harbor Lights', '#d84fc0', '#3a1030'],
+    ['Lantern Keep', '#e0c040', '#3a3010'], ['Moss Garden', '#40d860', '#10301a'], ['Nebula Drift', '#e04a5a', '#3a1016'], ['Pixel Quest', '#b04fe0', '#2a1036'],
+    ['Quiet Orbit', '#7a4fd0', '#1c1238'], ['Saltwind', '#40d8d8', '#0c2c30'], ['Starfall', '#e08a40', '#3a2010'], ['Tiny Tactics', '#40a8e0', '#0c2032'], ['Velvet Road', '#d84fd8', '#30103a']];
+  let extraClose = false, extraBadge = false, running = true, pointerOn = false, helpHidden = false;
+
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const G = { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), menu: circle(`<path d="M8.5 9.5h9M8.5 13h9M8.5 16.5h9" ${S}/>`),
+    lb: pill('LB', 34), rb: pill('RB', 34), lt: pill('LT', 34), rt: pill('RT', 34), ls: pill('L', 26), dpad: pill('✚', 30), rs: pill('R', 26),
+    guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`) };
+  const P = (b, l) => `<span class="prompt">${b.map(x => G[x]).join('')}<span>${tr(l)}</span></span>`;
+
+  /* ---------- The library ---------- */
+  let focusIndex = 0;
+  function drawLibrary() {
+    document.documentElement.lang = lang;
+    $$('[data-t]').forEach(el => { el.textContent = tr(el.dataset.t); });
+    $('#count').textContent = tr('games', { n: GAMES.length });
+    $('#grid').innerHTML = GAMES.map(([t, c1, c2], i) => `<div class="cover${i === focusIndex ? ' focus' : ''}" data-i="${i}">
+      <div class="art" style="background: radial-gradient(120% 90% at 70% 10%, ${c1}, ${c2} 80%)"></div><div class="shade"></div>
+      <span class="badge t-xs">${tr('local')}</span>${i === 0 && running && extraBadge ? `<span class="run t-xs">${tr('running')}</span>` : ''}
+      <div class="body"><span class="disp title">${t}</span></div></div>`).join('');
+    const isRunning = focusIndex === 0 && running;
+    $('#pl').innerHTML = P(['a'], isRunning && extraBadge ? 'p.resume' : 'p.play') + P(['x'], 'p.details') + P(['menu'], 'p.options')
+      + P(['y'], 'p.sort') + P(['lt', 'rt'], 'p.filter') + P(['b'], 'p.menu');
+    $('#pr').innerHTML = P(['lb', 'rb'], 'p.sections') + P(['guide'], 'p.home');
+  }
+
+  /* ---------- Windows ---------- */
+  let sheet = null;   // { items: [{ k, el }], index }
+  function openSheet(html, onPick, defaultIndex = 0) {
+    $('#sheet').innerHTML = html;
+    $('#dim').classList.add('on'); $('#sheet').classList.add('on');
+    $('#pagePrompts').style.visibility = 'hidden';
+    $('#sheetPrompts').classList.add('on');
+    $('#spl').innerHTML = P(['a'], 'p.select') + P(['b'], 'p.back');
+    $('#spr').innerHTML = P(['guide'], 'p.home');
+    sheet = { items: $$('#sheet [data-k]'), index: defaultIndex, onPick };
+    focusSheet();
+  }
+  function closeSheet() {
+    sheet = null;
+    $('#dim').classList.remove('on'); $('#sheet').classList.remove('on');
+    $('#sheetPrompts').classList.remove('on');
+    $('#pagePrompts').style.visibility = '';
+  }
+  function focusSheet() { sheet.items.forEach((el, i) => el.classList.toggle('focus', i === sheet.index)); }
+
+  function options() {
+    const isRunning = focusIndex === 0 && running;
+    const items = isRunning
+      ? [['resume', 'o.resume', true], [pointerOn ? 'pointerOff' : 'pointer', pointerOn ? 'o.pointerOff' : 'o.pointer']]
+          .concat(extraClose ? [['close', 'o.close']] : [])
+      : [['play', 'o.play', true]];
+    const all = items.concat([['details', 'o.details'], ['move', 'o.move'], ['fav', 'o.fav']]);
+    openSheet(`<span class="disp t-l">${GAMES[focusIndex][0]}</span>
+      <div class="list t-m">${all.map(([k, l, p]) => `<button class="item${p ? ' primary' : ''}" data-k="${k}">${tr(l)}</button>`).join('')}</div>`,
+      k => {
+        closeSheet();
+        if (k === 'resume') toGame(false);
+        else if (k === 'pointer') { if (helpHidden) toGame(true); else pointerHelp(); }
+        else if (k === 'pointerOff') { pointerOn = false; toast(tr('t.off')); }
+        else if (k === 'close') { running = false; pointerOn = false; drawLibrary(); toast(tr('t.closed')); }
+        else toast(tr('other'));
+      });
+  }
+  function pointerHelp() {
+    const row = (g, l) => `<span>${g}</span><span>${tr(l)}</span>`;
+    openSheet(`<span class="disp t-l">${tr('h.title')}</span><span class="text t-s">${tr('h.text')}</span>
+      <div class="controls t-s">${row(G.ls, 'h.move') + row(G.dpad, 'h.steps') + row(G.a, 'h.click') + row(G.x, 'h.right')
+        + row(G.rs, 'h.scroll') + row(G.y, 'h.type') + row(G.guide, 'h.home')}<span></span><span></span></div>
+      <button class="check t-s" data-k="never"><span class="box"></span><span>${tr('h.never')}</span></button>
+      <div class="list t-m"><button class="item primary" data-k="ok">${tr('h.ok')}</button></div>`,
+      k => {
+        if (k === 'never') { $('#sheet .check').classList.toggle('on'); return 'stay'; }
+        helpHidden = $('#sheet .check').classList.contains('on');
+        closeSheet(); toGame(true);
+      }, 1);
+  }
+
+  /* ---------- The game ---------- */
+  let inGame = false, px = 640, py = 360;
+  function toGame(withPointer) {
+    inGame = true; pointerOn = withPointer;
+    $('#game').classList.add('on');
+    $('#ptr').style.display = withPointer ? '' : 'none';
+    $('#hint').textContent = withPointer ? tr('g.hint') : 'Guide (H)';
+    drawPtr();
+  }
+  function backHome() {
+    inGame = false;
+    $('#game').classList.remove('on');
+    drawLibrary();
+  }
+  function drawPtr() {
+    $('#ptr').style.left = px + 'px'; $('#ptr').style.top = py + 'px';
+    $$('#launcher .wbtn').forEach(b => {
+      const r = b.getBoundingClientRect(), s = stage.getBoundingClientRect(), k = s.width / 1280;
+      const x = (r.left - s.left) / k, y = (r.top - s.top) / k, w = r.width / k, h = r.height / k;
+      b.classList.toggle('hover', pointerOn && px >= x && px <= x + w && py >= y && py <= y + h);
+    });
+  }
+  function click() {
+    const hit = $('#launcher .wbtn.hover');
+    if (hit) { $('#launcher').style.display = 'none'; pointerOn = false; $('#ptr').style.display = 'none'; $('#hint').textContent = 'Guide (H)'; }
+  }
+
+  let toastTimer = 0;
+  function toast(t) { $('#toast').textContent = t; $('#toast').classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').classList.remove('on'), 2200); }
+
+  /* ---------- Input ---------- */
+  function act(a) {
+    if (inGame) {
+      if (a === 'guide') backHome();
+      else if (pointerOn && ['left', 'right', 'up', 'down'].includes(a)) {
+        px += a === 'left' ? -24 : a === 'right' ? 24 : 0; py += a === 'up' ? -24 : a === 'down' ? 24 : 0;
+        px = Math.max(0, Math.min(1260, px)); py = Math.max(0, Math.min(700, py)); drawPtr();
+      } else if (pointerOn && a === 'a') click();
+      return;
+    }
+    if (sheet) {
+      if (a === 'left' || a === 'up') { sheet.index = Math.max(0, sheet.index - 1); focusSheet(); }
+      else if (a === 'right' || a === 'down') { sheet.index = Math.min(sheet.items.length - 1, sheet.index + 1); focusSheet(); }
+      else if (a === 'a') { sheet.onPick(sheet.items[sheet.index].dataset.k); }
+      else if (a === 'b' || a === 'guide') closeSheet();
+      return;
+    }
+    const cols = 7;
+    if (a === 'left') focusIndex = Math.max(0, focusIndex - 1);
+    else if (a === 'right') focusIndex = Math.min(GAMES.length - 1, focusIndex + 1);
+    else if (a === 'up') focusIndex = Math.max(0, focusIndex - cols);
+    else if (a === 'down') focusIndex = Math.min(GAMES.length - 1, focusIndex + cols);
+    else if (a === 'menu') { options(); return; }
+    else if (a === 'a') { if (focusIndex === 0 && running) toGame(false); else toast(tr('other')); return; }
+    else if (a === 'x') { toast(tr('other')); return; }
+    drawLibrary();
+  }
+  document.addEventListener('keydown', e => {
+    const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', m: 'menu', M: 'menu', h: 'guide', H: 'guide', x: 'x', X: 'x' };
+    if (map[e.key]) { e.preventDefault(); act(map[e.key]); }
+  });
+  const BTN = { 0: 'a', 1: 'b', 2: 'x', 9: 'menu', 16: 'guide', 12: 'up', 13: 'down', 14: 'left', 15: 'right' };
+  let prev = {}, repeatAt = 0, lastDir = null;
+  function poll(ts) {
+    const pad = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean)[0] : null;
+    if (pad) {
+      for (const [i, a] of Object.entries(BTN)) {
+        const on = !!(pad.buttons[i] && pad.buttons[i].pressed);
+        if (on && !prev[i] && !['up', 'down', 'left', 'right'].includes(a)) act(a);
+        prev[i] = on;
+      }
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { act(dir); repeatAt = ts + (inGame ? 30 : lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+
+  $('#demo-bar').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.x) {
+      const v = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', String(v));
+      if (b.dataset.x === 'close') extraClose = v; else extraBadge = v;
+    } else if (b.dataset.reset) { helpHidden = false; running = true; }
+    else {
+      $$('button', b.closest('.grp')).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      if (b.dataset.ts) document.documentElement.style.setProperty('--ts', b.dataset.ts);
+      if (b.dataset.lang) lang = b.dataset.lang;
+    }
+    if (sheet) closeSheet();
+    drawLibrary(); b.blur();
+  });
+
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 70) / 720);
+    stage.style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+  const clock = () => { $('#clock').textContent = new Date().toTimeString().slice(0, 5); };
+  clock(); setInterval(clock, 10000);
+
+  /* ---------- Optional start state: #lang=en&open=options&close=1&badge=1 ---------- */
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get('lang') === 'en') lang = 'en';
+  if (q.get('close') === '1') { extraClose = true; $('[data-x="close"]').setAttribute('aria-pressed', 'true'); }
+  if (q.get('badge') === '1') { extraBadge = true; $('[data-x="badge"]').setAttribute('aria-pressed', 'true'); }
+  drawLibrary();
+  if (q.get('open') === 'options') options();
+  if (q.get('open') === 'help') pointerHelp();
+})();
+</script>
+</body>
+</html>
