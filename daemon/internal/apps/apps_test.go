@@ -747,6 +747,16 @@ func TestHomeWhenTheGamesProgramsEnd(t *testing.T) {
 	followed(2002)
 	focus.openWindow(2002)
 	m.checkWindows()
+	// Wine's explorer.exe shows a window of its own: still Wine's, never waited for (3b)
+	procs.add(2003, 1, unit, `C:\windows\system32\explorer.exe`)
+	focus.openWindow(2003)
+	m.checkWindows()
+	mu.Lock()
+	_, waited := ends[2003]
+	mu.Unlock()
+	if waited {
+		t.Fatal("Wine's explorer.exe followed as the game's")
+	}
 	// quit from its menu: its window goes, then its program ends; Wine's go on
 	focus.closeWindow(game)
 	end(2002)

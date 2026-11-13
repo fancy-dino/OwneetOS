@@ -26,7 +26,14 @@ func windowsProgram(argv []string) bool {
 	if len(argv) == 0 || !windowsPath.MatchString(argv[0]) {
 		return false
 	}
-	return !strings.HasPrefix(strings.ToLower(argv[0]), `c:\windows\`)
+	return !wineProgram(argv)
+}
+
+// wineProgram: one of Wine's own programs (in C:\windows), never the game's, even when it shows a
+// window: explorer.exe owns one, and could outlive the game until Wine closes (open item 3b,
+// owner 2026-11-13).
+func wineProgram(argv []string) bool {
+	return len(argv) > 0 && strings.HasPrefix(strings.ToLower(argv[0]), `c:\windows\`)
 }
 
 // closesWithPrograms: the apps whose programs are followed (the ones that go alone in front).
@@ -69,6 +76,13 @@ func (m *Manager) watchPrograms(id string, pids ...int) {
 		watch = pidfdWatch
 	}
 	if procs != nil {
+		given := pids
+		pids = nil
+		for _, pid := range given { // a window of Wine's own does not make its program the game's
+			if !wineProgram(procs.Cmdline(pid)) {
+				pids = append(pids, pid)
+			}
+		}
 		for _, pid := range procs.InUnit(unit) {
 			if windowsProgram(procs.Cmdline(pid)) {
 				pids = append(pids, pid)
