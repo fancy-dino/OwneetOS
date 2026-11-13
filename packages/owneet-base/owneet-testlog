@@ -149,7 +149,7 @@ trap 'kill "$journal" $(jobs -p) 2>/dev/null; sync; umount "$mnt"; exit 0' TERM 
 # start's other work (2026-11-13: twice nothing had been set when the tester put the console to
 # sleep: the test came after the first report, then after the previous starts' journals and the
 # minute's wait, minutes on the FrankenPC); what each one says, failures included, goes in
-# $base.wake.txt. The kernel's sleep and wake are in the journal.
+# $base.wake.txt, then what woke the PC after each sleep. The kernel's sleep and wake are in the journal.
 bt_wake() {
     local hci p obj
     echo "===== $(date '+%F %T') waking with the controller (test switch owneet.debug.bt_wake=on)"
@@ -181,6 +181,38 @@ bt_wake() {
             "WakeAllowed: $(busctl get-property org.bluez "$obj" org.bluez.Device1 WakeAllowed 2>&1)"
     done
     echo "===== $(date '+%F %T') done"
+    wake_sources
+}
+# What woke the PC (2026-11-13: it woke by itself 11 s after going to sleep, with nobody touching
+# anything): the USB devices allowed to wake it, with their wake counts, now and after every wake
+# (the kernel counts each sleep that ended in /sys/power/suspend_stats/success; looked at every 5 s)
+wake_sources() {
+    local d last now
+    usb_wake_counts() {
+        echo "--- USB devices that may wake the PC (wakeup_count: the wakes each one caused)"
+        for d in /sys/bus/usb/devices/*; do
+            [[ -r "$d/power/wakeup" ]] || continue
+            [[ "$(cat "$d/power/wakeup" 2>/dev/null)" == enabled ]] || continue
+            echo "$(basename "$d"): $(cat "$d/product" 2>/dev/null || echo '?') $(cat "$d/idVendor" 2>/dev/null):$(cat "$d/idProduct" 2>/dev/null)" \
+                "wakeup_count=$(cat "$d/power/wakeup_count" 2>/dev/null)"
+        done
+        echo "--- the IRQ of the last wake: $(cat /sys/power/pm_wakeup_irq 2>&1)"
+        echo "--- wake sources that woke the PC (name, wakeup_count)"
+        for d in /sys/class/wakeup/*; do
+            [[ "$(cat "$d/wakeup_count" 2>/dev/null || echo 0)" != 0 ]] || continue
+            echo "$(cat "$d/name" 2>/dev/null) wakeup_count=$(cat "$d/wakeup_count" 2>/dev/null)"
+        done
+    }
+    usb_wake_counts
+    last="$(cat /sys/power/suspend_stats/success 2>/dev/null || echo 0)"
+    while true; do
+        sleep 5
+        now="$(cat /sys/power/suspend_stats/success 2>/dev/null || echo 0)"
+        [[ "$now" != "$last" ]] || continue
+        last="$now"
+        echo "===== $(date '+%F %T') back from sleep (sleeps so far: $now)"
+        usb_wake_counts
+    done
 }
 if (( ! small )) && tr -d '\r' < "$mnt/owneet-debug.txt" 2>/dev/null | grep -qx 'owneet.debug.bt_wake=on'; then
     bt_wake >> "$base.wake.txt" 2>&1 &
