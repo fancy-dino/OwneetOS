@@ -27,7 +27,9 @@
 // console installs on its own disk through owneetd: "disk.installer" (the file) and
 // "disk.installer.kind" (sh: GOG's Linux installer, extracted; inno, nsis, msi: Windows
 // installers, run silently; galaxy: GOG Galaxy's online installer, and unknown: not usable yet).
-// A folder being installed (.owneet-installing) is not listed; a game is installed in place, on its
+// A folder being installed (.owneet-installing) is listed as its installer while it is installed in
+// place (the installer in it: its mark names the installer, its kind and the title), and not listed
+// when its installer is elsewhere (that one shows the progress); a game is installed in place, on its
 // installer's disk (owner, 2026-11-12), or, from a disk read only, in the home folder's games folder
 // under the same name (without ":", DiskGames::installFolderName), which hides its installer; an
 // installed game has "disk.installed" (it can
@@ -477,12 +479,30 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
             const QStringList game_folders = QDir(games_dir).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
             for (const QString& game_folder : game_folders) {
                 const QString game_dir = games_dir + QChar('/') + game_folder;
-                // being installed (step 4.6): its installer shows the progress
-                if (QFileInfo::exists(game_dir + QChar('/') + MARK_INSTALLING))
-                    continue;
                 Found found;
-                int entries = 0;
-                search_folder(game_dir, game_dir, 0, entries, found);
+                // being installed (step 4.6): an installer in the folder itself (installed in place,
+                // 3ad) keeps the game listed "not installed", so its cover shows the progress; one
+                // elsewhere shows it itself
+                QString installing_title;
+                QFile installing(game_dir + QChar('/') + MARK_INSTALLING);
+                if (installing.exists()) {
+                    const QJsonObject mark = installing.open(QIODevice::ReadOnly)
+                        ? QJsonDocument::fromJson(installing.read(64 * 1024)).object() : QJsonObject();
+                    const QString installer = mark.value(QStringLiteral("installer")).toString();
+                    if (installer.isEmpty() || !QFileInfo(installer).isFile()
+                        || QDir(game_dir).relativeFilePath(installer).startsWith(QLatin1String("..")))
+                        continue;
+                    QString kind = mark.value(QStringLiteral("kind")).toString();
+                    if (kind.isEmpty())
+                        kind = installer.endsWith(QLatin1String(".sh"), Qt::CaseInsensitive) ? QStringLiteral("sh")
+                             : installer.endsWith(QLatin1String(".msi"), Qt::CaseInsensitive) ? QStringLiteral("msi")
+                             : windows_installer_kind(installer);
+                    found.installer = Installer { installer, kind, 0 };
+                    installing_title = mark.value(QStringLiteral("title")).toString().trimmed();
+                } else {
+                    int entries = 0;
+                    search_folder(game_dir, game_dir, 0, entries, found);
+                }
                 // game.txt can name the file to start, even one the search does not find (Windows
                 // programs wait for step 4.5)
                 const GameTxt txt = read_game_txt(game_dir);
@@ -515,7 +535,7 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                     model::Game* game = sctx.create_game_for(*collection);
                     sctx.game_add_filepath(*game, game_dir);
                     sctx.game_add_to(*game, *collection);
-                    const QString title = txt.title.isEmpty() ? game_folder : txt.title;
+                    const QString title = !txt.title.isEmpty() ? txt.title : !installing_title.isEmpty() ? installing_title : game_folder;
                     game->setTitle(title).setSortBy(title);
                     if (!txt.description.isEmpty())
                         game->setDescription(txt.description);

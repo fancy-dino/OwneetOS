@@ -360,21 +360,31 @@ func TestWindowsInstallers(t *testing.T) {
 		t.Fatalf("info %+v %v", info, err)
 	}
 	runner := m.Runner.(*fakeRunner)
-	// the installer writes into the folder it is given (Z: is the whole file system)
+	// the installer writes into the folder it is given (Z: is the whole file system); meanwhile the
+	// folder's mark names the installer, its kind and the game's title
+	var marked map[string]any
 	runner.run = func(ctx context.Context, argv []string) error {
 		last := argv[len(argv)-1]
 		_, win, _ := strings.Cut(last, "=")
 		dir := strings.ReplaceAll(strings.TrimPrefix(win, "Z:"), `\`, "/")
+		if marked == nil {
+			raw, _ := os.ReadFile(filepath.Join(dir, MarkInstalling))
+			json.Unmarshal(raw, &marked)
+		}
 		return os.WriteFile(filepath.Join(dir, "game.exe"), []byte("MZ"), 0o644)
 	}
 	m.Env = func() []string { return []string{"DISPLAY=:1"} }
 	run(t, m)
 	prefixes := filepath.Join(home, ".local", "share", "owneet", "windows", "prefixes")
 	dest := filepath.Join(home, "Giochi", "Shadow Harbor")
-	if err := m.Install(Request{Installer: setup, Kind: KindInno, Dest: dest, Prefix: filepath.Join(prefixes, "shadow-harbor-1234")}); err != nil {
+	if err := m.Install(Request{Installer: setup, Kind: KindInno, Dest: dest, Title: "Shadow Harbor: Deluxe",
+		Prefix: filepath.Join(prefixes, "shadow-harbor-1234")}); err != nil {
 		t.Fatal(err)
 	}
 	next(t, ch, "install.done")
+	if marked["installer"] != setup || marked["kind"] != KindInno || marked["title"] != "Shadow Harbor: Deluxe" {
+		t.Fatalf("the installing mark %v", marked)
+	}
 	argv := runner.argv[0]
 	want := []string{"/usr/lib/owneet/owneet-windows-run", filepath.Join(prefixes, "shadow-harbor-1234"), setup,
 		"/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/NOICONS", `/DIR=Z:` + strings.ReplaceAll(dest, "/", `\`)}

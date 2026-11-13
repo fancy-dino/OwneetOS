@@ -601,7 +601,8 @@ func (m *Manager) install(ctx context.Context, j *job) (link string, err error) 
 	if err := os.MkdirAll(j.Dest, 0o755); err != nil {
 		return "", err
 	}
-	mark, _ := json.Marshal(map[string]any{"installer": j.req.Installer, "keep": j.keep})
+	// title and kind: the interface keeps listing a game installed in place, with its progress
+	mark, _ := json.Marshal(map[string]any{"installer": j.req.Installer, "kind": j.Kind, "title": j.Title, "keep": j.keep})
 	if err := os.WriteFile(filepath.Join(j.Dest, MarkInstalling), mark, 0o644); err != nil {
 		return "", err
 	}

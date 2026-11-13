@@ -1,0 +1,45 @@
+@owneetd
+@disk
+# A game installed in place keeps its cover while it is installed (open items 3ad): the Windows
+# installer, then the Linux one queued after it; when the first ends and the library is read
+# again, the second one's cover stays, "Installing"
+wait 10
+pad rb
+wait 1
+pad rt rt rt rt
+wait 1
+shot 01-local
+pad down down down
+wait 1
+shot 02-installers
+pad a
+wait 1.5
+pad a
+wait 1.5
+shot 03-windows-installing
+pad right
+pad a
+wait 1.5
+pad a
+wait 1.5
+shot 04-both
+wait 18
+shot 05a
+wait 1.5
+shot 05b
+wait 1.5
+shot 05c
+wait 1.5
+shot 05d
+wait 1.5
+shot 05e
+wait 1.5
+shot 05f
+wait 1.5
+shot 05g
+wait 1.5
+shot 05h
+wait 1.5
+shot 05i
+wait 1.5
+shot 05j

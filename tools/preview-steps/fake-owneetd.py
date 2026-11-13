@@ -271,6 +271,23 @@ def installs_copy():
     return {"installs": json.loads(json.dumps(state["installs"]))}
 
 
+def mark_installing(i):
+    """As owneetd: the folder being installed holds a mark naming its installer, kind and title."""
+    try:
+        os.makedirs(i["dest"], exist_ok=True)
+        with open(os.path.join(i["dest"], ".owneet-installing"), "w") as f:
+            json.dump({"installer": i["installer"], "kind": i["kind"], "title": i["title"]}, f)
+    except OSError:
+        pass
+
+
+def unmark_installing(i):
+    try:
+        os.remove(os.path.join(i["dest"], ".owneet-installing"))
+    except OSError:
+        pass
+
+
 def install_tick():
     with lock:
         cur = next((i for i in state["installs"] if i["state"] == "installing"), None)
@@ -283,9 +300,11 @@ def install_tick():
             nxt = next((i for i in state["installs"] if i["state"] == "queued"), None)
             if nxt:
                 nxt["state"] = "installing"
+                mark_installing(nxt)
         snapshot = installs_copy()
         more = bool(state["installs"])
     if finished:
+        unmark_installing(cur)
         dest = cur["dest"]
         os.makedirs(dest, exist_ok=True)
         start = os.path.join(dest, "start.sh" if cur["kind"] == "sh" else "game.exe")
@@ -726,6 +745,8 @@ class Handler(BaseHTTPRequestHandler):
                 state["installs"].append({"dest": body["dest"], "title": body.get("title", ""), "kind": body["kind"],
                                           "installer": body["installer"], "state": "installing" if first else "queued",
                                           "done": 0, "total": info["need"] if body["kind"] == "sh" else 0})
+                if first:
+                    mark_installing(state["installs"][-1])
                 snapshot = installs_copy()
             publish("installs.changed", snapshot)
             if first:
@@ -736,9 +757,11 @@ class Handler(BaseHTTPRequestHandler):
                 gone = [i for i in state["installs"] if i["dest"] == body.get("dest")]
                 state["installs"] = [i for i in state["installs"] if i["dest"] != body.get("dest")]
                 if gone and gone[0]["state"] == "installing":
+                    unmark_installing(gone[0])
                     nxt = next((i for i in state["installs"] if i["state"] == "queued"), None)
                     if nxt:
                         nxt["state"] = "installing"
+                        mark_installing(nxt)
                 snapshot = installs_copy()
             if not gone:
                 return self.error(404, "installs.not_found")
