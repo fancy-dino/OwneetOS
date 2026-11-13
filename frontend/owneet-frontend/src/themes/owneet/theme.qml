@@ -815,12 +815,22 @@ FocusScope {
     }
     function showOptions(game) {
         const s = GameInfo.steamState(game), steam = GameInfo.isSteam(game);
+        // the game running now: what the home screen's card offers (approved demo 3.7c, open item 2)
+        const app = runningGame && owneetd.connected && runningGame.name === game.title ? runningGame : null;
+        const pointerOn = app !== null && pointerStatus.on === true && pointerStatus.app === app.id;
         dialog.game = game;
         dialog.mode = "options";
         dialog.contentWidth = 0;
         dialog.title = game.title;
         dialog.text = "";
-        dialog.buttons = (s === "installed"
+        dialog.buttons = (app
+            ? [{ text: Tr.tr("home.resume"), style: "primary", action: () => { dialog.close(true); Nav.feedback("launch"); root.resume(app); } },
+               { text: Tr.tr(pointerOn ? "home.pointer.off" : "home.pointer"), action: () => {
+                    dialog.close(true);
+                    if (pointerOn) root.turnPointerOff(); else root.resumeWithPointer(app);
+                } },
+               { text: Tr.tr("home.close"), action: () => { dialog.close(true); root.confirmClose(app); } }]
+            : s === "installed"
             ? [{ text: Tr.tr("home.play"), style: "primary", action: () => { dialog.close(true); root.launch(game); } }]
             : s === "none"
             ? [{ text: Tr.tr("options.install"), style: "primary", action: () => {

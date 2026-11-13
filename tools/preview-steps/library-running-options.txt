@@ -1,13 +1,21 @@
 @owneetd
 @gamescope
-# The library's Options on the running game, as today (open item 2: "Resume with the pointer"
-# missing there): the reference for its demo.
+# The library's Options on the running game (approved demo 3.7c, open item 2): Resume, Resume with
+# the pointer, Close game (its question, Cancel selected), then the usual options.
 event app.started {"id":"game-copper-coast","name":"Copper Coast","kind":"game","started":"2026-11-13T09:00:00Z"}
 wait 2
-shot 01-home-running
 pad rb
 wait 1
-shot 02-library
 pad menu
 wait 1
-shot 03-options-running
+shot 01-options-running
+pad right right
+pad a
+wait 1
+shot 02-close-question
+pad b
+wait 1
+pad right
+pad menu
+wait 1
+shot 03-options-other-game
