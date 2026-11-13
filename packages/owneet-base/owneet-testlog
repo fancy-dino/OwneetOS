@@ -142,6 +142,50 @@ journal=$!
 # (and the disks' listing, if still running)
 trap 'kill "$journal" $(jobs -p) 2>/dev/null; sync; umount "$mnt"; exit 0' TERM INT
 
+# Waking the console with the controller (step 6.10, a test; owner 2026-11-13): with the switch
+# owneet.debug.bt_wake=on in owneet-debug.txt, every USB Bluetooth adapter, and the USB hubs and
+# controller it hangs from, may wake the PC from sleep, and every paired device may wake it through
+# BlueZ (WakeAllowed). On its own, as soon as BlueZ has its adapter (at most a minute), before the
+# start's other work (2026-11-13: twice nothing had been set when the tester put the console to
+# sleep: the test came after the first report, then after the previous starts' journals and the
+# minute's wait, minutes on the FrankenPC); what each one says, failures included, goes in
+# $base.wake.txt. The kernel's sleep and wake are in the journal.
+bt_wake() {
+    local hci p obj
+    echo "===== $(date '+%F %T') waking with the controller (test switch owneet.debug.bt_wake=on)"
+    for _ in $(seq 1 60); do
+        busctl --list tree org.bluez 2>/dev/null | grep -qE '^/org/bluez/hci[0-9]+$' && break
+        sleep 1
+    done
+    busctl --list tree org.bluez 2>/dev/null | grep -qE '^/org/bluez/hci[0-9]+$' \
+        || echo "BlueZ has no adapter after a minute: paired devices not set"
+    for hci in /sys/class/bluetooth/hci*; do
+        [[ -e "$hci/device" ]] || continue
+        p="$(readlink -f "$hci/device")"
+        echo "--- $(basename "$hci"): $p"
+        while [[ "$p" == /sys/devices/* ]]; do
+            if [[ -w "$p/power/wakeup" ]]; then
+                echo enabled > "$p/power/wakeup" 2>/dev/null || echo "$p: cannot enable wakeup"
+                echo "$p: wakeup $(cat "$p/power/wakeup" 2>/dev/null)"
+            fi
+            p="$(dirname "$p")"
+        done
+    done
+    echo "--- /proc/acpi/wakeup"
+    cat /proc/acpi/wakeup 2>/dev/null
+    echo "--- paired devices"
+    busctl --list tree org.bluez 2>/dev/null | grep -E '^/org/bluez/hci[0-9]+/dev_[0-9A-F_]+$' | while IFS= read -r obj; do
+        [[ "$(busctl get-property org.bluez "$obj" org.bluez.Device1 Paired 2>/dev/null)" == "b true" ]] || continue
+        busctl set-property org.bluez "$obj" org.bluez.Device1 WakeAllowed b true 2>&1
+        echo "$obj $(busctl get-property org.bluez "$obj" org.bluez.Device1 Name 2>/dev/null)" \
+            "WakeAllowed: $(busctl get-property org.bluez "$obj" org.bluez.Device1 WakeAllowed 2>&1)"
+    done
+    echo "===== $(date '+%F %T') done"
+}
+if (( ! small )) && tr -d '\r' < "$mnt/owneet-debug.txt" 2>/dev/null | grep -qx 'owneet.debug.bt_wake=on'; then
+    bt_wake >> "$base.wake.txt" 2>&1 &
+fi
+
 report > "$base.report.txt" 2>&1
 # The end of the previous start's journal (kept on the disk): how the last power-off went, after the
 # logs on the stick had stopped (the way from the home screen to "Shutting down", 2026-11-09)
@@ -334,48 +378,6 @@ screenshot() {
     find "$base.screens" -maxdepth 1 -name '*.png' -printf '%f\n' | sort | head -n -240 \
         | while IFS= read -r old; do rm -f "$base.screens/$old"; done
 }
-# Waking the console with the controller (step 6.10, a test; owner 2026-11-13): with the switch
-# owneet.debug.bt_wake=on in owneet-debug.txt, every USB Bluetooth adapter, and the USB hubs and
-# controller it hangs from, may wake the PC from sleep, and every paired device may wake it through
-# BlueZ (WakeAllowed). On its own, as soon as BlueZ has its adapter (at most a minute), not after the
-# first report (2026-11-13: the tester put the console to sleep 25 s after the start, before the
-# first report had ended, and nothing had been set); what each one says, failures included, goes in
-# $base.wake.txt. The kernel's sleep and wake are in the journal.
-bt_wake() {
-    local hci p obj
-    echo "===== $(date '+%F %T') waking with the controller (test switch owneet.debug.bt_wake=on)"
-    for _ in $(seq 1 60); do
-        busctl --list tree org.bluez 2>/dev/null | grep -qE '^/org/bluez/hci[0-9]+$' && break
-        sleep 1
-    done
-    busctl --list tree org.bluez 2>/dev/null | grep -qE '^/org/bluez/hci[0-9]+$' \
-        || echo "BlueZ has no adapter after a minute: paired devices not set"
-    for hci in /sys/class/bluetooth/hci*; do
-        [[ -e "$hci/device" ]] || continue
-        p="$(readlink -f "$hci/device")"
-        echo "--- $(basename "$hci"): $p"
-        while [[ "$p" == /sys/devices/* ]]; do
-            if [[ -w "$p/power/wakeup" ]]; then
-                echo enabled > "$p/power/wakeup" 2>/dev/null || echo "$p: cannot enable wakeup"
-                echo "$p: wakeup $(cat "$p/power/wakeup" 2>/dev/null)"
-            fi
-            p="$(dirname "$p")"
-        done
-    done
-    echo "--- /proc/acpi/wakeup"
-    cat /proc/acpi/wakeup 2>/dev/null
-    echo "--- paired devices"
-    busctl --list tree org.bluez 2>/dev/null | grep -E '^/org/bluez/hci[0-9]+/dev_[0-9A-F_]+$' | while IFS= read -r obj; do
-        [[ "$(busctl get-property org.bluez "$obj" org.bluez.Device1 Paired 2>/dev/null)" == "b true" ]] || continue
-        busctl set-property org.bluez "$obj" org.bluez.Device1 WakeAllowed b true 2>&1
-        echo "$obj $(busctl get-property org.bluez "$obj" org.bluez.Device1 Name 2>/dev/null)" \
-            "WakeAllowed: $(busctl get-property org.bluez "$obj" org.bluez.Device1 WakeAllowed 2>&1)"
-    done
-    echo "===== $(date '+%F %T') done"
-}
-if (( ! small )) && tr -d '\r' < "$mnt/owneet-debug.txt" 2>/dev/null | grep -qx 'owneet.debug.bt_wake=on'; then
-    bt_wake >> "$base.wake.txt" 2>&1 &
-fi
 # On the OwneetOS stick itself: stop adding to a file once it reaches 1 MB
 room() { (( ! small )) || (( $(stat -c %s "$1" 2>/dev/null || echo 0) < 1000000 )); }
 while true; do
