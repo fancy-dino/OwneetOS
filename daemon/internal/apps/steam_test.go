@@ -108,6 +108,9 @@ func TestReaperAppID(t *testing.T) {
 		"reaper SteamLaunch -- AppId=480":     "", // the game's own arguments
 		"/usr/bin/game SteamLaunch AppId=480": "",
 		"reaper SteamLaunch AppId=48x0 -- x":  "",
+		// Steam's install script of a first start, before the game
+		"reaper SteamLaunch AppId=208650 Install=1 -- proton run iscriptevaluator.exe": "",
+		"reaper SteamLaunch AppId=480 -- /g/game Install=1":                            "480",
 	} {
 		if got := reaperAppID(strings.Fields(argv)); got != want {
 			t.Errorf("%q: got %q, want %q", argv, got, want)
@@ -558,6 +561,20 @@ func TestSteamRequestsWhatToShow(t *testing.T) {
 	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) {
 		t.Fatalf("Steam game: %v", got)
 	}
+	// Steam names the game in owneetd's own codes (read back from its window), or only itself:
+	// the game stays in front
+	focus.request([]uint32{gameID, steamID})
+	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) {
+		t.Fatalf("the game in owneetd's codes: %v", got)
+	}
+	focus.request([]uint32{steamID})
+	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) || m.Status().Focus != "steam:480" {
+		t.Fatalf("Steam asking for itself over the game: %v, focus %q", got, m.Status().Focus)
+	}
+	focus.request([]uint32{steamUIAppID, 413091})
+	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) {
+		t.Fatalf("Steam asking for its own window over the game: %v", got)
+	}
 	m.HomeHold = 50 * time.Millisecond
 	m.Guide(true) // held: the home screen; Steam cannot take it back
 	time.Sleep(150 * time.Millisecond)
@@ -565,6 +582,28 @@ func TestSteamRequestsWhatToShow(t *testing.T) {
 	focus.request([]uint32{steamUIAppID})
 	if got := shown(); !sameIDs(got, []uint32{HomeAppID}) || m.Status().Focus != "home" {
 		t.Fatalf("home screen: %v, focus %q", got, m.Status().Focus)
+	}
+
+	// Steam's write reaches gamescope before owneetd puts the home screen back: Steam focused for a
+	// moment is not announced (each announce plays the interface's sound: twice, 2026-11-13)
+	m.checkWindows()
+	for len(ch) > 0 {
+		<-ch
+	}
+	focus.mu.Lock()
+	focus.shown = []uint32{steamID}
+	focus.recompute()
+	focus.mu.Unlock()
+	m.checkWindows()
+	focus.request([]uint32{steamID})
+	m.checkWindows()
+	for len(ch) > 0 {
+		if e := <-ch; e.Type == "focus.changed" {
+			t.Fatalf("announced: %v", e.Data)
+		}
+	}
+	if m.Status().Focus != "home" {
+		t.Fatalf("focus %q", m.Status().Focus)
 	}
 }
 

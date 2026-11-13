@@ -641,23 +641,30 @@ func installedSteamGames(dir string) []string {
 }
 
 // reaperAppID returns the Steam app id of Steam's launcher process ("reaper SteamLaunch AppId=N").
+// Steam's install script of a game's first start (reaper SteamLaunch AppId=N Install=1: the
+// redistributables, before the game) is not the game: Steam's launch goes on after it (its shader
+// cache next), and the game starts later (Batman: Arkham Knight, FrankenPC, 2026-11-13).
 func reaperAppID(argv []string) string {
 	if len(argv) < 3 || filepath.Base(argv[0]) != "reaper" {
 		return ""
 	}
-	launch := false
+	launch, id := false, ""
 	for _, a := range argv[1:] {
 		if a == "--" {
 			break
 		}
-		if a == "SteamLaunch" {
+		switch {
+		case a == "SteamLaunch":
 			launch = true
-		}
-		if id, ok := strings.CutPrefix(a, "AppId="); ok && launch && appIDPattern.MatchString(id) {
-			return id
+		case a == "Install=1":
+			return ""
+		case strings.HasPrefix(a, "AppId=") && launch && id == "":
+			if v := strings.TrimPrefix(a, "AppId="); appIDPattern.MatchString(v) {
+				id = v
+			}
 		}
 	}
-	return ""
+	return id
 }
 
 // reaperOf returns the Steam game a process belongs to: its app id and launcher, if any.
@@ -833,9 +840,13 @@ func (m *Manager) closeSteamGame(a *App, force bool) {
 }
 
 // steamRequest: Steam wrote what gamescope should show, in its own codes (769: its own window; a
-// Steam app id: that game; others are unknown). While Steam or one of its games is in front,
-// owneetd shows what Steam asks for, in owneetd's app ids; otherwise (e.g. the home screen after
-// Guide) owneetd puts its own choice back: Steam never takes the screen by itself.
+// Steam app id: that game) or in owneetd's (Steam reads them back from its windows' STEAM_GAME,
+// which owneetd sets: e.g. when it resumes a running game; others are unknown). While Steam or one
+// of its games is in front, owneetd shows what Steam asks for, in owneetd's app ids, but a Steam
+// game in front stays in front when Steam does not name it (its window may change: Batman: Arkham
+// Knight lost the screen to the home screen when its first window went, FrankenPC, 2026-11-13);
+// otherwise (e.g. the home screen after Guide) owneetd puts its own choice back: Steam never takes
+// the screen by itself.
 func (m *Manager) steamRequest(ids []uint32) {
 	sess, err := m.Session()
 	if err != nil {
@@ -870,14 +881,34 @@ func (m *Manager) steamRequest(ids []uint32) {
 		for _, a := range m.apps {
 			behind = behind || a.steamBehind
 		}
+		// the Steam game in front, kept there unless Steam names it
+		var front *App
+		for _, a := range m.apps {
+			if a.reaper != 0 && a.appID == shown[0] {
+				front = a
+			}
+		}
+		named := false
 		for _, id := range ids {
-			if id == steamUIAppID {
+			own := m.appOfID(id)
+			switch {
+			case id == steamUIAppID || (own != nil && own.ID == SteamID):
 				if !behind {
 					add(steam.appID)
 				}
-			} else if g, ok := m.apps[steamGamePrefix+strconv.FormatUint(uint64(id), 10)]; ok {
-				add(g.appID)
+			case own != nil && own.reaper != 0:
+				named = named || own == front
+				add(own.appID)
+			default:
+				if g, ok := m.apps[steamGamePrefix+strconv.FormatUint(uint64(id), 10)]; ok {
+					named = named || g == front
+					add(g.appID)
+				}
 			}
+		}
+		if front != nil && !named {
+			want = append([]uint32{front.appID}, want...)
+			seen[front.appID] = true
 		}
 		if !behind {
 			add(steam.appID)
@@ -889,10 +920,12 @@ func (m *Manager) steamRequest(ids []uint32) {
 		if len(shown) == 0 {
 			shown = []uint32{HomeAppID}
 		}
-		m.Log.Debug("something else chose what gamescope shows: put back", "asked", ids, "shown", shown)
+		m.Log.Info("something else chose what gamescope shows: put back", "asked", ids, "shown", shown)
 		m.show(f, shown)
+		m.screenChanged()
 		return
 	}
-	m.Log.Debug("Steam chose what gamescope shows", "asked", ids, "shown", want)
+	m.Log.Info("Steam chose what gamescope shows", "asked", ids, "shown", want)
 	m.show(f, want)
+	m.screenChanged() // gamescope may already focus what Steam asked for: no notice of its own
 }

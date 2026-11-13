@@ -491,6 +491,20 @@ func (m *Manager) checkWindows() {
 		return
 	}
 	m.mu.Lock()
+	// What gamescope focuses for a moment after someone else (Steam) wrote what it shows, before
+	// owneetd has answered (steamRequest, which looks again): not announced. Each announce plays
+	// the interface's sound: twice when Steam took the screen back for a moment after Guide
+	// (FrankenPC, 2026-11-13). With none of owneetd's apps on screen gamescope keeps the last
+	// window: announced as before.
+	for _, want := range m.shown {
+		if shown[want] {
+			if want != focused {
+				m.mu.Unlock()
+				return
+			}
+			break
+		}
+	}
 	id := ""
 	if focused == HomeAppID {
 		id = "home"
