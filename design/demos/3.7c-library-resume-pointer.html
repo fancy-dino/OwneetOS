@@ -3,10 +3,10 @@
 <!-- OwneetOS - interactive demo: "Resume with the pointer" in the library (open item 2, owner 2026-11-08). A game is
      running (Copper Coast). In the library, Options (Menu) on that game offers what the home screen's card offers:
      "Resume" first (today it says "Play"), then "Resume with the pointer" ("Turn the pointer off" while it is on), then
-     the game's usual options. Resume with the pointer shows the pointer's help the first time (as from the home
-     screen), then the game with the pointer; Guide comes back to the library. Two extras, off by default, for the
-     owner to choose (demo bar): "Close game" in Options too; on the library's cover the "Running" badge and A =
-     "Resume" in the prompt bar, as on the home screen. Open in a browser; drive it with a gamepad or the keyboard.
+     "Close game" (with the home screen's question, Cancel selected), then the game's usual options. Resume with the
+     pointer shows the pointer's help the first time (as from the home screen), then the game with the pointer; Guide
+     comes back to the library. Approved 2026-11-13; second round: "Close game" added (owner), the cover's badge and
+     A = "Resume" dropped (owner). Open in a browser; drive it with a gamepad or the keyboard.
      Fonts are loaded from Google Fonts for the demo only: the console bundles the font files (SIL Open Font
      License). -->
 <html lang="it">
@@ -137,11 +137,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 </div></div>
 
 <div class="demo-bar" id="demo-bar">
-  <span class="grp"><span>Extra, Options:</span><button data-x="close" aria-pressed="false">"Close game" too</button></span>
-  <span class="grp"><span>Extra, cover:</span><button data-x="badge" aria-pressed="false">"Running" badge, A = "Resume"</button></span>
   <span class="grp"><span>Text size:</span><button data-ts="1" aria-pressed="true">M</button><button data-ts="1.2">L</button><button data-ts="1.4">XL</button></span>
   <span class="grp"><span>Language:</span><button data-lang="it" aria-pressed="true">Italiano</button><button data-lang="en">English</button></span>
-  <span class="grp"><button data-reset="1">Show the pointer's help again</button></span>
+  <span class="grp"><button data-reset="1">Start again (game running, help shown)</button></span>
 </div>
 <p class="help"><b>Gamepad:</b> D-pad / left stick move, A select, B back, Menu (☰) Options, Guide back from the game.
 <b>Keyboard:</b> arrows, Enter = A, Esc = B, M = Menu, H = Guide. Copper Coast (first cover) is the running game.</p>
@@ -161,7 +159,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'h.title': 'The controller as a mouse', 'h.text': 'For windows made for a mouse. It turns off by itself when another window takes the screen.',
     'h.move': 'Moves the pointer', 'h.steps': 'Small steps', 'h.home': 'Home: the pointer off, and more', 'h.click': 'Click', 'h.right': 'Right click',
     'h.scroll': 'Scrolls', 'h.type': 'Type text (a text field opens it by itself)', 'h.ok': 'Got it', 'h.never': "Don't show again",
-    't.off': 'The pointer is off', 't.closed': 'Copper Coast closed', 'g.text': 'Choose the screen resolution, then press OK. (A window made for a mouse.)',
+    't.off': 'The pointer is off', 'c.title': 'Close {title}?', 'c.text': 'Unsaved progress may be lost.', 'c.cancel': 'Cancel', 'g.text': 'Choose the screen resolution, then press OK. (A window made for a mouse.)',
     'g.hint': 'Left stick / arrows move the pointer, A clicks. Guide (H) comes back to the library.', 'other': 'Only Copper Coast does something in this demo' };
   const IT = { 'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni', 'f.all': 'Tutti', 'f.installed': 'Installati', 'f.local': 'Locali',
     'local': 'Locale', 'games': '{n} giochi', 'running': 'In corso',
@@ -172,7 +170,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'h.title': 'Il controller come mouse', 'h.text': 'Per le finestre fatte per il mouse. Si spegne da solo quando un’altra finestra prende lo schermo.',
     'h.move': 'Muove il puntatore', 'h.steps': 'Piccoli passi', 'h.home': 'Home: spegnere il puntatore, e altro', 'h.click': 'Clic', 'h.right': 'Clic destro',
     'h.scroll': 'Scorre', 'h.type': 'Scrivi (un campo di testo la apre da solo)', 'h.ok': 'Ho capito', 'h.never': 'Non mostrare più',
-    't.off': 'Puntatore spento', 't.closed': 'Copper Coast chiuso', 'g.text': 'Scegli la risoluzione dello schermo, poi premi OK. (Una finestra fatta per il mouse.)',
+    't.off': 'Puntatore spento', 'c.title': 'Chiudere {title}?', 'c.text': 'I progressi non salvati potrebbero andare persi.', 'c.cancel': 'Annulla', 'g.text': 'Scegli la risoluzione dello schermo, poi premi OK. (Una finestra fatta per il mouse.)',
     'g.hint': 'Stick sinistro / frecce muovono il puntatore, A fa clic. Guide (H) torna alla libreria.', 'other': 'In questa demo fa qualcosa solo Copper Coast' };
   let lang = 'it';
   const tr = (k, a = {}) => ((lang === 'it' ? IT : EN)[k] || EN[k] || k).replace(/\{(\w+)\}/g, (_, x) => a[x]);
@@ -180,7 +178,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   const GAMES = [['Copper Coast', '#8e4ce0', '#2a1240'], ['Ember Run', '#3fd8a0', '#0c3024'], ['Harbor Lights', '#d84fc0', '#3a1030'],
     ['Lantern Keep', '#e0c040', '#3a3010'], ['Moss Garden', '#40d860', '#10301a'], ['Nebula Drift', '#e04a5a', '#3a1016'], ['Pixel Quest', '#b04fe0', '#2a1036'],
     ['Quiet Orbit', '#7a4fd0', '#1c1238'], ['Saltwind', '#40d8d8', '#0c2c30'], ['Starfall', '#e08a40', '#3a2010'], ['Tiny Tactics', '#40a8e0', '#0c2032'], ['Velvet Road', '#d84fd8', '#30103a']];
-  let extraClose = false, extraBadge = false, running = true, pointerOn = false, helpHidden = false;
+  let running = true, pointerOn = false, helpHidden = false;
 
   const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
   const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
@@ -199,10 +197,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     $('#count').textContent = tr('games', { n: GAMES.length });
     $('#grid').innerHTML = GAMES.map(([t, c1, c2], i) => `<div class="cover${i === focusIndex ? ' focus' : ''}" data-i="${i}">
       <div class="art" style="background: radial-gradient(120% 90% at 70% 10%, ${c1}, ${c2} 80%)"></div><div class="shade"></div>
-      <span class="badge t-xs">${tr('local')}</span>${i === 0 && running && extraBadge ? `<span class="run t-xs">${tr('running')}</span>` : ''}
+      <span class="badge t-xs">${tr('local')}</span>
       <div class="body"><span class="disp title">${t}</span></div></div>`).join('');
-    const isRunning = focusIndex === 0 && running;
-    $('#pl').innerHTML = P(['a'], isRunning && extraBadge ? 'p.resume' : 'p.play') + P(['x'], 'p.details') + P(['menu'], 'p.options')
+    $('#pl').innerHTML = P(['a'], 'p.play') + P(['x'], 'p.details') + P(['menu'], 'p.options')
       + P(['y'], 'p.sort') + P(['lt', 'rt'], 'p.filter') + P(['b'], 'p.menu');
     $('#pr').innerHTML = P(['lb', 'rb'], 'p.sections') + P(['guide'], 'p.home');
   }
@@ -231,7 +228,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     const isRunning = focusIndex === 0 && running;
     const items = isRunning
       ? [['resume', 'o.resume', true], [pointerOn ? 'pointerOff' : 'pointer', pointerOn ? 'o.pointerOff' : 'o.pointer']]
-          .concat(extraClose ? [['close', 'o.close']] : [])
+          .concat([['close', 'o.close']])
       : [['play', 'o.play', true]];
     const all = items.concat([['details', 'o.details'], ['move', 'o.move'], ['fav', 'o.fav']]);
     openSheet(`<span class="disp t-l">${GAMES[focusIndex][0]}</span>
@@ -241,9 +238,15 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
         if (k === 'resume') toGame(false);
         else if (k === 'pointer') { if (helpHidden) toGame(true); else pointerHelp(); }
         else if (k === 'pointerOff') { pointerOn = false; toast(tr('t.off')); }
-        else if (k === 'close') { running = false; pointerOn = false; drawLibrary(); toast(tr('t.closed')); }
+        else if (k === 'close') askClose();
         else toast(tr('other'));
       });
+  }
+  // the home screen's question: Cancel selected, so no game is closed by accident
+  function askClose() {
+    openSheet(`<span class="disp t-l">${tr('c.title', { title: GAMES[0][0] })}</span><span class="text t-m">${tr('c.text')}</span>
+      <div class="list t-m"><button class="item" data-k="yes">${tr('o.close')}</button><button class="item primary" data-k="no">${tr('c.cancel')}</button></div>`,
+      k => { closeSheet(); if (k === 'yes') { running = false; pointerOn = false; drawLibrary(); } }, 1);
   }
   function pointerHelp() {
     const row = (g, l) => `<span>${g}</span><span>${tr(l)}</span>`;
@@ -342,10 +345,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 
   $('#demo-bar').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.x) {
-      const v = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', String(v));
-      if (b.dataset.x === 'close') extraClose = v; else extraBadge = v;
-    } else if (b.dataset.reset) { helpHidden = false; running = true; }
+    if (b.dataset.reset) { helpHidden = false; running = true; pointerOn = false; }
     else {
       $$('button', b.closest('.grp')).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
       if (b.dataset.ts) document.documentElement.style.setProperty('--ts', b.dataset.ts);
@@ -364,14 +364,13 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   const clock = () => { $('#clock').textContent = new Date().toTimeString().slice(0, 5); };
   clock(); setInterval(clock, 10000);
 
-  /* ---------- Optional start state: #lang=en&open=options&close=1&badge=1 ---------- */
+  /* ---------- Optional start state: #lang=en&open=options (or help, close) ---------- */
   const q = new URLSearchParams(location.hash.slice(1));
   if (q.get('lang') === 'en') lang = 'en';
-  if (q.get('close') === '1') { extraClose = true; $('[data-x="close"]').setAttribute('aria-pressed', 'true'); }
-  if (q.get('badge') === '1') { extraBadge = true; $('[data-x="badge"]').setAttribute('aria-pressed', 'true'); }
   drawLibrary();
   if (q.get('open') === 'options') options();
   if (q.get('open') === 'help') pointerHelp();
+  if (q.get('open') === 'close') askClose();
 })();
 </script>
 </body>
