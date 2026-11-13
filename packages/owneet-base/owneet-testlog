@@ -274,6 +274,27 @@ games_folders() {
     echo "--- owneetd's installs (/v1/installs)"; owneetd_get /v1/installs
 }
 (( small )) || games_folders >> "$base.report.txt" 2>&1
+# Everything named after The Witcher 2 on every disk, once per start (owner, 2026-11-13: its folder
+# doubled after a download made without the stick): each folder (its size, files, date and top) and
+# each file (size, date) whose name has "witcher", with the console's own files in such folders
+witcher_folders() {
+    local d f
+    echo "--- everything named after The Witcher 2 (folders and files whose name has \"witcher\")"
+    find /home/owneet /run/media/owneet -xdev -maxdepth 7 -iname '*witcher*' -type d 2>/dev/null | sort | while IFS= read -r d; do
+        echo "== [$d] $(du -sb "$d" 2>/dev/null | cut -f1) bytes, $(find "$d" -type f 2>/dev/null | wc -l) files, $(stat -c '%y %U' "$d" 2>/dev/null)"
+        find "$d" -mindepth 1 -maxdepth 1 -printf '   %y %12s %TY-%Tm-%Td %TH:%TM  %f\n' 2>/dev/null | sort -k5
+        for f in "$d"/.owneet-installing "$d"/.owneet-installed "$d"/game.txt "$d"/gameinfo; do
+            [[ -f "$f" ]] || continue
+            echo "   --- $(basename "$f") ($(stat -c '%s bytes, %y' "$f"))"
+            head -c 4000 "$f" | sed 's/^/      /'
+            echo
+        done
+    done
+    echo "- files"
+    find /home/owneet /run/media/owneet -xdev -maxdepth 7 -iname '*witcher*' -type f -printf '%12s %TY-%Tm-%Td %TH:%TM  %p\n' 2>/dev/null \
+        | grep -v '/[^/]*[Ww]itcher[^/]*/.*/' | sort -k4 | head -200
+}
+(( small )) || witcher_folders >> "$base.report.txt" 2>&1
 { echo "--- ddcutil detect (as the console user, like owneetd)"
   runuser -u owneet -- env HOME=/home/owneet ddcutil detect --verbose 2>&1 | head -80; } >> "$base.report.txt"
 # The windows of the console session, every 10 s (gamescope's X server): with the test tool

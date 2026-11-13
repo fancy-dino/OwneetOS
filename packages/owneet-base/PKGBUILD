@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneet-base
-pkgver=0.0.68
+pkgver=0.0.69
 pkgrel=1
 pkgdesc="OwneetOS base system: release information and the packages every OwneetOS system needs"
 arch=('any')
@@ -43,7 +43,7 @@ sha256sums=('SKIP'
             'e739678148442c4770b5c7cf793df180bc475cd33cf1bcb347affdb978f84fc3'
             'dfcdb91edaa6fd46121f8f3a2ce95b0a8e461c5f04c6f9325a1babe45e53cdea'
             '7aa102a2a26cc2ca15321aeaa244044df5077d6c3b75aff6d756982be8ac33a2'
-            '85e2bb7eb62f8c4a2842fc57141a08cb48258dc746d7536c084accc0d300689d'
+            'a513d7c150d6b488bfa530babde430bd35d79314b1a6260a2480865c9a427c3d'
             'a7bc78df6370c8119f63fe563366e033ed87ac7b93d0432cc4c53e2a065afc1a'
             'c1380a518174ea5d23be5afa65ddb4d53ae89da705ac7a643f0587dec659579a'
             '9aa02524ad29c812ce67973e7f01c811b7e559a5ace44ad5e4418db58373b001'
