@@ -1,0 +1,17 @@
+@owneetd
+# Guide while nothing runs (owner, 2026-11-14): back to the home screen, its windows closed; the
+# Home prompt only while nothing runs (with a game, a media app or Steam, Guide goes back to it).
+pad lb
+pad down down down down down down down down
+pad right a
+wait 1.5
+shot 01-file-manager
+event home.requested {}
+wait 1.5
+shot 02-guide-home
+pad rb
+wait 1
+shot 03-library-home-prompt
+event app.started {"id":"game-copper-coast","name":"Copper Coast","kind":"game","started":"2026-11-14T09:00:00Z"}
+wait 1.5
+shot 04-library-game-running

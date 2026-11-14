@@ -34,6 +34,9 @@ QtObject {
     // While the start-up animation plays every button is ignored, with no sound and no action
     // (owner, FrankenPC, 2026-11-09: buttons pressed during it played the interface's sounds)
     property bool inputPaused: false
+    // The Home prompt (Guide) only while Guide leads to the home screen: nothing running (no game,
+    // media app or Steam; with one, Guide goes back to it). Set by the theme (owner, 2026-11-14).
+    property bool homePrompt: true
     // true (and logged, once per press) when A comes too soon after a window opened; always true
     // while input is paused
     function acceptBlocked() {

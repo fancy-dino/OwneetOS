@@ -222,6 +222,23 @@ FocusScope {
     readonly property var sections: ["home", "library", "settings"]
     property string section: "home"
     readonly property Item page: section === "home" ? home : section === "library" ? library : settings
+    // Guide while nothing runs (owner, 2026-11-14: it did nothing): back to the home screen, the
+    // windows over the pages closed (as B or Cancel would); the copy of games goes on behind its
+    // window (6.6e). Not during the first start or the installer.
+    function guideHome() {
+        if (firstStart.visible || installer.visible)
+            return;
+        const was = windowOpen || fileManager.visible;
+        if (moveSheet.visible) { if (moveSheet.running) moveSheet.hide(); else moveSheet.close(true); }
+        for (const w of [osk, dialog, quick, notices, controls, credits, palettes, languages, zoneSheet, versionsSheet])
+            if (w.visible) w.close(true);
+        if (clockSheet.visible) clockSheet.close(true);
+        if (displayArea.visible) displayArea.close(false);
+        if (fileManager.visible) fileManager.close();
+        if (section !== "home") goSection("home");
+        else if (was) Nav.feedback("sheet-close");
+        backToPage();
+    }
     function goSection(name) {
         if (name === section)
             return;
@@ -271,6 +288,8 @@ FocusScope {
 
     // ---- owneetd (3.8): running apps, what is on screen, controllers, network
     property var apps: []                 // running games and apps: { id, name, kind, started }
+    // the Home prompt only while nothing runs: with a game, a media app or Steam, Guide goes back to it
+    Binding { target: Nav; property: "homePrompt"; value: root.apps.length === 0 }
     property string focusedApp: ""        // "home", an app id, or "" (cage)
     property string sessionMode: ""       // "gamescope" or "cage"
     // live (from the USB stick), tester or installed (owneetd's /v1/status, 6.2)
@@ -382,12 +401,9 @@ FocusScope {
         function onConnectedChanged() { if (owneetd.connected) root.refreshDaemon(); }
         function onEvent(type, data) {
             root.noticeFor(type, data);
-            // 6.6e: Home (owneetd: Guide on the home screen with nothing to go back to) on the copy's
-            // window: it closes, the copy goes on behind it; anywhere else nothing changes
-            if (type === "home.requested" && moveSheet.visible && moveSheet.running) {
-                moveSheet.hide();
-                if (root.section === "home") Nav.feedback("sheet-close"); else root.goSection("home");
-            }
+            // Guide with nothing to go back to (owneetd's "home.requested"): the home screen
+            if (type === "home.requested")
+                root.guideHome();
             if (type === "app.started" || type === "app.exited") {
                 // Google's terms page closed: its question again, but only once the home screen has
                 // caught up (it selects its hero when the running app changes, which would take
@@ -3136,7 +3152,8 @@ FocusScope {
         }
         visible: !root.modalOpen
         prompts: root.page.prompts
-        globalPrompts: [{ buttons: ["lb", "rb"], label: Tr.tr("prompt.sections") }, { buttons: ["guide"], label: Tr.tr("prompt.home") }]
+        globalPrompts: [{ buttons: ["lb", "rb"], label: Tr.tr("prompt.sections") }]
+                       .concat(Nav.homePrompt ? [{ buttons: ["guide"], label: Tr.tr("prompt.home") }] : [])
     }
 
 

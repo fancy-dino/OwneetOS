@@ -2,6 +2,7 @@
 // The prompt bar at the bottom of every screen: what the buttons do here (left) and the
 // system-wide buttons (right). It sits inside the safe area and never moves.
 // prompts: [{ buttons: ["a"], label: "Select" }, ...]
+// The Home prompt only while nothing runs (Nav.homePrompt, owner 2026-11-14).
 // When it does not fit (owner 2026-11-12, approved demo design/demos/3.3c-prompt-bar-fit.html): if
 // less than twice the gap between prompts would stay between the two groups, the prompts on the
 // right show their buttons only; the screen's own prompts keep their words.
@@ -10,7 +11,7 @@ import QtQuick 2.15
 Item {
     id: root
     property var prompts: []
-    property var globalPrompts: [{ buttons: ["guide"], label: Tr.tr("prompt.home") }]
+    property var globalPrompts: Nav.homePrompt ? [{ buttons: ["guide"], label: Tr.tr("prompt.home") }] : []
     property string note: ""
     implicitHeight: Theme.fs(26)
 
