@@ -61,6 +61,17 @@ Storage::Storage(QObject* parent)
     }
 }
 
+// A disk plugged in from outside: its device hangs from a USB bus in /sys (owneetd's
+// gamedata.External, the same rule)
+static bool usb_device(const QByteArray& device)
+{
+    if (!device.startsWith("/dev/"))
+        return false;
+    const QString real = QFileInfo(QString::fromLocal8Bit(device)).canonicalFilePath();
+    const QString name = QFileInfo(real.isEmpty() ? QString::fromLocal8Bit(device) : real).fileName();
+    return QFileInfo(QStringLiteral("/sys/class/block/") + name).canonicalFilePath().contains(QLatin1String("/usb"));
+}
+
 QVariantList Storage::volumes() const
 {
     QVariantList out;
@@ -82,6 +93,7 @@ QVariantList Storage::volumes() const
         volume.insert(QStringLiteral("readOnly"), info.isReadOnly());
         volume.insert(QStringLiteral("why"), info.isReadOnly() ? reasons.value(path) : QString());
         volume.insert(QStringLiteral("ntfs"), info.fileSystemType().startsWith("ntfs"));
+        volume.insert(QStringLiteral("usb"), !system && usb_device(info.device()));
         if (system)
             out.prepend(volume);
         else
@@ -100,6 +112,7 @@ QVariantList Storage::volumes() const
         volume.insert(QStringLiteral("readOnly"), true);
         volume.insert(QStringLiteral("why"), QString());
         volume.insert(QStringLiteral("ntfs"), false);
+        volume.insert(QStringLiteral("usb"), true);
         out.append(volume);
     }
     return out;

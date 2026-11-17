@@ -1573,8 +1573,12 @@ FocusScope {
         // 6.8: moved to another disk, or its installer deleted: the text says so
         const size = GameInfo.sizeAuto(diskGames.folderSize(dir));
         const here = GameInfo.diskRoot(game) === "internal" || GameInfo.diskRoot(game) === "";
+        // the installer gone too: a Windows or DOS game on a disk inside the console takes its saves
+        // and settings with it (owneetd, 6.11, owner 2026-11-12 / 2026-11-17)
+        const gameVol = storage.volumes().find(v => v.key !== "internal" && dir.startsWith(v.key + "/"));
+        const ownData = (GameInfo.isWindows(game) || game.extra["disk.dos"] === true) && !(gameVol && gameVol.usb);
         dialog.text = root.installerLeft(game) === 0
-            ? Tr.tr("installer.uninstall.text.gone", { size: size, where: root.diskOf(dir) })
+            ? Tr.tr(ownData ? "installer.uninstall.text.gone.data" : "installer.uninstall.text.gone", { size: size, where: root.diskOf(dir) })
             : here ? Tr.tr("installer.uninstall.text", { size: size, disk: vol ? diskName(vol.key) : diskName("internal") })
             : Tr.tr("installer.uninstall.text.disk", { size: size, where: root.diskOf(dir), disk: vol ? diskName(vol.key) : diskName("internal") });
         dialog.buttons = [

@@ -21,8 +21,10 @@ public:
     /// { key, name, free, total, readOnly, why, ntfs }, sizes in bytes; key is "internal" for the
     /// system disk, the mount folder for the others; why: owneet-mount's reason when read only
     /// ("windows": left dirty or hibernated by Windows, "windows-system": Windows's own partition,
-    /// "live": an internal disk from the USB stick, "error"); ntfs: an NTFS file system. OWNEET_DISKS ("path[:path…]") adds folders that act as
-    /// disks while they exist (previews: plugging a disk is creating its folder).
+    /// "live": an internal disk from the USB stick, "error"); ntfs: an NTFS file system; usb: a
+    /// disk plugged in from outside (its device hangs from a USB bus in /sys; the console's own
+    /// disk and the disks inside it are not). OWNEET_DISKS ("path[:path…]") adds folders that act as
+    /// disks while they exist (previews: plugging a disk is creating its folder; usb).
     Q_INVOKABLE QVariantList volumes() const;
 
 signals:

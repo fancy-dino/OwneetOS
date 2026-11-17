@@ -696,6 +696,7 @@
   "error.delete.read_only": "Ce disque est en lecture seule : rien n’a été supprimé.",
   "installer.uninstall.text.disk": "Il est supprimé de {where} ({size} libérés). Son installateur reste sur {disk} : vous pouvez le réinstaller.",
   "installer.uninstall.text.gone": "Il est supprimé de {where} ({size} libérés). Son installateur n’est plus là : pour le réinstaller, il vous le faudra.",
+  "installer.uninstall.text.gone.data": "Il est supprimé de {where} ({size} libérés), avec ses sauvegardes et ses réglages. Son installateur n’est plus là : pour le réinstaller, il vous le faudra.",
   "toast.install.queued": "{title} sera installé après les autres",
   "toast.install.stopped": "Installation arrêtée",
   "toast.install.removed": "{title} désinstallé",
