@@ -8,7 +8,9 @@
 #include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
+#include <QImage>
 #include <QImageReader>
+#include <QImageWriter>
 #include <QStorageInfo>
 #include <QThread>
 #include <QUrl>
@@ -21,18 +23,42 @@
 
 
 namespace {
-// PNG, JPEG and WebP: those the system can read (WebP needs Qt's image formats plugin)
+// PNG and JPEG (owner, 2026-11-17: WebP left out, it needs a plugin the console does not have)
 const QStringList& formats()
 {
-    static const QStringList ext = [] {
-        const QList<QByteArray> readable = QImageReader::supportedImageFormats();
-        QStringList out;
-        for (const char* e : { "png", "jpg", "jpeg", "webp" })
-            if (readable.contains(QByteArray(e)))
-                out.append(QString::fromLatin1(e));
-        return out;
-    }();
+    static const QStringList ext { QStringLiteral("png"), QStringLiteral("jpg"), QStringLiteral("jpeg") };
     return ext;
+}
+
+// A cover's longest side at most (owner, 2026-11-17): a bigger picture is saved smaller, so a
+// photo of many megapixels never weighs on the library's memory
+constexpr int COVER_MAX_SIDE = 1200;
+
+// Writes the cover to `to`: the picture itself when it is small enough and needs no turning, else
+// read at the size it is saved at (a big JPEG is never decoded whole) and turned as its camera says
+bool writeCover(const QString& picture, const QString& ext, const QString& to)
+{
+    QImageReader reader(picture);
+    reader.setAutoTransform(true);
+    const QSize size = reader.size();
+    if (!size.isValid())
+        return false;
+    const int side = std::max(size.width(), size.height());
+    const bool turned = reader.transformation() != QImageIOHandler::TransformationNone;
+    if (side <= COVER_MAX_SIDE && !turned)
+        return QFile::copy(picture, to);
+    if (side > COVER_MAX_SIDE)
+        reader.setScaledSize(size.scaled(COVER_MAX_SIDE, COVER_MAX_SIDE, Qt::KeepAspectRatio));
+    const QImage image = reader.read();
+    if (image.isNull())
+        return false;
+    QImageWriter writer(to, ext == QLatin1String("png") ? QByteArray("png") : QByteArray("jpeg"));
+    writer.setQuality(90);
+    if (!writer.write(image))
+        return false;
+    Log::info(LOGMSG("Cover images: `%1` saved at %2 x %3 (it was %4 x %5)")
+        .arg(QFileInfo(picture).fileName()).arg(image.width()).arg(image.height()).arg(size.width()).arg(size.height()));
+    return true;
 }
 
 // Every disk but the console's own: the mounted disks (as Storage), and the folders OWNEET_DISKS
@@ -121,7 +147,7 @@ QString copyCover(const QString& picture, const QString& game_dir)
     const QString part = dir.filePath(QStringLiteral(".cover.owneet-part"));
     const QString cover = dir.filePath(QStringLiteral("cover.") + ext);
     QFile::remove(part);
-    if (!QFile::copy(picture, part)) {
+    if (!writeCover(picture, ext, part)) {
         Log::warning(LOGMSG("Cover images: cannot copy `%1` into `%2`").arg(picture, game_dir));
         QFile::remove(part);
         return {};

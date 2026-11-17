@@ -2,10 +2,11 @@
 // A local game's cover from a picture on a disk ([[step-6.9-cover-images-from-a-disk]], approved
 // demo design/demos/6.9-cover-images.html). The pictures are read from the folder "Images"
 // (Immagini, Bilder, Imágenes; any case of letters) at the top of every disk but the console's
-// own, with its sub-folders: PNG, JPEG and WebP. The chosen one is copied into the game's folder
-// as cover.<ext>, where the library looks for a game's cover; an earlier cover.* goes. WebP only
-// when the system can read it (Qt's image formats plugin). Reading the disks and copying take a
-// while: they run on a thread of their own and answer with a signal.
+// own, with its sub-folders: PNG and JPEG (WebP left out, owner 2026-11-17). The chosen one is
+// copied into the game's folder as cover.<ext>, where the library looks for a game's cover, at
+// most 1200 px on its longest side (a bigger one is saved smaller, owner 2026-11-17); an earlier
+// cover.* goes. Reading the disks and copying take a while: they run on a thread of their own and
+// answer with a signal.
 
 #pragma once
 
@@ -34,8 +35,9 @@ public:
     Q_INVOKABLE int find();
 
     /// Copies a picture into a game's folder as cover.<ext> (its own extension, lower case) and
-    /// removes an earlier cover.*: answered by used(token, ok, cover). Refused (ok false) for a
-    /// file that is not a picture of the three formats, or a folder on a disk mounted read only.
+    /// removes an earlier cover.*: answered by used(token, ok, cover). A picture longer than 1200 px
+    /// on a side, or turned by its camera, is saved smaller and upright. Refused (ok false) for a
+    /// file that is not a PNG or JPEG picture, or a folder on a disk mounted read only.
     Q_INVOKABLE int use(const QString& picture, const QString& game_dir);
 
 signals:
