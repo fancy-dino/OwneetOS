@@ -1,0 +1,26 @@
+@owneetd
+@steam
+@manygames
+@disk
+# The library's grid shifted sideways after changing filters (open item 3ah, owner 2026-11-14): sorted
+# by name, the first installed game in the last column; "All", the first game, RT twice, LT twice back
+# to "All" (the selection on the first installed game)
+pad rb
+wait 1.5
+pad y
+wait 0.8
+pad right
+pad a
+wait 1.5
+shot 01-by-name
+pad rt rt lt lt
+wait 1.5
+shot 05-back-to-all-fast
+pad left
+wait 0.6
+shot 06-left
+pad rt rt
+wait 0.2
+pad lt lt
+wait 1.5
+shot 07-again

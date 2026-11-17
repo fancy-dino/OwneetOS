@@ -123,6 +123,12 @@ FocusScope {
         if (id !== "") return "steam:" + id;
         return GameInfo.onDisk(p) ? "disk:" + p.extra["disk.dir"] : "title:" + p.title;
     }
+    // A new filter or sort builds the grid again from nothing (open item 3ah, owner 2026-11-14: after
+    // RT, RT, LT, LT the selected cover sat cut off at the left of a row, one row below its place,
+    // and moving went wrong: GridView misplaced it after dozens of rows moved at once). Only the
+    // same list changing (a game installed, uninstalled, downloading) is followed row by row.
+    property string gridFilter: ""
+    property string gridSort: ""
     function syncGrid() {
         const keys = [], map = {}, seen = {};
         places.forEach(p => {
@@ -132,6 +138,16 @@ FocusScope {
             keys.push(k);
             map[k] = p;
         });
+        if (filter !== gridFilter || sort !== gridSort) {
+            gridFilter = filter;
+            gridSort = sort;
+            placeOf = map;
+            gridModel.clear();
+            for (const k of keys)
+                gridModel.append({ slot: k });
+            rowKeys = keys;
+            return;
+        }
         placeOf = Object.assign({}, placeOf, map);  // rows going away keep their place meanwhile
         const rows = rowKeys.slice();
         for (let i = rows.length - 1; i >= 0; i--) {

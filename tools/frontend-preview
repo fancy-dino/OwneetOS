@@ -25,6 +25,8 @@
 #                    Bluetooth devices (tools/preview-steps/fake-owneetd.py)
 #   @files           (6.11) invented Windows games' data and logs, and (with @steam) Steam's leftovers
 #   @steam           (with @owneetd) an invented Steam folder with owned games, installed or not
+#   @manygames       (with @steam) 60 more owned Steam games, a library of about ninety, four of them
+#                    favourites (3ah)
 #                    (tools/preview-steps/fake-steam.py); the pretend owneetd installs and
 #                    uninstalls them, with downloads
 #   @disk            an invented USB disk "SSD-256GB-D" with a Giochi folder (games on a disk, 4.3;
@@ -167,6 +169,12 @@ if ! grep -q '^@firststart' /steps.txt; then
     echo '{"firstStartDone":true}' > "$HOME/.config/owneet-frontend/theme_settings/owneet.json"
 fi
 if grep -q '^@steam' /steps.txt; then
+    if grep -q '^@manygames' /steps.txt; then
+        # sorted by name, 6 games come before the first installed one (the last column of the
+        # first row); four favourites, none of them installed (open item 3ah)
+        export FAKE_STEAM_MANY=60
+        printf 'steam:%s\n' 2211 2222 2233 2244 > "$HOME/.config/owneet-frontend/favorites.txt"
+    fi
     python3 /fake-steam.py "$HOME/Steam"
     export OWNEET_STEAM_DIR="$HOME/Steam" FAKE_STEAM=1
 fi
