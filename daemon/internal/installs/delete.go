@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/fancy-dino/OwneetOS/daemon/internal/gamedata"
 )
 
 // Games on any disk ([[step-6.8-games-on-disk-delete-and-progress]]): a game's folder or an
@@ -128,7 +130,46 @@ func (m *Manager) Delete(dest string) error {
 		os.Remove(mark.Link)
 	}
 	m.Log.Info("game deleted from its disk", "dest", dest)
+	// the game and its installer both gone (the installer was in the folder, or none is left)
+	if !installerLeft(dest, mark.Installer) {
+		m.removeData(dest)
+	}
 	return nil
+}
+
+// installerLeft: the installer of a game the console installed is still there (in its folder after
+// an uninstall, or elsewhere): the game may be installed again, its own folders stay.
+func installerLeft(dest, installer string) bool {
+	if installer == "" {
+		return false
+	}
+	_, err := os.Stat(filepath.Clean(installer))
+	return err == nil
+}
+
+// removeData: a game that leaves an internal disk for good (it and its installer removed through the
+// console) leaves nothing behind (owner, 2026-11-12, [[disks]]): its own folders on the console's disk
+// go too, its prefix with its saves included. On an external disk (USB) they stay: the user removes
+// them with the file manager (6.11).
+func (m *Manager) removeData(dest string) {
+	if m.External(dest) {
+		return
+	}
+	removed := false
+	for _, dir := range gamedata.All(m.Home, dest) {
+		if _, err := os.Lstat(dir); err != nil {
+			continue
+		}
+		if err := os.RemoveAll(dir); err != nil {
+			m.Log.Warn("the game's own folder could not be removed", "dest", dest, "dir", dir, "err", err)
+			continue
+		}
+		removed = true
+		m.Log.Info("the game's own folder removed with it", "dest", dest, "dir", dir)
+	}
+	if removed {
+		m.synced(filepath.Join(m.Home, ".local", "share", "owneet"))
+	}
 }
 
 // installerFiles: an installer and its parts (GOG's setup_*.exe with its setup_*-N.bin).

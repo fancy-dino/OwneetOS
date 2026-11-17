@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/gamedata"
 )
 
 // gogScript writes an installer shaped like GOG's Linux ones: a shell script followed by a ZIP
@@ -561,5 +562,78 @@ func TestProcInUse(t *testing.T) {
 	wd, _ := os.Getwd()
 	if !procInUse(wd) || procInUse(t.TempDir()) {
 		t.Fatal("procInUse")
+	}
+}
+
+// A game that leaves an internal disk for good takes its own folders on the console's disk with it
+// (owner, 2026-11-12): deleted with its folder, or uninstalled once its installer is gone; while its
+// installer stays, or on an external disk, they stay.
+func TestDataGoesWithTheGame(t *testing.T) {
+	m, home, _, _ := newManager(t)
+	external := false
+	m.External = func(string) bool { return external }
+	data := func(dest string) []string {
+		dirs := gamedata.All(home, dest)
+		for _, d := range dirs {
+			os.MkdirAll(d, 0o755)
+			os.WriteFile(filepath.Join(d, "save"), []byte("saved"), 0o644)
+		}
+		return dirs
+	}
+	gone := func(dirs []string) bool {
+		for _, d := range dirs {
+			if exists(d) {
+				return false
+			}
+		}
+		return true
+	}
+	game := func(name string) string {
+		dest := filepath.Join(home, "Giochi", name)
+		os.MkdirAll(dest, 0o755)
+		os.WriteFile(filepath.Join(dest, "game.exe"), []byte("MZ"), 0o644)
+		return dest
+	}
+	// a game deleted from an internal disk: its data go
+	a := game("Alpha")
+	dirs := data(a)
+	if err := m.Delete(a); err != nil || !gone(dirs) {
+		t.Fatalf("internal delete: %v, data gone %v", err, gone(dirs))
+	}
+	// on an external disk they stay
+	external = true
+	b := game("Beta")
+	dirs = data(b)
+	if err := m.Delete(b); err != nil || gone(dirs) || !exists(filepath.Join(dirs[0], "save")) {
+		t.Fatalf("external delete: %v, data kept %v", err, !gone(dirs))
+	}
+	external = false
+	// an installed game whose installer is still elsewhere: deleted, its data stay (it may come back)
+	other := filepath.Join(home, "Giochi", "Gamma setup")
+	os.MkdirAll(other, 0o755)
+	os.WriteFile(filepath.Join(other, "setup.exe"), []byte("MZ"), 0o644)
+	c := game("Gamma")
+	os.WriteFile(filepath.Join(c, MarkInstalled), []byte(`{"installer":"`+filepath.Join(other, "setup.exe")+`"}`), 0o644)
+	dirs = data(c)
+	if err := m.Delete(c); err != nil || gone(dirs) {
+		t.Fatalf("installer left: %v, data kept %v", err, !gone(dirs))
+	}
+	// uninstalled with its installer in its folder: the data stay; the folder deleted later: they go
+	d := game("Delta")
+	os.WriteFile(filepath.Join(d, "setup.exe"), []byte("MZ"), 0o644)
+	os.WriteFile(filepath.Join(d, MarkInstalled), []byte(`{"installer":"`+filepath.Join(d, "setup.exe")+`","keep":["setup.exe"]}`), 0o644)
+	dirs = data(d)
+	if err := m.Uninstall(d); err != nil || gone(dirs) || !exists(filepath.Join(d, "setup.exe")) {
+		t.Fatalf("uninstall keeping the installer: %v, data kept %v", err, !gone(dirs))
+	}
+	if err := m.Delete(d); err != nil || !gone(dirs) {
+		t.Fatalf("the installer deleted after: %v, data gone %v", err, gone(dirs))
+	}
+	// uninstalled after its installer was deleted apart: the data go
+	e := game("Epsilon")
+	os.WriteFile(filepath.Join(e, MarkInstalled), []byte(`{"installer":""}`), 0o644)
+	dirs = data(e)
+	if err := m.Uninstall(e); err != nil || !gone(dirs) {
+		t.Fatalf("uninstall without installer: %v, data gone %v", err, gone(dirs))
 	}
 }

@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/gamedata"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/syncdisk"
 )
 
@@ -133,6 +134,9 @@ type Manager struct {
 	// InUse tells whether a process works in a folder (its working folder or its program is in
 	// it: /proc by default)
 	InUse func(dir string) bool
+	// External tells whether a folder is on a disk plugged in from outside (USB; gamedata.External
+	// by default): there a game's own data stay when it is removed
+	External func(dir string) bool
 	// Media is where the console mounts the disks (default /run/media/owneet): games there can be
 	// deleted and uninstalled too (6.8)
 	Media string
@@ -171,6 +175,9 @@ func (m *Manager) init() {
 		}
 		if m.InUse == nil {
 			m.InUse = procInUse
+		}
+		if m.External == nil {
+			m.External = gamedata.External
 		}
 	})
 }
@@ -425,7 +432,8 @@ func (m *Manager) Stop(dest string) error {
 
 // Uninstall removes a game the console installed, also after it was moved to another disk (6.8):
 // everything in its folder but what was there before (an installer in the folder itself); its prefix
-// (with its saves) stays.
+// (with its saves) stays while its installer does (it may be installed again), and goes with it on
+// an internal disk once the installer was deleted already (removeData).
 func (m *Manager) Uninstall(dest string) error {
 	m.init()
 	dest, err := m.gameFolder(dest)
@@ -433,8 +441,9 @@ func (m *Manager) Uninstall(dest string) error {
 		return err
 	}
 	var mark struct {
-		Keep []string `json:"keep"`
-		Link string   `json:"link"`
+		Installer string   `json:"installer"`
+		Keep      []string `json:"keep"`
+		Link      string   `json:"link"`
 	}
 	data, err := os.ReadFile(filepath.Join(dest, MarkInstalled))
 	if err != nil {
@@ -465,6 +474,10 @@ func (m *Manager) Uninstall(dest string) error {
 		os.Remove(mark.Link)
 	}
 	m.Log.Info("game uninstalled", "dest", dest)
+	// its installer gone already (deleted apart): nothing of the game is left
+	if !installerLeft(dest, mark.Installer) {
+		m.removeData(dest)
+	}
 	return nil
 }
 

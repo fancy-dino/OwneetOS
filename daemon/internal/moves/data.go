@@ -3,16 +3,13 @@
 package moves
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"syscall"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/atomicfile"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/gamedata"
 )
 
 // A game's own folders on the console's disk, named after the game's folder (owneet-frontend's
@@ -21,22 +18,10 @@ import (
 // [[step-6.6-moving-games-and-media-between-disks]]); otherwise the moved game would start
 // with new, empty ones and the old ones would stay behind. A copy (the original kept) gets a copy
 // of them (owner, 2026-11-10).
-var dataKinds = []string{"windows/prefixes", "dos"}
+var dataKinds = gamedata.Kinds
 
-var notSlug = regexp.MustCompile(`[^a-z0-9]+`)
-
-// dataDir is DiskGames::gameDataDir: ~/.local/share/owneet/KIND/<name>-<hash>, the name made of
-// the folder's name (a-z, 0-9 and "-", at most 40 characters), the hash the first 10 hex
-// digits of the SHA-1 of the game's folder.
-func dataDir(home, kind, gameDir string) string {
-	slug := notSlug.ReplaceAllString(strings.ToLower(filepath.Base(gameDir)), "-")
-	if len(slug) > 40 {
-		slug = slug[:40]
-	}
-	slug = strings.Trim(slug, "-")
-	sum := sha1.Sum([]byte(gameDir))
-	return filepath.Join(home, ".local", "share", "owneet", kind, slug+"-"+hex.EncodeToString(sum[:])[:10])
-}
+// dataDir is DiskGames::gameDataDir (package gamedata)
+func dataDir(home, kind, gameDir string) string { return gamedata.Dir(home, kind, gameDir) }
 
 // installedMark is the mark of a game the console installed (package installs): its "link" is
 // the folder's link the installer wrote through (a Windows installer that cannot take the
