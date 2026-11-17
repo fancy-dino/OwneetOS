@@ -35,7 +35,8 @@ QtObject {
     // (owner, FrankenPC, 2026-11-09: buttons pressed during it played the interface's sounds)
     property bool inputPaused: false
     // The Home prompt (Guide) only while Guide leads to the home screen: nothing running (no game,
-    // media app or Steam; with one, Guide goes back to it). Set by the theme (owner, 2026-11-14).
+    // media app or Steam; with one, Guide goes back to it), and not already there (owner,
+    // 2026-11-14, 2026-11-17). Set by the theme.
     property bool homePrompt: true
     // true (and logged, once per press) when A comes too soon after a window opened; always true
     // while input is paused

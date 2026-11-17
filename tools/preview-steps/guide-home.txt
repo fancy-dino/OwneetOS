@@ -1,6 +1,12 @@
 @owneetd
 # Guide while nothing runs (owner, 2026-11-14): back to the home screen, its windows closed; the
-# Home prompt only while nothing runs (with a game, a media app or Steam, Guide goes back to it).
+# Home prompt only while Guide does something: nothing runs (with a game, a media app or Steam,
+# Guide goes back to it), and not on the home screen itself with no window over it (2026-11-17)
+shot 00-home-no-prompt
+pad b
+wait 1
+shot 00b-home-quick-menu-prompt
+pad b
 pad lb
 pad down down down down down down down down
 pad right a
