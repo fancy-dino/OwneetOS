@@ -1,0 +1,29 @@
+@owneetd
+@steam
+@steamprepare
+# "Preparing" while Steam prepares a download ([[open-items]] 8, approved demo 4.2c-steam-preparing):
+# the cover "Preparing…" with a moving bar, Details the same bar without downloaded / speed / time
+# left, a second game "Waiting", the home screen's notice "Preparing {title}…".
+pad rb
+pad rt rt rt
+pad right right right
+pad a
+shot 01-install-question
+pad a
+pad up a
+pad down a
+pad up a
+pad down a
+wait 6
+shot 02-cover-preparing
+pad a
+shot 03-details-preparing
+pad b
+pad right right right right right
+pad a
+wait 1
+pad a
+wait 3
+shot 04-second-waiting
+pad lb
+shot 05-home-notice-preparing

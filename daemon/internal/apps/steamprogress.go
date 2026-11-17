@@ -51,6 +51,8 @@ func steamPhaseOf(kind, flags string) string {
 	case kind == "App" && (strings.Contains(flags, "Downloading") || strings.Contains(flags, "Staging") ||
 		strings.Contains(flags, "Committing")):
 		return steamDownloading
+	case strings.Contains(flags, "Stopping"): // stopped (another game first, cancelled): not preparing
+		return steamIdle
 	case strings.Contains(flags, "Running Update"):
 		return steamPreparing // the game's own preparation, or its shader cache before the download
 	}

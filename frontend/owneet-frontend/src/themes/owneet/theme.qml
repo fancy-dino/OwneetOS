@@ -209,8 +209,10 @@ FocusScope {
         const g = ds.length > 0 ? steamGame(ds[0].appid) : null;
         if (!g) return [];
         const p = ds[0].total > 0 ? Math.floor(ds[0].done * 100 / ds[0].total) : 0;
+        // while Steam prepares it, no percentage ([[open-items]] 8, approved demo 4.2c-steam-preparing)
         const text = !online ? Tr.tr("home.notice.paused")
-            : Tr.tr(ds[0].state === "updating" ? "home.notice.update" : "home.notice.download", { title: g.title, p: p })
+            : Tr.tr(ds[0].state === "updating" ? "home.notice.update" : ds[0].state === "preparing" ? "home.notice.preparing"
+                    : "home.notice.download", { title: g.title, p: p })
               + (ds.length > 1 ? "  ·  " + Tr.tr("home.notice.more", { n: ds.length - 1 }) : "");
         return [{ text: text, game: g }];
     }
@@ -889,7 +891,7 @@ FocusScope {
         // a Steam game can always be uninstalled, and its download cancelled, without Steam's interface
         if (steam && (s === "installed" || s === "updating"))
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.uninstall"), action: () => { dialog.close(true); root.askUninstall(game, false); } }]);
-        if (steam && (s === "downloading" || s === "queued" || s === "paused"))
+        if (steam && (s === "downloading" || s === "preparing" || s === "queued" || s === "paused"))
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.cancel_install"), action: () => { dialog.close(true); root.askUninstall(game, true); } }]);
         if (GameInfo.diskFiles(game).length > 1)
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.choose_file"), action: () => { dialog.close(true); root.chooseFile(game, false); } }]);
@@ -3593,15 +3595,28 @@ FocusScope {
             }
             Rectangle {                   // the download's progress
                 readonly property string s: dialog.game ? GameInfo.steamState(dialog.game) : ""
-                visible: s === "downloading" || s === "updating" || s === "queued" || s === "paused"
+                visible: s === "downloading" || s === "updating" || s === "queued" || s === "paused" || s === "preparing"
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: Theme.px(420); height: Theme.px(8); radius: height / 2
                 color: Theme.raised
+                clip: true
                 Rectangle {
+                    visible: parent.s !== "preparing"
                     width: parent.width * (dialog.game ? GameInfo.progress(dialog.game) : 0) / 100
                     height: parent.height; radius: height / 2
                     color: Theme.accent
                     Behavior on width { NumberAnimation { duration: Theme.motionMs } }
+                }
+                Rectangle {               // Steam prepares: no percentage, a piece that keeps moving (as the cover)
+                    id: detailsMoving
+                    visible: parent.s === "preparing"
+                    width: parent.width * 0.35; height: parent.height; radius: height / 2
+                    color: Theme.accent
+                    NumberAnimation on x {
+                        running: detailsMoving.visible && !Theme.reduceMotion
+                        from: -detailsMoving.width; to: detailsMoving.parent.width
+                        duration: 1400; loops: Animation.Infinite
+                    }
                 }
             }
             Text {                        // on a disk that is not connected

@@ -62,8 +62,14 @@ func TestSteamDownloadFromItsLogAndFiles(t *testing.T) {
 	}
 
 	appendFile(t, logFile, "[2026-11-09 09:30:17] AppID 208650 App update changed : Running Update,Reconfiguring,\n")
-	if d := download(t, m, "208650"); d.State != "queued" || d.Done != 0 {
+	if d := download(t, m, "208650"); d.State != "preparing" || d.Done != 0 || d.Rate != 0 {
 		t.Fatalf("preparing: %+v", d)
+	}
+	appendFile(t, logFile, "[2026-11-09 09:30:30] AppID 208650 App update changed : Running Update,Verifying Installed,\n"+
+		"[2026-11-09 09:30:31] AppID 208650 App update changed : Running Update,\n"+
+		"[2026-11-09 09:30:31] AppID 208650 App update changed : Running Update,Preallocating,\n")
+	if d := download(t, m, "208650"); d.State != "preparing" {
+		t.Fatalf("still preparing: %+v", d)
 	}
 	// Steam downloads: measured from here, then 500 of the 2000 bytes written
 	appendFile(t, logFile, "[2026-11-09 09:30:35] AppID 208650 App update changed : Running Update,Downloading,Staging,\n")
@@ -101,10 +107,15 @@ func TestSteamDownloadFromItsLogAndFiles(t *testing.T) {
 	if d := download(t, m, "208650"); d.State != "queued" {
 		t.Fatalf("suspended: %+v", d)
 	}
-	// its shader cache first: still not the download
+	// its shader cache first: still not the download, Steam prepares it
 	appendFile(t, logFile, "[2026-11-09 09:30:40] AppID 208650 Shader update changed : Running Update,Downloading,Staging,\n")
-	if d := download(t, m, "208650"); d.State != "queued" {
+	if d := download(t, m, "208650"); d.State != "preparing" {
 		t.Fatalf("shader cache: %+v", d)
+	}
+	appendFile(t, logFile, "[2026-11-09 09:30:41] AppID 208650 Shader update changed : Running Update,Stopping,\n"+
+		"[2026-11-09 09:30:41] AppID 208650 Shader update changed : None\n")
+	if d := download(t, m, "208650"); d.State != "preparing" {
+		t.Fatalf("after its shader cache (Shader None leaves the phase as it was): %+v", d)
 	}
 	appendFile(t, logFile, "[2026-11-09 09:36:00] AppID 208650 App update changed : Running Update,Downloading,Staging,\n")
 	if d := download(t, m, "208650"); d.State != "downloading" || d.Done < 1500 {
@@ -121,6 +132,10 @@ func TestSteamPhaseOf(t *testing.T) {
 		{"App", "Running Update,Preallocating,", steamPreparing},
 		{"Shader", "Running Update,Downloading,Staging,", steamPreparing},
 		{"App", "Running Update,Downloading,Staging,Stopping,", steamDownloading},
+		{"App", "Running Update,Stopping,", steamIdle},
+		{"App", "Running Update,Reconfiguring,Stopping,", steamIdle},
+		{"App", "Running Update,Reconfiguring,", steamPreparing},
+		{"Shader", "Running Update,Stopping,", steamIdle},
 	} {
 		if got := steamPhaseOf(c.kind, c.flags); got != c.want {
 			t.Errorf("%s %q: %q, want %q", c.kind, c.flags, got, c.want)

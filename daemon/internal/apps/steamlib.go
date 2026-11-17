@@ -33,7 +33,9 @@ const (
 type SteamDownload struct {
 	AppID string `json:"appid"`
 	// State: "downloading" (a new game, the one Steam downloads now), "updating" (an installed
-	// game, now), "queued" (waiting for its turn, or paused by Steam, e.g. without internet)
+	// game, now), "preparing" (a new game Steam prepares before its download: no percentage, Steam's
+	// log does not tell how far it is; [[open-items]] 8, owner 2026-11-17), "queued" (waiting for its
+	// turn, or paused by Steam, e.g. without internet)
 	State string `json:"state"`
 	Done  int64  `json:"done"`  // bytes downloaded and written
 	Total int64  `json:"total"` // bytes to download and write
@@ -314,6 +316,8 @@ func steamDownloads(dir string, samples map[string]*steamSample, phases map[stri
 				continue
 			case moving:
 				state = "downloading"
+			case logged && phase == steamPreparing:
+				state = "preparing"
 			case pending:
 				state = "queued"
 			default:

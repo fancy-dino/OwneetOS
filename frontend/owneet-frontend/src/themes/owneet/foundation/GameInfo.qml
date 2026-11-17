@@ -110,7 +110,8 @@ QtObject {
         ((steam && steam.downloads) || []).forEach(d => { out[d.appid] = d; });
         return out;
     }
-    // "installed", "none", "downloading", "updating", "queued" (waiting for its turn), "paused"
+    // "installed", "none", "preparing" (Steam prepares its download: no percentage, [[open-items]] 8),
+    // "downloading", "updating", "queued" (waiting for its turn), "paused"
     // (waiting, no internet), "away" (installed on a disk that is not connected)
     function steamState(game) {
         if (hasInstaller(game)) {           // 4.6: none, queued, installing, unusable

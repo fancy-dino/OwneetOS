@@ -36,7 +36,7 @@ NavArea {
         if (!visible || windows || gameTitle === "" || !GameInfo.steam) return -1;
         let done = 0, total = 0;
         (GameInfo.steam.downloads || []).forEach(d => {
-            if (d.state !== "queued") { done += d.done; total += d.total; }
+            if (d.state !== "queued" && d.state !== "preparing") { done += d.done; total += d.total; }
         });
         return total > 0 ? Math.min(100, Math.floor(100 * done / total)) : -1;
     }

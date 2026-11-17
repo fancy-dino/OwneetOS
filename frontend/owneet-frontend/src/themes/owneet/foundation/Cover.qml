@@ -30,10 +30,11 @@ Item {
     readonly property bool installed: steamState === "installed" || steamState === "updating"
     readonly property string stateText: game ? GameInfo.stateText(game) : ""
     readonly property bool busy: steamState === "downloading" || steamState === "updating" || steamState === "queued"
-                                 || steamState === "paused" || steamState === "installing"
-    // installing with no percentage (Windows installers, 4.6): the bar keeps moving
-    readonly property bool unknownProgress: steamState === "installing" && GameInfo.install(game) !== null
-                                            && GameInfo.install(game).total <= 0
+                                 || steamState === "paused" || steamState === "installing" || steamState === "preparing"
+    // no percentage: installing (Windows installers, 4.6), or Steam preparing a download ([[open-items]] 8,
+    // approved demo 4.2c-steam-preparing): the bar keeps moving
+    readonly property bool unknownProgress: steamState === "preparing" || (steamState === "installing"
+                                            && GameInfo.install(game) !== null && GameInfo.install(game).total <= 0)
     // Art (4.4): the portrait cover (Steam's, or cover.jpg / .png of a game on a disk), else a
     // Steam game's wide header shown whole over the generated art (option A, owner 2026-10-16),
     // else the generated art

@@ -209,7 +209,12 @@ def sysupdate_install():
         later(6, lambda: sysupdate(state="ready", percent=0, packages=[]))
 
 
-# Steam's downloads (4.2c): the first one moves, the others wait; about 20 seconds a game
+# Steam's downloads (4.2c): the first one moves, the others wait; about 20 seconds a game, after
+# Steam has prepared it (FAKE_STEAM_PREPARE seconds, 2 by default; @steamprepare: 60: "preparing", no percentage,
+# open item 8)
+STEAM_PREPARE = float(os.environ.get("FAKE_STEAM_PREPARE", "2"))
+
+
 def steam_publish():
     with lock:
         data = json.loads(json.dumps(state["steam"]))
@@ -221,11 +226,11 @@ def steam_install(appid):
         ds = state["steam"]["downloads"]
         if any(d["appid"] == appid for d in ds):
             return
-        ds.append({"appid": appid, "state": "queued", "done": 0, "total": 4_200_000_000, "rate": 0})
-        start = len(ds) == 1
+        start = len(ds) == 0
+        ds.append({"appid": appid, "state": "preparing" if start else "queued", "done": 0, "total": 4_200_000_000, "rate": 0})
     steam_publish()
     if start:
-        later(0.5, steam_tick)
+        later(STEAM_PREPARE, steam_tick)
 
 
 def steam_tick():
@@ -236,11 +241,14 @@ def steam_tick():
         d = ds[0]
         d["state"], d["rate"] = "downloading", 41_600_000
         d["done"] = min(d["total"], d["done"] + d["total"] // 40)
+        wait = 0.5
         if d["done"] >= d["total"]:
             ds.pop(0)
             state["steam"]["games"].append(d["appid"])
+            if ds:
+                ds[0]["state"], wait = "preparing", STEAM_PREPARE
     steam_publish()
-    later(0.5, steam_tick)
+    later(wait, steam_tick)
 
 
 # Installers (4.6): an install takes a few seconds (GOG's .sh with a percentage, Windows
