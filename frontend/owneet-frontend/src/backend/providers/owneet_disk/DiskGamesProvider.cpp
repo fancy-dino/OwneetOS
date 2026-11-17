@@ -51,6 +51,7 @@
 #include "providers/SearchContext.h"
 #include "types/AssetType.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -61,6 +62,7 @@
 #include <QSaveFile>
 #include <QStorageInfo>
 #include <QTextStream>
+#include <QUrl>
 
 #include <algorithm>
 
@@ -444,6 +446,15 @@ QString find_cover(const QString& game_dir)
     }
     return {};
 }
+
+// A cover's address, with the file's time: a cover replaced by one of the same name (6.9) is a
+// new address, so the interface loads it instead of keeping the image it had
+QString cover_url(const QString& path)
+{
+    QUrl url = QUrl::fromLocalFile(path);
+    url.setQuery(QStringLiteral("v=") + QString::number(QFileInfo(path).lastModified().toMSecsSinceEpoch()));
+    return url.toString();
+}
 } // namespace
 
 
@@ -541,7 +552,7 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                         game->setDescription(txt.description);
                     const QString cover = find_cover(game_dir);
                     if (!cover.isEmpty())
-                        game->assetsMut().add_file(AssetType::BOX_FRONT, cover);
+                        game->assetsMut().add_uri(AssetType::BOX_FRONT, cover_url(cover));
                     QVariantMap& extra = game->extraMapMut();
                     extra.insert(QStringLiteral("disk.dir"), game_dir);
                     extra.insert(QStringLiteral("disk.root"), root.second);
@@ -594,7 +605,7 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                     game->setDescription(txt.description);
                 const QString cover = find_cover(game_dir);
                 if (!cover.isEmpty())
-                    game->assetsMut().add_file(AssetType::BOX_FRONT, cover);
+                    game->assetsMut().add_uri(AssetType::BOX_FRONT, cover_url(cover));
                 QVariantMap& extra = game->extraMapMut();
                 extra.insert(QStringLiteral("disk.dir"), game_dir);
                 extra.insert(QStringLiteral("disk.root"), root.second);

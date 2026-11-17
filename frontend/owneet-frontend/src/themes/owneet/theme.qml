@@ -52,6 +52,7 @@ FocusScope {
             }
         }
         updatePad();
+        findCoverPictures();
         // once per boot, not when the interface restarts: the start-up animation with its sound
         if (systemInfo.firstStartThisBoot()) {
             intro.show();
@@ -230,7 +231,7 @@ FocusScope {
             return;
         const was = windowOpen || fileManager.visible;
         if (moveSheet.visible) { if (moveSheet.running) moveSheet.hide(); else moveSheet.close(true); }
-        for (const w of [osk, dialog, quick, notices, controls, credits, palettes, languages, zoneSheet, versionsSheet])
+        for (const w of [osk, dialog, quick, notices, controls, credits, palettes, languages, zoneSheet, versionsSheet, coverSheet])
             if (w.visible) w.close(true);
         if (clockSheet.visible) clockSheet.close(true);
         if (displayArea.visible) displayArea.close(false);
@@ -250,6 +251,7 @@ FocusScope {
     // a window over the pages (the first start is not one: the Wi-Fi window opens over it)
     readonly property bool windowOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
                                        || zoneSheet.visible || clockSheet.visible || displayArea.visible || fileManager.visible || moveSheet.visible || versionsSheet.visible
+                                       || coverSheet.visible
                                        || notices.visible || quick.visible || controls.visible || steamPrep.visible || webPrep.visible
                                        || webKeys.shown
     function backToPage() {
@@ -875,6 +877,15 @@ FocusScope {
                 toast.show(Tr.tr(game.favorite ? "toast.favorite" : "toast.unfavorite"));
             } }
         ]);
+        // 6.9 (approved demo 6.9): a local game's cover from a picture on a disk plugged in; not
+        // for a game on a disk mounted read only
+        if (!steam && GameInfo.onDisk(game) && coverImages.available && !root.diskReadOnly(game))
+            dialog.buttons = dialog.buttons.concat([{ text: Tr.tr(game.assets.boxFront ? "options.cover.change" : "options.cover.add"), action: () => {
+                dialog.close(true);
+                if (root.coverPictures.length > 0)
+                    coverSheet.openFor(game, root.coverPictures);
+                root.findCoverPictures();
+            } }]);
         // a Steam game can always be uninstalled, and its download cancelled, without Steam's interface
         if (steam && (s === "installed" || s === "updating"))
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.uninstall"), action: () => { dialog.close(true); root.askUninstall(game, false); } }]);
@@ -1828,7 +1839,7 @@ FocusScope {
     }
     Connections {
         target: storage
-        function onVolumesChanged() { root.checkDisks(); }
+        function onVolumesChanged() { root.checkDisks(); root.findCoverPictures(); }
     }
     Connections {                         // the games read again quietly are ready
         target: api
@@ -4359,6 +4370,47 @@ FocusScope {
     CreditsSheet {
         id: credits
         z: 101
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
+    // ---- A local game's cover from a picture on a disk (6.9, approved demo 6.9): the pictures of
+    // the disks plugged in are read at the start and whenever a disk comes or goes (the option
+    // shows while there are some); the chosen one is copied into the game's folder, and the games
+    // are read again quietly, so the new cover shows at once
+    property var coverPictures: []
+    property int coverFinding: 0
+    property var coverCopies: ({})          // token → the game's title, for the notice
+    function findCoverPictures() { coverFinding = coverImages.find(); }
+    function useCover(game, picture) {
+        const token = coverImages.use(picture, String(game.extra["disk.dir"]));
+        const copies = coverCopies;
+        copies[token] = game.title;
+        coverCopies = copies;
+    }
+    Connections {
+        target: coverImages
+        function onFound(token, pictures) {
+            if (token !== root.coverFinding)
+                return;
+            root.coverPictures = pictures;
+            coverSheet.update(pictures);
+        }
+        function onUsed(token, ok, cover) {
+            const title = root.coverCopies[token];
+            if (title === undefined)
+                return;
+            delete root.coverCopies[token];
+            if (!ok) {
+                toast.show(Tr.tr("covers.failed"));
+                return;
+            }
+            root.readGamesQuietly();
+            toast.show(Tr.tr("toast.cover", { g: title }));
+        }
+    }
+    CoverSheet {
+        id: coverSheet
+        z: 101
+        onChosen: root.useCover(forGame, picture)
         onVisibleChanged: if (!visible) root.backToPage()
     }
 

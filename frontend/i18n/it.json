@@ -1013,5 +1013,16 @@
   "files.deleted": "{name} eliminato: {size} liberati",
   "files.error": "Non è stato possibile eliminare {name}.",
   "files.read_only": "{disk} è in sola lettura: lì non si può eliminare niente.",
-  "prompt.up": "Su"
+  "prompt.up": "Su",
+  "options.cover.add": "Aggiungi immagine di copertina",
+  "options.cover.change": "Cambia immagine di copertina",
+  "covers.title": "Immagine di copertina per {g}",
+  "covers.from": {
+    "one": "Da {disk} · {n} immagine",
+    "other": "Da {disk} · {n} immagini"
+  },
+  "covers.preview": "Come apparirà la copertina",
+  "prompt.use_picture": "Usa questa immagine",
+  "toast.cover": "Copertina di {g} cambiata",
+  "covers.failed": "Non è stato possibile usare questa immagine."
 }

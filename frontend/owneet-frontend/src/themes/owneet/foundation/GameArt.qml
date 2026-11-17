@@ -5,6 +5,8 @@
 // left side (for text over the art). With `fit` the image is shown whole, over the generated art,
 // at `fitX` / `fitY` (0…1: where the free room goes), e.g. a Steam game's wide header in a
 // portrait cover, or a game's portrait cover in the home screen's wide card (step 4.4).
+// With `shadeOnly` it paints the shade alone, over a picture shown by other means (the cover
+// chooser's preview, step 6.9).
 import QtQuick 2.15
 
 Canvas {
@@ -13,6 +15,7 @@ Canvas {
     property url image: ""
     property real radius: Theme.radiusM
     property bool shade: false
+    property bool shadeOnly: false
     property bool scrim: false
     property bool fit: false
     property real fitX: 0.5
@@ -56,8 +59,10 @@ Canvas {
         rounded(ctx, w, h, Math.min(radius, w / 2, h / 2));
         ctx.clip();
         // (the Canvas functions take the image's address as text, not as a url)
-        const img = imageReady ? ctx.createImageData(image.toString()) : null;
-        if (img && img.width > 0 && !fit) {
+        const img = imageReady && !shadeOnly ? ctx.createImageData(image.toString()) : null;
+        if (shadeOnly) {
+            // nothing under the shade
+        } else if (img && img.width > 0 && !fit) {
             const s = Math.max(w / img.width, h / img.height);   // crop to fill
             const iw = img.width * s, ih = img.height * s;
             ctx.drawImage(image.toString(), (w - iw) / 2, (h - ih) / 2, iw, ih);

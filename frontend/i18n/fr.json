@@ -1013,5 +1013,16 @@
   "files.deleted": "{name} supprimé : {size} libérés",
   "files.error": "{name} n’a pas pu être supprimé.",
   "files.read_only": "{disk} est en lecture seule : rien ne peut y être supprimé.",
-  "prompt.up": "Remonter"
+  "prompt.up": "Remonter",
+  "options.cover.add": "Ajouter une image de couverture",
+  "options.cover.change": "Changer l’image de couverture",
+  "covers.title": "Image de couverture pour {g}",
+  "covers.from": {
+    "one": "Depuis {disk} · {n} image",
+    "other": "Depuis {disk} · {n} images"
+  },
+  "covers.preview": "La couverture telle qu’elle apparaîtra",
+  "prompt.use_picture": "Utiliser cette image",
+  "toast.cover": "Image de couverture de {g} changée",
+  "covers.failed": "Cette image n’a pas pu être utilisée."
 }

@@ -7,13 +7,17 @@
 // installer (4.6: a moving bar when the installer tells no percentage), and one that cannot be
 // installed yet has an "info" mark. With more than one disk, the disk it is on under the title
 // (6.6, approved demo 6.6). A game being copied says so over its art, with its step's progress
-// (6.6e, approved demo 6.6e).
+// (6.6e, approved demo 6.6e). `picture` shows a picture as the cover would show it (the cover
+// chooser's preview, approved demo 6.9): its middle, cut to the cover's shape, read at the cover's
+// size (a big photo never loads whole).
 import QtQuick 2.15
 
 Item {
     id: root
     property var game: null
-    readonly property bool navigable: true
+    property bool navigable: true
+    property url picture: ""
+    readonly property bool showsPicture: picture.toString() !== ""
     readonly property string kind: "game"
     property real radius: Theme.radiusM
     property bool running: false                // this game runs now
@@ -36,15 +40,55 @@ Item {
     readonly property string cover: game ? (game.assets.poster || game.assets.boxFront || game.assets.tile || "") : ""
     readonly property string image: cover || (game ? game.assets.banner : "") || ""
 
+    readonly property real artOpacity: installed ? 1 : (activeFocus ? 0.8 : 0.55)
     GameArt {
         anchors.fill: parent
         radius: root.radius
         seed: root.game ? root.game.title : ""
-        image: root.image
-        fit: root.cover === "" && root.image !== ""
+        image: root.showsPicture ? "" : root.image
+        fit: !root.showsPicture && root.cover === "" && root.image !== ""
         fitY: 0.4
+        shade: !root.showsPicture
+        opacity: root.artOpacity
+    }
+    Item {               // the picture (6.9), its corners rounded as the art's
+        visible: root.showsPicture
+        anchors.fill: parent
+        opacity: root.artOpacity
+        layer.enabled: visible
+        layer.effect: ShaderEffect {
+            property size box: Qt.size(width, height)
+            property real corner: Math.min(root.radius, width / 2, height / 2)
+            fragmentShader: "
+                varying highp vec2 qt_TexCoord0;
+                uniform sampler2D source;
+                uniform lowp float qt_Opacity;
+                uniform highp vec2 box;
+                uniform highp float corner;
+                void main() {
+                    highp vec2 p = qt_TexCoord0 * box;
+                    highp vec2 q = min(p, box - p);
+                    highp float a = 1.0;
+                    if (q.x < corner && q.y < corner)
+                        a = clamp(corner - length(vec2(corner) - q) + 0.5, 0.0, 1.0);
+                    gl_FragColor = texture2D(source, qt_TexCoord0) * a * qt_Opacity;
+                }"
+        }
+        Image {
+            anchors.fill: parent
+            source: root.picture
+            sourceSize: Qt.size(Math.ceil(width), Math.ceil(height))
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            cache: false
+        }
+    }
+    GameArt {            // the shade over the picture, for the title
+        visible: root.showsPicture
+        anchors.fill: parent
+        radius: root.radius
         shade: true
-        opacity: root.installed ? 1 : (root.activeFocus ? 0.8 : 0.55)
+        shadeOnly: true
     }
     Column {
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: Theme.px(10) }

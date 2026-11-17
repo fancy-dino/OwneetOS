@@ -21,6 +21,7 @@
 #include "Paths.h"
 #include "owneet/Daemon.h"
 #include "owneet/DiskGames.h"
+#include "owneet/CoverImages.h"
 #include "owneet/FileManager.h"
 #include "owneet/I18n.h"
 #include "owneet/Overlay.h"
@@ -66,6 +67,7 @@ FrontendLayer::FrontendLayer(QObject* const api_public, QObject* const api_priva
     , m_overlay(new owneet::Overlay(this))
     , m_disk_games(new owneet::DiskGames(this))
     , m_files(new owneet::FileManager(this))
+    , m_cover_images(new owneet::CoverImages(this))
 {
     // Note: the pointer to the Api is non-owning and constant during the runtime
 
@@ -101,6 +103,7 @@ void FrontendLayer::rebuild()
     m_engine->rootContext()->setContextProperty(QStringLiteral("overlay"), m_overlay); // OwneetOS
     m_engine->rootContext()->setContextProperty(QStringLiteral("diskGames"), m_disk_games); // OwneetOS
     m_engine->rootContext()->setContextProperty(QStringLiteral("files"), m_files); // OwneetOS
+    m_engine->rootContext()->setContextProperty(QStringLiteral("coverImages"), m_cover_images); // OwneetOS
     m_daemon->setEngine(m_engine);
     m_daemon->start();
     m_engine->load(QUrl(QStringLiteral("qrc:/frontend/main.qml")));

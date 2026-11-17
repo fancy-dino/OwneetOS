@@ -1013,5 +1013,16 @@
   "files.deleted": "{name} eliminado: {size} liberados",
   "files.error": "No se pudo eliminar {name}.",
   "files.read_only": "{disk} es de solo lectura: ahí no se puede borrar nada.",
-  "prompt.up": "Subir"
+  "prompt.up": "Subir",
+  "options.cover.add": "Añadir imagen de portada",
+  "options.cover.change": "Cambiar imagen de portada",
+  "covers.title": "Imagen de portada para {g}",
+  "covers.from": {
+    "one": "De {disk} · {n} imagen",
+    "other": "De {disk} · {n} imágenes"
+  },
+  "covers.preview": "Así se verá la portada",
+  "prompt.use_picture": "Usar esta imagen",
+  "toast.cover": "Imagen de portada de {g} cambiada",
+  "covers.failed": "No se ha podido usar esta imagen."
 }

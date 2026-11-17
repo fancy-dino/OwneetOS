@@ -1013,5 +1013,16 @@
   "files.deleted": "{name} gelöscht: {size} frei",
   "files.error": "{name} konnte nicht gelöscht werden.",
   "files.read_only": "{disk} ist schreibgeschützt: Dort kann nichts gelöscht werden.",
-  "prompt.up": "Nach oben"
+  "prompt.up": "Nach oben",
+  "options.cover.add": "Coverbild hinzufügen",
+  "options.cover.change": "Coverbild ändern",
+  "covers.title": "Coverbild für {g}",
+  "covers.from": {
+    "one": "Von {disk} · {n} Bild",
+    "other": "Von {disk} · {n} Bilder"
+  },
+  "covers.preview": "So wird das Cover aussehen",
+  "prompt.use_picture": "Dieses Bild verwenden",
+  "toast.cover": "Coverbild von {g} geändert",
+  "covers.failed": "Dieses Bild konnte nicht verwendet werden."
 }

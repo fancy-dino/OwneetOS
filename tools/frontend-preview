@@ -33,6 +33,9 @@
 #                    installers, 4.6):
 #                    scripts, programs, covers (Starfall, Beneath a steel sky), Windows games, and
 #                    folders with only an installer (GOG .sh, Inno Setup, too big, Galaxy, unknown)
+#   @pictures        (6.9) an invented USB disk "USB-FOTO" with an Immagini folder: pictures at its
+#                    top and in sub-folders, a file that is not a picture, a hidden one; and two
+#                    games on the console's disk, Moss Garden (no cover) and Quiet Orbit (a cover)
 #   @gamescope       (with @owneetd) the pretend session is gamescope's (Resume, the pointer)
 #   @firststart      the first start (6.1) is shown, as on a new console (otherwise it counts as done)
 #   @startup         the first shots come at once, during the start-up animation
@@ -43,7 +46,8 @@
 #   @moveslow        (with @owneetd) moving games (6.6e): four times slower, to look at it running
 #   @sysupdate STATE (with @owneetd) an installed system's updates (7.1): uptodate, available,
 #                    ready, fellback, installfail, backfail (tools/preview-steps/fake-owneetd.py)
-#   unplug / plug    (with @disk) the invented disk is unplugged / plugged in again
+#   unplug / plug [DISK]  (with @disk or @pictures) an invented disk is unplugged / plugged in
+#                    again (SSD-256GB-D unless named, e.g. unplug USB-FOTO)
 #   event TYPE JSON  (with @owneetd) the pretend owneetd sends an event, e.g.
 #                    event controller.battery {"id":"aa:bb:cc:dd:ee:01","name":"Xbox","battery":12}
 #   # …              comment
@@ -248,6 +252,26 @@ PY
     export OWNEET_DISKS="$disk"
 fi
 
+# @pictures (6.9): a disk of pictures, and local games to give a cover to
+if grep -q '^@pictures' /steps.txt; then
+    p=/tmp/disks/USB-FOTO/Immagini
+    mkdir -p /tmp/unplugged "$p/Viaggio 2026" "$p/Sfondi"
+    pic() { magick -size "$2" "gradient:$3" "$1" 2>/dev/null || convert -size "$2" "gradient:$3" "$1"; }
+    pic "$p/castle-at-dawn.jpg" 1600x900 '#f4a261-#264653'
+    pic "$p/forest-path.png" 1200x1600 '#2a9d8f-#1b4332'
+    pic "$p/Viaggio 2026/lake 2.jpg" 1600x1200 '#48cae4-#023e8a'
+    pic "$p/Viaggio 2026/lake 10.jpg" 1600x1200 '#ffb703-#fb8500'
+    pic "$p/Viaggio 2026/old-bridge.jpg" 1200x1500 '#9d4edd-#240046'
+    pic "$p/Sfondi/wallpaper-blue.png" 1920x1080 '#4361ee-#03045e'
+    pic "$p/.hidden.jpg" 400x400 '#ffffff-#000000'
+    echo "not a picture" > "$p/notes.txt"
+    script() { mkdir -p "$(dirname "$1")"; printf '#!/bin/bash\nexec true\n' > "$1"; chmod +x "$1"; }
+    script "$HOME/Games/Moss Garden/start.sh"
+    script "$HOME/Games/Quiet Orbit/start.sh"
+    pic "$HOME/Games/Quiet Orbit/cover.png" 600x900 '#e63946-#1d3557'
+    export OWNEET_DISKS="${OWNEET_DISKS:+$OWNEET_DISKS:}/tmp/disks/USB-FOTO"
+fi
+
 if grep -q '^@owneetd' /steps.txt; then
     grep -q '^@gamescope' /steps.txt && export FAKE_SESSION=gamescope
     mkfifo /tmp/owneetd-events
@@ -292,8 +316,8 @@ while IFS= read -r line; do
         shot) sleep 1; import -window root "/out/$2.png"; echo "$2.png" ;;
         wait) sleep "$2" ;;
         restart) kill "$FE"; wait "$FE" 2>/dev/null; start ;;
-        unplug) mv /tmp/disks/SSD-256GB-D /tmp/unplugged/; sleep 1 ;;
-        plug) mv /tmp/unplugged/SSD-256GB-D /tmp/disks/; sleep 1 ;;
+        unplug) mv "/tmp/disks/${2:-SSD-256GB-D}" /tmp/unplugged/; sleep 1 ;;
+        plug) mv "/tmp/unplugged/${2:-SSD-256GB-D}" /tmp/disks/; sleep 1 ;;
         *) echo "unknown step: $line" ;;
     esac
 done < /steps.txt

@@ -1013,5 +1013,16 @@
   "files.deleted": "{name} deleted: {size} freed",
   "files.error": "{name} could not be deleted.",
   "files.read_only": "{disk} is read only: nothing can be deleted there.",
-  "prompt.up": "Up"
+  "prompt.up": "Up",
+  "options.cover.add": "Add cover image",
+  "options.cover.change": "Change cover image",
+  "covers.title": "Cover image for {g}",
+  "covers.from": {
+    "one": "From {disk} · {n} picture",
+    "other": "From {disk} · {n} pictures"
+  },
+  "covers.preview": "As the cover will look",
+  "prompt.use_picture": "Use this picture",
+  "toast.cover": "Cover image of {g} changed",
+  "covers.failed": "This picture could not be used."
 }

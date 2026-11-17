@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # OwneetOS additions to the backend
 target_sources(pegasus-backend PRIVATE
+    CoverImages.cpp
+    CoverImages.h
     Daemon.cpp
     Daemon.h
     DiskGames.cpp

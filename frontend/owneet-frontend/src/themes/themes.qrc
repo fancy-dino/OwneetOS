@@ -9,6 +9,7 @@
         <file>owneet/WebKeyboard.qml</file>
         <file>owneet/ClockSheet.qml</file>
         <file>owneet/DisplayArea.qml</file>
+        <file>owneet/CoverSheet.qml</file>
         <file>owneet/CreditsSheet.qml</file>
         <file>owneet/FirstStart.qml</file>
         <file>owneet/Installer.qml</file>
