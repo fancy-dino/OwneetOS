@@ -209,7 +209,11 @@ func steamProtonLog() []string {
 	if err := os.MkdirAll(SteamProtonLogDir, 0o700); err != nil {
 		return nil
 	}
-	return []string{"PROTON_LOG=1", "PROTON_LOG_DIR=" + SteamProtonLogDir}
+	// Proton's own channels without their traces of every exception and unwind (ELDEN RING: 155 MB
+	// for one session, in memory): errors, a game's own messages (debugstr: Unreal's fatal errors),
+	// the libraries loaded, and the exceptions' backtraces (warn+seh) are kept
+	return []string{"PROTON_LOG=1", "PROTON_LOG_DIR=" + SteamProtonLogDir,
+		"WINEDEBUG=+timestamp,+pid,+tid,+threadname,+debugstr,+loaddll,+mscoree,warn+seh"}
 }
 
 // forwardSteam hands a steam:// address to the Steam already running.

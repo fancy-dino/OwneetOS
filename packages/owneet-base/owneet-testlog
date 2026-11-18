@@ -125,10 +125,22 @@ game_logs() {
     done
     # Steam's games with the same switch (open item 13): Proton's log of each one, written in /tmp by
     # owneetd's Steam (gone at power-off, nothing stays on the disk)
+    # Proton writes the same file again at each start of the game: each start gets its own copy,
+    # told by the first timestamp in it (Wine's milliseconds since the PC started)
+    local key dst n
     for f in /tmp/owneet-proton-logs/steam-*.log; do
         [[ -f "$f" ]] || continue
         mkdir -p "$base.games"
-        cp -u "$f" "$base.games/proton-$(basename "$f")" 2>/dev/null
+        key="$(head -c 65536 "$f" | grep -a -m1 -oE '^[0-9]+\.[0-9]+:' || true)"
+        [[ -n "$key" ]] || continue
+        n=1
+        while [[ -e "$base.games/proton-$(basename "$f" .log)-$n.key" ]] \
+              && [[ "$(cat "$base.games/proton-$(basename "$f" .log)-$n.key")" != "$key" ]]; do
+            n=$((n + 1))
+        done
+        dst="$base.games/proton-$(basename "$f" .log)-$n.log"
+        echo "$key" > "${dst%.log}.key"
+        cp -u "$f" "$dst" 2>/dev/null
     done
     # Windows games with owneet.debug.windows_log=on (4.5): Proton's logs, one folder per game
     for f in /home/owneet/.local/share/owneet/windows/logs/*/*.log; do
