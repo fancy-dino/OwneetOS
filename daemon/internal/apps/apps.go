@@ -212,16 +212,16 @@ type Manager struct {
 	// owneet.debug.steam_launch=hidden brings the old way back, to compare.
 	HideSteamLaunch func() bool
 
-	mu       sync.Mutex
-	apps     map[string]*App // by id
-	order    []string        // launch order, oldest first
-	lastApp  string          // the app shown before the home screen
+	mu      sync.Mutex
+	apps    map[string]*App // by id
+	order   []string        // launch order, oldest first
+	lastApp string          // the app shown before the home screen
 	// steamChosen: when Steam was last brought to the front on purpose (FocusApp): a Steam game that
 	// ends while Steam is in front brings the home screen, unless Steam was chosen during the game
 	steamChosen time.Time
-	hold     *time.Timer     // cage: Guide held
-	homeHold *time.Timer     // gamescope: Guide held over Steam
-	homePID  int             // of the session being watched
+	hold        *time.Timer // cage: Guide held
+	homeHold    *time.Timer // gamescope: Guide held over Steam
+	homePID     int         // of the session being watched
 	// closed once no button is held (SetReleased)
 	released func() <-chan struct{}
 	// apps besides games that go silent behind the home screen (SetSilent)
