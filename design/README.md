@@ -36,6 +36,14 @@ Mockups and design assets.
     console while it plays (Resume on Home), holding it in cage. Demo keys: S session, U the USB
     disk, W no media folders, J near the end, R read the songs again, K a game running. Start
     state: `#page=music&view=artists&play=video|song&session=cage&open=options&lang=it`.
+  - [`5.6a-command-legend.html`](demos/5.6a-command-legend.html): the command legend
+    ([[step-5.6a-command-legend]]): View, in a web app or the player, opens the legend of that app's
+    buttons for the screen on show (a web app in general, YouTube, Netflix's browsing pages, title
+    window and player, Spotify, a video, a song); in gamescope it floats over the app, which keeps
+    working under it, only View closes it and Guide closes it on the way home; in cage it is a
+    full-screen page, B or View goes back to the app. The apps behind it are drawings (no logo, no
+    look of the services). Demo keys: 1–6 the app, S session. Start state:
+    `#app=netflix&screen=title|player&legend=1&session=cage&lang=it&glyphs=ps`.
   - [`6.1-first-start.html`](demos/6.1-first-start.html): the first start
     ([[step-6.1-first-boot-flow]]): the mockup's pairing screen, the language, the network (or
     later), the time zone (suggested, or a list of cities), the Xbox adapter's firmware with

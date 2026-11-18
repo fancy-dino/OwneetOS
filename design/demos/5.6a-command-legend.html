@@ -1,0 +1,572 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS - interactive demo for [[step-5.6a-command-legend]] ([[controller-input-map]], "The
+     command legend"): View, in a web app or the player, opens a legend of what each button does in
+     that app, for the screen the user is on. In gamescope it floats over the app, which keeps
+     working under it (every button but View goes on to the app), and only View closes it; in cage
+     it is a full-screen page of the console, closed by B or View. On the approved demos' style
+     (5.1 a web app running, 5.6 the player). The apps behind it are drawings: "Streamly" is an
+     invented site, and the services are named only to say which legend is shown (no logo, no
+     look of theirs). Fonts come from Google Fonts for the demo only (the console bundles them);
+     sounds come from sounds.js (frontend/sounds/). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS — Command legend (demo 5.6a)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1; --motion: 1; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+.frame { position: relative; flex: none; }
+
+/* ---------- 1280 × 720 grid ---------- */
+.stage { width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+         background: #000; color: var(--fg); font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350; }
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); } .t-xl { font-size: calc(40px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+.label { display: block; text-transform: uppercase; letter-spacing: .09em; font-weight: 500; color: var(--muted); }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; }
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 24px; }
+
+/* ---------- The app on screen: a drawing in this demo (its colours are the app's, not the console's) ---------- */
+.app { position: absolute; inset: 0; font-family: system-ui, sans-serif; color: #e8e8e8; overflow: hidden; }
+.app .what { position: absolute; left: 24px; bottom: 16px; color: rgba(255,255,255,.45); font: 12px/1.4 system-ui, sans-serif; z-index: 3; }
+.t { position: absolute; border-radius: 8px; background: #2b2f36; }
+.t.sel { outline: 3px solid #fff; outline-offset: 2px; z-index: 2; }
+.app.web .t.sel { outline: 3px solid var(--accent); }          /* the console's ring, drawn by its extension */
+.app .bar { position: absolute; left: 0; right: 0; height: 56px; background: #1b1e24; }
+.app .lbl { position: absolute; color: #aab; font: 13px system-ui, sans-serif; }
+.win { position: absolute; left: 230px; top: 90px; width: 820px; height: 540px; background: #1d2026; border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,.6); z-index: 2; }
+.scene { position: absolute; inset: 0; background: linear-gradient(180deg, hsl(var(--h) 45% 46%) 0%, hsl(calc(var(--h) + 25) 55% 70%) 52%, hsl(calc(var(--h) + 180) 40% 28%) 53%, hsl(calc(var(--h) + 190) 45% 12%) 100%); }
+.pctl { position: absolute; left: 40px; right: 40px; bottom: 34px; display: none; }
+.pctl.on { display: block; }
+.pctl .track { height: 5px; border-radius: 3px; background: rgba(255,255,255,.3); margin-bottom: 16px; }
+.pctl .track i { display: block; height: 100%; width: 38%; background: #e8e8e8; border-radius: 3px; }
+
+/* ---------- The legend floating over the app (gamescope): an overlay window drawn by the console ---------- */
+.legend { position: absolute; top: 36px; right: 40px; width: calc(400px * (0.75 + var(--ts) / 4)); max-height: 648px; z-index: 30;
+          background: color-mix(in srgb, var(--bg) 90%, transparent); border: 1px solid var(--line); border-radius: 18px;
+          box-shadow: 0 24px 60px -18px rgba(0,0,0,.75); padding: 18px 22px 16px; display: none; gap: 10px; color: var(--fg);
+          font-family: var(--text); animation: slidein calc(.2s * var(--motion)) ease; }
+.legend.open { display: grid; }
+@keyframes slidein { from { opacity: 0; transform: translateX(calc(24px * var(--motion))); } }
+.legend .head { display: grid; gap: 2px; }
+.legend .rows { display: grid; gap: 9px; margin-top: 4px; }
+.row { display: grid; grid-template-columns: calc(86px * var(--ts)) minmax(0, 1fr); gap: 12px; align-items: center; }
+.row .keys { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.row .say { color: var(--fg); }
+.row.plain .say { color: var(--muted); grid-column: 1 / -1; }
+.legend .foot { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 2px; display: grid; gap: 9px; }
+.legend .foot .say { color: var(--muted); }
+/* too tall for the screen (large text, a long legend): wider, in two columns */
+.legend.wide { width: calc(760px * (0.75 + var(--ts) / 4)); max-width: 1200px; }
+.legend.wide .rows, .legend.wide .foot { grid-template-columns: 1fr 1fr; column-gap: 28px; }
+
+/* ---------- The legend as a page of the console (cage) ---------- */
+.page { position: absolute; inset: 0; z-index: 30; background: var(--bg); color: var(--fg); font-family: var(--text); padding: 36px 64px 28px;
+        display: none; grid-template-rows: auto auto 1fr auto; gap: 18px; }
+.page.open { display: grid; animation: fadein calc(.2s * var(--motion)) ease; }
+@keyframes fadein { from { opacity: 0; } }
+.page .top { display: flex; align-items: center; justify-content: space-between; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.page .clock { color: var(--fg); font-weight: 500; font-variant-numeric: tabular-nums; }
+.page .title { display: flex; align-items: baseline; gap: 14px; }
+.page .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 56px; align-content: start; }
+.page .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px 22px; display: grid; gap: 11px; align-content: start; }
+
+/* ---------- The console's home screen (gamescope: Guide), a stand-in in this demo ---------- */
+.home { position: absolute; inset: 0; z-index: 35; background: var(--bg); display: none; place-items: center; text-align: center; color: var(--fg); font-family: var(--text); }
+.home.open { display: grid; }
+.home .box { display: grid; gap: 14px; justify-items: center; }
+.toast { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); padding: 9px 18px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); color: var(--fg);
+         font-family: var(--text); opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 40; white-space: nowrap; }
+.toast.show { opacity: 1; }
+
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; max-width: 1400px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <div class="app" id="app"></div>
+  <aside class="legend t-s" id="legend"></aside>
+  <section class="page t-s" id="page"></section>
+  <section class="home" id="home"><div class="box"><span class="mark">Owneet<i>OS</i></span><span class="t-m muted" id="home-text"></span></div></section>
+  <div class="toast t-s" id="toast"></div>
+</div></div>
+<p class="help"><b>New in 5.6a:</b> in a web app or the player, <b>View</b> (keyboard: V) opens the legend of that app's buttons, for the screen on show.
+<b>gamescope</b>: it floats over the app, which keeps working under it (move, press, go back: the legend follows the screen, e.g. Netflix's title window or player); only View closes it, and Guide closes it on the way to the home screen.
+<b>cage</b>: a full-screen page of the console; B or View goes back to the app.<br>
+<b>Gamepad:</b> D-pad / left stick, A, B, X, Y, Menu, LT / RT, R3, right stick, View, Guide. <b>Keyboard:</b> arrows, Enter = A, Esc = B, X, Y, M = Menu, Z / C = LT / RT, R = R3, Page Up / Down = right stick, V = View, H = Guide.<br>
+<b>Demo only:</b> 1–6 the app on screen (1 a web app, 2 YouTube, 3 Netflix, 4 Spotify, 5 a video, 6 a song), S session (<span id="ses-state">gamescope</span>), P palette, T text size, G button prompts, L language, N sounds (<span id="snd-state">on</span>).
+Address: <code>#app=web|youtube|netflix|spotify|video|song&amp;screen=title|player&amp;legend=1&amp;session=cage&amp;pal=ember&amp;lang=it&amp;glyphs=ps</code></p>
+
+<script src="sounds.js"></script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 110) / 720);
+    stage.style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+
+  /* ---------- Palettes (the console's tokens) ---------- */
+  const PALETTES = [
+    ['dusk', '#0E1424', '#172036', '#222D4A', '#2E3A5C', '#EEF1F8', '#8F9AB5', '#FF8A5B', '#1E0E06'],
+    ['tide', '#031A1C', '#06292D', '#0A3A3F', '#0F5157', '#E4FFFC', '#7ED9D0', '#2EF2DA', '#00231F'],
+    ['bloom', '#1A1020', '#25182D', '#33223D', '#45304F', '#F7EEF6', '#AE93AE', '#FF7AA8', '#2A0614'],
+    ['ember', '#1C0F0C', '#2A1713', '#3A201A', '#4E2C24', '#FBEDE9', '#C49C93', '#FF6B47', '#2A0A03'],
+    ['harbor', '#0D1B2E', '#14263D', '#1D3350', '#2A4566', '#F3EAD8', '#B7AE99', '#E8D3A8', '#142033'],
+    ['forest', '#0E1A14', '#15261D', '#1E3428', '#2B4636', '#ECF5EE', '#95B2A0', '#7BD88F', '#072012'],
+    ['graphite', '#121212', '#1C1C1C', '#262626', '#383838', '#F2F2F2', '#A6A6A6', '#DADADA', '#121212'],
+    ['daylight', '#EEF0F5', '#FFFFFF', '#E2E6EF', '#C9CFDC', '#121826', '#5A6378', '#2F5BEA', '#FFFFFF'],
+    ['sand', '#F4EEE3', '#FFFBF4', '#E8DFD0', '#D3C6B1', '#2A2117', '#6A5C49', '#B04A28', '#FFFFFF'],
+    ['contrast', '#000000', '#000000', '#161616', '#FFFFFF', '#FFFFFF', '#E0E0E0', '#FFE14D', '#000000'],
+    ['contrast-light', '#FFFFFF', '#FFFFFF', '#EDEDED', '#000000', '#000000', '#262626', '#0038B8', '#FFFFFF'],
+  ];
+  const TOKENS = ['bg', 'surface', 'raised', 'line', 'fg', 'muted', 'accent', 'on-accent'];
+  let palIndex = 0;
+  function setPalette(i) {
+    palIndex = (i + PALETTES.length) % PALETTES.length;
+    TOKENS.forEach((t, k) => stage.style.setProperty('--' + t, PALETTES[palIndex][1 + k]));
+  }
+
+  /* ---------- Texts (the console's message files, en and it) ---------- */
+  const EN = {
+    'legend.title': 'Controls', 'legend.close': 'Close the legend', 'legend.home': 'Home', 'legend.hold': 'Hold: close {app}',
+    'legend.back': 'Back to {app}',
+    'screen.browse': 'Browsing', 'screen.title': 'A title', 'screen.player': 'The player', 'screen.video': 'A video', 'screen.song': 'A song',
+    'l.web.move': 'Move between the page’s buttons and links', 'l.web.a': 'Press; on a text field, the console’s keyboard',
+    'l.web.b': 'Back; with nothing to go back to, close {app}', 'l.rs': 'Scroll the page',
+    'l.yt.move': 'Move YouTube’s selection', 'l.yt.a': 'Select; in a video, pause / play', 'l.yt.b': 'Back; at YouTube’s start, close YouTube',
+    'l.nf.browse.move': 'Move between rows and titles (Netflix’s menu is above the first row)', 'l.nf.browse.a': 'Open the title',
+    'l.nf.browse.y': 'Search', 'l.nf.browse.b': 'Close an open menu; back; with nothing to go back to, close Netflix',
+    'l.nf.title.move': 'Move between its buttons and episodes', 'l.nf.title.a': 'Press: Play, My list, an episode…', 'l.nf.title.b': 'Close the window',
+    'l.nf.player.any': 'Any button shows Netflix’s controls', 'l.nf.player.move': 'Move between the controls',
+    'l.nf.player.a': 'Press the control; with the controls hidden, pause / play', 'l.nf.player.b': 'Close a menu; leave the player',
+    'l.seek10': '−10 / +10 s', 'l.seek5': '−5 / +5 s',
+    'l.sp.move': 'Move to the nearest item that way', 'l.sp.a': 'Play the card, playlist or song', 'l.sp.x': 'Add to the queue',
+    'l.sp.y': 'The player bar (the same button or Back: return)', 'l.sp.menu': 'Open its page (album, playlist, artist)', 'l.sp.r3': 'Fold or open the right panel',
+    'l.sp.b': 'Close a menu; back; with nothing to go back to, close Spotify',
+    'l.pl.a': 'Pause / play', 'l.pl.seek': '−10 / +10 s (left / right)', 'l.pl.video': 'Previous / next video (after 0:05, previous goes back to the start)',
+    'l.pl.song': 'Previous / next song (after 0:05, previous goes back to the start)', 'l.pl.audio': 'The next audio track', 'l.pl.subs': 'Subtitles: off, then each track',
+    'l.pl.autoplay': 'Autoplay on / off', 'l.pl.b': 'Back to the list',
+    'app.web': 'Streamly', 'app.youtube': 'YouTube', 'app.netflix': 'Netflix', 'app.spotify': 'Spotify', 'app.video': 'Videos', 'app.song': 'Music',
+    'demo.what': '(demo) {app}: the app’s own page, a drawing here',
+    'demo.press': '(demo) {app} presses it', 'demo.back': '(demo) {app} goes back', 'demo.close': '(demo) “Close {app}?”', 'demo.search': '(demo) Netflix’s search',
+    'demo.queue': 'Added to queue', 'demo.page': '(demo) Spotify opens its page', 'demo.seek': '{s}', 'demo.panel': '(demo) the right panel',
+    'demo.played': '(demo) Spotify plays it', 'demo.pause': '(demo) pause / play', 'demo.audio': 'Audio: Italian (2 of 2)', 'demo.subs': 'Subtitles: English',
+    'demo.autoplay': 'Autoplay: Off', 'demo.list': '(demo) back to the list', 'demo.next': '(demo) the next one', 'demo.prev': '(demo) back to the start',
+    'demo.home': 'The console’s home screen (in this demo: H or A goes back to {app})', 'demo.cage': '(demo) In cage a short press of Home does nothing: hold it for 2 s to close {app}.',
+    'demo.closed': '(demo) {app} closed: the console is back (H opens it again)', 'demo.nothing': '(demo) nothing here', 'demo.scroll': '(demo) the page scrolls',
+  };
+  const IT = {
+    'legend.title': 'Comandi', 'legend.close': 'Chiudi la legenda', 'legend.home': 'Home', 'legend.hold': 'Tieni premuto: chiudi {app}',
+    'legend.back': 'Torna a {app}',
+    'screen.browse': 'Navigazione', 'screen.title': 'Un titolo', 'screen.player': 'Il lettore', 'screen.video': 'Un video', 'screen.song': 'Un brano',
+    'l.web.move': 'Muovi tra i pulsanti e i link della pagina', 'l.web.a': 'Premi; su un campo di testo, la tastiera della console',
+    'l.web.b': 'Indietro; se non c’è altro, chiudi {app}', 'l.rs': 'Scorri la pagina',
+    'l.yt.move': 'Sposta la selezione di YouTube', 'l.yt.a': 'Seleziona; in un video, pausa / riproduci', 'l.yt.b': 'Indietro; all’inizio di YouTube, chiudi YouTube',
+    'l.nf.browse.move': 'Muovi tra le righe e i titoli (il menu di Netflix è sopra la prima riga)', 'l.nf.browse.a': 'Apri il titolo',
+    'l.nf.browse.y': 'Cerca', 'l.nf.browse.b': 'Chiudi un menu aperto; indietro; se non c’è altro, chiudi Netflix',
+    'l.nf.title.move': 'Muovi tra i suoi pulsanti e gli episodi', 'l.nf.title.a': 'Premi: Riproduci, La mia lista, un episodio…', 'l.nf.title.b': 'Chiudi la finestra',
+    'l.nf.player.any': 'Qualsiasi pulsante mostra i comandi di Netflix', 'l.nf.player.move': 'Muovi tra i comandi',
+    'l.nf.player.a': 'Premi il comando; a comandi nascosti, pausa / riproduci', 'l.nf.player.b': 'Chiudi un menu; esci dal lettore',
+    'l.seek10': '−10 / +10 s', 'l.seek5': '−5 / +5 s',
+    'l.sp.move': 'Vai all’elemento più vicino in quella direzione', 'l.sp.a': 'Riproduci la scheda, la playlist o il brano', 'l.sp.x': 'Aggiungi alla coda',
+    'l.sp.y': 'La barra del lettore (lo stesso pulsante o Indietro: torna)', 'l.sp.menu': 'Apri la sua pagina (album, playlist, artista)', 'l.sp.r3': 'Chiudi o apri il pannello a destra',
+    'l.sp.b': 'Chiudi un menu; indietro; se non c’è altro, chiudi Spotify',
+    'l.pl.a': 'Pausa / riproduci', 'l.pl.seek': '−10 / +10 s (sinistra / destra)', 'l.pl.video': 'Video precedente / successivo (dopo 0:05 il precedente riparte dall’inizio)',
+    'l.pl.song': 'Brano precedente / successivo (dopo 0:05 il precedente riparte dall’inizio)', 'l.pl.audio': 'La traccia audio successiva', 'l.pl.subs': 'Sottotitoli: no, poi ogni traccia',
+    'l.pl.autoplay': 'Riproduzione automatica sì / no', 'l.pl.b': 'Torna all’elenco',
+    'app.web': 'Streamly', 'app.youtube': 'YouTube', 'app.netflix': 'Netflix', 'app.spotify': 'Spotify', 'app.video': 'Video', 'app.song': 'Musica',
+    'demo.what': '(demo) {app}: la pagina dell’app, qui un disegno',
+    'demo.press': '(demo) {app} lo preme', 'demo.back': '(demo) {app} torna indietro', 'demo.close': '(demo) «Chiudere {app}?»', 'demo.search': '(demo) la ricerca di Netflix',
+    'demo.queue': 'Aggiunto alla coda', 'demo.page': '(demo) Spotify apre la sua pagina', 'demo.seek': '{s}', 'demo.panel': '(demo) il pannello a destra',
+    'demo.played': '(demo) Spotify lo riproduce', 'demo.pause': '(demo) pausa / riproduci', 'demo.audio': 'Audio: Italiano (2 di 2)', 'demo.subs': 'Sottotitoli: Inglese',
+    'demo.autoplay': 'Riproduzione automatica: disattivata', 'demo.list': '(demo) torna all’elenco', 'demo.next': '(demo) il successivo', 'demo.prev': '(demo) dall’inizio',
+    'demo.home': 'La schermata Home della console (in questa demo: H o A torna a {app})', 'demo.cage': '(demo) In questa sessione una pressione breve di Home non fa nulla: tienilo premuto 2 s per chiudere {app}.',
+    'demo.closed': '(demo) {app} chiuso: la console è di nuovo qui (H lo riapre)', 'demo.nothing': '(demo) qui non fa nulla', 'demo.scroll': '(demo) la pagina scorre',
+  };
+  let lang = 'en';
+  const tr = (k, args = {}) => ((lang === 'it' ? IT[k] : null) || EN[k] || k).replace(/\{(\w+)\}/g, (_, a) => args[a] ?? '');
+
+  /* ---------- Glyphs (as the console's Glyph draws them); View is new in 5.6a ---------- */
+  let glyphSetting = 'auto', padKind = 'xbox';
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const home = circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`);
+  const dpad = circle(`<path d="M11 7.5h4v3.5h3.5v4H15v3.5h-4V15H7.5v-4H11z" ${S}/>`);
+  const ls = circle(`<path d="M13 9.4a3.6 3.6 0 1 1-0.01 0M13 3.8v2.4M11 5.6l2-2 2 2M13 22.2v-2.4M11 20.4l2 2 2-2M3.8 13h2.4M5.6 11l-2 2 2 2M22.2 13h-2.4M20.4 11l2 2-2 2" ${S}/>`);
+  const rs = circle(`<path d="M13 9.4a3.6 3.6 0 1 1-0.01 0M13 3.8v2.4M11 5.6l2-2 2 2M13 22.2v-2.4M11 20.4l2 2 2-2" ${S}/>`);
+  const GLYPHS = {
+    xbox: { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lt: pill('LT', 32), rt: pill('RT', 32), r3: pill('RS', 32),
+            menu: circle(`<path d="M8.5 10h9M8.5 13h9M8.5 16h9" ${S}/>`), view: circle(`<path d="M8.4 8.8h6.2v4.8H8.4zM11.4 12.4h6.2v4.8h-6.2z" ${S}/>`),
+            guide: home, dpad, ls, rs },
+    ps: { a: circle(`<path d="M9.2 9.2l7.6 7.6M16.8 9.2l-7.6 7.6" ${S}/>`), b: circle(`<circle cx="13" cy="13" r="4.6" ${S}/>`),
+          x: circle(`<rect x="8.8" y="8.8" width="8.4" height="8.4" rx="1" ${S}/>`), y: circle(`<path d="M13 8.4l4.8 8.2H8.2z" ${S}/>`),
+          lt: pill('L2', 30), rt: pill('R2', 30), r3: pill('R3', 30), menu: pill('OPTIONS', 62), view: pill('CREATE', 58), guide: home, dpad, ls, rs },
+    nintendo: { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lt: pill('ZL', 32), rt: pill('ZR', 32), r3: pill('RS', 32),
+                menu: circle(`<path d="M13 8.5v9M8.5 13h9" ${S}/>`), view: circle(`<path d="M8.5 13h9" ${S}/>`), guide: home, dpad, ls, rs },
+  };
+  const glyph = b => GLYPHS[glyphSetting === 'auto' ? padKind : glyphSetting][b] || '';
+  const P = (btns, label) => `<span class="prompt">${btns.map(glyph).join('')}<span>${label}</span></span>`;
+
+  /* ---------- Sounds (Web Audio, one per press) ---------- */
+  let soundOn = true, ctx = null;
+  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', back: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', launch: 'game-launch' };
+  const buffers = {};
+  function startAudio() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    if (!window.OWNEET_SOUNDS) return;
+    ctx = new AudioContext();
+    for (const [kind, file] of Object.entries(SOUNDS)) {
+      const url = window.OWNEET_SOUNDS[file];
+      if (!url) continue;
+      const bytes = Uint8Array.from(atob(url.split(',')[1]), c => c.charCodeAt(0));
+      ctx.decodeAudioData(bytes.buffer).then(b => { buffers[kind] = b; });
+    }
+  }
+  addEventListener('keydown', startAudio, true);
+  addEventListener('pointerdown', startAudio, true);
+  // the console's own sounds: only for the console's windows (the legend, its page), never for the app's buttons
+  function feedback(kind) {
+    if (!soundOn || !ctx || !buffers[kind]) return;
+    const src = ctx.createBufferSource(); src.buffer = buffers[kind]; src.connect(ctx.destination); src.start();
+  }
+  let toastTimer = 0;
+  function toast(text) { const t = $('#toast'); t.textContent = text; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1600); }
+
+  /* ---------- The legends: one data file in the console, rows of buttons and a message, per app and screen ---------- */
+  const LEGENDS = {
+    web: [[['dpad', 'ls'], 'l.web.move'], [['a'], 'l.web.a'], [['b'], 'l.web.b'], [['rs'], 'l.rs']],
+    youtube: [[['dpad', 'ls'], 'l.yt.move'], [['a'], 'l.yt.a'], [['b'], 'l.yt.b']],
+    'netflix.browse': [[['dpad', 'ls'], 'l.nf.browse.move'], [['a'], 'l.nf.browse.a'], [['y'], 'l.nf.browse.y'], [['rs'], 'l.rs'], [['b'], 'l.nf.browse.b']],
+    'netflix.title': [[['dpad', 'ls'], 'l.nf.title.move'], [['a'], 'l.nf.title.a'], [['b'], 'l.nf.title.b']],
+    'netflix.player': [[[], 'l.nf.player.any'], [['dpad', 'ls'], 'l.nf.player.move'], [['a'], 'l.nf.player.a'], [['lt', 'rt'], 'l.seek10'], [['b'], 'l.nf.player.b']],
+    spotify: [[['dpad', 'ls'], 'l.sp.move'], [['a'], 'l.sp.a'], [['x'], 'l.sp.x'], [['y'], 'l.sp.y'], [['menu'], 'l.sp.menu'],
+              [['lt', 'rt'], 'l.seek5'], [['r3'], 'l.sp.r3'], [['rs'], 'l.rs'], [['b'], 'l.sp.b']],
+    'player.video': [[['a'], 'l.pl.a'], [['dpad'], 'l.pl.seek'], [['lt', 'rt'], 'l.pl.video'], [['x'], 'l.pl.audio'], [['menu'], 'l.pl.subs'],
+                     [['y'], 'l.pl.autoplay'], [['b'], 'l.pl.b']],
+    'player.song': [[['a'], 'l.pl.a'], [['dpad'], 'l.pl.seek'], [['lt', 'rt'], 'l.pl.song'], [['b'], 'l.pl.b']],
+  };
+  const SCREEN_NAMES = { 'netflix.browse': 'screen.browse', 'netflix.title': 'screen.title', 'netflix.player': 'screen.player',
+                         'player.video': 'screen.video', 'player.song': 'screen.song' };
+
+  /* ---------- State ---------- */
+  let app = 'web', screen = '', session = 'gamescope', legendOpen = false, onHome = false, closedApp = false;
+  const appName = () => tr('app.' + app);
+  // the screen the app says it is on (the extension, the player's script): what the legend shows
+  const context = () => app === 'netflix' ? 'netflix.' + (screen || 'browse') : app === 'video' ? 'player.video' : app === 'song' ? 'player.song' : app;
+
+  /* ---------- The apps: drawings with their own selection, which the D-pad moves ---------- */
+  let targets = [], sel = 0, spBar = false, nfControls = 0;
+  const box = (x, y, w, h, extra = '', style = '') => `<i class="t ${extra}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;${style}"></i>`;
+  function drawApp() {
+    const el = $('#app');
+    el.className = 'app ' + app;
+    let html = '';
+    if (app === 'web') {
+      html += `<div class="bar" style="top:0"></div><span class="lbl" style="left:40px;top:18px;font-weight:700;color:#fff">Streamly</span>`;
+      for (let i = 0; i < 4; i++) html += box(260 + i * 120, 14, 100, 28, 'nav');
+      html += box(40, 90, 520, 220, 'hero', 'background:#3a3f48');
+      for (let r = 0; r < 2; r++) for (let c = 0; c < 5; c++) html += box(40 + c * 238, 350 + r * 150, 220, 130);
+    } else if (app === 'youtube') {
+      el.style.background = '#0f0f0f';
+      for (let i = 0; i < 5; i++) html += box(24, 120 + i * 70, 48, 48, 'rail', 'border-radius:50%');
+      for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) html += box(120 + c * 280, 80 + r * 200, 260, 150);
+    } else if (app === 'netflix') {
+      el.style.background = '#101010';
+      if (screen === 'player') {
+        html += `<div class="scene" style="--h:200"></div><div class="pctl${nfControls > Date.now() ? ' on' : ''}" id="pctl"><div class="track"><i></i></div></div>`;
+        for (let i = 0; i < 9; i++) html += box(40 + i * 60, 596, 44, 44, 'ctl', 'border-radius:50%;background:rgba(255,255,255,.18);' + (nfControls > Date.now() ? '' : 'display:none'));
+      } else {
+        for (let i = 0; i < 5; i++) html += box(40 + i * 130, 22, 110, 26, 'menu-i');
+        for (let r = 0; r < 3; r++) for (let c = 0; c < 6; c++) html += box(40 + c * 200, 100 + r * 200, 184, 104);
+        if (screen === 'title') {
+          html += `<div class="win"></div>`;
+          html += box(270, 150, 200, 44, 'w', 'background:#e8e8e8;z-index:3');
+          for (let i = 0; i < 3; i++) html += box(490 + i * 70, 150, 54, 44, 'w', 'z-index:3;border-radius:50%');
+          for (let i = 0; i < 4; i++) html += box(270, 240 + i * 86, 740, 70, 'w', 'z-index:3');
+        }
+      }
+    } else if (app === 'spotify') {
+      el.style.background = '#121212';
+      for (let i = 0; i < 6; i++) html += box(16, 80 + i * 76, 250, 62, 'lib');
+      for (let r = 0; r < 2; r++) for (let c = 0; c < 5; c++) html += box(290 + c * 192, 80 + r * 250, 176, 226);
+      html += `<div class="bar" style="bottom:0;height:86px;background:#181818"></div>`;
+      for (let i = 0; i < 9; i++) html += box(380 + i * 62, 650, 44, 44, 'pb', 'border-radius:50%;background:#2a2a2a');
+    } else if (app === 'video') {
+      html += `<div class="scene" style="--h:30"></div>`;
+    } else if (app === 'song') {
+      el.style.background = '';
+      html += `<div style="position:absolute;inset:0;background:var(--bg)"></div>` + box(120, 145, 340, 340, '', 'border-radius:20px;background:hsl(260 45% 32%)')
+        + `<div style="position:absolute;left:520px;top:220px;font-family:var(--display);font-size:40px;font-weight:700;color:var(--fg)">Morning Light</div>`
+        + `<div style="position:absolute;left:520px;top:280px;font-size:24px;color:var(--fg)">Coral Avenue</div>`;
+    }
+    if (app !== 'youtube' && app !== 'netflix' && app !== 'spotify') el.style.background = app === 'web' ? '#14161a' : '';
+    html += `<span class="what">${tr('demo.what', { app: appName() })}</span>`;
+    el.innerHTML = html;
+    // what the D-pad moves between: the window's buttons over a page, the player bar on Y (Spotify)
+    const all = $$('.t', el);
+    targets = app === 'netflix' && screen === 'title' ? all.filter(t => t.classList.contains('w'))
+      : app === 'netflix' && screen === 'player' ? all.filter(t => t.classList.contains('ctl'))
+      : app === 'spotify' ? all.filter(t => spBar === t.classList.contains('pb'))
+      : app === 'video' || app === 'song' ? [] : all;
+    if (sel >= targets.length) sel = 0;
+    targets.forEach((t, i) => t.classList.toggle('sel', i === sel && !(app === 'netflix' && screen === 'player' && nfControls <= Date.now())));
+  }
+  // the nearest target that way (the app's own navigation, roughly)
+  function moveApp(dir) {
+    if (!targets.length) return;
+    const r = targets[sel].getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    let best = -1, bestD = Infinity;
+    targets.forEach((t, i) => {
+      if (i === sel) return;
+      const q = t.getBoundingClientRect(), x = q.left + q.width / 2, y = q.top + q.height / 2, dx = x - cx, dy = y - cy;
+      const ok = dir === 'left' ? dx < -4 : dir === 'right' ? dx > 4 : dir === 'up' ? dy < -4 : dy > 4;
+      if (!ok) return;
+      const along = dir === 'left' || dir === 'right' ? Math.abs(dx) : Math.abs(dy), across = dir === 'left' || dir === 'right' ? Math.abs(dy) : Math.abs(dx);
+      const d = along + across * 2.2;
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    if (best >= 0) { sel = best; drawApp(); }
+  }
+
+  // The app's own buttons (the app on screen gets every button but View; the legend does not take them)
+  function appInput(name) {
+    if (closedApp) return;
+    const A = { app: appName() };
+    if (['up', 'down', 'left', 'right'].includes(name)) {
+      if (app === 'video' || app === 'song') { toast(name === 'left' ? '−10 s' : name === 'right' ? '+10 s' : tr('demo.nothing')); return; }
+      if (app === 'netflix' && screen === 'player' && nfControls <= Date.now()) { showControls(); return; }
+      moveApp(name); if (app === 'netflix' && screen === 'player') showControls(); return;
+    }
+    if (name === 'rs-up' || name === 'rs-down') { toast(app === 'video' || app === 'song' || (app === 'netflix' && screen !== 'browse' && screen !== '') ? tr('demo.nothing') : tr('demo.scroll')); return; }
+    switch (app) {
+      case 'web': case 'youtube':
+        if (name === 'a') toast(tr('demo.press', A));
+        else if (name === 'b') toast(tr(sel === 0 ? 'demo.close' : 'demo.back', A));
+        else toast(tr('demo.nothing'));
+        break;
+      case 'netflix':
+        if (screen === 'player') {
+          if (name === 'lt' || name === 'rt') { toast(name === 'lt' ? '−10 s' : '+10 s'); showControls(); }
+          else if (name === 'b') { screen = 'title'; sel = 0; changed(); }
+          else if (name === 'a') { toast(nfControls > Date.now() ? tr('demo.press', A) : tr('demo.pause')); showControls(); }
+          else showControls();
+        } else if (screen === 'title') {
+          if (name === 'a') { if (sel === 0 || sel >= 4) { screen = 'player'; sel = 0; showControls(); changed(); } else toast(tr('demo.press', A)); }
+          else if (name === 'b') { screen = ''; sel = 6; changed(); }
+          else toast(tr('demo.nothing'));
+        } else {
+          if (name === 'a') { if (sel >= 5) { screen = 'title'; sel = 0; changed(); } else toast(tr('demo.press', A)); }
+          else if (name === 'y') toast(tr('demo.search'));
+          else if (name === 'b') toast(tr('demo.close', A));
+          else toast(tr('demo.nothing'));
+        }
+        break;
+      case 'spotify':
+        if (name === 'y') { spBar = !spBar; sel = spBar ? 2 : 0; drawApp(); }
+        else if (name === 'b') { if (spBar) { spBar = false; sel = 0; drawApp(); } else toast(tr('demo.close', A)); }
+        else if (name === 'a') toast(tr('demo.played'));
+        else if (name === 'x') toast(tr('demo.queue'));
+        else if (name === 'menu') toast(tr('demo.page'));
+        else if (name === 'lt' || name === 'rt') toast(name === 'lt' ? '−5 s' : '+5 s');
+        else if (name === 'r3') toast(tr('demo.panel'));
+        else toast(tr('demo.nothing'));
+        break;
+      case 'video': case 'song': {
+        const video = app === 'video';
+        const M = { a: 'demo.pause', b: 'demo.list', rt: 'demo.next', lt: 'demo.prev' };
+        if (video) Object.assign(M, { x: 'demo.audio', menu: 'demo.subs', y: 'demo.autoplay' });
+        toast(tr(M[name] || 'demo.nothing'));
+        break;
+      }
+    }
+  }
+  function showControls() { nfControls = Date.now() + 3000; drawApp(); setTimeout(drawApp, 3100); }
+  // the app's screen changed: the legend, open, follows it (the app tells the console)
+  function changed() { drawApp(); if (legendOpen) renderLegend(); }
+
+  /* ---------- The legend ---------- */
+  const rowHTML = ([btns, key], A) => btns.length
+    ? `<div class="row"><span class="keys">${btns.map(glyph).join('')}</span><span class="say">${tr(key, A)}</span></div>`
+    : `<div class="row plain"><span class="say">${tr(key, A)}</span></div>`;
+  function renderLegend() {
+    const A = { app: appName() }, c = context(), rows = LEGENDS[c].map(r => rowHTML(r, A)).join('');
+    const sub = SCREEN_NAMES[c] ? `<span class="t-s muted">${tr(SCREEN_NAMES[c])}</span>` : '';
+    if (session === 'gamescope') {
+      $('#legend').innerHTML = `<div class="head"><span class="label t-xs">${tr('legend.title')}</span><span class="disp t-l">${appName()}</span>${sub}</div>
+        <div class="rows">${rows}</div>
+        <div class="foot">${rowHTML([['view'], 'legend.close'], A)}${rowHTML([['guide'], 'legend.home'], A)}</div>`;
+      const L = $('#legend');
+      L.classList.toggle('open', legendOpen);
+      L.classList.remove('wide');
+      if (legendOpen && L.scrollHeight > 648) L.classList.add('wide');
+      $('#page').classList.remove('open');
+    } else {
+      const half = Math.ceil(LEGENDS[c].length / 2);
+      const col = list => `<div class="card">${list.map(r => rowHTML(r, A)).join('')}</div>`;
+      $('#page').innerHTML = `<div class="top"><span class="mark">Owneet<i>OS</i></span><span class="clock t-s" id="clock">${new Date().toTimeString().slice(0, 5)}</span></div>
+        <div class="title"><span class="disp t-xl">${tr('legend.title')} · ${appName()}</span>${sub ? `<span class="t-m muted">${tr(SCREEN_NAMES[c])}</span>` : ''}</div>
+        <div class="cols t-m">${col(LEGENDS[c].slice(0, half))}${col(LEGENDS[c].slice(half))}</div>
+        <div class="prompts t-s"><div class="set">${P(['b', 'view'], tr('legend.back', A))}</div><div class="set">${P(['guide'], tr('legend.hold', A))}</div></div>`;
+      $('#page').classList.toggle('open', legendOpen);
+      $('#legend').classList.remove('open');
+    }
+  }
+  function toggleLegend() {
+    legendOpen = !legendOpen;
+    feedback(legendOpen ? 'sheet-open' : 'sheet-close');
+    renderLegend();
+  }
+
+  /* ---------- Guide: owneetd's ---------- */
+  let guideTimer = 0;
+  function guideDown() {
+    if (closedApp) { reopen(); return; }
+    if (session === 'gamescope') {
+      if (onHome) { leaveHome(); return; }
+      // the legend floats over whatever is on screen: it closes on the way to the home screen
+      if (legendOpen) { legendOpen = false; renderLegend(); }
+      onHome = true; feedback('launch');
+      $('#home-text').textContent = tr('demo.home', { app: appName() }); $('#home').classList.add('open');
+      return;
+    }
+    clearTimeout(guideTimer);
+    guideTimer = setTimeout(() => { guideTimer = 0; closeApp(); }, 2000);
+  }
+  function guideUp() {
+    if (session !== 'cage' || !guideTimer) return;
+    clearTimeout(guideTimer); guideTimer = 0;
+    toast(tr('demo.cage', { app: appName() }));
+  }
+  function leaveHome() { onHome = false; $('#home').classList.remove('open'); feedback('launch'); }
+  function closeApp() {
+    legendOpen = false; renderLegend(); closedApp = true;
+    $('#home-text').textContent = tr('demo.closed', { app: appName() }); $('#home').classList.add('open');
+  }
+  function reopen() { closedApp = false; onHome = false; $('#home').classList.remove('open'); drawApp(); }
+
+  /* ---------- Buttons ---------- */
+  function input(name) {
+    if (closedApp) return;
+    if (onHome) { if (name === 'a') leaveHome(); return; }
+    // View: caught by the app's own integration (the extension, the player's script), never by the console
+    if (name === 'view') { toggleLegend(); return; }
+    // cage: the page covers the app and takes the buttons; B or View brings the app back
+    if (legendOpen && session === 'cage') {
+      if (name === 'b') toggleLegend(); else feedback('edge');
+      return;
+    }
+    appInput(name);              // gamescope: the app keeps working under the floating legend
+  }
+
+  /* ---------- Demo keys ---------- */
+  const APPS = ['web', 'youtube', 'netflix', 'spotify', 'video', 'song'];
+  function setApp(a) { app = a; screen = ''; sel = 0; spBar = false; closedApp = false; onHome = false; $('#home').classList.remove('open'); changed(); }
+  const DEMO = {
+    s: () => { session = session === 'gamescope' ? 'cage' : 'gamescope'; $('#ses-state').textContent = session; if (onHome) leaveHome(); renderLegend(); },
+    p: () => { setPalette(palIndex + 1); toast(PALETTES[palIndex][0]); },
+    t: () => { const sizes = [0.9, 1, 1.2, 1.4]; const c = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts')) || 1;
+               const n = sizes[(sizes.indexOf(c) + 1) % sizes.length]; document.documentElement.style.setProperty('--ts', n); toast('Text ' + n); },
+    g: () => { glyphSetting = { auto: 'xbox', xbox: 'ps', ps: 'nintendo', nintendo: 'auto' }[glyphSetting]; renderLegend(); toast(glyphSetting); },
+    l: () => { lang = lang === 'en' ? 'it' : 'en'; drawApp(); renderLegend(); },
+    n: () => { soundOn = !soundOn; $('#snd-state').textContent = soundOn ? 'on' : 'off'; },
+  };
+  APPS.forEach((a, i) => { DEMO[String(i + 1)] = () => setApp(a); });
+
+  /* ---------- Keyboard: held directions repeat after 0.36 s, then every 0.14 s; LT / RT after 0.72 s, then every 0.36 s ---------- */
+  const held = {};
+  function holdStart(name, first, next) {
+    if (held[name]) return;
+    input(name);
+    const step = () => { input(name); held[name] = setTimeout(step, next); };
+    held[name] = setTimeout(step, first);
+  }
+  function holdEnd(name) { clearTimeout(held[name]); delete held[name]; }
+  const DIRS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+  const SLOW = { z: 'lt', c: 'rt' };
+  const KEYS = { Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b', x: 'x', y: 'y', m: 'menu', r: 'r3', v: 'view', PageUp: 'rs-up', PageDown: 'rs-down' };
+  document.addEventListener('keydown', e => {
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (k === 'h') { e.preventDefault(); if (!e.repeat) guideDown(); return; }
+    if (DIRS[k]) { e.preventDefault(); if (!e.repeat) holdStart(DIRS[k], 360, 140); return; }
+    if (SLOW[k]) { e.preventDefault(); if (!e.repeat) holdStart(SLOW[k], 720, 360); return; }
+    if (KEYS[k]) { e.preventDefault(); if (!e.repeat || k.startsWith('Page')) input(KEYS[k]); return; }
+    if (DEMO[k] && !e.repeat) { e.preventDefault(); DEMO[k](); }
+  });
+  document.addEventListener('keyup', e => {
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (k === 'h') guideUp();
+    if (DIRS[k]) holdEnd(DIRS[k]);
+    if (SLOW[k]) holdEnd(SLOW[k]);
+  });
+
+  /* ---------- Gamepad ---------- */
+  const prev = {}, padRepeat = {};
+  let repeatAt = 0, lastDir = null, scrollAt = 0;
+  const kindOf = id => /xbox|microsoft|045e/i.test(id) ? 'xbox' : /nintendo|switch|joy-?con|057e/i.test(id) ? 'nintendo'
+    : /054c|sony|dualsense|dualshock|playstation|wireless controller|\bps[345]\b/i.test(id) ? 'ps' : 'xbox';
+  function poll(ts) {
+    const pad = (navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [])[0];
+    if (pad) {
+      const k = kindOf(pad.id);
+      if (k !== padKind) { padKind = k; renderLegend(); }
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const g = on(16);
+      if (g && !prev[16]) guideDown(); else if (!g && prev[16]) guideUp();
+      prev[16] = g;
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0, ry = pad.axes[3] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { input(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+      if (Math.abs(ry) > 0.5 && ts > scrollAt) { input(ry < 0 ? 'rs-up' : 'rs-down'); scrollAt = ts + (scrollAt ? 90 : 360); }
+      if (Math.abs(ry) <= 0.5) scrollAt = 0;
+      [['a', 0], ['b', 1], ['x', 2], ['y', 3], ['view', 8], ['menu', 9], ['r3', 11]].forEach(([name, i]) => { const p = on(i); if (p && !prev[i]) input(name); prev[i] = p; });
+      [['lt', 6], ['rt', 7]].forEach(([name, i]) => {
+        const p = on(i);
+        if (p && !prev[i]) { input(name); padRepeat[name] = ts + 720; }
+        else if (p && ts > padRepeat[name]) { input(name); padRepeat[name] = ts + 360; }
+        prev[i] = p;
+      });
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+
+  /* ---------- Start state from the address ---------- */
+  const q = new URLSearchParams(location.hash.slice(1));
+  const pi = PALETTES.findIndex(p => p[0] === q.get('pal'));
+  setPalette(pi >= 0 ? pi : 0);
+  if (q.get('ts')) document.documentElement.style.setProperty('--ts', q.get('ts'));
+  if (q.get('motion') === 'off') document.documentElement.style.setProperty('--motion', 0);
+  if (['xbox', 'ps', 'nintendo'].includes(q.get('glyphs'))) glyphSetting = q.get('glyphs');
+  if (q.get('lang') === 'it') lang = 'it';
+  if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
+  if (q.get('session') === 'cage') { session = 'cage'; $('#ses-state').textContent = 'cage'; }
+  if (APPS.includes(q.get('app'))) app = q.get('app');
+  if (app === 'netflix' && ['title', 'player'].includes(q.get('screen'))) { screen = q.get('screen'); if (screen === 'player') nfControls = Date.now() + 600000; }
+  if (q.get('legend') === '1') legendOpen = true;
+  drawApp(); renderLegend();
+})();
+</script>
+</body>
+</html>
