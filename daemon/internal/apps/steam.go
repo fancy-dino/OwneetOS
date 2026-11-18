@@ -321,15 +321,18 @@ func (m *Manager) Steam(req SteamRequest) error {
 	if err != nil {
 		return ErrNoSession
 	}
-	// Steam's window stays hidden while it starts a game, unless nobody has signed in yet or the
-	// game asks the user first (ask)
+	// Steam's own windows are shown while it starts a game, as on SteamOS: its shader preparation, an
+	// install script, a publisher's launcher, its questions ([[game-compatibility-method]], owner
+	// 2026-11-18). The old way (hidden until the game's window) only with HideSteamLaunch: then not
+	// when nobody has signed in yet or the game asks the user first (ask)
 	m.mu.Lock()
 	asks := req.Run != "" && req.Run == m.steamAskFor
 	if req.Run != "" {
 		m.steamAskFor = ""
 	}
+	hideLaunch := m.HideSteamLaunch
 	m.mu.Unlock()
-	hidden := req.Run != "" && steamAccount(dir) && !asks
+	hidden := req.Run != "" && hideLaunch != nil && hideLaunch() && steamAccount(dir) && !asks
 	m.mu.Lock()
 	m.steamHidden = hidden
 	m.steamConfirm = nil
@@ -794,12 +797,17 @@ func (m *Manager) steamGame(appid string, reaper int, unit string) *App {
 	m.mu.Unlock()
 	name := m.steamGameName(appid)
 	m.mu.Lock()
+	hideLaunch := m.HideSteamLaunch
+	m.mu.Unlock()
+	behind := hideLaunch != nil && hideLaunch() // reads the testers' switch: outside the lock
+	m.mu.Lock()
 	if a, ok := m.apps[id]; ok { // listed meanwhile
 		m.mu.Unlock()
 		return a
 	}
+	// the old way only: Steam's window left out until the game's own window (steamBehind)
 	app := &App{ID: id, Name: name, Kind: KindGame, Started: time.Now(), unit: unit, appID: m.newAppID(id), reaper: reaper,
-		steamBehind: true}
+		steamBehind: behind}
 	m.apps[id] = app
 	if m.steamAsk != nil { // the game started: Steam did not need the user
 		m.steamAsk.Stop()
@@ -817,8 +825,16 @@ func (m *Manager) steamGame(appid string, reaper int, unit string) *App {
 	m.Broker.Publish("app.started", map[string]string{"id": id, "name": name, "kind": KindGame})
 	if sess, err := m.Session(); err == nil {
 		if f := m.focus(sess); f != nil {
-			// Steam behind the game only once the game's window is there (checkWindows)
-			m.show(f, []uint32{app.appID, HomeAppID})
+			if app.steamBehind {
+				// the old way: Steam behind the game only once the game's window is there (checkWindows)
+				m.show(f, []uint32{app.appID, HomeAppID})
+			} else if steam := m.appIDOf(SteamID); steam != 0 {
+				// Steam behind the game from its start: Steam's window (its "launching" page, a
+				// question) stays on screen until the game's own window comes
+				m.show(f, []uint32{app.appID, steam, HomeAppID})
+			} else {
+				m.show(f, []uint32{app.appID, HomeAppID})
+			}
 		}
 		m.cageFocus(sess)
 	}

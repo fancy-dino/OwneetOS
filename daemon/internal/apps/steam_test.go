@@ -72,6 +72,9 @@ func newSteamManager(t *testing.T) (*Manager, *fakeUnits, *fakeFocus, *fakeProcs
 	m.StateDir = t.TempDir()
 	m.SteamAllowed = func() bool { return true }
 	m.NVIDIA = func() bool { return false }
+	// the tests below check the old way of step 4.2c (Steam hidden during a launch, the testers' switch
+	// owneet.debug.steam_launch=hidden); TestSteamShownDuringALaunch checks today's default
+	m.HideSteamLaunch = func() bool { return true }
 	m.Forward = func(argv, _ []string) error { *forwarded = append(*forwarded, strings.Join(argv, " ")); return nil }
 	m.watchSession() // tags windows: the home screen is process 10
 	focus.openWindow(10)
@@ -481,6 +484,44 @@ func TestSteamGameStartedInSteamAndSteamClosing(t *testing.T) {
 // 2026-10-16: Steam's window was shown for 10 s before the game's): the home screen covers the
 // wait; Steam comes back behind the game once the game's window is there, or after steamLaunchWatch
 // without one (Steam may be asking the user something).
+// Today's default ([[game-compatibility-method]], owner 2026-11-18): Steam's window is on screen while
+// it launches a game, and stays behind the game from its start until the game's own window comes.
+func TestSteamShownDuringALaunch(t *testing.T) {
+	m, units, focus, procs, _, ch := newSteamManager(t)
+	m.HideSteamLaunch = func() bool { return false }
+	if err := m.Steam(SteamRequest{Run: "480", Name: "Spacewar"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "app.started") // Steam itself
+	steamUnit := units.started[0]
+	focus.openWindow(1001)
+	settle(m)
+	if st := m.Status(); st.Focus != SteamID {
+		t.Fatalf("Steam not on screen while it launches the game: %q", st.Focus)
+	}
+	steamID := m.appIDOf(SteamID)
+	shown := func() []uint32 {
+		focus.mu.Lock()
+		defer focus.mu.Unlock()
+		return append([]uint32(nil), focus.shown...)
+	}
+	procs.add(1001, 1, steamUnit, "steam", "-gamepadui")
+	procs.add(2000, 1001, steamUnit, "reaper", "SteamLaunch", "AppId=480", "--", "/g/spacewar")
+	procs.add(2001, 2000, steamUnit, "/g/spacewar")
+	m.scanSteam()
+	next(t, ch, "app.started")
+	gameID := m.appIDOf("steam:480")
+	// the game without its window yet: Steam behind it, so Steam's window stays on screen
+	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) {
+		t.Fatalf("game without window: %v", got)
+	}
+	focus.openWindow(2001)
+	m.checkWindows()
+	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) || m.Status().Focus != "steam:480" {
+		t.Fatalf("game's window: %v, focus %q", got, m.Status().Focus)
+	}
+}
+
 func TestSteamStaysBehindAGameWithoutWindow(t *testing.T) {
 	m, units, focus, procs, _, ch := newSteamManager(t)
 	if err := m.Steam(SteamRequest{Run: "480", Name: "Spacewar"}); err != nil {

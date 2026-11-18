@@ -206,6 +206,11 @@ type Manager struct {
 	// SteamRepaint: keep gamescope composing every frame while Steam's window is on screen
 	// (repaint.go; by default on NVIDIA, unless the test switch owneet.debug.steam_repaint=off).
 	SteamRepaint func() bool
+	// HideSteamLaunch: Steam's window kept out while it launches a game, until the game's own window
+	// (the way of step 4.2c). Off by default since 2026-11-18 (owner, [[game-compatibility-method]]:
+	// Steam's own windows shown during a launch, as on SteamOS); the testers' switch
+	// owneet.debug.steam_launch=hidden brings the old way back, to compare.
+	HideSteamLaunch func() bool
 
 	mu       sync.Mutex
 	apps     map[string]*App // by id
@@ -287,6 +292,9 @@ func (m *Manager) init() {
 	}
 	if m.SteamRepaint == nil {
 		m.SteamRepaint = m.steamRepaint
+	}
+	if m.HideSteamLaunch == nil {
+		m.HideSteamLaunch = func() bool { return DebugOption("steam_launch") == "hidden" }
 	}
 	if m.steamNames == nil {
 		m.steamNames = map[string]string{}
