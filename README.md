@@ -1,55 +1,71 @@
 # OwneetOS
 
-OwneetOS is a lightweight, open-source Linux distribution that turns any x86_64 PC into a game
-console. Everything — installation, first setup, games, streaming apps, settings — is controlled
-with a gamepad. Mouse and keyboard are never required.
+**Plug it. Play it. Own it!**
 
-> **Status: pre-alpha.** Nothing is usable yet. The project is in its foundation phase; see
-> [[wave-1]] in the knowledge base for where we are.
+OwneetOS is a free and open source system that turns your PC into a game console. You only need a
+controller: installing it, setting it up, playing, watching and changing the settings all work
+with a controller. Mouse and keyboard are optional.
 
-## Goals
+Website: <https://owneetos.org>
 
-- **Gamepad only**, from the first boot onwards.
-- **Lightweight**: runs on low-budget hardware (4 GB RAM minimum, x86_64).
-- **One library** for Steam and DRM-free games; streaming apps (Netflix, YouTube, Spotify) in a
-  console-style interface.
-- **Built for people with no technical background.**
-- **Fully open source** (GPLv3).
+> **Status: almost here.** The first release is being tested on real PCs; the download opens with
+> it, on the website.
+
+## What it does
+
+- **A game console from your PC**, with a lightweight system.
+- **A controller is all you need.** Mouse and keyboard are optional.
+- **One library for all your games**: Steam's, DRM-free games and games on a disk.
+- **Games on a disk?** Plug it in and play, or copy them to the console.
+- **Films, series, music**: stream them or play your own.
+- **Safe updates.** Something wrong? Roll back to your version of choice.
+- **Your style**: several palettes and languages.
+
+And it belongs to everyone: completely free and open source, no forced telemetry, updates never
+forced on you, a community driven project.
 
 ## System requirements
 
-| | Minimum |
-|---|---|
-| Processor | 64-bit x86 (Intel or AMD), roughly the last 10 years |
-| Firmware | **UEFI** (PCs from about 2012). If your PC is set to "Legacy" or "CSM" boot, switch it to UEFI in the firmware settings. Secure Boot must be disabled. |
-| Memory | 4 GB (8 GB recommended) |
-| Storage | 32 GB |
-| Graphics | Vulkan support for the full experience; older GPUs run a reduced mode |
+| | Minimum | Recommended |
+|---|---|---|
+| Processor | 64-bit (x86-64) | 64-bit (x86-64) |
+| Firmware | UEFI, with Secure Boot off | UEFI, with Secure Boot off |
+| Memory | 4 GB RAM | 8 GB RAM |
+| Graphics | any card (without Vulkan the interface runs in a reduced mode) | with Vulkan support |
+| Storage | 32 GB | 32 GB + the space your games need |
+| To install | a USB stick of 4 GB or more (it is erased) | the same |
+| Controller | Bluetooth, or with a cable | the same |
+
+Installing erases the whole disk you choose; dual boot is currently not supported. The website's
+[install guide](https://owneetos.org/guide) explains every step.
 
 ## Documents
 
 | File | What it is |
 |------|------------|
-| [docs/setup.md](docs/setup.md) | **Start here:** requirements and setting up the workspace with the code and the knowledge base. |
+| [docs/setup.md](docs/setup.md) | **Start here** to work on the code: requirements and setting up the workspace with the code and the knowledge base. |
 | `OwneetOS-knowledge-base` (separate repository, an Obsidian vault) | Every agreed requirement and decision, the step-by-step plan and its status, design documents. Source of truth. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to work on the project. |
+| [docs/translating.md](docs/translating.md) | How to translate the console into your language. |
+| [docs/tester-install.md](docs/tester-install.md) | Installing a test build on a PC, for testers. |
 | [CREDITS.md](CREDITS.md) | The projects OwneetOS is built on, their authors and licences. |
-| [design/mockups/wave1-mockups.html](design/mockups/wave1-mockups.html) | Approved UI mockups (open in a browser). |
+| [design/](design/) | Approved mockups and interactive demos of every screen (open them in a browser). |
 
 ## Repository layout
 
 | Folder | Contents |
 |--------|----------|
 | [`iso/`](iso/) | archiso profile that produces the bootable ISO. |
-| [`packages/`](packages/) | PKGBUILDs for the `[owneet]` pacman repository. |
-| [`daemon/`](daemon/) | `owneetd`, the system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, app launching). |
-| [`frontend/`](frontend/) | The console interface (`owneet-frontend`, based on Pegasus Frontend) and the OwneetOS theme. |
-| [`extension/`](extension/) | Brave extension that makes streaming sites usable with a gamepad. |
-| [`installer/`](installer/) | Gamepad-driven installer (UI and backend). |
-| [`tools/`](tools/) | Developer scripts (build wrappers, helpers). |
+| [`packages/`](packages/) | PKGBUILDs for the `[owneet]` pacman repository, the installer (`owneet-installer`) included. |
+| [`daemon/`](daemon/) | `owneetd`, the system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, disks, games and apps). |
+| [`frontend/`](frontend/) | The console interface (`owneet-frontend`, based on Pegasus Frontend), the OwneetOS theme and its translations. |
+| [`extension/`](extension/) | Brave extension that makes streaming sites usable with a controller. |
+| [`compat/`](compat/) | OwneetOS's own compatibility libraries for old Linux games (`lib32-owneet-compat`). |
+| [`installer/`](installer/) | Notes on the installer. |
+| [`release-notes/`](release-notes/) | The notes of each release, in every language of the console. |
+| [`tools/`](tools/) | Developer scripts (builds in the builder VM, previews, checks). |
 | [`vm/`](vm/) | Builder and test virtual machines. Images stay local and are never committed. |
 | [`docs/`](docs/) | Technical and user documentation. |
-| [`design/`](design/) | Mockups and design assets. |
 
 ## Credits
 
@@ -57,6 +73,10 @@ OwneetOS stands on the shoulders of Arch Linux, the Linux kernel, systemd, games
 PipeWire, BlueZ, NetworkManager, SDL, Pegasus Frontend and many more free software projects.
 [CREDITS.md](CREDITS.md) names them, their authors and their licences. Thank you to everyone who
 built them.
+
+Steam is a trademark of Valve Corporation, Xbox of Microsoft Corporation, PlayStation of Sony
+Interactive Entertainment. They only say what works with OwneetOS, which is not affiliated with or
+endorsed by them.
 
 ## License
 
