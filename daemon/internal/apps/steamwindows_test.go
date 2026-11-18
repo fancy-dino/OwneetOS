@@ -329,3 +329,45 @@ func TestSteamWindowsVersion(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 	}
 }
+
+// A window of a game's install script while Steam is hidden for the launch: Steam is shown at once,
+// the window waits for the user (Jedi: Fallen Order's EA install script, FrankenPC, 2026-11-18).
+func TestSteamShownForAnInstallScriptWindow(t *testing.T) {
+	m, _, focus, procs, _, ch := newSteamManager(t)
+	dir := m.SteamDir
+	os.MkdirAll(filepath.Join(dir, "logs"), 0o755)
+	os.MkdirAll(filepath.Join(dir, "config"), 0o755)
+	os.WriteFile(filepath.Join(dir, "config", "loginusers.vdf"), []byte(`"users" { "76561190000000001" { "AccountName" "a" } }`), 0o644)
+	log := filepath.Join(dir, "logs", "console_log.txt")
+	os.WriteFile(log, nil, 0o644)
+	line := func(what string) {
+		f, _ := os.OpenFile(log, os.O_APPEND|os.O_WRONLY, 0)
+		f.WriteString("[" + time.Now().Format("2006-01-02 15:04:05") + "] GameAction [AppID 1172380, ActionID 2] : LaunchApp " + what + "\n")
+		f.Close()
+	}
+	if err := m.Steam(SteamRequest{Run: "1172380", Name: "Jedi"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "app.started")
+	m.mu.Lock()
+	m.steamLaunch.at = time.Now().Add(-time.Minute)
+	unit := m.apps[SteamID].unit
+	m.mu.Unlock()
+	focus.openWindow(1001)
+	settle(m)
+	line(`changed task to RunningInstallScript with ""`)
+	m.watchSteam()
+	m.steamAskNow()
+	if st := m.Status(); st.Focus != "home" {
+		t.Fatalf("Steam shown while the install script works: %q", st.Focus)
+	}
+	// the script's own launcher, then a Windows program of it opening a window
+	procs.add(2001, 1001, unit, "/s/steamrt64/reaper", "SteamLaunch", "AppId=1172380", "Install=1", "--", "proton", "run", "iscriptevaluator.exe")
+	procs.add(2002, 2001, unit, `C:\Program Files\EA\installer.exe`)
+	focus.openWindow(2002)
+	for deadline := time.Now().Add(2 * time.Second); m.Status().Focus != SteamID; time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("Steam not shown for the install script's window: %q", m.Status().Focus)
+		}
+	}
+}

@@ -333,6 +333,9 @@ func (m *Manager) tag(pid int) uint32 {
 		if appid, reaper := m.reaperOf(pid); appid != "" {
 			return m.steamGame(appid, reaper, unit).appID
 		}
+		if m.inInstallScript(pid) { // a window of Steam's own (tagged so below) that waits for the user
+			go m.installScriptWindow(pid)
+		}
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()

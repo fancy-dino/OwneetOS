@@ -691,6 +691,57 @@ func reaperAppID(argv []string) string {
 	return id
 }
 
+// steamInstallScript: Steam's launcher of a game's install script ("reaper SteamLaunch AppId=N
+// Install=1"), whose programs (the redistributables, a publisher's own installer) may open a window
+// that waits for the user.
+func steamInstallScript(argv []string) bool {
+	if len(argv) < 3 || filepath.Base(argv[0]) != "reaper" {
+		return false
+	}
+	launch := false
+	for _, a := range argv[1:] {
+		if a == "--" {
+			break
+		}
+		switch {
+		case a == "SteamLaunch":
+			launch = true
+		case a == "Install=1":
+			return launch
+		}
+	}
+	return false
+}
+
+// inInstallScript: the process comes from a game's install script (steamInstallScript).
+func (m *Manager) inInstallScript(pid int) bool {
+	for i := 0; i < 64 && pid > 1; i++ {
+		if steamInstallScript(m.Procs.Cmdline(pid)) {
+			return true
+		}
+		pid = m.Procs.Parent(pid)
+	}
+	return false
+}
+
+// installScriptWindow: a window of a game's install script came on screen while Steam is hidden
+// for the launch (steamAskNow): Steam is shown, as for its questions, since the window waits for the
+// user (Jedi: Fallen Order's EA install script, FrankenPC, 2026-11-18, [[open-items]] 13: an "Open"
+// file window stayed hidden behind "Starting …" for 4 minutes).
+func (m *Manager) installScriptWindow(pid int) {
+	m.mu.Lock()
+	hidden := m.steamHidden
+	m.steamHidden = false
+	m.mu.Unlock()
+	if !hidden {
+		return
+	}
+	m.Log.Info("a window of the game's install script: Steam shown", "pid", pid)
+	if err := m.FocusApp(SteamID); err != nil {
+		m.Log.Debug("cannot show Steam", "err", err)
+	}
+}
+
 // reaperOf returns the Steam game a process belongs to: its app id and launcher, if any.
 func (m *Manager) reaperOf(pid int) (string, int) {
 	for i := 0; i < 64 && pid > 1; i++ {

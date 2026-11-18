@@ -118,6 +118,20 @@ func TestReaperAppID(t *testing.T) {
 	}
 }
 
+func TestSteamInstallScript(t *testing.T) {
+	for argv, want := range map[string]bool{
+		"/s/steamrt64/reaper SteamLaunch AppId=1172380 Install=1 -- proton run iscriptevaluator.exe": true,
+		"reaper SteamLaunch AppId=480 -- /g/game Install=1":                                          false, // the game's own argument
+		"reaper SteamLaunch AppId=480":                                                               false,
+		"reaper Install=1 -- x":                                                                      false, // not a launch
+		"/usr/bin/game SteamLaunch AppId=480 Install=1":                                              false,
+	} {
+		if got := steamInstallScript(strings.Fields(argv)); got != want {
+			t.Errorf("%q: got %v, want %v", argv, got, want)
+		}
+	}
+}
+
 // A game Steam started in a scope of its own (Steam's client of November 2026) counts as Steam's: its
 // launcher is found where owneetd looks for Steam's games.
 func TestSteamGameInItsOwnScope(t *testing.T) {
