@@ -1004,3 +1004,57 @@ func TestSteamInputTurnedOnOnce(t *testing.T) {
 		t.Fatal("changed a file without the root block")
 	}
 }
+
+// A Steam game whose window goes some seconds before its end (Jedi: Fallen Order's EA launcher closing
+// after it, FrankenPC 2026-11-18): Steam, behind it, comes in front meanwhile; the game's end brings the
+// home screen. Steam chosen during the game stays.
+func TestSteamGameEndBringsHomeOverSteam(t *testing.T) {
+	m, units, focus, procs, _, ch := newSteamManager(t)
+	if err := m.Steam(SteamRequest{Run: "480", Name: "Spacewar"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "app.started") // Steam itself
+	steamUnit := units.started[0]
+	focus.openWindow(1001)
+	settle(m)
+	steamID := m.appIDOf(SteamID)
+	start := func() uint32 {
+		procs.add(1001, 1, steamUnit, "steam", "-gamepadui")
+		procs.add(2000, 1001, steamUnit, "reaper", "SteamLaunch", "AppId=480", "--", "/g/spacewar")
+		procs.add(2001, 2000, steamUnit, "/g/spacewar")
+		m.scanSteam()
+		next(t, ch, "app.started")
+		focus.openWindow(2001)
+		m.checkWindows()
+		return m.appIDOf("steam:480")
+	}
+	end := func() {
+		procs.remove(2001)
+		procs.remove(2000)
+		m.scanSteam()
+		next(t, ch, "app.exited")
+	}
+	gameID := start()
+	if st := m.Status(); st.Focus != "steam:480" {
+		t.Fatalf("game in front: %q", st.Focus)
+	}
+	focus.closeWindow(gameID) // its window gone, the game not ended yet: Steam behind it shows
+	if f, _ := focus.Focused(); f != steamID {
+		t.Fatalf("Steam not in front after the game's window: %d", f)
+	}
+	end()
+	if f, _ := focus.Focused(); f != HomeAppID {
+		t.Fatalf("the game's end did not bring the home screen: %d", f)
+	}
+
+	// Steam chosen by the user during the game: it stays when the game ends
+	gameID = start()
+	if err := m.FocusApp(SteamID); err != nil {
+		t.Fatal(err)
+	}
+	focus.closeWindow(gameID)
+	end()
+	if f, _ := focus.Focused(); f != steamID {
+		t.Fatalf("Steam chosen during the game left for the home screen: %d", f)
+	}
+}

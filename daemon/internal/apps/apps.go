@@ -216,6 +216,9 @@ type Manager struct {
 	apps     map[string]*App // by id
 	order    []string        // launch order, oldest first
 	lastApp  string          // the app shown before the home screen
+	// steamChosen: when Steam was last brought to the front on purpose (FocusApp): a Steam game that
+	// ends while Steam is in front brings the home screen, unless Steam was chosen during the game
+	steamChosen time.Time
 	hold     *time.Timer     // cage: Guide held
 	homeHold *time.Timer     // gamescope: Guide held over Steam
 	homePID  int             // of the session being watched
@@ -768,8 +771,17 @@ func (m *Manager) ended(app *App, result string) {
 			m.mu.Lock()
 			// another game alone in front, between two of its windows (front): it keeps the screen
 			gap := len(m.shown) == 1 && m.shown[0] != HomeAppID && m.shown[0] != app.appID
+			// a Steam game whose window went before its end (a publisher's launcher closing after it,
+			// Jedi: Fallen Order, FrankenPC 2026-11-18): Steam, behind it, came in front meanwhile; the
+			// game's end still brings the home screen unless Steam was chosen during the game (owner:
+			// quitting a game must bring the console's home)
+			steamID := uint32(0)
+			if s, ok := m.apps[SteamID]; ok && app.reaper != 0 && m.steamChosen.Before(app.Started) {
+				steamID = s.appID
+			}
 			m.mu.Unlock()
-			if focused, err := f.Focused(); err == nil && (focused == app.appID || (focused == 0 && !gap)) {
+			if focused, err := f.Focused(); err == nil &&
+				(focused == app.appID || (focused == 0 && !gap) || (steamID != 0 && focused == steamID)) {
 				m.show(f, []uint32{HomeAppID}) // back to the home screen
 			}
 		}
@@ -950,6 +962,9 @@ func (m *Manager) FocusApp(id string) error {
 	var shown []uint32
 	if ok {
 		appID, shown = a.appID, front(a)
+	}
+	if ok && id == SteamID {
+		m.steamChosen = time.Now()
 	}
 	m.mu.Unlock()
 	if !ok {
