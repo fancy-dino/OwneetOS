@@ -193,6 +193,25 @@ func (m *Manager) steamStop() []string {
 		remote}
 }
 
+// SteamProtonLogDir: where Proton writes its log of each Steam game (steam-APPID.log) with the
+// testers' switch on. /tmp is in memory (nothing stays on the disk, [[open-items]] 3p) and Steam's
+// container shares it; the test log copies the logs to the OWNEETLOG stick (owneet-testlog).
+const SteamProtonLogDir = "/tmp/owneet-proton-logs"
+
+// steamProtonLog: testers' switch owneet.debug.windows_log=on (boot menu, or owneet-debug.txt on the
+// OWNEETLOG stick), the one of the console's Windows games (owneet-windows-run), turns Proton's log on
+// for Steam's games too, with Proton's own channels ([[open-items]] 13, owner 2026-11-18: Cyberpunk
+// 2077 ended a second after starting and nothing said why). Read when Steam starts.
+func steamProtonLog() []string {
+	if DebugOption("windows_log") != "on" {
+		return nil
+	}
+	if err := os.MkdirAll(SteamProtonLogDir, 0o700); err != nil {
+		return nil
+	}
+	return []string{"PROTON_LOG=1", "PROTON_LOG_DIR=" + SteamProtonLogDir}
+}
+
 // forwardSteam hands a steam:// address to the Steam already running.
 func (m *Manager) forwardSteam(url string, sess Session) error {
 	argv, err := m.steamArgv(url)
@@ -356,6 +375,11 @@ func (m *Manager) Steam(req SteamRequest) error {
 		argv, err := m.steamArgv(args...)
 		if err != nil {
 			return err
+		}
+		if logEnv := steamProtonLog(); logEnv != nil {
+			// env's own assignments, before the program: argv is env -u NAME PROGRAM ARGS…
+			argv = append(append(append([]string{}, argv[:3]...), logEnv...), argv[3:]...)
+			m.Log.Info("Proton's log on for Steam's games (testers)", "folder", SteamProtonLogDir)
 		}
 		if gamescope {
 			m.mu.Lock()
