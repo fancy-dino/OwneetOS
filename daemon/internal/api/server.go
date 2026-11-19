@@ -61,6 +61,8 @@ type Server struct {
 	Pointer Pointer
 	// Player plays the Videos and Music pages' files (nil: not available).
 	Player Player
+	// Legend is the command legend's state (nil: not available).
+	Legend Legend
 
 	started time.Time
 }
@@ -140,6 +142,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/steam", s.handleSteam)
 	mux.HandleFunc("GET /v1/player", s.handlePlayer)
 	mux.HandleFunc("POST /v1/player", s.handlePlayerOpen)
+	mux.HandleFunc("GET /v1/legend", s.handleLegend)
+	mux.HandleFunc("POST /v1/legend", s.handleLegendAction)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, http.StatusNotFound, "not_found", "no such endpoint: "+r.Method+" "+r.URL.Path)
 	})

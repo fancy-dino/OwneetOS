@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/legend"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/webapps"
 )
 
@@ -58,6 +59,11 @@ func TestEventsForTheExtension(t *testing.T) {
 		{events.Event{Type: "webapp.text", Data: webapps.Text{Text: "à"}}, map[string]any{"type": "text", "text": "à"}},
 		{events.Event{Type: "webapp.text", Data: webapps.Text{Key: "backspace"}}, map[string]any{"type": "key", "key": "backspace"}},
 		{events.Event{Type: "guide.pressed"}, nil},
+		// the command legend: a web app's (the extension pauses under a page, in cage)
+		{events.Event{Type: "legend.changed", Data: legend.State{Open: true, App: "web:netflix", Context: "netflix.player", Page: true}},
+			map[string]any{"type": "legend", "open": true, "page": true}},
+		{events.Event{Type: "legend.changed", Data: legend.State{App: "web:netflix"}}, map[string]any{"type": "legend", "open": false, "page": false}},
+		{events.Event{Type: "legend.changed", Data: legend.State{Open: true, App: "player", Context: "player.video"}}, nil},
 	} {
 		if got := forEvent(c.ev); !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%s: %v, want %v", c.ev.Type, got, c.want)

@@ -6,9 +6,12 @@
 // Unix socket, and owneetd's events back. It ends when Brave closes its stdin.
 //
 // From the extension: {"type": "hello"}, {"type": "keyboard", "open": true, "kind": "email",
-// "label": "…", "value": "…"}, {"type": "keyboard", "open": false}, {"type": "ask_close"}.
+// "label": "…", "value": "…"}, {"type": "keyboard", "open": false}, {"type": "ask_close"},
+// {"type": "legend", "action": "toggle" | "screen", "context": "netflix.player"} (the command
+// legend, [[step-5.6a-command-legend]]).
 // To the extension: {"type": "look", "accent": "#…", "language": "…"}, {"type": "text", "text": "…"},
-// {"type": "key", "key": "backspace"}, {"type": "keyboard_closed", "next": true}.
+// {"type": "key", "key": "backspace"}, {"type": "keyboard_closed", "next": true},
+// {"type": "legend", "open": true, "page": false} (a web app's legend opened or closed).
 package main
 
 import (
@@ -29,6 +32,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/client"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/config"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/legend"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/webapps"
 )
@@ -140,6 +144,8 @@ func (b *bridge) fromExtension(msg map[string]any) {
 		b.post("/v1/webapps/keyboard", webapps.Keyboard{Open: open, Kind: str("kind"), Label: str("label"), Value: str("value")})
 	case "ask_close":
 		b.post("/v1/webapps/ask-close", nil)
+	case "legend":
+		b.post("/v1/legend", legend.Request{Action: str("action"), Context: str("context")})
 	default:
 		b.log.Debug("unknown message from the extension", "type", str("type"))
 	}
@@ -153,6 +159,11 @@ func forEvent(ev events.Event) any {
 		var k webapps.Keyboard
 		if json.Unmarshal(data, &k) == nil && !k.Open {
 			return map[string]any{"type": "keyboard_closed", "next": k.Next}
+		}
+	case "legend.changed":
+		var l legend.State
+		if json.Unmarshal(data, &l) == nil && l.IsWebApp() {
+			return map[string]any{"type": "legend", "open": l.Open, "page": l.Page}
 		}
 	case "webapp.text":
 		var t webapps.Text

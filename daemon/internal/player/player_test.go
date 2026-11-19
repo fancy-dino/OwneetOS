@@ -279,8 +279,14 @@ func TestOpenMovesThePlayer(t *testing.T) {
 
 // The player's control socket: what plays comes as "player.changed"; the console over the player
 // (or not) is told to the script; its end closes the state
+type fakeLegend struct{ got chan string }
+
+func (f *fakeLegend) Toggle(app, context string) error { f.got <- app + " " + context; return nil }
+
 func TestFollowsThePlayer(t *testing.T) {
 	m, fa, req := setup(t)
+	legends := &fakeLegend{got: make(chan string, 1)}
+	m.Legend = legends
 	mpv := make(chan net.Conn, 1)
 	m.Dial = func(string) (net.Conn, error) {
 		a, b := net.Pipe()
@@ -343,6 +349,16 @@ func TestFollowsThePlayer(t *testing.T) {
 	}
 	if got := m.Status(); got.Title != "Episode 1" || !got.Open {
 		t.Fatalf("status %+v", got)
+	}
+	// View in the player: its legend (for a video)
+	go conn.Write([]byte(`{"event":"client-message","args":["owneet-legend","player.video"]}` + "\n"))
+	select {
+	case got := <-legends.got:
+		if got != "player player.video" {
+			t.Fatalf("legend %q", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the legend was not asked for")
 	}
 	m.Broker.Publish("focus.changed", map[string]string{"focus": AppID})
 	if got := focus(); got != "yes" {

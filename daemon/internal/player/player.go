@@ -149,6 +149,10 @@ type Manager struct {
 	Dial func(path string) (net.Conn, error)
 	// CloseWait is how long a player has to quit before another starts (10 s)
 	CloseWait time.Duration
+	// Legend gets View pressed in the player (the script's "owneet-legend", [[step-5.6a-command-legend]])
+	Legend interface {
+		Toggle(app, context string) error
+	}
 
 	mu    sync.Mutex
 	state State
@@ -501,7 +505,18 @@ func (m *Manager) follow(conn net.Conn) {
 	sc.Buffer(make([]byte, 64<<10), 1<<20)
 	for sc.Scan() {
 		var ev ipcEvent
-		if json.Unmarshal(sc.Bytes(), &ev) != nil || ev.Event != "client-message" || len(ev.Args) != 2 || ev.Args[0] != "owneet-state" {
+		if json.Unmarshal(sc.Bytes(), &ev) != nil || ev.Event != "client-message" || len(ev.Args) != 2 {
+			continue
+		}
+		if ev.Args[0] == "owneet-legend" { // View: the legend of the player's buttons, for a video or a song
+			if m.Legend != nil {
+				if err := m.Legend.Toggle(AppID, ev.Args[1]); err != nil {
+					m.Log.Debug("legend not opened", "err", err)
+				}
+			}
+			continue
+		}
+		if ev.Args[0] != "owneet-state" {
 			continue
 		}
 		var s scriptState

@@ -26,6 +26,7 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/installs"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/legend"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/live"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/network"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/player"
@@ -294,14 +295,19 @@ func run(configPath string) error {
 	// configuration, one at a time like a game; its saved positions on the console's disk, where
 	// the interface reads them
 	var playerAPI api.Player
+	// The command legend ([[step-5.6a-command-legend]]): View in a web app or the player
+	var legendAPI api.Legend
 	if appsAPI != nil {
+		legends := &legend.Manager{Broker: broker, Log: log, Screen: appsMgr}
+		go legends.Run(ctx.Done())
+		legendAPI = legends
 		stateHome := os.Getenv("XDG_STATE_HOME")
 		if stateHome == "" {
 			stateHome = filepath.Join(home, ".local", "state")
 		}
 		mediaPlayer := &player.Manager{Apps: appsMgr, Broker: broker, Log: log, Session: appsMgr.Session,
 			ConfigDir: "/usr/share/owneet/player", RuntimeDir: filepath.Join(runtimeDir, "owneet"),
-			WatchLaterDir: filepath.Join(stateHome, "owneet", "watch_later")}
+			WatchLaterDir: filepath.Join(stateHome, "owneet", "watch_later"), Legend: legends}
 		go mediaPlayer.Run(ctx.Done())
 		playerAPI = mediaPlayer
 	}
@@ -325,6 +331,7 @@ func run(configPath string) error {
 		Installs:        instMgr,
 		Pointer:         pointerAPI,
 		Player:          playerAPI,
+		Legend:          legendAPI,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)

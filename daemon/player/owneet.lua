@@ -675,6 +675,9 @@ bind("subtitles", subtitles)
 bind("autoplay", toggle_autoplay)
 bind("leave", leave)
 bind("show", show)
+-- View: the console's legend of the player's buttons, for a video or a song (owneetd draws it:
+-- over the player in gamescope, which keeps playing and working; a page in cage)
+bind("legend", function() mp.commandv("script-message", "owneet-legend", video and "player.video" or "player.song") end)
 
 ---------------------------------------------------------------------------------------------------
 -- What happens
