@@ -93,6 +93,10 @@ type Manager struct {
 	// Pads starts reading the controllers into in until stop is closed
 	Pads func(in chan<- Input, stop <-chan struct{})
 
+	// anyWindow: it holds for every window of the app (a game's install script: an installer and its
+	// own file windows, owner 2026-11-19), not for the first one only
+	anyWindow bool
+
 	mu      sync.Mutex
 	status  Status
 	appID   uint32 // the app's gamescope id
@@ -123,7 +127,21 @@ func (m *Manager) Status() Status {
 }
 
 // On turns the pointer on for a running app: it holds for the window the app shows next.
-func (m *Manager) On(app string) error {
+func (m *Manager) On(app string) error { return m.on(app, false) }
+
+// OnAnyWindow turns the pointer on for every window of a running app, until it is turned off (the
+// end of a game's install script: apps) or another app takes the screen; already on so: nothing.
+func (m *Manager) OnAnyWindow(app string) error {
+	m.mu.Lock()
+	already := m.stop != nil && m.anyWindow && m.status.App == app
+	m.mu.Unlock()
+	if already {
+		return nil
+	}
+	return m.on(app, true)
+}
+
+func (m *Manager) on(app string, anyWindow bool) error {
 	if m.Mouse == nil || m.Screen == nil {
 		return ErrUnavailable
 	}
@@ -142,7 +160,7 @@ func (m *Manager) On(app string) error {
 		m.screen.Close()
 	}
 	m.status = Status{On: true, App: app}
-	m.appID, m.window, m.active = id, 0, false
+	m.appID, m.window, m.active, m.anyWindow = id, 0, false, anyWindow
 	m.screen = screen
 	m.textCursor, m.clickWaits = false, false
 	if text, err := screen.TextCursor(); err == nil {
@@ -218,7 +236,7 @@ func (m *Manager) loop(in <-chan Input, stop <-chan struct{}) {
 // another window of the app or another app (off), the app gone (off).
 func (m *Manager) check() {
 	m.mu.Lock()
-	screen, appID, window, app := m.screen, m.appID, m.window, m.status.App
+	screen, appID, window, app, anyWindow := m.screen, m.appID, m.window, m.status.App, m.anyWindow
 	m.mu.Unlock()
 	if m.Apps.AppIDOf(app) == 0 {
 		m.Off("closed")
@@ -231,9 +249,9 @@ func (m *Manager) check() {
 	switch {
 	case focused == HomeAppID || focused == 0:
 		m.setActive(false)
-	case focused == appID && (window == 0 || win == window):
+	case focused == appID && (window == 0 || win == window || anyWindow):
 		m.mu.Lock()
-		if m.window == 0 {
+		if m.window == 0 && !m.anyWindow {
 			m.window = win
 		}
 		m.mu.Unlock()

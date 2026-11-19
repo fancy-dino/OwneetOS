@@ -615,6 +615,13 @@ func (m *Manager) watchSteam() {
 	}
 	if running {
 		m.watchLaunch()
+		m.mu.Lock()
+		unit := ""
+		if s, ok := m.apps[SteamID]; ok {
+			unit = s.unit
+		}
+		m.mu.Unlock()
+		m.installScriptEnded(unit)
 	}
 	if confirm == nil {
 		return
@@ -770,11 +777,43 @@ func (m *Manager) installScriptWindow(pid int) {
 		}
 	}
 	if pointerOn != nil {
+		m.mu.Lock()
+		already := m.installPointer
+		m.mu.Unlock()
 		if err := pointerOn(SteamID); err != nil {
 			m.Log.Warn("cannot turn the pointer on for the install script's window", "err", err)
 		} else {
-			m.Log.Info("a window of the game's install script: the pointer on for it", "pid", pid)
+			m.mu.Lock()
+			m.installPointer = true
+			m.mu.Unlock()
+			if !already {
+				m.Log.Info("a window of the game's install script: the pointer on for its windows", "pid", pid)
+			}
 		}
+	}
+}
+
+// installScriptEnded: the pointer turned on for a game's install script goes off once none of the
+// script's programs is left (its windows all belong to it: an installer and its own file windows,
+// owner 2026-11-19), whether Steam ran it for the console's launch or for its own.
+func (m *Manager) installScriptEnded(unit string) {
+	m.mu.Lock()
+	on, off := m.installPointer, m.PointerOff
+	m.mu.Unlock()
+	if !on || unit == "" {
+		return
+	}
+	for _, pid := range m.Procs.InUnit(unit) {
+		if m.inInstallScript(pid) {
+			return
+		}
+	}
+	m.mu.Lock()
+	m.installPointer = false
+	m.mu.Unlock()
+	m.Log.Info("the game's install script has ended: the pointer off")
+	if off != nil {
+		off("install script ended")
 	}
 }
 

@@ -333,3 +333,42 @@ func TestMappingFromTheDatabase(t *testing.T) {
 		t.Fatal("ignored devices")
 	}
 }
+
+// A game's install script (an installer made for a mouse, and its own file window): the pointer holds
+// for every window of the app until it is turned off, and turning it on again changes nothing (owner,
+// 2026-11-19: Red Dead Redemption 2's installer lost the pointer when its file window closed).
+func TestPointerForEveryWindowOfAnInstallScript(t *testing.T) {
+	m, _, _, screen, now, ch := newPointer(t)
+	if err := m.OnAnyWindow("steam:480"); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "pointer.changed")
+	screen.set(gameID, 0x400001) // the installer
+	advance(m, now, checkEvery)
+	screen.set(gameID, 0x400002) // its file window
+	advance(m, now, checkEvery)
+	screen.set(gameID, 0x400001) // the file window closed: the installer again
+	advance(m, now, checkEvery)
+	if st := m.Status(); !st.On {
+		t.Fatalf("the pointer went off between the installer's windows: %+v", st)
+	}
+	if err := m.OnAnyWindow("steam:480"); err != nil { // another window of it: nothing changes
+		t.Fatal(err)
+	}
+	select {
+	case e := <-ch:
+		if e.Type == "pointer.changed" {
+			t.Fatalf("turned on again: %+v", e.Data)
+		}
+	default:
+	}
+	screen.set(HomeAppID, 0) // the home screen: it waits
+	advance(m, now, checkEvery)
+	if st := m.Status(); !st.On {
+		t.Fatalf("off over the home screen: %+v", st)
+	}
+	m.Off("install script ended")
+	if st := m.Status(); st.On {
+		t.Fatalf("still on: %+v", st)
+	}
+}

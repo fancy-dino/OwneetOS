@@ -214,6 +214,11 @@ type Manager struct {
 	// PointerOn turns the controller pointer on for a running app (pointer.Manager.On): the console
 	// does it by itself for a window of a game's install script (owner, 2026-11-19); nil: never
 	PointerOn func(app string) error
+	// PointerOff turns the controller pointer off (pointer.Manager.Off): at the install script's end
+	PointerOff func(reason string)
+	// installPointer: the pointer was turned on for an install script; it goes off once no program of
+	// the script is left (watchSteam)
+	installPointer bool
 
 	mu      sync.Mutex
 	apps    map[string]*App // by id

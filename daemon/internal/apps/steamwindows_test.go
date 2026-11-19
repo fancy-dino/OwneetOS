@@ -336,6 +336,8 @@ func TestSteamShownForAnInstallScriptWindow(t *testing.T) {
 	m, _, focus, procs, _, ch := newSteamManager(t)
 	pointerFor := make(chan string, 4)
 	m.PointerOn = func(app string) error { pointerFor <- app; return nil }
+	pointerOff := make(chan string, 4)
+	m.PointerOff = func(reason string) { pointerOff <- reason }
 	dir := m.SteamDir
 	os.MkdirAll(filepath.Join(dir, "logs"), 0o755)
 	os.MkdirAll(filepath.Join(dir, "config"), 0o755)
@@ -380,5 +382,20 @@ func TestSteamShownForAnInstallScriptWindow(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("the pointer was not turned on for the install script's window")
+	}
+	// while a program of the script runs, the pointer stays; once none is left, it goes off
+	m.watchSteam()
+	select {
+	case r := <-pointerOff:
+		t.Fatalf("pointer off while the script runs: %q", r)
+	default:
+	}
+	procs.remove(2002)
+	procs.remove(2001)
+	m.watchSteam()
+	select {
+	case <-pointerOff:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the pointer stayed on after the install script's end")
 	}
 }
