@@ -106,6 +106,27 @@ func (x *X) Focused() (uint32, uint32, error) {
 	return app, win, err
 }
 
+// InputFocusOn: the X server's keyboard focus is on that window or inside it (Wine and toolkits may
+// give it to a child window): the window takes the keys typed now.
+func (x *X) InputFocusOn(window uint32) (bool, error) {
+	reply, err := xproto.GetInputFocus(x.conn).Reply()
+	if err != nil {
+		return false, err
+	}
+	w := reply.Focus
+	for i := 0; i < 32 && w != 0; i++ {
+		if uint32(w) == window {
+			return true, nil
+		}
+		tree, err := xproto.QueryTree(x.conn, w).Reply()
+		if err != nil || tree.Parent == 0 || tree.Parent == tree.Root {
+			return false, err
+		}
+		w = tree.Parent
+	}
+	return false, nil
+}
+
 // textCursorNames: the names toolkits give the text cursor (Qt, GTK, Chromium, X core cursors).
 var textCursorNames = []string{"text", "xterm", "ibeam", "vertical-text"}
 

@@ -49,10 +49,16 @@ func (f *fakeApps) ShowHome() error          { f.mu.Lock(); defer f.mu.Unlock();
 type fakeScreen struct {
 	mu          sync.Mutex
 	app, window uint32
+	keyboard    uint32 // the window with the keyboard focus
 	text        bool
 	changes     chan bool
 }
 
+func (f *fakeScreen) InputFocusOn(window uint32) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.keyboard == window, nil
+}
 func (f *fakeScreen) Focused() (uint32, uint32, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -370,5 +376,31 @@ func TestPointerForEveryWindowOfAnInstallScript(t *testing.T) {
 	m.Off("install script ended")
 	if st := m.Status(); st.On {
 		t.Fatalf("still on: %+v", st)
+	}
+}
+
+// Text from the console's keyboard waits until the window on screen has the keyboard focus (owner,
+// 2026-11-19: a launcher took only the last digits of a code typed too early).
+func TestWaitKeyboard(t *testing.T) {
+	m, _, _, screen, _, ch := newPointer(t)
+	if m.WaitKeyboard(50 * time.Millisecond) {
+		t.Fatal("waited with the pointer off")
+	}
+	if err := m.On("steam:480"); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "pointer.changed")
+	screen.set(gameID, 0x400001)
+	if m.WaitKeyboard(50 * time.Millisecond) {
+		t.Fatal("the window had not the keyboard yet")
+	}
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		screen.mu.Lock()
+		screen.keyboard = 0x400001
+		screen.mu.Unlock()
+	}()
+	if !m.WaitKeyboard(2 * time.Second) {
+		t.Fatal("the keyboard came to the window, not seen")
 	}
 }

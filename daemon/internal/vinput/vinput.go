@@ -44,8 +44,12 @@ type Input struct {
 	layout     Layout
 	kbd        *uinput.Device
 	mouse      *uinput.Device
-	// KeyDelay is the pause between key strokes, so apps do not miss fast typing.
+	// KeyDelay is the pause between key strokes, and KeyHold how long each key stays down: the pace
+	// of a person typing (a chosen interval, [[waiting-for-events]]), so apps do not miss fast typing.
+	// A verification code split into one box per digit, moving to the next box by itself, took only
+	// the last digits at 2 ms and no hold (Rockstar Games Launcher, FrankenPC, 2026-11-19).
 	KeyDelay time.Duration
+	KeyHold  time.Duration
 }
 
 // New creates the virtual devices. layout is an XKB layout name ("us", "it").
@@ -76,7 +80,8 @@ func New(layout string) (*Input, error) {
 		kbd.Close()
 		return nil, fmt.Errorf("virtual mouse: %w", err)
 	}
-	return &Input{layoutName: layout, layout: mk(), kbd: kbd, mouse: mouse, KeyDelay: 2 * time.Millisecond}, nil
+	return &Input{layoutName: layout, layout: mk(), kbd: kbd, mouse: mouse, KeyDelay: 50 * time.Millisecond,
+		KeyHold: 15 * time.Millisecond}, nil
 }
 
 // LayoutNames lists the supported layouts.
@@ -116,6 +121,9 @@ func (in *Input) TypeText(text string) error {
 	strokes, err := Strokes(in.layoutName, text)
 	if err != nil {
 		return err
+	}
+	if in.KeyDelay > 0 && len(strokes) > 0 {
+		time.Sleep(in.KeyDelay) // the window that has just taken the keyboard gets a moment, as from a person
 	}
 	for _, s := range strokes {
 		var mods []int
@@ -168,6 +176,9 @@ func (in *Input) tap(code int, mods []int) error {
 		}
 		if err := in.kbd.Sync(); err != nil {
 			return err
+		}
+		if st[0] == int32(code) && st[1] == 1 && in.KeyHold > 0 {
+			time.Sleep(in.KeyHold) // the key down a moment, as a person's
 		}
 	}
 	if in.KeyDelay > 0 {

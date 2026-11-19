@@ -52,6 +52,8 @@ type Screen interface {
 	TextCursor() (bool, error)
 	// CursorChanges: TextCursor each time the pointer's image changes (closed with the screen)
 	CursorChanges() <-chan bool
+	// InputFocusOn: the keyboard focus is on that window (or inside it)
+	InputFocusOn(window uint32) (bool, error)
 	Close()
 }
 
@@ -182,6 +184,33 @@ func (m *Manager) on(app string, anyWindow bool) error {
 	}
 	go m.loop(in, stop)
 	return nil
+}
+
+// keyboardCheck: how often the keyboard focus is read while text waits for it (an interval, not a
+// time standing for the event, [[waiting-for-events]])
+const keyboardCheck = 10 * time.Millisecond
+
+// WaitKeyboard: text typed with the console's keyboard goes to the app's window as soon as the window
+// on screen has the keyboard focus, not merely once it is shown again (Red Dead Redemption 2's Rockstar
+// launcher took only the last 3 digits of a 6-digit code, FrankenPC, 2026-11-19): it waits for that,
+// at most limit; false when the pointer is off or the limit passed.
+func (m *Manager) WaitKeyboard(limit time.Duration) bool {
+	m.mu.Lock()
+	screen, on := m.screen, m.stop != nil
+	m.mu.Unlock()
+	if !on || screen == nil {
+		return false
+	}
+	for deadline := time.Now().Add(limit); ; time.Sleep(keyboardCheck) {
+		if _, win, err := screen.Focused(); err == nil && win != 0 {
+			if ok, err := screen.InputFocusOn(win); err == nil && ok {
+				return true
+			}
+		}
+		if !time.Now().Before(deadline) {
+			return false
+		}
+	}
 }
 
 // Off turns the pointer off (reason: user, window, closed).
