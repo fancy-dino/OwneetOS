@@ -37,7 +37,7 @@
 // game folder), "disk.root" (the disk's mount folder, "internal" for the home folder),
 // "disk.files" (what can start, relative to the game folder), "disk.start" (the file it starts
 // with, "" until chosen), "disk.windows" (a Windows game) with "disk.gog.start", "disk.gog.args"
-// and "disk.gog.workdir" (GOG's play task), or "disk.dos": a DOS game GOG ships with its Windows
+// and "disk.gog.workdir" (GOG's play task) and "disk.gog.id" (GOG's product id), or "disk.dos": a DOS game GOG ships with its Windows
 // DOSBox (its play task starts dosbox.exe), started with Linux's own DOSBox instead (no Proton).
 
 #include "DiskGamesProvider.h"
@@ -59,6 +59,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QStorageInfo>
 #include <QTextStream>
@@ -94,6 +95,7 @@ const QString MARK_INSTALLED = QStringLiteral(".owneet-installed");
 
 // GOG's play task (goggame-<id>.info): the file that starts the game, with its arguments
 struct GogTask {
+    QString id;                          // GOG's product id (goggame-<id>.info), for umu's fixes
     QString path;                        // relative to the game folder, as found on the disk
     QString args;
     QString workdir;                     // relative to the game folder, "" for the file's folder
@@ -341,6 +343,8 @@ GogTask read_gog_task(const QString& game_dir)
                     || task.value(QStringLiteral("type")).toString() != QLatin1String("FileTask"))
                 continue;
             GogTask out;
+            static const QRegularExpression gog_id(QStringLiteral("^goggame-([0-9]+)\\.info$"));
+            out.id = gog_id.match(info).captured(1);
             out.path = find_windows_path(game_dir, task.value(QStringLiteral("path")).toString());
             if (out.path.isEmpty())
                 continue;
@@ -626,6 +630,9 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
                         extra.insert(QStringLiteral("disk.gog.args"), gog.args);
                         extra.insert(QStringLiteral("disk.gog.workdir"), gog.workdir);
                     }
+                    // the community's fixes for this game, through umu ([[umu-fixes-and-runtime]])
+                    if (!gog.id.isEmpty())
+                        extra.insert(QStringLiteral("disk.gog.id"), gog.id);
                 }
                 owneet::DiskGames::applyChoice(*game, game_dir, start);
                 Log::info(display_name(), LOGMSG("`%1`%2: %3 file(s) to start, starts `%4`%5")

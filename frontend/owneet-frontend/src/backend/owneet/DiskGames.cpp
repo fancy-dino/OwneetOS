@@ -101,7 +101,11 @@ void DiskGames::applyChoice(model::Game& game, const QString& game_dir, const QS
     }
     if (extra.value(QStringLiteral("disk.windows")).toBool()) {
         const bool gog = extra.value(QStringLiteral("disk.gog.start")).toString() == file;
-        QString cmd = QStringLiteral("/usr/lib/owneet/owneet-windows-run ") + quoted(windowsPrefix(game_dir))
+        // GOG's product id: owneet-windows-run finds the game in umu's database, so the community's
+        // fixes for it apply ([[umu-fixes-and-runtime]], owner 2026-11-18)
+        const QString gog_id = extra.value(QStringLiteral("disk.gog.id")).toString();
+        QString cmd = (gog_id.isEmpty() ? QString() : QStringLiteral("/usr/bin/env OWNEET_GOG_ID=") + gog_id + QChar(' '))
+            + QStringLiteral("/usr/lib/owneet/owneet-windows-run ") + quoted(windowsPrefix(game_dir))
             + QChar(' ') + quoted(path);
         const QString args = gog ? extra.value(QStringLiteral("disk.gog.args")).toString() : QString();
         if (!args.isEmpty())

@@ -36,6 +36,31 @@ if [[ -e "$shim" ]] && ! grep -qsF 'exec "$@"' "$shim"; then
     rm -f "$shim"
 fi
 
+# The community's fixes for this game ([[umu-fixes-and-runtime]], owner 2026-11-18): a GOG game
+# (OWNEET_GOG_ID, its product id, given by the interface) is looked up in the umu database that
+# GE-Proton's protonfixes carries (umu-database.csv: no internet), and umu gets its umu id and store,
+# so protonfixes applies that game's fixes. Unknown games stay "umu-default" (no fix), as before.
+# Testers: owneet.debug.umu_ids=off starts every game as before, to compare.
+if [[ -z "${GAMEID:-}" && -n "${OWNEET_GOG_ID:-}" ]] \
+        && ! grep -qs 'owneet.debug.umu_ids=off' /proc/cmdline /run/owneet-testlog/owneet-debug.txt; then
+    umu_id="$(python3 - "$proton/protonfixes/umu-database.csv" "$OWNEET_GOG_ID" 2>/dev/null <<'PY'
+import csv, sys
+path, gog = sys.argv[1], sys.argv[2]
+with open(path, newline="", encoding="utf-8") as f:
+    for row in csv.reader(f):
+        if len(row) >= 4 and row[1].strip().lower() == "gog" and row[2].strip() == gog:
+            print(row[3].strip())
+            break
+PY
+)"
+    if [[ "$umu_id" =~ ^umu-[0-9A-Za-z]+$ ]]; then
+        export GAMEID="$umu_id" STORE=gog
+        echo "owneet-windows-run: GOG $OWNEET_GOG_ID is $umu_id in umu's database: its fixes apply"
+    else
+        echo "owneet-windows-run: GOG $OWNEET_GOG_ID is not in umu's database: no fix for it"
+    fi
+fi
+
 export WINEPREFIX="$prefix" PROTONPATH="$proton" GAMEID="${GAMEID:-umu-default}" UMU_RUNTIME_UPDATE=0
 # No pointer or mapping added inside games (owner, 2026-10-16, [[games-on-disk]]): GE-Proton's
 # Xalia (the controller as a mouse in Windows programs) stays off
