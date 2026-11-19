@@ -10,6 +10,7 @@ import (
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/webapps"
 )
 
 type fakeScreen struct {
@@ -176,5 +177,26 @@ func TestClosesWithTheApp(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	if !p.Status().Open {
 		t.Fatal("the cage page closed when the console came to the front")
+	}
+}
+
+// Drawn over the app it closes when the console's keyboard opens over the page (gamescope draws
+// one external overlay at a time); the keyboard closing leaves it alone
+func TestClosesForTheKeyboard(t *testing.T) {
+	m, _, ch := setup(true)
+	stop := make(chan struct{})
+	defer close(stop)
+	go m.Run(stop)
+	time.Sleep(20 * time.Millisecond)
+	m.Toggle("web:netflix", "netflix.browse")
+	next(t, ch)
+	m.Broker.Publish("webapp.keyboard", webapps.Keyboard{Open: false, App: "netflix"})
+	time.Sleep(100 * time.Millisecond)
+	if !m.Status().Open {
+		t.Fatal("closed by the keyboard closing")
+	}
+	m.Broker.Publish("webapp.keyboard", webapps.Keyboard{Open: true, Kind: "search", App: "netflix"})
+	if !closedSoon(ch) {
+		t.Fatal("open over the console's keyboard")
 	}
 }

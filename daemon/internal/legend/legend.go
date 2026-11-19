@@ -7,7 +7,8 @@
 // through its control socket) and asks owneetd, which still intercepts only Guide; the interface
 // draws the legend ("legend.changed"):
 //   - gamescope: over the app, which keeps working under it; only View closes it, and it closes
-//     when the app leaves the screen (Guide) or exits;
+//     when the app leaves the screen (Guide) or exits, and when the console's keyboard opens over
+//     the page (gamescope draws one external overlay at a time);
 //   - cage (one window at a time): a page of its own in front (owneetd shows the console); B or
 //     View closes it ("close"), and the app comes back.
 package legend
@@ -21,6 +22,7 @@ import (
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/apps"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/webapps"
 )
 
 // State is the body of GET /v1/legend and of "legend.changed".
@@ -176,7 +178,10 @@ func (m *Manager) Status() State {
 }
 
 // Run closes the legend when its app exits, and, drawn over the app, when something else takes
-// the screen (Guide: an overlay would float over the console too). It returns when stop is closed.
+// the screen (Guide: an overlay would float over the console too) or the console's keyboard opens
+// over the page: gamescope draws one external overlay at a time, the most opaque, so the keyboard
+// might not be drawn ([[gamescope-overlay-window-not-drawn-or-left-on-screen]]). It returns when
+// stop is closed.
 func (m *Manager) Run(stop <-chan struct{}) {
 	evs, unsubscribe := m.Broker.Subscribe(32)
 	defer unsubscribe()
@@ -200,6 +205,10 @@ func (m *Manager) Run(stop <-chan struct{}) {
 				m.close(false)
 			case ev.Type == "focus.changed" && !st.Page && data["focus"] != st.App:
 				m.close(false)
+			case ev.Type == "webapp.keyboard" && !st.Page:
+				if k, ok := ev.Data.(webapps.Keyboard); ok && k.Open {
+					m.close(false)
+				}
 			}
 		}
 	}
