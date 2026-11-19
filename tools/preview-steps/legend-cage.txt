@@ -1,0 +1,13 @@
+@owneetd
+# The command legend in cage ([[step-5.6a-command-legend]], approved demo 5.6a): a page of the
+# console in front; other buttons do nothing; B closes it (the pretend owneetd answers the close).
+event legend.changed {"open":true,"app":"player","context":"player.video","page":true}
+wait 1
+shot 01-page-video
+pad x
+pad b
+wait 1
+shot 02-closed
+event legend.changed {"open":true,"app":"web:netflix","context":"netflix.browse","page":true}
+wait 1
+shot 03-page-netflix

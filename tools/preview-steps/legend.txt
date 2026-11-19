@@ -1,0 +1,18 @@
+@owneetd
+@gamescope
+# The command legend in gamescope ([[step-5.6a-command-legend]], approved demo 5.6a): View in the app
+# opens it (here the pretend owneetd's event): a panel floating at the top right, in a window of its
+# own (the external overlay: in this preview a window over the interface); it follows the screen,
+# and closes.
+event legend.changed {"open":true,"app":"web:netflix","context":"netflix.player"}
+wait 1
+shot 01-netflix-player
+event legend.changed {"open":true,"app":"web:spotify","context":"spotify"}
+wait 1
+shot 02-long-legend
+event legend.changed {"open":true,"app":"player","context":"player.song"}
+wait 1
+shot 03-player-song
+event legend.changed {"app":"player"}
+wait 1
+shot 04-closed
