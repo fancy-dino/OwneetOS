@@ -226,7 +226,7 @@ FocusScope {
     }
     readonly property bool modalOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
                                       || notices.visible || quick.visible || controls.visible || steamPrep.visible || webPrep.visible
-                                      || webKeys.shown
+                                      || webKeys.shown || legend.visible
     function backToPage() { Qt.callLater(() => { if (!root.modalOpen) root.page.forceActiveFocus(); }); }
 
     // ---- Buttons the sections leave to the whole interface (section 9.1)
@@ -286,6 +286,7 @@ FocusScope {
         owneetd.get("/v1/network", (status, data) => { if (status === 200) { network = data; lastNetwork = data; } });
         refreshApps();
         owneetd.get("/v1/player", (status, data) => { if (status === 200) root.setPlayer(data); });
+        owneetd.get("/v1/legend", (status, data) => { if (status === 200) root.setLegend(data); });
         refreshControllers();
         applyKeyboard();          // the on-screen keyboard and physical keyboards follow the chosen layout
         refreshSteam(false);
@@ -317,6 +318,8 @@ FocusScope {
                     refreshTimer.restart();       // play time and "last played" have changed
                 if (type === "app.exited" && data.id === "player")
                     root.playerEnded();
+            } else if (type === "legend.changed") {
+                root.setLegend(data);
             } else if (type === "player.changed") {
                 root.setPlayer(data);
             } else if (type === "steam.launch_failed") {
@@ -3364,6 +3367,33 @@ FocusScope {
         layered: root.sessionMode === "gamescope"     // drawn over the page (part 6)
         layout: osk.layout
         onFinished: root.backToPage()
+    }
+
+    // ---- The command legend (5.6a, approved demo design/demos/5.6a-command-legend.html): View in a
+    // web app or the player opens it (the app asks owneetd, "legend.changed"); over the app in
+    // gamescope, a page in front in cage (B or View: back to the app)
+    function setLegend(data) {
+        const st = data || {};
+        if (!st.open) {
+            const wasPage = legend.visible;
+            legend.hide();
+            if (wasPage) root.backToPage();
+            return;
+        }
+        let name = "";
+        if (st.app === "player")
+            name = Tr.tr(st.context === "player.song" ? "app.music" : "app.videos");
+        else {
+            const w = webApps.find(a => "web:" + a.id === st.app);
+            const a = apps.find(x => x.id === st.app);
+            name = w ? Tr.tr(w.nameKey) : a ? a.name : "";
+        }
+        legend.show(st, name);
+    }
+    Legend {
+        id: legend
+        layered: root.sessionMode === "gamescope"
+        onClosed: owneetd.post("/v1/legend", { action: "close" })
     }
 
     // ---- The cage session (5.2): the interface shows or hides its own window, as owneetd decides
