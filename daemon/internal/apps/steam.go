@@ -193,6 +193,25 @@ func (m *Manager) steamStop() []string {
 		remote}
 }
 
+// steamOSArgs: the options SteamOS-like sessions start Steam with (ChimeraOS: -steamos3 -steampal
+// -steamdeck), undocumented by Valve, tried one at a time with the testers' switch
+// owneet.debug.steam_os=os|pal|deck|all ([[steam-the-steamos-way]], [[game-compatibility-method]]): a
+// game without controller support (BioShock, FrankenPC 2026-11-19) got Steam's gamepad layout, where
+// SteamOS gives its keyboard-and-mouse ones.
+func steamOSArgs(choice string) []string {
+	switch choice {
+	case "os":
+		return []string{"-steamos3"}
+	case "pal":
+		return []string{"-steampal"}
+	case "deck":
+		return []string{"-steamdeck"}
+	case "all":
+		return []string{"-steamos3", "-steampal", "-steamdeck"}
+	}
+	return nil
+}
+
 // SteamProtonLogDir: where Proton writes its log of each Steam game (steam-APPID.log) with the
 // testers' switch on. /tmp is in memory (nothing stays on the disk, [[open-items]] 3p) and Steam's
 // container shares it; the test log copies the logs to the OWNEETLOG stick (owneet-testlog).
@@ -369,6 +388,7 @@ func (m *Manager) Steam(req SteamRequest) error {
 			m.Log.Info("disks for games added to Steam's libraries", "folders", libs)
 		}
 		args := append([]string{"-gamepadui"}, m.steamGPUArgs()...)
+		args = append(args, steamOSArgs(DebugOption("steam_os"))...)
 		if lang := steamLanguage(req.Language); lang != "" {
 			args = append(args, "-language", lang)
 		}

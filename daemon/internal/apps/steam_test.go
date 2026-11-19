@@ -1058,3 +1058,12 @@ func TestSteamGameEndBringsHomeOverSteam(t *testing.T) {
 		t.Fatalf("Steam chosen during the game left for the home screen: %d", f)
 	}
 }
+
+func TestSteamOSArgs(t *testing.T) {
+	for choice, want := range map[string]string{"": "", "os": "-steamos3", "pal": "-steampal", "deck": "-steamdeck",
+		"all": "-steamos3 -steampal -steamdeck", "other": ""} {
+		if got := strings.Join(steamOSArgs(choice), " "); got != want {
+			t.Errorf("%q: %q, want %q", choice, got, want)
+		}
+	}
+}
