@@ -211,6 +211,9 @@ type Manager struct {
 	// Steam's own windows shown during a launch, as on SteamOS); the testers' switch
 	// owneet.debug.steam_launch=hidden brings the old way back, to compare.
 	HideSteamLaunch func() bool
+	// PointerOn turns the controller pointer on for a running app (pointer.Manager.On): the console
+	// does it by itself for a window of a game's install script (owner, 2026-11-19); nil: never
+	PointerOn func(app string) error
 
 	mu      sync.Mutex
 	apps    map[string]*App // by id

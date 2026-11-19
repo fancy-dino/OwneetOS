@@ -751,21 +751,30 @@ func (m *Manager) inInstallScript(pid int) bool {
 	return false
 }
 
-// installScriptWindow: a window of a game's install script came on screen while Steam is hidden
-// for the launch (steamAskNow): Steam is shown, as for its questions, since the window waits for the
-// user (Jedi: Fallen Order's EA install script, FrankenPC, 2026-11-18, [[open-items]] 13: an "Open"
-// file window stayed hidden behind "Starting …" for 4 minutes).
+// installScriptWindow: a window of a game's install script came on screen. It waits for the user:
+// Steam is shown if it was hidden for the launch (steamAskNow; Jedi: Fallen Order's EA install script,
+// FrankenPC, 2026-11-18, [[open-items]] 13: an "Open" file window stayed hidden behind "Starting …" for
+// 4 minutes), and the controller pointer is turned on for it by itself: such windows are publishers'
+// installers made for a mouse (Red Dead Redemption 2's Rockstar Games Launcher installer, 2026-11-19;
+// owner: option B, [[controller-input-map]]). The pointer holds for that window only.
 func (m *Manager) installScriptWindow(pid int) {
 	m.mu.Lock()
 	hidden := m.steamHidden
 	m.steamHidden = false
+	pointerOn := m.PointerOn
 	m.mu.Unlock()
-	if !hidden {
-		return
+	if hidden {
+		m.Log.Info("a window of the game's install script: Steam shown", "pid", pid)
+		if err := m.FocusApp(SteamID); err != nil {
+			m.Log.Debug("cannot show Steam", "err", err)
+		}
 	}
-	m.Log.Info("a window of the game's install script: Steam shown", "pid", pid)
-	if err := m.FocusApp(SteamID); err != nil {
-		m.Log.Debug("cannot show Steam", "err", err)
+	if pointerOn != nil {
+		if err := pointerOn(SteamID); err != nil {
+			m.Log.Warn("cannot turn the pointer on for the install script's window", "err", err)
+		} else {
+			m.Log.Info("a window of the game's install script: the pointer on for it", "pid", pid)
+		}
 	}
 }
 

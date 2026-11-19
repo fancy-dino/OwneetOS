@@ -337,6 +337,10 @@ func run(configPath string) error {
 				return pointer.DialX(sess.Display)
 			},
 			Pads: pointer.ReadPads(db, log)}
+		// a window of a game's install script (a publisher's installer, made for a mouse) gets the
+		// pointer by itself (owner, 2026-11-19, [[controller-input-map]])
+		pm := pointerAPI.(*pointer.Manager)
+		appsMgr.PointerOn = func(app string) error { return pm.On(app) }
 	}
 
 	// The time zone, chosen at the first start and in Settings ([[step-6.1-first-boot-flow]])

@@ -334,6 +334,8 @@ func TestSteamWindowsVersion(t *testing.T) {
 // the window waits for the user (Jedi: Fallen Order's EA install script, FrankenPC, 2026-11-18).
 func TestSteamShownForAnInstallScriptWindow(t *testing.T) {
 	m, _, focus, procs, _, ch := newSteamManager(t)
+	pointerFor := make(chan string, 4)
+	m.PointerOn = func(app string) error { pointerFor <- app; return nil }
 	dir := m.SteamDir
 	os.MkdirAll(filepath.Join(dir, "logs"), 0o755)
 	os.MkdirAll(filepath.Join(dir, "config"), 0o755)
@@ -369,5 +371,14 @@ func TestSteamShownForAnInstallScriptWindow(t *testing.T) {
 		if time.Now().After(deadline) {
 			t.Fatalf("Steam not shown for the install script's window: %q", m.Status().Focus)
 		}
+	}
+	// the window is made for a mouse: the pointer is turned on for it by itself (owner, 2026-11-19)
+	select {
+	case app := <-pointerFor:
+		if app != SteamID {
+			t.Fatalf("pointer turned on for %q", app)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the pointer was not turned on for the install script's window")
 	}
 }
