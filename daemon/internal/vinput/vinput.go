@@ -224,6 +224,26 @@ func (in *Input) Click(button string) error {
 	return in.mouse.Press(code)
 }
 
+// Button holds a mouse button down or lets it go ("left", "right", "middle"): the controller
+// pointer's button follows the controller's own, as long as it is held, as a real mouse's does
+// (BioShock's menu never saw a click with no time between down and up, FrankenPC 2026-11-19).
+func (in *Input) Button(button string, down bool) error {
+	code, ok := mouseButtons[strings.ToLower(button)]
+	if !ok {
+		return fmt.Errorf("%w: button %q", ErrUnknownKey, button)
+	}
+	v := int32(0)
+	if down {
+		v = 1
+	}
+	in.mu.Lock()
+	defer in.mu.Unlock()
+	if err := in.mouse.Emit(evdev.EvKey, uint16(code), v); err != nil {
+		return err
+	}
+	return in.mouse.Sync()
+}
+
 // Layout returns the current keyboard layout name.
 func (in *Input) Layout() string {
 	in.mu.Lock()

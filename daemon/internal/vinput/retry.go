@@ -111,6 +111,14 @@ func (r *Retrying) Click(button string) error {
 	return in.Click(button)
 }
 
+func (r *Retrying) Button(button string, down bool) error {
+	in, err := r.get()
+	if err != nil {
+		return err
+	}
+	return in.Button(button, down)
+}
+
 // Layout is the keyboard layout, also before the devices exist.
 func (r *Retrying) Layout() string {
 	r.mu.Lock()

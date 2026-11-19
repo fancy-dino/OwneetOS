@@ -5,6 +5,7 @@ package pointer
 import (
 	"io"
 	"log/slog"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -19,7 +20,8 @@ type fakeMouse struct {
 	mu     sync.Mutex
 	dx, dy int
 	wheel  int
-	clicks []string
+	clicks []string // buttons pressed and let go
+	held   map[string]bool
 }
 
 func (f *fakeMouse) MovePointer(dx, dy, wheel int) error {
@@ -30,11 +32,23 @@ func (f *fakeMouse) MovePointer(dx, dy, wheel int) error {
 	f.wheel += wheel
 	return nil
 }
-func (f *fakeMouse) Click(b string) error {
+func (f *fakeMouse) Button(b string, down bool) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.clicks = append(f.clicks, b)
+	if f.held == nil {
+		f.held = map[string]bool{}
+	}
+	if !down && f.held[b] {
+		f.clicks = append(f.clicks, b)
+	}
+	f.held[b] = down
 	return nil
+}
+
+func (f *fakeMouse) isHeld(b string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.held[b]
 }
 
 type fakeApps struct {
@@ -164,6 +178,7 @@ func TestPointerFollowsOneWindow(t *testing.T) {
 	m.input(Input{Control: "a", Value: 1})
 	m.input(Input{Control: "a", Value: 0})
 	m.input(Input{Control: "x", Value: 1})
+	m.input(Input{Control: "x", Value: 0})
 	m.input(Input{Control: "y", Value: 1})
 	if d := next(t, ch, "pointer.type").Data.(map[string]string); d["app"] != "steam:480" || d["reason"] != "button" {
 		t.Fatalf("pointer.type %v", d)
@@ -233,6 +248,33 @@ func TestPointerOffWhenTheAppCloses(t *testing.T) {
 	m.Off("user") // already off: nothing
 }
 
+// The mouse's button stays down as long as A is held (BioShock's menu, FrankenPC 2026-11-19, never
+// saw a click with no time between down and up), and is let go when the pointer goes off.
+func TestButtonHeldAsLongAsA(t *testing.T) {
+	m, mouse, _, screen, now, _ := newPointer(t)
+	screen.set(gameID, 7)
+	m.On("steam:480")
+	advance(m, now, checkEvery)
+	m.input(Input{Control: "a", Value: 1})
+	advance(m, now, 100*time.Millisecond)
+	if !mouse.isHeld("left") {
+		t.Fatal("the left button is not held while A is")
+	}
+	m.input(Input{Control: "a", Value: 1}) // the same press read again: no second press
+	m.input(Input{Control: "a", Value: 0})
+	if mouse.isHeld("left") || len(mouse.clicks) != 1 {
+		t.Fatalf("after A: held %v, clicks %v", mouse.isHeld("left"), mouse.clicks)
+	}
+	m.input(Input{Control: "x", Value: 1})
+	if !mouse.isHeld("right") {
+		t.Fatal("the right button is not held while X is")
+	}
+	m.Off("user")
+	if mouse.isHeld("right") {
+		t.Fatal("the right button still held after the pointer went off")
+	}
+}
+
 // A click on a text field (the pointer becomes the text "I") asks the keyboard by itself.
 func TestClickOnATextField(t *testing.T) {
 	m, _, apps, screen, now, ch := newPointer(t)
@@ -241,6 +283,7 @@ func TestClickOnATextField(t *testing.T) {
 	m.On("steam:480")
 	advance(m, now, checkEvery)
 	m.input(Input{Control: "a", Value: 1})
+	m.input(Input{Control: "a", Value: 0}) // the keyboard once the click is over
 	if d := next(t, ch, "pointer.type").Data.(map[string]string); d["reason"] != "field" {
 		t.Fatalf("pointer.type %v", d)
 	}
@@ -260,12 +303,27 @@ func TestClickThenTheTextShape(t *testing.T) {
 	m.On("steam:480")
 	advance(m, now, checkEvery)
 	m.input(Input{Control: "a", Value: 1}) // an arrow: nothing yet
+	m.input(Input{Control: "a", Value: 0})
 	screen.shape(true)
 	if d := next(t, ch, "pointer.type").Data.(map[string]string); d["reason"] != "field" {
 		t.Fatalf("pointer.type %v", d)
 	}
 	screen.shape(false)
+	// the shape read by followCursor before the next click (it runs on its own goroutine)
+	for deadline := time.Now().Add(2 * time.Second); ; {
+		m.mu.Lock()
+		text := m.textCursor
+		m.mu.Unlock()
+		if !text {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the arrow shape never read")
+		}
+		runtime.Gosched()
+	}
 	m.input(Input{Control: "a", Value: 1})
+	m.input(Input{Control: "a", Value: 0})
 	m.input(Input{Control: "dpleft", Value: 1}) // moved before the shape changed
 	screen.shape(true)
 	select {

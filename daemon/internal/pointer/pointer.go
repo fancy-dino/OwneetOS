@@ -35,7 +35,8 @@ var (
 // Mouse is the virtual mouse (vinput).
 type Mouse interface {
 	MovePointer(dx, dy, wheel int) error
-	Click(button string) error
+	// Button holds a button down (true) or lets it go (false)
+	Button(button string, down bool) error
 }
 
 // Apps gives a running app's gamescope app id (0: not running) and brings the home screen up.
@@ -119,8 +120,11 @@ type Manager struct {
 	// the text "I" (no move since; afterClick, followCursor)
 	textCursor bool
 	clickWaits bool
-	now        func() time.Time
-	manual     bool // tests: no loop, step and input are called by hand
+	// the mouse buttons held down now (A: left, X: right), let go with the controller's button, or
+	// when the pointer goes off or leaves the app's window
+	down   map[string]bool
+	now    func() time.Time
+	manual bool // tests: no loop, step and input are called by hand
 }
 
 // Status tells whether the pointer is on, and for which app.
@@ -228,6 +232,7 @@ func (m *Manager) Off(reason string) {
 	app := m.status.App
 	m.status = Status{Reason: reason}
 	m.mu.Unlock()
+	m.letGo()
 	m.Log.Info("pointer off", "app", app, "reason", reason)
 	m.publish()
 }
@@ -298,10 +303,46 @@ func (m *Manager) check() {
 
 func (m *Manager) setActive(active bool) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.active = active
 	if !active { // nothing held carries over a visit to the home screen
 		m.state, m.held, m.repeat = map[string]float64{}, map[string]time.Time{}, map[string]time.Time{}
+	}
+	m.mu.Unlock()
+	if !active {
+		m.letGo()
+	}
+}
+
+// press holds a mouse button down, once.
+func (m *Manager) press(button string) {
+	m.mu.Lock()
+	if m.down == nil {
+		m.down = map[string]bool{}
+	}
+	held := m.down[button]
+	m.down[button] = true
+	m.mu.Unlock()
+	if !held {
+		m.Mouse.Button(button, true)
+	}
+}
+
+// release lets a mouse button go; false if it was not held.
+func (m *Manager) release(button string) bool {
+	m.mu.Lock()
+	held := m.down[button]
+	delete(m.down, button)
+	m.mu.Unlock()
+	if held {
+		m.Mouse.Button(button, false)
+	}
+	return held
+}
+
+// letGo lets every mouse button held go (the pointer off, or its window no longer on screen).
+func (m *Manager) letGo() {
+	for _, b := range []string{"left", "right"} {
+		m.release(b)
 	}
 }
 
@@ -316,6 +357,7 @@ func (m *Manager) input(ev Input) {
 	m.state[ev.Control] = ev.Value
 	active := m.active
 	pressed := before < 0.5 && ev.Value >= 0.5
+	released := before >= 0.5 && ev.Value < 0.5
 	now := m.clock()
 	if len(ev.Control) > 2 && ev.Control[:2] == "dp" {
 		if pressed {
@@ -326,15 +368,30 @@ func (m *Manager) input(ev Input) {
 		}
 	}
 	m.mu.Unlock()
-	if !active || !pressed {
+	if !active {
+		return
+	}
+	// A and X are the mouse's left and right buttons, held as long as they are (owner, 2026-11-19,
+	// [[controller-input-map]]); the click is over when A is let go
+	if released {
+		switch ev.Control {
+		case "a":
+			if m.release("left") {
+				m.afterClick()
+			}
+		case "x":
+			m.release("right")
+		}
+		return
+	}
+	if !pressed {
 		return
 	}
 	switch ev.Control {
 	case "a":
-		m.Mouse.Click("left")
-		m.afterClick()
+		m.press("left")
 	case "x":
-		m.Mouse.Click("right")
+		m.press("right")
 	case "y":
 		m.askKeyboard("button")
 	case "dpup", "dpdown", "dpleft", "dpright":
