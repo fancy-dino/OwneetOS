@@ -142,6 +142,19 @@ game_logs() {
         echo "$key" > "${dst%.log}.key"
         cp -u "$f" "$dst" 2>/dev/null
     done
+    # Steam's Windows games: their own settings files (.ini, small ones) in their Windows folders, to
+    # read how a game binds its controls (BioShock, 2026-11-19: every button opened its quit menu);
+    # copied as they change, only read
+    local lib ini rel
+    for lib in /home/owneet/.local/share/Steam /run/media/owneet/*/SteamLibrary; do
+        [[ -d "$lib/steamapps/compatdata" ]] || continue
+        while IFS= read -r -d '' ini; do
+            rel="${ini#"$lib"/steamapps/compatdata/}"
+            mkdir -p "$base.games/ini/$(dirname "$rel")"
+            cp -u "$ini" "$base.games/ini/$rel" 2>/dev/null
+        done < <(find "$lib"/steamapps/compatdata/*/pfx/drive_c/users/steamuser -name '*.ini' -size -256k -print0 2>/dev/null \
+                 | head -z -n 400)
+    done
     # Windows games with owneet.debug.windows_log=on (4.5): Proton's logs, one folder per game
     for f in /home/owneet/.local/share/owneet/windows/logs/*/*.log; do
         [[ -f "$f" && "$f" -nt /proc/1 ]] || continue
