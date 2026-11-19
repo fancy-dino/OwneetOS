@@ -44,6 +44,13 @@ Mockups and design assets.
     full-screen page, B or View goes back to the app. The apps behind it are drawings (no logo, no
     look of the services). Demo keys: 1–6 the app, S session. Start state:
     `#app=netflix&screen=title|player&legend=1&session=cage&lang=it&glyphs=ps`.
+  - [`5.7-apps-page.html`](demos/5.7-apps-page.html): the Apps page ([[step-5.7-apps-page]]):
+    with more than six apps the home shows five and "All apps", which opens a page of every app in a
+    grid of tiles (installed ones first in a fixed order, then the missing ones; the grid goes
+    round); A opens or installs, Menu → Remove, B back to the home on "All apps"; Videos and Music
+    come back to where they were opened. Film Club, Podcasts and Radio are invented web apps. Demo
+    keys: K nine or six apps, R the order with six apps (installed first, or as today). Start
+    state: `#apps=6&order=today&page=apps&lang=it`.
   - [`6.1-first-start.html`](demos/6.1-first-start.html): the first start
     ([[step-6.1-first-boot-flow]]): the mockup's pairing screen, the language, the network (or
     later), the time zone (suggested, or a list of cities), the Xbox adapter's firmware with
