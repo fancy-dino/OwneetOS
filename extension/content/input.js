@@ -9,7 +9,10 @@
 // wants ([[extension-design]] "One navigation per supported app"): YouTube's TV interface
 // (youtube-tv.js, "Inside YouTube"), Netflix (netflix.js, "Inside Netflix"), Spotify (spotify.js,
 // "Inside Spotify"). X, Y, Menu, LB / RB, LT / RT and R3 mean something only where such an app
-// gives them a meaning.
+// gives them a meaning. View opens or closes the console's command legend for the screen on show
+// ([[step-5.6a-command-legend]]): owneetd and the interface draw it; while it is open over the page
+// (gamescope) the page keeps the controller and tells the console when its screen changes; as a
+// page of the console in front (cage) the controller waits until it closes.
 
 'use strict';
 
@@ -18,7 +21,7 @@
   const Nav = OwneetNav;
 
   // Standard Gamepad API mapping
-  const BTN = { a: 0, b: 1, x: 2, y: 3, lb: 4, rb: 5, lt: 6, rt: 7, menu: 9, rs: 11, up: 12, down: 13, left: 14, right: 15 };
+  const BTN = { a: 0, b: 1, x: 2, y: 3, lb: 4, rb: 5, lt: 6, rt: 7, view: 8, menu: 9, rs: 11, up: 12, down: 13, left: 14, right: 15 };
   const REPEAT_FIRST = 360, REPEAT_NEXT = 140;     // held directions ([[controller-input-map]])
   const TRIGGER_FIRST = 720, TRIGGER_NEXT = 360;   // held LB / RB and LT / RT
   const TRIGGER_ON = 0.5, TRIGGER_OFF = 0.25;      // analog triggers: pressed past half, released under a quarter
@@ -28,6 +31,9 @@
 
   // ---------- Bridge (background worker → owneet-bridge → owneetd) ----------
   let port = null, paused = false;
+  // the command legend: open (over the page, or as the console's page in front), and the legend
+  // last told to the console
+  let legendOpen = false, legendPage = false, legendSent = '', legendCheckAt = 0;
   function connect() {
     try {
       port = chrome.runtime.connect({ name: 'page' });
@@ -43,6 +49,11 @@
         break;
       case 'text': Keyboard.insert(msg.text); break;
       case 'key': Keyboard.key(msg.key); break;
+      case 'legend':
+        legendOpen = !!msg.open;
+        legendPage = legendOpen && !!msg.page;
+        if (!legendOpen) legendSent = '';
+        break;
       case 'keyboard_closed':
         paused = false; settle();
         if (msg.next) moveTo(Nav.next(document, current || lastRect, 'down', ringHost));
@@ -281,14 +292,14 @@
   let active = false;     // the page had the controller in the previous frame
   function frame(now) {
     const p = document.visibilityState === 'visible' && document.hasFocus() ? pad() : null;
-    if (p && !paused) {
+    if (p && !paused && !legendPage) {
       const on = i => !!(p.buttons[i] && p.buttons[i].pressed);
       if (!active) {
         // The controller comes back (the console's keyboard closed, the page in front again):
         // buttons still held from the console count only once released and pressed again (B
         // that closed the keyboard must not also go back), a held direction or trigger waits to
         // repeat
-        for (const i of [BTN.a, BTN.b, BTN.x, BTN.y, BTN.menu, BTN.rs]) prev[i] = on(i);
+        for (const i of [BTN.a, BTN.b, BTN.x, BTN.y, BTN.view, BTN.menu, BTN.rs]) prev[i] = on(i);
         heldDir = direction(p, on);
         repeatAt = now + REPEAT_FIRST;
         heldTrigger = trigger(p);
@@ -322,6 +333,12 @@
       if (edge(BTN.x) && site && site.secondary) { site.secondary(); lastInput = now; }
       if (edge(BTN.menu) && site && site.options) { site.options(); lastInput = now; }
       if (edge(BTN.rs) && site && site.stickPress) { site.stickPress(); lastInput = now; }
+      // View: the console's command legend for the screen on show, opened or closed
+      if (edge(BTN.view)) {
+        legendSent = legendContext();
+        send({ type: 'legend', action: 'toggle', context: legendSent });
+        lastInput = now;
+      }
       const sh = shoulder(on);
       if (sh && (sh !== heldShoulder || now >= shoulderAt)) {
         if (site && site.section) site.section(sh);
@@ -339,6 +356,12 @@
     } else {
       active = false;
     }
+    // Open over the page, the legend follows the screen (Netflix's title window, its player…)
+    if (legendOpen && !legendPage && now >= legendCheckAt) {
+      legendCheckAt = now + 250;
+      const c = legendContext();
+      if (c !== legendSent) { legendSent = c; send({ type: 'legend', action: 'screen', context: c }); }
+    }
     drawRing(now);
     requestAnimationFrame(frame);
   }
@@ -354,6 +377,9 @@
     : OwneetNetflix.matches(location) ? OwneetNetflix.driver(env, ringPage)
     : OwneetSpotify.matches(location) ? OwneetSpotify.driver(env, ringPage)
     : null;
+
+  // The legend for the screen on show: the supported app's own, else the web app's (frontend legends.js)
+  const legendContext = () => (site && site.legend ? site.legend() : 'web');
 
   connect();
   // An app drawn as on a screen layoutWidth px wide (Spotify on a TV): the worker sets Brave's zoom

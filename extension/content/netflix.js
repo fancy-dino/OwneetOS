@@ -325,6 +325,9 @@ var OwneetNetflix = (() => {
       scroll: () => !!player(),
       // the ring is hidden while the player's controls are
       hideRing: () => !!player() && !controlsShown(),
+      // the command legend for the screen on show (frontend legends.js, [[step-5.6a-command-legend]]):
+      // the player, a title window, the browsing pages; other pages keep the web app's bindings
+      legend: () => player() ? 'netflix.player' : titleWindow() ? 'netflix.title' : rows().length ? 'netflix.browse' : 'web',
     };
   }
 

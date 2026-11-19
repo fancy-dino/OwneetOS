@@ -247,6 +247,9 @@ var OwneetSpotify = (() => {
 
     return {
       layoutWidth: LAYOUT_WIDTH,
+      // the command legend (frontend legends.js, [[step-5.6a-command-legend]]): Spotify's player
+      // pages (with their player bar); its sign-in pages keep the web app's bindings
+      legend: () => (bar() ? 'spotify' : 'web'),
       move(dir) {
         const m = openMenu();
         if (m) return inside(m, dir, true);
