@@ -403,6 +403,12 @@ func (m *Manager) Steam(req SteamRequest) error {
 		if err != nil {
 			return err
 		}
+		// testers only, to compare: owneet.debug.steam_xalia=off starts Steam's games without Proton's
+		// Xalia (BioShock, 2026-11-19: every button seemed to press Esc next to Steam's layout)
+		if DebugOption("steam_xalia") == "off" {
+			argv = append(append(append([]string{}, argv[:3]...), "PROTON_USE_XALIA=0"), argv[3:]...)
+			m.Log.Info("test: Proton's Xalia off for Steam's games")
+		}
 		if logEnv := steamProtonLog(); logEnv != nil {
 			// env's own assignments, before the program: argv is env -u NAME PROGRAM ARGS…
 			argv = append(append(append([]string{}, argv[:3]...), logEnv...), argv[3:]...)
