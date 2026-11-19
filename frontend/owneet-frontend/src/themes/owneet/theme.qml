@@ -1841,7 +1841,9 @@ FocusScope {
     }
     Connections {
         target: storage
-        function onVolumesChanged() { root.checkDisks(); root.findCoverPictures(); }
+        // the library's disks too, at once (owner, 2026-11-19: an SSD taken out stayed listed
+        // until the library was shown again)
+        function onVolumesChanged() { root.checkDisks(); root.findCoverPictures(); library.refreshVolumes(); }
     }
     Connections {                         // the games read again quietly are ready
         target: api
