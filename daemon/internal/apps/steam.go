@@ -622,6 +622,7 @@ func (m *Manager) watchSteam() {
 		}
 		m.mu.Unlock()
 		m.installScriptEnded(unit)
+		m.pauseXalia()
 	}
 	if confirm == nil {
 		return
@@ -790,6 +791,69 @@ func (m *Manager) installScriptWindow(pid int) {
 				m.Log.Info("a window of the game's install script: the pointer on for its windows", "pid", pid)
 			}
 		}
+	}
+}
+
+// xaliaProgram: Proton's Xalia (it makes Windows launchers usable with a controller, run by Proton in
+// Steam's games: "…/files/share/wine/../xalia/xalia.exe")
+func xaliaProgram(argv []string) bool {
+	return len(argv) > 0 && strings.HasSuffix(strings.ToLower(strings.ReplaceAll(argv[0], "\\", "/")), "/xalia.exe")
+}
+
+// PointerChanged: while the console's pointer is on, Proton's Xalia is paused (SIGSTOP), and it goes
+// on when the pointer goes off (SIGCONT). Both read the same controller over the same window: Red Dead
+// Redemption 2's Rockstar launcher had its checkbox ticked by the pointer's A and unticked by Xalia's
+// (FrankenPC, 2026-11-19, owner). Xalia is left alone whenever the pointer is off (Jedi: Fallen Order's EA
+// window went through with it).
+func (m *Manager) PointerChanged(on bool) {
+	m.mu.Lock()
+	m.pointerIsOn = on
+	m.mu.Unlock()
+	if on {
+		m.pauseXalia()
+		return
+	}
+	m.mu.Lock()
+	paused := m.xaliaPaused
+	m.xaliaPaused = nil
+	m.mu.Unlock()
+	for pid := range paused {
+		if err := m.Procs.Signal(pid, syscall.SIGCONT); err == nil {
+			m.Log.Info("Proton's Xalia goes on: the pointer is off", "pid", pid)
+		}
+	}
+}
+
+// pauseXalia pauses every Xalia of Steam's games not paused yet (at the pointer's start, and each second
+// while it is on: one started meanwhile)
+func (m *Manager) pauseXalia() {
+	m.mu.Lock()
+	on := m.pointerIsOn
+	unit := ""
+	if s, ok := m.apps[SteamID]; ok {
+		unit = s.unit
+	}
+	if m.xaliaPaused == nil {
+		m.xaliaPaused = map[int]bool{}
+	}
+	m.mu.Unlock()
+	if !on || unit == "" {
+		return
+	}
+	for _, pid := range m.Procs.InUnit(unit) {
+		m.mu.Lock()
+		done := m.xaliaPaused[pid]
+		m.mu.Unlock()
+		if done || !xaliaProgram(m.Procs.Cmdline(pid)) {
+			continue
+		}
+		if err := m.Procs.Signal(pid, syscall.SIGSTOP); err != nil {
+			continue
+		}
+		m.mu.Lock()
+		m.xaliaPaused[pid] = true
+		m.mu.Unlock()
+		m.Log.Info("Proton's Xalia paused while the console's pointer is on", "pid", pid)
 	}
 }
 

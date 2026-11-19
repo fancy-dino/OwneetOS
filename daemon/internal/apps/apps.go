@@ -219,6 +219,9 @@ type Manager struct {
 	// installPointer: the pointer was turned on for an install script; it goes off once no program of
 	// the script is left (watchSteam)
 	installPointer bool
+	// xaliaPaused: Proton's Xalia programs paused while the console's pointer is on (PointerChanged)
+	xaliaPaused map[int]bool
+	pointerIsOn bool
 
 	mu      sync.Mutex
 	apps    map[string]*App // by id

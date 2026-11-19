@@ -342,6 +342,7 @@ func run(configPath string) error {
 		pm := pointerAPI.(*pointer.Manager)
 		appsMgr.PointerOn = func(app string) error { return pm.OnAnyWindow(app) }
 		appsMgr.PointerOff = func(reason string) { pm.Off(reason) }
+		pm.Changed = func(st pointer.Status) { appsMgr.PointerChanged(st.On) }
 	}
 
 	// The time zone, chosen at the first start and in Settings ([[step-6.1-first-boot-flow]])

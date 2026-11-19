@@ -94,6 +94,8 @@ type Manager struct {
 	Screen func() (Screen, error)
 	// Pads starts reading the controllers into in until stop is closed
 	Pads func(in chan<- Input, stop <-chan struct{})
+	// Changed is told the status each time it changes (apps pauses Proton's Xalia meanwhile)
+	Changed func(Status)
 
 	// anyWindow: it holds for every window of the app (a game's install script: an installer and its
 	// own file windows, owner 2026-11-19), not for the first one only
@@ -231,8 +233,12 @@ func (m *Manager) Off(reason string) {
 }
 
 func (m *Manager) publish() {
+	st := m.Status()
 	if m.Broker != nil {
-		m.Broker.Publish("pointer.changed", m.Status())
+		m.Broker.Publish("pointer.changed", st)
+	}
+	if m.Changed != nil {
+		m.Changed(st)
 	}
 }
 

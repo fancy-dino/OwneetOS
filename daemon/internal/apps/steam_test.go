@@ -1067,3 +1067,37 @@ func TestSteamOSArgs(t *testing.T) {
 		}
 	}
 }
+
+// While the console's pointer is on, Proton's Xalia is paused, and it goes on after (owner,
+// 2026-11-19: a launcher's checkbox ticked by the pointer and unticked by Xalia).
+func TestXaliaPausedWhileThePointerIsOn(t *testing.T) {
+	m, units, focus, procs, _, ch := newSteamManager(t)
+	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "app.started")
+	focus.openWindow(1001)
+	settle(m)
+	unit := units.started[0]
+	procs.add(1001, 1, unit, "steam", "-gamepadui")
+	procs.add(3000, 1001, unit, `\\?\Z:\home\owneet\.local\share\Steam\steamapps\common\Proton - Experimental\files\share\wine/../xalia/xalia.exe`)
+	procs.add(3001, 1001, unit, `C:\Program Files\Rockstar Games\Launcher\Launcher.exe`)
+	signals := func() string {
+		procs.mu.Lock()
+		defer procs.mu.Unlock()
+		return strings.Join(procs.signals, " ")
+	}
+	m.PointerChanged(true)
+	m.watchSteam() // once more while on: nothing new
+	if got := signals(); got != "3000:19" {
+		t.Fatalf("pointer on: %q, want Xalia stopped once", got)
+	}
+	m.PointerChanged(false)
+	if got := signals(); got != "3000:19 3000:18" {
+		t.Fatalf("pointer off: %q, want Xalia going on", got)
+	}
+	m.watchSteam() // the pointer off: Xalia left alone
+	if got := signals(); got != "3000:19 3000:18" {
+		t.Fatalf("pointer off, later: %q", got)
+	}
+}
