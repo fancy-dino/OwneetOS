@@ -193,6 +193,22 @@ func (m *Manager) steamStop() []string {
 		remote}
 }
 
+// steamStopLimit: how long Steam may take to close: its service's own stop limit (20 s, systemd.go),
+// after which systemd ends it, plus a margin
+const steamStopLimit = 25 * time.Second
+
+// closingSteam remembers that Steam was asked to close, until it has ended (forget).
+func (m *Manager) closingSteam(id string) {
+	if id != SteamID {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.steamGone == nil {
+		m.steamGone = make(chan struct{})
+	}
+}
+
 // steamOSArgs: the options SteamOS-like sessions start Steam with (ChimeraOS: -steamos3 -steampal
 // -steamdeck), undocumented by Valve, tried one at a time with the testers' switch
 // owneet.debug.steam_os=os|pal|deck|all ([[steam-the-steamos-way]], [[game-compatibility-method]]): a
@@ -337,8 +353,21 @@ func (m *Manager) Steam(req SteamRequest) error {
 		}
 	}
 	_, running := m.apps[SteamID]
-	dir := m.SteamDir
+	dir, gone := m.SteamDir, m.steamGone
 	m.mu.Unlock()
+	if running && gone != nil {
+		// Steam is still closing (asked to by the console): an address given to it now starts a
+		// second Steam of its own, without the console's options (-gamepadui), outside the console's
+		// service (FrankenPC, 2026-11-19: Steam closed and opened again within 4 s). Steam starts
+		// again once it has ended, at most steamStopLimit later (its own service's stop limit).
+		m.Log.Info("Steam is closing: it starts again once it has ended")
+		select {
+		case <-gone:
+			running = false
+		case <-time.After(steamStopLimit):
+			m.Log.Warn("Steam did not end in time: the address goes to it", "limit", steamStopLimit)
+		}
+	}
 
 	sess, err := m.Session()
 	if err != nil {

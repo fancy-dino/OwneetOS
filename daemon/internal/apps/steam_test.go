@@ -480,6 +480,60 @@ func TestSteamGameStartedInSteamAndSteamClosing(t *testing.T) {
 	}
 }
 
+// Steam asked for while it is still closing (FrankenPC, 2026-11-19: closed and opened again within
+// 4 s) is not given the address, which would start a second Steam of its own without -gamepadui: it
+// starts again in the console's service once it has ended.
+func TestSteamAskedForWhileClosingStartsAgainAfter(t *testing.T) {
+	m, units, focus, _, forwarded, ch := newSteamManager(t)
+	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "app.started")
+	steamUnit := units.started[0]
+	focus.openWindow(1001)
+	settle(m)
+	*forwarded = nil // its first page, given once its window was there
+	if err := m.Close(SteamID); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- m.Steam(SteamRequest{Open: "store"}) }()
+	select {
+	case err := <-done:
+		t.Fatalf("Steam went on while the old one was closing: %v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+	stop := make(chan struct{})
+	t.Cleanup(func() { close(stop) })
+	go m.Run(stop)
+	units.exits <- Exit{Unit: steamUnit, Result: "success"}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Steam did not start again after it ended")
+	}
+	units.mu.Lock()
+	started := len(units.started)
+	argv := strings.Join(units.argvs[len(units.argvs)-1], " ")
+	units.mu.Unlock()
+	if started != 2 || !strings.Contains(argv, "-gamepadui") {
+		t.Fatalf("Steam not started again with its options: %d starts, %q", started, argv)
+	}
+	if len(*forwarded) != 0 {
+		t.Fatalf("the address went to the closing Steam: %v", *forwarded)
+	}
+	// once ended, a later Close of the new Steam waits again (no channel left over)
+	m.mu.Lock()
+	left := m.steamGone
+	m.mu.Unlock()
+	if left != nil {
+		t.Fatal("Steam still seen as closing")
+	}
+}
+
 // A Steam game that has no window yet keeps Steam's window off the screen (Silksong, FrankenPC
 // 2026-10-16: Steam's window was shown for 10 s before the game's): the home screen covers the
 // wait; Steam comes back behind the game once the game's window is there, or after steamLaunchWatch
