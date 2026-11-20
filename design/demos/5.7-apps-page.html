@@ -211,8 +211,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 </div></div>
 <p class="help"><b>Gamepad:</b> D-pad / stick move, A select, B back, Menu options, LB/RB sections; X, Y, LT/RT do nothing on the Apps page.
 <b>Keyboard:</b> arrows, Enter = A, Esc = B, X, Y, M = Menu, Q/E = LB/RB, Z/C = LT/RT.<br>
-<b>New in 5.7:</b> with more than six apps the home shows five and <b>All apps</b>, which opens the <b>Apps page</b>: every app, installed ones first in a fixed order (web apps, Videos, Music, the store), then the missing ones. Its grid goes round. A opens or installs, Menu → Remove, B back to the home on All apps. Videos and Music come back to where they were opened. Film Club, Podcasts and Radio are invented web apps.<br>
-<b>Demo only:</b> K number of apps, nine or six (now: <span id="count-state">nine</span>), R the order with six apps, installed first or as today with the missing ones in place (now: <span id="order-state">installed first</span>), P palette, T text size, G button prompts, L language, N sounds on/off (<span id="snd-state">on</span>; browsers allow sound only after a key or a click on the page, not after gamepad buttons). Address: <code>#apps=6&amp;order=today&amp;page=apps&amp;lang=it&amp;pal=ember</code></p>
+<b>New in 5.7:</b> the apps in one fixed order, the built-in ones first (Videos, Music, the store), then the web apps; with six apps or fewer a missing one keeps its place, dimmed. With more than six the home shows five and <b>All apps</b>, which opens the <b>Apps page</b>: every app, the installed ones before the missing ones. Its grid goes round. A opens or installs, Menu → Remove, B back to the home on All apps. Videos and Music come back to where they were opened. Film Club, Podcasts and Radio are invented web apps.<br>
+<b>Demo only:</b> K number of apps, nine or six (now: <span id="count-state">nine</span>), P palette, T text size, G button prompts, L language, N sounds on/off (<span id="snd-state">on</span>; browsers allow sound only after a key or a click on the page, not after gamepad buttons). Address: <code>#apps=6&amp;page=apps&amp;lang=it&amp;pal=ember</code></p>
 
 <script src="sounds.js"></script>
 <script>
@@ -374,7 +374,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     { id: 'velvet', title: 'Velvet Road', src: 'Steam', h: 300, last: 12, total: 1200 },
   ];
   // The catalogue's web apps, in its order; the last three are invented and only there with nine
-  // apps. Videos, Music and the store are always there.
+  // apps. Videos, Music and the store are always there, and come first (owner, 2026-11-20).
   const WEB = [
     { key: 'netflix', name: 'Netflix', ico: 'N', web: true, installed: true, busy: null },
     { key: 'youtube', name: 'YouTube', ico: 'Y', web: true, installed: false, busy: null },
@@ -388,15 +388,18 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     { key: 'store', i18n: 'app.store', ico: '$', store: true },
   ];
   let many = true;                 // nine apps, or the six of today (demo only)
-  let orderToday = false;          // with six apps or fewer: today's order, the missing ones in place (demo only)
   const missing = a => a.web && !a.installed;           // being installed: still missing until it is done
-  const catalogue = () => WEB.filter(a => many || !a.extra).concat(BUILTIN);
-  // One order everywhere: installed apps first, in the catalogue's order, then the missing ones
+  // The order: the built-in apps first (Videos, Music, the store), then the web apps in the
+  // catalogue's order
+  const catalogue = () => BUILTIN.concat(WEB.filter(a => many || !a.extra));
+  // More apps than places: the installed ones before the missing ones (the Apps page, and the
+  // home's first five)
   const ordered = () => { const all = catalogue(); return all.filter(a => !missing(a)).concat(all.filter(missing)); };
-  // The home: everything with six apps or fewer; beyond, the first five and "All apps"
+  // The home: with six apps or fewer every app, a missing one dimmed in its place; beyond, the
+  // first five and "All apps"
   function homeApps() {
     const all = catalogue();
-    if (all.length <= 6) return orderToday ? all : ordered();
+    if (all.length <= 6) return all;
     return ordered().slice(0, 5).concat([{ key: 'allapps', allApps: true }]);
   }
   const appName = a => a.i18n ? tr(a.i18n) : a.name;
@@ -475,7 +478,6 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     $$('[data-glyph]').forEach(el => { el.innerHTML = glyphHTML(el.dataset.glyph); });
     renderHero(); renderApps(); renderNotice(); renderRow(); showPage();
     $('#count-state').textContent = many ? 'nine' : 'six';
-    $('#order-state').textContent = orderToday ? 'as today' : 'installed first';
     const page = currentPage();
     const target = (keepSel && $(keepSel) && page && page.contains($(keepSel)) && $(keepSel)) || (page && $('[data-f]', page));
     if (!sheetOpen) { if (target) focus(target, true); else { if (focused) focused.classList.remove('focus'); focused = null; } }
@@ -728,7 +730,6 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   };
   const DEMO = {
     k: () => { many = !many; if (!many && view === 'apps') view = 'home'; renderAll(focused && focused.id ? '#' + focused.id : null); toast(many ? 'Nine apps' : 'Six apps'); },
-    r: () => { orderToday = !orderToday; renderAll(focused && focused.id ? '#' + focused.id : null); toast(orderToday ? 'With six apps: today’s order' : 'With six apps: installed first'); },
     p: () => { setPalette(palIndex + 1); toast(PALETTES[palIndex][0]); },
     t: () => { const sizes = [0.9, 1, 1.2, 1.4]; const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ts')) || 1;
                const next = sizes[(sizes.indexOf(cur) + 1) % sizes.length]; document.documentElement.style.setProperty('--ts', next); toast('Text ' + next); },
@@ -790,7 +791,6 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   if (['xbox', 'ps', 'nintendo'].includes(q.get('glyphs'))) glyphSetting = q.get('glyphs');
   if (q.get('lang') === 'it') lang = 'it';
   if (q.get('apps') === '6') many = false;
-  if (q.get('order') === 'today') orderToday = true;
   if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
   renderAll();
   if (q.get('focus') === 'apps') focus($('#apps [data-f]'), true);
