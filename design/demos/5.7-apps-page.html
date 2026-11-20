@@ -211,8 +211,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 </div></div>
 <p class="help"><b>Gamepad:</b> D-pad / stick move, A select, B back, Menu options, LB/RB sections; X, Y, LT/RT do nothing on the Apps page.
 <b>Keyboard:</b> arrows, Enter = A, Esc = B, X, Y, M = Menu, Q/E = LB/RB, Z/C = LT/RT.<br>
-<b>New in 5.7:</b> the apps in one fixed order, the built-in ones first (Videos, Music, the store), then the web apps; with six apps or fewer a missing one keeps its place, dimmed. With more than six the home shows five and <b>All apps</b>, which opens the <b>Apps page</b>: every app, the installed ones before the missing ones. Its grid goes round. A opens or installs, Menu → Remove, B back to the home on All apps. Videos and Music come back to where they were opened. Film Club, Podcasts and Radio are invented web apps.<br>
-<b>Demo only:</b> K number of apps, nine or six (now: <span id="count-state">nine</span>), P palette, T text size, G button prompts, L language, N sounds on/off (<span id="snd-state">on</span>; browsers allow sound only after a key or a click on the page, not after gamepad buttons). Address: <code>#apps=6&amp;page=apps&amp;lang=it&amp;pal=ember</code></p>
+<b>New in 5.7:</b> the apps in a fixed order, the built-in ones first (Videos, Music, the store), then the web apps; with six apps or fewer all of them, a missing one dimmed in its place. With more than six the home shows five and <b>All apps</b>: the first five of the fixed order while six or fewer are installed, the <b>five most used</b> from the seventh installed app (each opening counts). <b>All apps</b> opens the <b>Apps page</b>: every app in the fixed order, the installed ones before the missing ones. Its grid goes round. A opens or installs, Menu → Remove, B back to the home on All apps. Videos and Music come back to where they were opened. Film Club, Podcasts and Radio are invented web apps. Remove one on the Apps page to go back to six installed apps (the fixed order); install YouTube or Radio for more.<br>
+<b>Uses</b> (demo only, never shown on the console): <span id="uses-line"></span><br>
+<b>Demo only:</b> K number of apps, nine or six (now: <span id="count-state">nine</span>), P palette, T text size, G button prompts, L language, N sounds on/off (<span id="snd-state">on</span>; browsers allow sound only after a key or a click on the page, not after gamepad buttons). Address: <code>#apps=6&amp;installed=netflix,spotify,filmclub&amp;page=apps&amp;lang=it&amp;pal=ember</code></p>
 
 <script src="sounds.js"></script>
 <script>
@@ -395,13 +396,25 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   // More apps than places: the installed ones before the missing ones (the Apps page, and the
   // home's first five)
   const ordered = () => { const all = catalogue(); return all.filter(a => !missing(a)).concat(all.filter(missing)); };
-  // The home: with six apps or fewer every app, a missing one dimmed in its place; beyond, the
-  // first five and "All apps"
+  // Uses: how many times each app was opened from the console, since it was installed (owner,
+  // 2026-11-20); removing an app clears its count. Invented counts for the demo; never shown on
+  // the console.
+  const USES = { videos: 3, music: 12, store: 5, netflix: 20, spotify: 30, filmclub: 8, podcasts: 1, youtube: 0, radio: 0 };
+  const uses = a => USES[a.key] || 0;
+  // The home (owner, 2026-11-20): with six apps or fewer every app in its fixed place, a missing
+  // one dimmed; beyond, five apps and "All apps": with six installed apps or fewer the first five
+  // of the fixed order (installed before missing), from the seventh installed app the five most
+  // used (the most used first; equal counts in the fixed order)
   function homeApps() {
     const all = catalogue();
     if (all.length <= 6) return all;
-    return ordered().slice(0, 5).concat([{ key: 'allapps', allApps: true }]);
+    const installed = all.filter(a => !missing(a));
+    const five = installed.length <= 6 ? ordered().slice(0, 5)
+      : installed.map((a, i) => ({ a, i })).sort((x, y) => uses(y.a) - uses(x.a) || x.i - y.i).slice(0, 5).map(x => x.a);
+    return five.concat([{ key: 'allapps', allApps: true }]);
   }
+  // An opening counts as a use (Resume, bringing back the open app, does not)
+  function used(a) { USES[a.key] = uses(a) + 1; refreshApps(); }
   const appName = a => a.i18n ? tr(a.i18n) : a.name;
   const appOf = el => catalogue().find(x => x.key === el.dataset.app) || null;
   let notices = ['notice.usb', 'notice.update'];
@@ -450,6 +463,9 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     $('#apps').innerHTML = homeApps().map(a => tile(a, 'h')).join('');
     $('#agrid').innerHTML = ordered().map(a => `<span class="t-m" style="display:contents">${tile(a, 'p')}</span>`).join('');
     $('#a-count').textContent = tr('apps.count', { n: catalogue().length });
+    const inst = catalogue().filter(a => !missing(a));
+    $('#uses-line').textContent = `${inst.length} installed of ${catalogue().length} · ` +
+      inst.slice().sort((x, y) => uses(y) - uses(x)).map(a => `${appName(a)} ${uses(a)}`).join(' · ');
   }
   // Redraws the apps and keeps the selection on the same app (its tile may have moved)
   function refreshApps() {
@@ -630,7 +646,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
         if (openApp && openApp.key === a.key) { toast(tr('toast.busy', { name: appName(a) })); return; }
         if (catalogue().some(x => x.busy)) { toast(tr('toast.wait')); return; }
         a.busy = 'remove'; refreshApps();
-        setTimeout(() => { a.busy = null; a.installed = false; refreshApps(); toast(tr('toast.removed', { app: appName(a) })); }, 900);
+        setTimeout(() => { a.busy = null; a.installed = false; USES[a.key] = 0; refreshApps(); toast(tr('toast.removed', { app: appName(a) })); }, 900);
       });
   }
   function closeAppSheet() {
@@ -656,7 +672,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   function openWeb(a) {
     if (openApp && openApp.key === a.key) { toast(tr('toast.back', { app: appName(a) })); return; }
     if (openApp) { toast(tr('toast.busy', { name: appName(openApp) })); return; }
-    feedback('launch'); toast(tr('toast.app', { app: appName(a) }));
+    feedback('launch'); toast(tr('toast.app', { app: appName(a) })); used(a);
     setTimeout(() => { openApp = a; const sel = focused && focused.id; renderHero(); refreshApps(); if (sel && $('#' + sel)) focus($('#' + sel), true); }, 900);
   }
   function openAppsPage() {
@@ -682,8 +698,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       const a = appOf(focused);
       if (a.busy) toast(tr('toast.wait'));
       else if (missing(a)) installSheet(a);
-      else if (a.media) openMedia(a, view);
-      else if (a.store) toast(tr('toast.app', { app: appName(a) }));
+      else if (a.media) { used(a); openMedia(a, view); }
+      else if (a.store) { used(a); toast(tr('toast.app', { app: appName(a) })); }
       else openWeb(a);
     }
     else if (act === 'notice') toast(tr('toast.notices'));
@@ -791,6 +807,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   if (['xbox', 'ps', 'nintendo'].includes(q.get('glyphs'))) glyphSetting = q.get('glyphs');
   if (q.get('lang') === 'it') lang = 'it';
   if (q.get('apps') === '6') many = false;
+  if (q.has('installed')) { const on = q.get('installed').split(','); WEB.forEach(a => { a.installed = on.includes(a.key); }); }
   if (q.get('sound') === 'off') { soundOn = false; $('#snd-state').textContent = 'off'; }
   renderAll();
   if (q.get('focus') === 'apps') focus($('#apps [data-f]'), true);

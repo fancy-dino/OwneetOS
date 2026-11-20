@@ -45,12 +45,15 @@ Mockups and design assets.
     look of the services). Demo keys: 1–6 the app, S session. Start state:
     `#app=netflix&screen=title|player&legend=1&session=cage&lang=it&glyphs=ps`.
   - [`5.7-apps-page.html`](demos/5.7-apps-page.html): the Apps page ([[step-5.7-apps-page]]):
-    the apps in one fixed order, the built-in ones first (Videos, Music, the store), then the web
+    the apps in a fixed order, the built-in ones first (Videos, Music, the store), then the web
     apps, a missing one in its place with six apps or fewer; with more than six the home shows five
-    and "All apps", which opens a page of every app in a grid of tiles (the installed ones before the
-    missing ones; the grid goes round); A opens or installs, Menu → Remove, B back to the home on
-    "All apps"; Videos and Music come back to where they were opened. Film Club, Podcasts and Radio
-    are invented web apps. Demo keys: K nine or six apps. Start state: `#apps=6&page=apps&lang=it`.
+    and "All apps": the first five of the fixed order while six or fewer are installed, the five
+    most used from the seventh installed app (each opening counts; the demo lists its invented
+    counts). "All apps" opens a page of every app in a grid of tiles (the fixed order, the installed
+    ones before the missing ones; the grid goes round); A opens or installs, Menu → Remove, B back
+    to the home on "All apps"; Videos and Music come back to where they were opened. Film Club,
+    Podcasts and Radio are invented web apps. Demo keys: K nine or six apps. Start state:
+    `#apps=6&installed=netflix,spotify,filmclub&page=apps&lang=it`.
   - [`6.1-first-start.html`](demos/6.1-first-start.html): the first start
     ([[step-6.1-first-boot-flow]]): the mockup's pairing screen, the language, the network (or
     later), the time zone (suggested, or a list of cities), the Xbox adapter's firmware with
