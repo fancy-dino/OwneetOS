@@ -303,8 +303,10 @@ func run(configPath string) error {
 		winMgr.Online = func() bool { return netAPI.Status().State == "connected" }
 	}
 	if umu, err := exec.LookPath("umu-run"); err == nil {
-		winMgr.Preparer = &windows.Umu{Command: umu, PrefixDir: filepath.Join(winData, "prepare"),
-			CacheDir: filepath.Join(cacheDir, "umu")}
+		u := &windows.Umu{Command: umu, PrefixDir: filepath.Join(winData, "prepare"),
+			CacheDir: filepath.Join(cacheDir, "umu"), UmuDir: filepath.Join(home, ".local", "share", "umu")}
+		// what Windows games need, then what native games run in ([[umu-fixes-and-runtime]])
+		winMgr.Preparer, winMgr.Native = u, u
 	} else {
 		log.Warn("Windows games not available: umu-run not found")
 	}
