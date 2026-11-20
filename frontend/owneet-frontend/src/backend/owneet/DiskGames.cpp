@@ -119,16 +119,20 @@ void DiskGames::applyChoice(model::Game& game, const QString& game_dir, const QS
     // A program starts with its own folder among the libraries' folders, as GOG's start.sh does
     // (The Witcher 2's libopenal-eon.so.1 is next to it; owner, 2026-11-11), unless the folder's
     // name has ":", the separator of that list
+    // Scripts and programs start through owneet-native-run, in Valve's Steam Runtime once owneetd has
+    // downloaded it, as before until then ([[umu-fixes-and-runtime]], owner 2026-11-20); AppImages
+    // carry their own libraries
+    const QString native_run = QStringLiteral("/usr/lib/owneet/owneet-native-run ") + quoted(game_dir) + QChar(' ');
     QString cmd;
     if (suffix == QLatin1String("sh"))
-        cmd = QStringLiteral("/usr/bin/bash ") + quoted(path);
+        cmd = native_run + QStringLiteral("/usr/bin/bash ") + quoted(path);
     else if (suffix == QLatin1String("appimage"))
         cmd = QStringLiteral("/usr/bin/env APPIMAGE_EXTRACT_AND_RUN=1 ") + quoted(path);
     else if (is_elf(path) && !finfo.absolutePath().contains(QChar(':')))
         cmd = QStringLiteral("/usr/bin/env ")
             + (compat.isEmpty() ? QString() : quoted(QStringLiteral("LD_PRELOAD=") + compat) + QChar(' '))
             + (gameCompat.isEmpty() ? QString() : quoted(QStringLiteral("OWNEET_GAME_PRELOAD=") + gameCompat) + QChar(' '))
-            + quoted(QStringLiteral("LD_LIBRARY_PATH=") + finfo.absolutePath()) + QChar(' ') + quoted(path);
+            + quoted(QStringLiteral("LD_LIBRARY_PATH=") + finfo.absolutePath()) + QChar(' ') + native_run + quoted(path);
     else
         cmd = quoted(path);
     game.setLaunchCmd(cmd).setLaunchWorkdir(finfo.absolutePath());
