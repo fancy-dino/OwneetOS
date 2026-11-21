@@ -293,7 +293,7 @@ Provider& SteamProvider::run(SearchContext& sctx)
     for (const auto& entry : appid_game_map)
         mark(*entry.second, entry.first, true);
     int not_installed = 0;
-    const std::vector<OwnedApp> owned_games = read_owned_games(steamdir_path);
+    const std::vector<OwnedApp> owned_games = read_owned_games(steamdir_path, installdirs);
     for (const OwnedApp& owned : owned_games) {
         if (appid_game_map.find(owned.appid) != appid_game_map.cend())
             continue;

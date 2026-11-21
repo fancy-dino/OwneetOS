@@ -4,7 +4,9 @@
 
 #include "Log.h"
 
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QSet>
 #include <QVariantMap>
 #include <QtEndian>
@@ -121,8 +123,9 @@ QByteArray read_file(const QString& path)
     return file.readAll();
 }
 
-// The apps of the account's licences (package 0 and free weekends left out)
-QSet<QString> licensed_apps(const QString& path)
+// The apps of the account's licences (package 0 and free weekends left out); package 0's own apps
+// go to `everyone`
+QSet<QString> licensed_apps(const QString& path, QSet<QString>& everyone)
 {
     QSet<QString> apps;
     const QByteArray data = read_file(path);
@@ -144,9 +147,14 @@ QSet<QString> licensed_apps(const QString& path)
             break;
         const QVariantMap info = root.isEmpty() ? QVariantMap() : root.first().toMap();
         const QVariantMap extended = info.value(QStringLiteral("extended")).toMap();
-        if (package == 0 || extended.value(QStringLiteral("freeweekend")).toInt() != 0)
-            continue;
         const QVariantMap ids = info.value(QStringLiteral("appids")).toMap();
+        if (package == 0) {
+            for (const QVariant& id : ids)
+                everyone.insert(QString::number(id.toLongLong()));
+            continue;
+        }
+        if (extended.value(QStringLiteral("freeweekend")).toInt() != 0)
+            continue;
         for (const QVariant& id : ids)
             apps.insert(QString::number(id.toLongLong()));
     }
@@ -160,12 +168,23 @@ QSet<QString> licensed_apps(const QString& path)
 namespace providers {
 namespace steam {
 
-std::vector<OwnedApp> read_owned_games(const QString& steam_datadir)
+std::vector<OwnedApp> read_owned_games(const QString& steam_datadir, const std::vector<QString>& installdirs)
 {
     std::vector<OwnedApp> out;
-    const QSet<QString> licensed = licensed_apps(steam_datadir + QLatin1String("appcache/packageinfo.vdf"));
+    QSet<QString> everyone;
+    QSet<QString> licensed = licensed_apps(steam_datadir + QLatin1String("appcache/packageinfo.vdf"), everyone);
     if (licensed.isEmpty())
         return out;
+    // A game of package 0 the user has chosen (Dota 2: owner, 2026-11-21): Steam has its manifest
+    // from the moment it downloads it
+    for (const QString& id : everyone) {
+        for (const QString& dir : installdirs) {
+            if (QFileInfo::exists(QDir(dir).filePath(QStringLiteral("appmanifest_%1.acf").arg(id)))) {
+                licensed.insert(id);
+                break;
+            }
+        }
+    }
 
     const QString path = steam_datadir + QLatin1String("appcache/appinfo.vdf");
     const QByteArray data = read_file(path);
