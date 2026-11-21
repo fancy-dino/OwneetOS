@@ -13,6 +13,8 @@
         <file>owneet/NotificationsSheet.qml</file>
         <file>owneet/QuickMenu.qml</file>
         <file>owneet/HomePage.qml</file>
+        <file>owneet/AppTile.qml</file>
+        <file>owneet/AppsPage.qml</file>
         <file>owneet/LibraryPage.qml</file>
         <file>owneet/MediaPage.qml</file>
         <file>owneet/MediaCard.qml</file>
@@ -28,6 +30,7 @@
         <file>owneet/foundation/GameInfo.qml</file>
         <file>owneet/foundation/MediaText.qml</file>
         <file>owneet/foundation/legends.js</file>
+        <file>owneet/foundation/apps.js</file>
         <file>owneet/foundation/GameArt.qml</file>
         <file>owneet/foundation/Dialog.qml</file>
         <file>owneet/foundation/Cover.qml</file>

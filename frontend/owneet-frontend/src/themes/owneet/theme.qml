@@ -5,6 +5,7 @@
 // temporary pages for now.
 import QtQuick 2.15
 import "foundation"
+import "foundation/apps.js" as Apps
 
 FocusScope {
     id: root
@@ -29,6 +30,10 @@ FocusScope {
     onMediaAudioLanguageChanged: save("mediaAudioLanguage", mediaAudioLanguage)
     property string mediaSubtitles: ""
     onMediaSubtitlesChanged: save("mediaSubtitles", mediaSubtitles)
+    // The apps (5.7): how many times each was opened from the console ({ key: count }; the home
+    // shows the five most used from the seventh installed app, foundation/apps.js)
+    property var appUses: ({})
+    onAppUsesChanged: save("appUses", JSON.stringify(appUses))
     property bool loaded: false
     Component.onCompleted: {
         prefs.forEach(p => { if (api.memory.has(p[0])) Theme[p[1]] = api.memory.get(p[0]); });
@@ -36,6 +41,9 @@ FocusScope {
         if (api.memory.has("mediaAutoplay")) mediaAutoplay = api.memory.get("mediaAutoplay") === true;
         if (api.memory.has("mediaAudioLanguage")) mediaAudioLanguage = String(api.memory.get("mediaAudioLanguage"));
         if (api.memory.has("mediaSubtitles")) mediaSubtitles = String(api.memory.get("mediaSubtitles"));
+        if (api.memory.has("appUses")) {
+            try { appUses = JSON.parse(String(api.memory.get("appUses"))) || {}; } catch (e) { appUses = {}; }
+        }
         loaded = true;
         // The interface restarts when the console moves to another screen (and when it comes
         // back): it opens again on Settings → Display, where the move was asked
@@ -213,14 +221,21 @@ FocusScope {
     // ---- Sections (LB / RB)
     readonly property var sections: ["home", "library", "settings"]
     property string section: "home"
-    // the Videos or Music page (5.6), opened from its tile: a page of Home
+    // the Videos or Music page (5.6), opened from its tile: a page of Home; `mediaFrom`: where its
+    // tile was ("home", or "apps": the Apps page), where B goes back to
     property string mediaKind: ""
-    readonly property Item page: section === "home" ? (mediaKind !== "" ? mediaPage : home) : section === "library" ? library : settings
+    property string mediaFrom: "home"
+    // the Apps page (5.7), opened by "All apps": a page of Home
+    property bool appsOpen: false
+    readonly property Item page: section === "home" ? (mediaKind !== "" ? mediaPage : appsOpen ? appsPage : home)
+                                                     : section === "library" ? library : settings
     function goSection(name) {
         if (name === section)
             return;
         section = name;
         mediaKind = "";
+        mediaFrom = "home";
+        appsOpen = false;
         Nav.feedback("section");
         page.focusStart();
     }
@@ -232,7 +247,7 @@ FocusScope {
     // ---- Buttons the sections leave to the whole interface (section 9.1)
     Keys.onPressed: {
         const a = Nav.action(event);
-        if (a === "page" && section === "home" && mediaKind === "" && !modalOpen) {
+        if (a === "page" && section === "home" && mediaKind === "" && !appsOpen && !modalOpen) {
             notices.openSheet();                    // Y: notifications (demo 3.11)
         } else if ((a === "section-prev" || a === "section-next") && !modalOpen) {
             const i = sections.indexOf(section) + (a === "section-next" ? 1 : -1);
@@ -776,14 +791,45 @@ FocusScope {
     function notYet() { toast.show(Tr.tr("toast.later")); }
 
     // ---- Videos and Music (5.6, approved demo design/demos/5.6-videos-and-music.html)
-    function openMedia(kind) {
+    function openMedia(kind, from) {
+        mediaFrom = from || "home";
         mediaKind = kind;
+        countUse(kind);
         mediaPage.focusStart();
     }
+    // back to where its tile was: the home screen or the Apps page
     function leaveMedia() {
-        const key = mediaKind === "videos" ? "app.videos" : "app.music";
+        const key = mediaKind;
         mediaKind = "";
-        home.focusApp(key);
+        if (mediaFrom === "apps") {
+            appsOpen = true;
+            appsPage.focusApp(key);
+        } else {
+            appsOpen = false;
+            home.focusApp(key);
+        }
+    }
+    // ---- The Apps page (5.7, approved demo design/demos/5.7-apps-page.html): every app, opened by
+    // "All apps" (the home's sixth place with more than six apps); B back to the home on "All apps"
+    function openApps() {
+        appsOpen = true;
+        appsPage.focusStart();
+    }
+    function leaveApps() {
+        appsOpen = false;
+        home.focusApp(Apps.ALL_APPS);
+    }
+    // An app opened from the console counts as a use (Resume, bringing back the open app, does not)
+    function countUse(key) {
+        const uses = Object.assign({}, appUses);
+        uses[key] = (uses[key] || 0) + 1;
+        appUses = uses;
+    }
+    // Removing an app clears its count (once the catalogue is known)
+    onWebAppsChanged: {
+        if (webApps.length === 0) return;
+        const kept = Apps.pruneUses(Apps.fixedOrder(webApps), appUses);
+        if (kept) appUses = kept;
     }
     // ---- The player (5.6, approved demo design/demos/5.6-videos-and-music.html): mpv, started by
     // owneetd like a game (POST /v1/player), one game, web app or player at a time. Its display
@@ -878,7 +924,7 @@ FocusScope {
                     displayFont: Theme.displayFont, textFont: Theme.textFont, textScale: Theme.textScale, glyphs: Theme.glyphs }
         };
         Nav.feedback("launch");
-        const origin = { kind: mediaKind, state: mediaPage.saveState() };
+        const origin = { kind: mediaKind, from: mediaFrom, state: mediaPage.saveState() };
         owneetd.post("/v1/player", request, (status, data) => {
             if (status === 201) {
                 playerOrigin = origin;
@@ -919,6 +965,7 @@ FocusScope {
         if (!onTop || !o || modalOpen)
             return;
         if (section !== "home") goSection("home");
+        mediaFrom = o.from || "home";
         mediaKind = o.kind;
         mediaPage.restoreState(o.state, last.path || "");
         mediaPage.focusStart();
@@ -1059,6 +1106,8 @@ FocusScope {
         const hex = c => "#" + [c.r, c.g, c.b].map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join("");
         const look = { accent: hex(Theme.accent), language: Tr.language };
         owneetd.post("/v1/apps/catalog/" + encodeURIComponent(app.id) + "/open", look, (status, data) => {
+            if (!open && (status === 204 || status === 200 || status === 202))
+                countUse("web:" + app.id);        // opened (not brought back): a use (5.7)
             if (status === 204 || status === 200)
                 return;
             if (status === 202) {                 // its first opening: Brave first gets Widevine (5.4)
@@ -1591,7 +1640,10 @@ FocusScope {
     function openSteam(page) {
         if (steamOffline(page === "store" ? "store" : "play")) return;
         withSteamNotice(() => {
-            if (page === "store") root.storeVisited = true;
+            if (page === "store") {
+                root.storeVisited = true;
+                root.countUse("store");          // a use of the store's tile (5.7)
+            }
             steamRequest({ open: page }, null);
         });
     }
@@ -2463,9 +2515,11 @@ FocusScope {
         HomePage {
             id: home
             anchors.fill: parent
-            visible: root.section === "home" && root.mediaKind === ""
+            visible: root.section === "home" && root.mediaKind === "" && !root.appsOpen
             focus: visible
-            onOpenMedia: root.openMedia(kind)
+            onOpenMedia: root.openMedia(kind, "home")
+            onOpenApps: root.openApps()
+            uses: root.appUses
             games: root.homeGames
             notices: root.steamNotices.concat(root.installNotices).concat(root.windowsNotices)
             onOpenNotice: if (notice.game) root.showDetails(notice.game)
@@ -2491,6 +2545,22 @@ FocusScope {
             webApps: root.webApps
             onOpenWebApp: root.openWebApp(app)
             onWebAppOptions: root.webAppOptions(app)
+        }
+        AppsPage {
+            id: appsPage
+            anchors.fill: parent
+            visible: root.section === "home" && root.mediaKind === "" && root.appsOpen
+            focus: visible
+            webApps: root.webApps
+            running: root.runningGame || root.runningWebApp || root.runningPlayer
+            playerKind: root.runningPlayer ? (root.player.kind === "music" ? "music" : "videos") : ""
+            steamRunning: root.apps.some(a => a.id === "steam")
+            onOpenWebApp: root.openWebApp(app)
+            onWebAppOptions: root.webAppOptions(app)
+            onOpenMedia: root.openMedia(kind, "apps")
+            onOpenStore: root.openSteam("store")
+            onSteamOptions: root.confirmCloseSteam()
+            onLeave: root.leaveApps()
         }
         MediaPage {
             id: mediaPage

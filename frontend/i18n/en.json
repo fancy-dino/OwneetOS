@@ -767,5 +767,11 @@
   "legend.pl.audio": "The next audio track",
   "legend.pl.subs": "Subtitles: off, then each track",
   "legend.pl.autoplay": "Autoplay on / off",
-  "legend.pl.b": "Back to the list"
+  "legend.pl.b": "Back to the list",
+  "home.all_apps": "All apps",
+  "apps.title": "Apps",
+  "apps.count": {
+    "one": "{n} app",
+    "other": "{n} apps"
+  }
 }

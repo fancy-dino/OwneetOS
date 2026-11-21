@@ -767,5 +767,11 @@
   "legend.pl.audio": "La traccia audio successiva",
   "legend.pl.subs": "Sottotitoli: no, poi ogni traccia",
   "legend.pl.autoplay": "Riproduzione automatica sì / no",
-  "legend.pl.b": "Torna all’elenco"
+  "legend.pl.b": "Torna all’elenco",
+  "home.all_apps": "Tutte le app",
+  "apps.title": "App",
+  "apps.count": {
+    "one": "{n} app",
+    "other": "{n} app"
+  }
 }
