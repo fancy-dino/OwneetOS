@@ -5,7 +5,6 @@
 # the home screen on the tile; Music by folder (an album folder with cover.jpg), then by artist
 # (the first reading, the artists, an artist's albums, an album's songs).
 pad right right
-pad down
 shot 01-videos-tile
 pad a
 wait 2

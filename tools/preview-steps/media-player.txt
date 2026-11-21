@@ -8,7 +8,6 @@
 # hero with what plays, its time, Resume and Close, the Videos tile's green dot; Close closes it at
 # once ("Episode 2 closed"). A song: media-player-music.txt.
 pad right right
-pad down
 pad a
 wait 2
 pad a

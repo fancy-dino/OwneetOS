@@ -6,7 +6,6 @@
 # the song marked "Playing" in its list; the home screen's hero with its artist and album, the
 # Music tile's green dot.
 pad right right
-pad down
 pad right
 pad a
 wait 2

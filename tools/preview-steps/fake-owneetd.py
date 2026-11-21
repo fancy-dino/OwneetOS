@@ -107,6 +107,13 @@ state = {
     "audio": {"available": True, "output": "hdmi", "volume": 60, "muted": False,
               "outputs": [{"id": "hdmi", "name": "TV (HDMI)"}, {"id": "speakers", "name": "Speakers"}]},
 }
+if os.environ.get("FAKE_MANYAPPS"):
+    # the Apps page (5.7): three more invented web apps (their names shown as they are, no message
+    # of their own), and seven apps installed with Videos, Music and the store
+    state["catalog"]["apps"] += [{"id": i, "nameKey": n, "icon": n[0], "url": "", "installed": False, "sizeMiB": 1}
+                                 for i, n in (("filmclub", "Film Club"), ("podcasts", "Podcasts"), ("radio", "Radio"))]
+    for a in state["catalog"]["apps"]:
+        a["installed"] = a["id"] in ("netflix", "spotify", "filmclub", "podcasts")
 
 
 def publish(kind, data=None):
