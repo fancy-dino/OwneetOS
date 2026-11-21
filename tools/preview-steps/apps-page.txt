@@ -1,0 +1,39 @@
+@owneetd
+@manyapps
+# The Apps page ([[step-5.7-apps-page]], approved demo 5.7): nine apps, seven installed. The home
+# shows five and "All apps" (nothing used yet: the fixed order); the page lists every app, the
+# installed ones first, its grid going round; installing YouTube moves it among the installed ones,
+# the selection following it; Music opened from the page comes back to it; opened four times, it
+# becomes the home's first (the five most used from the seventh installed app).
+wait 2
+pad right right
+shot 01-home-apps
+pad right right down
+shot 02-all-apps
+pad a
+shot 03-page
+pad right right right right right
+shot 04-row-goes-round
+pad down right right
+shot 05-youtube
+pad a
+shot 06-install
+pad a
+wait 4
+shot 07-installed-moved
+pad menu
+shot 08-options
+pad b
+pad left left left
+pad a
+shot 09-music-page
+pad b
+shot 10-back-on-page
+pad a
+pad b
+pad a
+pad b
+pad a
+pad b
+pad b
+shot 11-home-most-used

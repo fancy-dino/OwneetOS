@@ -1,0 +1,17 @@
+@videos
+# One preferred language for videos ([[local-media]], owner 2026-11-12): with Italian audio and
+# subtitles off preferred, the episode opens in Italian without its default English subtitles;
+# Menu turns English subtitles on and makes them the preference; the next episode (English audio
+# only, a subtitle file beside it) keeps its English audio and shows its subtitles; the list goes
+# to mpv as a playlist file.
+prefer it off
+start 0
+shot 01-italian-no-subtitles
+state
+pad menu
+shot 02-english-subtitles
+state
+pad rt
+wait 1
+shot 03-next-episode
+state

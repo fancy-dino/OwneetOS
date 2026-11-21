@@ -27,6 +27,33 @@ Mockups and design assets.
     mark, A installs (size, usage requirements, progress on the tile), Menu → Remove, and what can go
     wrong (live system under 12 GB of RAM, disk full, failed install; W cycles them). The engine
     behind the web apps is never named. Start state: `#installed=netflix&sim=ram&focus=apps`.
+  - [`5.6-videos-and-music.html`](demos/5.6-videos-and-music.html): the Videos and Music pages
+    ([[step-5.6-local-videos-and-music]], [[local-media]]), opened from their Apps tiles: the
+    Videos / Music folders of every disk together, Continue watching, a folder's videos with their
+    progress, Menu → Resume / Watch from the start, Y Autoplay; Music by folder or by artist and
+    album (LT / RT; the songs read on the first visit, with a spinner); the empty pages; the player
+    (the video's on-screen display, music's now-playing screen) with its buttons; Guide showing the
+    console while it plays (Resume on Home), holding it in cage. Demo keys: S session, U the USB
+    disk, W no media folders, J near the end, R read the songs again, K a game running. Start
+    state: `#page=music&view=artists&play=video|song&session=cage&open=options&lang=it`.
+  - [`5.6a-command-legend.html`](demos/5.6a-command-legend.html): the command legend
+    ([[step-5.6a-command-legend]]): View, in a web app or the player, opens the legend of that app's
+    buttons for the screen on show (a web app in general, YouTube, Netflix's browsing pages, title
+    window and player, Spotify, a video, a song); in gamescope it floats over the app, which keeps
+    working under it, only View closes it and Guide closes it on the way home; in cage it is a
+    full-screen page, B or View goes back to the app. The apps behind it are drawings (no logo, no
+    look of the services). Demo keys: 1–6 the app, S session. Start state:
+    `#app=netflix&screen=title|player&legend=1&session=cage&lang=it&glyphs=ps`.
+  - [`5.7-apps-page.html`](demos/5.7-apps-page.html): the Apps page ([[step-5.7-apps-page]]):
+    the apps in a fixed order, the built-in ones first (Videos, Music, the store), then the web
+    apps, a missing one in its place with six apps or fewer; with more than six the home shows five
+    and "All apps": the first five of the fixed order while six or fewer are installed, the five
+    most used from the seventh installed app (each opening counts; the demo lists its invented
+    counts). "All apps" opens a page of every app in a grid of tiles (the fixed order, the installed
+    ones before the missing ones; the grid goes round); A opens or installs, Menu → Remove, B back
+    to the home on "All apps"; Videos and Music come back to where they were opened. Film Club,
+    Podcasts and Radio are invented web apps. Demo keys: K nine or six apps. Start state:
+    `#apps=6&installed=netflix,spotify,filmclub&page=apps&lang=it`.
   - [`6.1-first-start.html`](demos/6.1-first-start.html): the first start
     ([[step-6.1-first-boot-flow]]): the mockup's pairing screen, the language, the network (or
     later), the time zone (suggested, or a list of cities), the Xbox adapter's firmware with

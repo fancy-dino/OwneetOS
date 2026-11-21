@@ -26,6 +26,10 @@
 #     about 6 s, going back in 1 s. The older versions of demo 7.1-updates (7.1b): their list comes
 #     with a check (already there, except with uptodate), the size of going back to one in about
 #     2.5 s, going back to it like an installation.
+#   - the player (5.6): POST /v1/player "starts" it (an app of kind "media", on screen after 1 s, a
+#     video at 1:35 of 25:00, a song at 0:30 of 3:34); closing an app ends it;
+#   - the command legend (5.6a): opened by a step's event (event legend.changed {...}), closed by
+#     the interface (POST /v1/legend {"action": "close"}).
 #
 # Steps can send it events (tools/frontend-preview "event TYPE JSON"): one line each in the FIFO
 # given as second argument.
@@ -126,6 +130,8 @@ state = {
     "installs": [],
     # the controller as a mouse (4.7)
     "pointer": {"on": False},
+    "player": {"open": False},
+    "legend": {"open": False},
     "steam": {"installed": True, "allowed": True, "prepared": False, "running": False, "games": [],
               "downloads": [], "away": {}, "account": False, "licences": 0, "nvidia": False},
     # optional web apps (5.0.0)
@@ -135,6 +141,13 @@ state = {
     "audio": {"available": True, "output": "hdmi", "volume": 60, "muted": False,
               "outputs": [{"id": "hdmi", "name": "TV (HDMI)"}, {"id": "speakers", "name": "Speakers"}]},
 }
+if os.environ.get("FAKE_MANYAPPS"):
+    # the Apps page (5.7): three more invented web apps (their names shown as they are, no message
+    # of their own), and seven apps installed with Videos, Music and the store
+    state["catalog"]["apps"] += [{"id": i, "nameKey": n, "icon": n[0], "url": "", "installed": False, "sizeMiB": 1}
+                                 for i, n in (("filmclub", "Film Club"), ("podcasts", "Podcasts"), ("radio", "Radio"))]
+    for a in state["catalog"]["apps"]:
+        a["installed"] = a["id"] in ("netflix", "spotify", "filmclub", "podcasts")
 
 
 def publish(kind, data=None):
@@ -489,6 +502,8 @@ class Handler(BaseHTTPRequestHandler):
                 "/v1/windows": state["windows"],
                 "/v1/installs": {"installs": state["installs"]},
                 "/v1/pointer": state["pointer"],
+                "/v1/player": state["player"],
+                "/v1/legend": state["legend"],
                 "/v1/controllers": {"controllers": state["controllers"]},
                 "/v1/network": state["network"],
                 "/v1/network/wifi": {"networks": state["networks"]},
@@ -729,6 +744,46 @@ class Handler(BaseHTTPRequestHandler):
             publish("app.started", app)
             later(4, lambda: publish("focus.changed", {"focus": app["id"]}))
             return self.reply(201, {"id": app["id"]})
+        if path == "/v1/legend":    # 5.6a: the interface closes it (View in the app opens it: a step's event)
+            if body.get("action") != "close":
+                return self.error(400, "legend.invalid")
+            with lock:
+                app = state["legend"].get("app", "")
+                state["legend"] = {"open": False}
+            publish("legend.changed", {"open": False, "app": app})
+            return self.reply(204)
+        if path == "/v1/player":    # 5.6: what the console sends; the player "plays" the item
+            items, i = body.get("items") or [{}], body.get("index", 0)
+            it = items[i]
+            video = body.get("kind") != "music"
+            player = {"open": True, "kind": body.get("kind"), "index": i, "count": len(items), "path": it.get("path", ""),
+                      "title": it.get("title", ""), "folder": it.get("folder", ""), "artist": it.get("artist", ""),
+                      "album": it.get("album", ""), "position": 95 if video else 30, "duration": 1500 if video else 214,
+                      "paused": False, "autoplay": body.get("autoplay", True),
+                      "audio_language": body.get("audio_language", ""), "subtitles": body.get("subtitles", "")}
+            app = {"id": "player", "name": it.get("title", ""), "kind": "media"}
+            with lock:
+                state["apps"] = [a for a in state["apps"] if a["id"] != "player"] + [app]
+                state["player"] = player
+            publish("app.started", app)
+            publish("player.changed", player)
+            later(1, lambda: publish("focus.changed", {"focus": "player"}))
+            return self.reply(201, player)
+        if path.startswith("/v1/apps/") and path.endswith("/close"):
+            app_id = urllib.parse.unquote(path[len("/v1/apps/"):-len("/close")])
+            with lock:
+                app = next((a for a in state["apps"] if a["id"] == app_id), None)
+                state["apps"] = [a for a in state["apps"] if a["id"] != app_id]
+                if app_id == "player":
+                    state["player"] = dict(state["player"], open=False)
+                player = dict(state["player"])
+            if app is None:
+                return self.error(404, "apps.unknown_app")
+            publish("app.exited", {"id": app_id, "name": app["name"], "result": "success"})
+            if app_id == "player":
+                publish("player.changed", player)
+            publish("focus.changed", {"focus": "home"})
+            return self.reply(204)
         if path == "/v1/pointer":   # 4.7: on for a running app, off by hand
             with lock:
                 if body.get("on"):
@@ -935,6 +990,8 @@ def read_events(path):
                     if kind == "fake.steam":
                         state["steam"].update(payload)
                         kind, payload = "steam.changed", json.loads(json.dumps(state["steam"]))
+                    if kind == "legend.changed":
+                        state["legend"] = dict(payload)
                     if kind == "app.started":
                         state["apps"].append(payload)
                     elif kind == "app.exited":

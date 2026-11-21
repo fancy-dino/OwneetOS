@@ -3,8 +3,10 @@
 // Nintendo-style sets show letters, the PlayStation-style set shows the four shapes; Theme.glyphs
 // picks the set. On Nintendo pads SDL follows the printed labels (sdl2-compat's default
 // SDL_GAMECONTROLLER_USE_BUTTON_LABELS), so "a" is the button labelled A there too.
-// button: a, b, x, y, lb, rb, lt, rt, menu, guide; on every controller: lr, ud (up / down, a taller
-// pill: the display area, 3y), rs, dpad, ls (the left stick moving the pointer, 4.7).
+// button: a, b, x, y, lb, rb, lt, rt, menu, guide, view (the command legend, 5.6a: two
+// overlapping squares, a "CREATE" pill, a minus), r3 (the right stick pressed, a pill); on every
+// controller: lr, ud (up / down, a taller pill: the display area, 3y), rs, dpad, ls (the left
+// stick moving the pointer, 4.7).
 import QtQuick 2.15
 
 Item {
@@ -15,9 +17,9 @@ Item {
     readonly property real unit: Theme.fs(26) / 26     // the glyph is drawn on a 26 x 26 grid
 
     readonly property var pills: ({
-        xbox: { lb: ["LB", 34], rb: ["RB", 34], lt: ["LT", 32], rt: ["RT", 32] },
-        ps: { lb: ["L1", 30], rb: ["R1", 30], lt: ["L2", 30], rt: ["R2", 30], menu: ["OPTIONS", 62] },
-        nintendo: { lb: ["L", 28], rb: ["R", 28], lt: ["ZL", 32], rt: ["ZR", 32] },
+        xbox: { lb: ["LB", 34], rb: ["RB", 34], lt: ["LT", 32], rt: ["RT", 32], r3: ["RS", 32] },
+        ps: { lb: ["L1", 30], rb: ["R1", 30], lt: ["L2", 30], rt: ["R2", 30], menu: ["OPTIONS", 62], view: ["CREATE", 58], r3: ["R3", 30] },
+        nintendo: { lb: ["L", 28], rb: ["R", 28], lt: ["ZL", 32], rt: ["ZR", 32], r3: ["RS", 32] },
         any: { lr: ["", 44], ud: ["", 26] }   // the same on every controller
     })
     readonly property var pill: pills[set][button] || pills.any[button] || null
@@ -28,6 +30,8 @@ Item {
         "ps.y": "M13 8.4l4.8 8.2H8.2z",
         "xbox.menu": "M8.5 10h9M8.5 13h9M8.5 16h9",
         "nintendo.menu": "M13 8.5v9M8.5 13h9",
+        "xbox.view": "M8.4 8.8h6.2v4.8H8.4zM11.4 12.4h6.2v4.8h-6.2z",
+        "nintendo.view": "M8.5 13h9",
         "guide": "M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12",
         // left / right (sliders), and the right stick up / down (scrolling)
         "lr": "M15 8l-5 5 5 5M29 8l5 5-5 5",

@@ -1,0 +1,11 @@
+@videos
+# Closing the player as owneetd does (systemd's SIGTERM: Close on the home screen, Guide held in
+# cage), with the console on screen over it: mpv quits at once and keeps the video's position
+# (the owner's test, 2026-11-11: with mpv's terminal input off, SDL took the signal and mpv
+# kept playing).
+saved 0 12
+start 0
+wait 2
+focus no
+close
+files

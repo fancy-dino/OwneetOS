@@ -8,13 +8,20 @@
 // demo design/demos/5.0.0-optional-apps.html): a missing one is dimmed with a download mark, A
 // installs it, Menu opens its options (Open, Remove). An open web app takes the hero like a game
 // ([[step-5.1-brave-in-the-os]], approved demo design/demos/5.1-web-app-running.html): its letter
-// instead of art, Resume and Close; its tile shows a green dot.
+// instead of art, Resume and Close; its tile shows a green dot. The Videos and Music tiles open
+// their pages ([[step-5.6-local-videos-and-music]], approved demo design/demos/5.6-videos-and-music.html);
+// the player open takes the hero like a game: what plays, its time, Resume and Close; its tile
+// shows a green dot.
+// The apps' places ([[step-5.7-apps-page]], approved demo design/demos/5.7-apps-page.html): the
+// built-in apps first, then the web apps; with more than six apps five places and "All apps", which
+// opens the Apps page (the five most used from the seventh installed app; foundation/apps.js).
 // Started from the USB stick ([[step-6.2-live-vs-installed-mode]], approved demo
 // design/demos/6.2-live-home.html): a strip above the hero, which gives it the room, says that
 // nothing is kept at power-off and offers to install OwneetOS; installed, Home is as above.
 // Still to come: real covers from Steam's local files (4.1).
 import QtQuick 2.15
 import "foundation"
+import "foundation/apps.js" as Apps
 
 NavArea {
     id: page
@@ -25,23 +32,47 @@ NavArea {
     property var notices: []                   // [{ text, game }]: Steam's downloads (4.2c)
     // The web apps of the catalogue (owneetd): { id, nameKey, icon, installed, busy, sizeMiB }
     property var webApps: []
-    // Their ids, changed only when apps come or go: the tiles stay (and stay selected) while an
-    // app is installed or removed
-    property var webAppIds: []
-    onWebAppsChanged: {
-        const ids = webApps.map(a => a.id);
-        if (ids.join() !== webAppIds.join()) webAppIds = ids;
-    }
     function webApp(id) { return webApps.find(a => a.id === id) || null; }
-    property var running: null                 // the running game or web app: { id, name, kind, started }
+    // How many times each app was opened from the console ({ key: count }, kept by the shell)
+    property var uses: ({})
+    // The apps in the fixed order ({ key, installed }; generic web apps until owneetd answers), and
+    // the home's places (foundation/apps.js, [[step-5.7-apps-page]]): with six apps or fewer every
+    // app, a missing one in its place; beyond, five and "All apps"
+    readonly property var appList: Apps.fixedOrder(webApps.length > 0 ? webApps
+        : [{ id: "netflix", installed: true }, { id: "youtube", installed: true }, { id: "spotify", installed: true }])
+    readonly property var homeKeysNow: Apps.homeOrder(appList, uses)
+    // Changed only when the places change: the tiles stay (and stay selected) while an app is
+    // installed or removed; when they move, the selection follows its app
+    property var homeKeys: []
+    onHomeKeysNowChanged: {
+        if (homeKeysNow.join() === homeKeys.join()) return;
+        const key = current && (current.kind === "app" || current.kind === "allApps") ? current.key : "";
+        homeKeys = homeKeysNow;
+        if (key !== "") Qt.callLater(() => reselectApp(key));
+    }
+    Component.onCompleted: homeKeys = homeKeysNow
+    function reselectApp(key) {
+        const tiles = Nav.navigables(sideGroup).filter(i => i.kind === "app" || i.kind === "allApps");
+        const tile = tiles.find(i => i.key === key) || tiles.find(i => i.kind === "allApps") || tiles[0] || null;
+        if (!tile) return;
+        if (activeFocus) { focusItem(tile); return; }
+        sideGroup.remembered = tile;             // a window over the page keeps the focus
+        current = tile;
+    }
+    property var running: null                 // the running game, web app or player: { id, name, kind, started }
     property bool canResume: true
+    // The player open (5.6): what plays ({ title, line, position, duration, picture, seed }), and
+    // whether it is the Videos or the Music page's ("videos", "music")
+    property var nowPlaying: null
+    property string playerKind: ""
+    readonly property bool mediaOpen: running !== null && running.kind === "media"
     // An open web app (5.1): its catalogue entry
     readonly property bool webOpen: running !== null && running.kind === "webapp"
     readonly property var runningWeb: webOpen ? (webApps.find(a => "web:" + a.id === running.id) || null) : null
     function isOpen(app) { return app !== null && running !== null && running.id === "web:" + app.id; }
     // The Pegasus game of the running one (same title), for its art and source
     readonly property var runningGame: {
-        if (!running || webOpen) return null;
+        if (!running || webOpen || mediaOpen) return null;
         for (let i = 0; i < games.length; i++)
             if (games[i].title === running.name) return games[i];
         return null;
@@ -75,6 +106,14 @@ NavArea {
     signal openStore()                         // Steam's store (4.2)
     signal openWebApp(var app)                 // A on a web app: install it, or open it
     signal webAppOptions(var app)              // Menu on a web app
+    signal openMedia(string kind)              // the Videos ("videos") or Music ("music") tile
+    signal openApps()                          // "All apps": the Apps page (5.7)
+    // Back from the Videos or Music page ("videos", "music") or the Apps page ("allapps"): the
+    // selection on its tile
+    function focusApp(key) {
+        const tile = Nav.navigables(sideGroup).find(i => (i.kind === "app" || i.kind === "allApps") && i.key === key);
+        if (tile) focusItem(tile); else focusStart();
+    }
     signal openNotice(var notice)              // the downloads notice: the game's details (4.2c)
     property bool steamRunning: false           // Steam runs (hidden or not): Menu on its tile closes it
     signal steamOptions()
@@ -106,7 +145,7 @@ NavArea {
                                                P("menu", "prompt.options")];
         if (k === "app" && current.steamStore && steamRunning)
             return [P("a", "prompt.open"), P("menu", "prompt.options")];
-        if (k === "app" || k === "all" || k === "notice" || k === "store")
+        if (k === "app" || k === "all" || k === "allApps" || k === "notice" || k === "store")
             return [P("a", "prompt.open")];
         if (k === "install")
             return [P("a", "live.install")];
@@ -140,6 +179,7 @@ NavArea {
         if (k === "game" || k === "play") launch(gameOf(item));
         else if (k === "details") details(gameOf(item));
         else if (k === "all") openLibrary();
+        else if (k === "allApps") openApps();
         else if (k === "how") howToAdd();
         else if (k === "resume") resume(running);
         else if (k === "close") closeApp(running);
@@ -149,6 +189,7 @@ NavArea {
         else if (k === "app" && item.webApp) openWebApp(item.webApp);
         else if (k === "notice" && page.notices.length > 0) openNotice(page.notices[0]);
         else if (k === "install") install();
+        else if (k === "app" && item.mediaKind !== "") openMedia(item.mediaKind);
         else notYet();                         // apps (later steps)
     }
     onOtherAction: {
@@ -229,13 +270,14 @@ NavArea {
                 readonly property var game: page.running ? page.runningGame : page.hero
                 visible: (page.hero !== null || page.running !== null) && !page.webOpen
                 radius: Theme.radiusL
-                seed: page.running ? page.running.name : (page.hero ? page.hero.title : "")
+                seed: page.mediaOpen && page.nowPlaying ? page.nowPlaying.seed
+                    : page.running ? page.running.name : (page.hero ? page.hero.title : "")
                 // Art (4.4): a Steam game's wide picture, else its header, else the generated art; a
                 // game on a disk shows its cover whole, on the right (owner 2026-10-16)
                 readonly property string wide: game ? (game.assets.background || game.assets.banner || "") : ""
                 readonly property string cover: game && GameInfo.onDisk(game) ? (game.assets.boxFront || "") : ""
-                image: wide || cover
-                fit: wide === "" && cover !== ""
+                image: page.mediaOpen ? (page.nowPlaying ? page.nowPlaying.picture : "") : (wide || cover)
+                fit: !page.mediaOpen && wide === "" && cover !== ""
                 fitX: 0.92
                 fitMargin: Theme.px(22)
                 scrim: true
@@ -286,6 +328,7 @@ NavArea {
                 // 2026-11-13, approved demo design/demos/3.6c-hero-card-fit.html): the title goes on one
                 // line ("…", scrolling while a button of the card is selected) and the buttons are clipped
                 readonly property string titleText: page.webOpen ? (page.runningWeb ? Tr.tr(page.runningWeb.nameKey) : page.running.name)
+                    : page.mediaOpen ? (page.nowPlaying ? page.nowPlaying.title : page.running.name)
                     : page.running ? page.running.name : page.hero ? page.hero.title : Tr.tr("home.empty.title")
                 // the other rows (never the title, whose lines depend on this: no binding loop)
                 readonly property real otherRows: {
@@ -401,6 +444,7 @@ NavArea {
                     }
                     Text {
                         text: page.webOpen ? page.since("home.open.time", page.playingMinutes)
+                            : page.mediaOpen ? (page.nowPlaying ? page.nowPlaying.line : "")
                             : page.running ? page.since("home.session", page.playingMinutes) : GameInfo.lastPlayed(page.hero)
                         color: page.webOpen ? Theme.muted : "#E6FFFFFF"
                         font.family: Theme.textFont
@@ -414,6 +458,29 @@ NavArea {
                         font.family: Theme.textFont
                         font.pixelSize: Theme.fs(14.5)
                         anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Row {            // the player: where it is in what plays
+                        visible: page.mediaOpen && page.nowPlaying !== null && page.nowPlaying.duration > 0
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: Theme.px(10)
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.px(120); height: Theme.px(5); radius: height / 2
+                            color: "#40FFFFFF"
+                            Rectangle {
+                                width: parent.width * (page.nowPlaying && page.nowPlaying.duration > 0
+                                                       ? Math.min(1, page.nowPlaying.position / page.nowPlaying.duration) : 0)
+                                height: parent.height; radius: height / 2
+                                color: Theme.accent
+                            }
+                        }
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: page.nowPlaying ? MediaText.clock(page.nowPlaying.position) + " / " + MediaText.clock(page.nowPlaying.duration) : ""
+                            color: "#E6FFFFFF"
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(14.5)
+                        }
                     }
                     Rectangle {      // the pointer is on for the running game (4.7)
                         visible: page.running !== null && page.pointerOn
@@ -504,7 +571,7 @@ NavArea {
                         style: page.webOpen ? "primary" : "light"
                     }
                     Button {
-                        visible: page.running !== null && page.canResume
+                        visible: page.running !== null && page.canResume && !page.mediaOpen
                         property string kind: page.pointerOn ? "pointerOff" : "pointer"
                         text: Tr.tr(page.pointerOn ? "home.pointer.off" : "home.pointer")
                         style: "glass"
@@ -512,7 +579,7 @@ NavArea {
                     Button {
                         visible: page.running !== null
                         readonly property string kind: "close"
-                        text: Tr.tr(page.webOpen ? "home.closeapp" : "home.close")
+                        text: Tr.tr(page.webOpen || page.mediaOpen ? "home.closeapp" : "home.close")
                         style: page.webOpen ? (page.canResume ? "secondary" : "primary")
                                             : (page.canResume ? "glass" : "light")
                     }
@@ -561,77 +628,14 @@ NavArea {
                     spacing: Theme.px(12)
                     readonly property real cell: (width - 2 * spacing) / 3
                     Repeater {
-                        // Generic tiles, no third-party logos. The web apps come from owneetd's
-                        // catalogue (generic tiles until it answers); Videos, Music and the store stay.
-                        model: (page.webAppIds.length > 0
-                                ? page.webAppIds.map(id => ({ id: id }))
-                                : [{ key: "app.netflix", icon: "N" }, { key: "app.youtube", icon: "Y" }, { key: "app.spotify", icon: "S" }])
-                            .concat([{ key: "app.videos", icon: "▶" }, { key: "app.music", icon: "♪" }, { key: "app.store", icon: "$" }])
-                        Rectangle {
-                            readonly property bool navigable: true
-                            readonly property string kind: "app"
-                            readonly property bool steamStore: modelData.key === "app.store"
-                            readonly property var webApp: modelData.id ? page.webApp(modelData.id) : null
-                            readonly property string nameKey: webApp ? webApp.nameKey : (modelData.key || "")
-                            readonly property bool missing: webApp !== null && !webApp.installed && !webApp.busy
-                            readonly property real dim: missing ? (activeFocus ? 0.85 : 0.55) : 1
+                        // The home's places ([[step-5.7-apps-page]]): AppTile, "All apps" beyond six apps
+                        model: page.homeKeys
+                        AppTile {
                             width: apps.cell
-                            height: Math.max(Theme.px(78), appName.implicitHeight + icon.height + Theme.px(28))
-                            radius: Theme.radiusM
-                            color: Theme.surface
-                            border.color: Theme.line
-                            border.width: Math.max(1, Theme.px(1))
-                            Rectangle {
-                                id: icon
-                                x: Theme.px(12); y: Theme.px(10)
-                                width: Theme.fs(30); height: width
-                                radius: Theme.px(9)
-                                color: Theme.raised
-                                opacity: parent.dim
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: parent.parent.webApp ? parent.parent.webApp.icon : modelData.icon
-                                    color: Theme.accent
-                                    font.family: Theme.displayFont
-                                    font.weight: Font.Bold
-                                    font.pixelSize: Theme.fs(15)
-                                }
-                            }
-                            Rectangle {                 // not installed: download mark
-                                visible: parent.missing
-                                anchors { right: parent.right; top: parent.top; rightMargin: Theme.px(10); topMargin: Theme.px(10) }
-                                width: Theme.fs(22); height: width; radius: width / 2
-                                color: Theme.raised
-                                Icon {
-                                    anchors.centerIn: parent
-                                    width: parent.width * 0.62; height: width
-                                    name: "download"
-                                    color: Theme.fg
-                                }
-                            }
-                            Rectangle {                 // open (5.1): green dot, as the running game
-                                visible: page.isOpen(parent.webApp) && !parent.webApp.busy
-                                anchors { right: parent.right; top: parent.top; rightMargin: Theme.px(14); topMargin: Theme.px(16) }
-                                width: Theme.px(9); height: width; radius: width / 2
-                                color: Theme.running
-                            }
-                            Spinner {                   // installing or removing
-                                visible: parent.webApp !== null && !!parent.webApp.busy
-                                anchors { right: parent.right; top: parent.top; rightMargin: Theme.px(10); topMargin: Theme.px(10) }
-                                width: Theme.fs(18); height: width
-                            }
-                            FitText {
-                                id: appName
-                                anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: Theme.px(12); bottomMargin: Theme.px(10) }
-                                text: parent.webApp && parent.webApp.busy
-                                      ? Tr.tr(parent.webApp.busy === "install" ? "apps.installing" : "apps.removing")
-                                      : Tr.tr(parent.nameKey)
-                                color: parent.webApp && parent.webApp.busy ? Theme.muted : Theme.fg
-                                opacity: parent.dim
-                                font.family: Theme.textFont
-                                font.pixelSize: Theme.fs(14.5)
-                            }
-                            FocusFrame {}
+                            key: modelData
+                            webApp: key.startsWith("web:") ? page.webApp(key.slice(4)) : null
+                            open: (webApp !== null && page.isOpen(webApp))
+                                  || (mediaKind !== "" && page.mediaOpen && page.playerKind === mediaKind)
                         }
                     }
                 }

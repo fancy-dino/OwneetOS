@@ -1,0 +1,25 @@
+@music
+# The player with songs ([[step-5.6-local-videos-and-music]], approved demo 5.6): the "now
+# playing" screen with the folder's cover.jpg, a song's own picture, and art drawn from the album's
+# name; paused; the next song, the last one; LT in the first 5 s; B; nothing saved for songs.
+start 0
+shot 01-cover-jpg
+wait 4
+shot 02-prompts-hidden
+pad a
+shot 03-paused
+pad a
+pad rt rt
+wait 1
+shot 04-own-picture
+pad rt
+wait 1
+shot 05-drawn-art
+pad rt
+shot 06-no-more-songs
+pad lt
+wait 1
+state
+pad b
+exit
+files

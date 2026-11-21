@@ -1,0 +1,6 @@
+@owneetd
+# The home's apps with today's six ([[step-5.7-apps-page]]): the built-in apps first, then the web
+# apps, the missing ones dimmed in their place; no "All apps".
+wait 2
+pad right right
+shot 01-home-six

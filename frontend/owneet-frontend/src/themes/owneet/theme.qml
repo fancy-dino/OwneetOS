@@ -6,6 +6,7 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
 import "foundation"
+import "foundation/apps.js" as Apps
 
 FocusScope {
     id: root
@@ -27,10 +28,29 @@ FocusScope {
     ]
     property string librarySort: "recent"
     onLibrarySortChanged: save("librarySort", librarySort)
+    // Videos (5.6): the next video of the folder starts by itself (on for a new console)
+    property bool mediaAutoplay: true
+    onMediaAutoplayChanged: save("mediaAutoplay", mediaAutoplay)
+    // Videos (5.6): the preferred audio and subtitle language, the last chosen in the player (X,
+    // Menu; subtitles also "off"; "" until a choice), for every video ([[local-media]])
+    property string mediaAudioLanguage: ""
+    onMediaAudioLanguageChanged: save("mediaAudioLanguage", mediaAudioLanguage)
+    property string mediaSubtitles: ""
+    onMediaSubtitlesChanged: save("mediaSubtitles", mediaSubtitles)
+    // The apps (5.7): how many times each was opened from the console ({ key: count }; the home
+    // shows the five most used from the seventh installed app, foundation/apps.js)
+    property var appUses: ({})
+    onAppUsesChanged: save("appUses", JSON.stringify(appUses))
     property bool loaded: false
     Component.onCompleted: {
         prefs.forEach(p => { if (api.memory.has(p[0])) Theme[p[1]] = api.memory.get(p[0]); });
         if (api.memory.has("librarySort")) librarySort = api.memory.get("librarySort");
+        if (api.memory.has("mediaAutoplay")) mediaAutoplay = api.memory.get("mediaAutoplay") === true;
+        if (api.memory.has("mediaAudioLanguage")) mediaAudioLanguage = String(api.memory.get("mediaAudioLanguage"));
+        if (api.memory.has("mediaSubtitles")) mediaSubtitles = String(api.memory.get("mediaSubtitles"));
+        if (api.memory.has("appUses")) {
+            try { appUses = JSON.parse(String(api.memory.get("appUses"))) || {}; } catch (e) { appUses = {}; }
+        }
         loaded = true;
         // The interface restarts when the console moves to another screen (and when it comes
         // back): it opens again on Settings → Display, where the move was asked
@@ -224,7 +244,14 @@ FocusScope {
     // ---- Sections (LB / RB)
     readonly property var sections: ["home", "library", "settings"]
     property string section: "home"
-    readonly property Item page: section === "home" ? home : section === "library" ? library : settings
+    // the Videos or Music page (5.6), opened from its tile: a page of Home; `mediaFrom`: where its
+    // tile was ("home", or "apps": the Apps page), where B goes back to
+    property string mediaKind: ""
+    property string mediaFrom: "home"
+    // the Apps page (5.7), opened by "All apps": a page of Home
+    property bool appsOpen: false
+    readonly property Item page: section === "home" ? (mediaKind !== "" ? mediaPage : appsOpen ? appsPage : home)
+                                                     : section === "library" ? library : settings
     // Guide while nothing runs (owner, 2026-11-14: it did nothing): back to the home screen, the
     // windows over the pages closed (as B or Cancel would); the copy of games goes on behind its
     // window (6.6e). Not during the first start or the installer.
@@ -239,6 +266,7 @@ FocusScope {
         if (displayArea.visible) displayArea.close(false);
         if (fileManager.visible) fileManager.close();
         if (section !== "home") goSection("home");
+        else if (mediaKind !== "" || appsOpen) { mediaKind = ""; mediaFrom = "home"; appsOpen = false; Nav.feedback("section"); }
         else if (was) Nav.feedback("sheet-close");
         backToPage();
     }
@@ -246,6 +274,9 @@ FocusScope {
         if (name === section)
             return;
         section = name;
+        mediaKind = "";
+        mediaFrom = "home";
+        appsOpen = false;
         Nav.feedback("section");
         page.focusStart();
     }
@@ -255,7 +286,7 @@ FocusScope {
                                        || zoneSheet.visible || clockSheet.visible || displayArea.visible || fileManager.visible || moveSheet.visible || versionsSheet.visible
                                        || coverSheet.visible
                                        || notices.visible || quick.visible || controls.visible || steamPrep.visible || webPrep.visible
-                                       || webKeys.shown
+                                       || webKeys.shown || legend.visible
     function backToPage() {
         Qt.callLater(() => {
             // the file manager's own windows (6.11): back to it once they close
@@ -277,7 +308,7 @@ FocusScope {
     // ---- Buttons the sections leave to the whole interface (section 9.1)
     Keys.onPressed: {
         const a = Nav.action(event);
-        if (a === "page" && section === "home" && !modalOpen) {
+        if (a === "page" && section === "home" && mediaKind === "" && !appsOpen && !modalOpen) {
             notices.openSheet();                    // Y: notifications (demo 3.11)
         } else if ((a === "section-prev" || a === "section-next") && !modalOpen) {
             const i = sections.indexOf(section) + (a === "section-next" ? 1 : -1);
@@ -311,9 +342,12 @@ FocusScope {
     }
     // An open web app (5.1): treated like a game, one game or web app at a time
     readonly property var runningWebApp: apps.find(a => a.kind === "webapp") || null
+    // The Videos and Music pages' player (5.6): treated like a game too
+    readonly property var runningPlayer: apps.find(a => a.kind === "media") || null
     // The name of what is open, for "{name} is open: close it first."
     function openName() {
         if (runningGame) return runningGame.name;
+        if (runningPlayer) return Tr.tr(player.kind === "music" ? "app.music" : "app.videos");
         const w = runningWebApp ? webApps.find(a => "web:" + a.id === runningWebApp.id) : null;
         return w ? Tr.tr(w.nameKey) : (runningWebApp ? runningWebApp.name : "");
     }
@@ -388,6 +422,8 @@ FocusScope {
         });
         owneetd.get("/v1/network", (status, data) => { if (status === 200) { network = data; lastNetwork = data; } });
         refreshApps();
+        owneetd.get("/v1/player", (status, data) => { if (status === 200) root.setPlayer(data); });
+        owneetd.get("/v1/legend", (status, data) => { if (status === 200) root.setLegend(data); });
         refreshControllers();
         applyKeyboard();          // the on-screen keyboard and physical keyboards follow the chosen layout
         refreshSteam(false);
@@ -420,6 +456,12 @@ FocusScope {
                     root.agreementAccepted(String(data.id).slice(6));
                 if (type === "app.exited" && (data.id === "steam" || String(data.id).startsWith("steam:")))
                     root.refreshSteam(true);
+                if (type === "app.exited" && data.id === "player")
+                    root.playerEnded();
+            } else if (type === "legend.changed") {
+                root.setLegend(data);
+            } else if (type === "player.changed") {
+                root.setPlayer(data);
             } else if (type === "steam.launch_failed") {
                 if (data && data.reason === "linux_version") root.askWindowsVersion(String(data.appid));
             } else if (type === "focus.changed") {
@@ -624,7 +666,7 @@ FocusScope {
     function quietNetwork() { quietNetUntil = Date.now() + 15000; }
     // While a game is on screen nothing is drawn over it (the overlay comes in Wave 2) and no
     // sound plays: the notification waits in the list, the bell counts it
-    readonly property bool gameOnScreen: (runningGame !== null || runningWebApp !== null) && focusedApp !== "home"
+    readonly property bool gameOnScreen: (runningGame !== null || runningWebApp !== null || runningPlayer !== null) && focusedApp !== "home"
     function notify(n) {
         n.time = Date.now();
         noticeList = [n].concat(noticeList).slice(0, 30);
@@ -749,7 +791,7 @@ FocusScope {
             root.resume(runningGame);
             return;
         }
-        if (runningWebApp && owneetd.connected) {   // one game or web app at a time (5.1)
+        if ((runningWebApp || runningPlayer) && owneetd.connected) {   // one game, web app or player at a time (5.1, 5.6)
             toast.show(Tr.tr("toast.app.busy", { name: openName() }));
             Nav.feedback("edge");
             return;
@@ -1158,6 +1200,214 @@ FocusScope {
         }
     }
 
+    // ---- Videos and Music (5.6, approved demo design/demos/5.6-videos-and-music.html)
+    function openMedia(kind, from) {
+        mediaFrom = from || "home";
+        mediaKind = kind;
+        countUse(kind);
+        mediaPage.focusStart();
+    }
+    // back to where its tile was: the home screen or the Apps page
+    function leaveMedia() {
+        const key = mediaKind;
+        mediaKind = "";
+        if (mediaFrom === "apps") {
+            appsOpen = true;
+            appsPage.focusApp(key);
+        } else {
+            appsOpen = false;
+            home.focusApp(key);
+        }
+    }
+    // ---- The Apps page (5.7, approved demo design/demos/5.7-apps-page.html): every app, opened by
+    // "All apps" (the home's sixth place with more than six apps); B back to the home on "All apps"
+    function openApps() {
+        appsOpen = true;
+        appsPage.focusStart();
+    }
+    function leaveApps() {
+        appsOpen = false;
+        home.focusApp(Apps.ALL_APPS);
+    }
+    // An app opened from the console counts as a use (Resume, bringing back the open app, does not)
+    function countUse(key) {
+        const uses = Object.assign({}, appUses);
+        uses[key] = (uses[key] || 0) + 1;
+        appUses = uses;
+    }
+    // Removing an app clears its count (once the catalogue is known)
+    onWebAppsChanged: {
+        if (webApps.length === 0) return;
+        const kept = Apps.pruneUses(Apps.fixedOrder(webApps), appUses);
+        if (kept) appUses = kept;
+    }
+    // ---- The player (5.6, approved demo design/demos/5.6-videos-and-music.html): mpv, started by
+    // owneetd like a game (POST /v1/player), one game, web app or player at a time. Its display
+    // gets the console's texts, palette, fonts and glyphs with each start; what plays comes back
+    // as "player.changed". Guide shows the console while it plays (gamescope); B, its end or Close
+    // bring the console back, on the list it was opened from.
+    property var player: ({ open: false })   // owneetd's: { open, kind, index, path, title, folder, artist, album, position, duration, paused, autoplay, error }
+    property real playerAt: 0                 // when `player` arrived (the time goes on from there)
+    property real playerNow: 0
+    property string playerPicture: ""         // the picture of what plays (its folder's, a song's own)
+    property var playerOrigin: null           // the page it was opened from: { kind, state }
+    property string playerStopped: ""         // closed because its USB disk was removed: its title
+    Timer {                                   // the time of what plays, while the console shows it
+        interval: 1000; repeat: true
+        running: root.runningPlayer !== null && root.player.open === true && !root.player.paused && root.focusedApp !== "player"
+        onTriggered: root.playerNow = Date.now()
+    }
+    // what the home screen's hero and the pages show of it
+    readonly property var nowPlaying: {
+        if (!runningPlayer || player.open !== true)
+            return null;
+        const video = player.kind !== "music";
+        const later = player.paused ? 0 : Math.max(0, (playerNow - playerAt) / 1000);
+        return {
+            path: player.path || "", video: video, title: player.title || runningPlayer.name,
+            line: video ? (player.folder || Tr.tr("app.videos"))
+                        : [player.artist || Tr.tr("media.unknown_artist"), player.album || ""].filter(s => s !== "").join(" · "),
+            position: Math.min(player.duration || 0, (player.position || 0) + later), duration: player.duration || 0,
+            picture: playerPicture, seed: video ? ((player.folder || "").split(" › ")[0] || player.title || "") : (player.album || player.title || "")
+        };
+    }
+    function setPlayer(data) {
+        const path = data.path || "";
+        // a song's own picture, else its folder's (cover.jpg…); a video's folder's
+        if (path !== (player.path || "")) {
+            const folder = path.substring(0, path.lastIndexOf("/"));
+            playerPicture = !path ? "" : (data.kind === "music" ? media.details(path).picture : "")
+                                         || media.folder(data.kind === "music" ? "music" : "videos", folder).picture || "";
+        }
+        player = data;
+        playerAt = Date.now();
+        playerNow = playerAt;
+        // Autoplay switched in the player (Menu): the Videos page and the next start follow
+        if (data.open && data.kind === "videos" && data.autoplay !== undefined && data.autoplay !== mediaAutoplay)
+            mediaAutoplay = data.autoplay;
+        // a language chosen in the player (X, Menu) becomes the preferred one
+        if (data.open && data.kind === "videos" && typeof data.audio_language === "string")
+            mediaAudioLanguage = data.audio_language;
+        if (data.open && data.kind === "videos" && typeof data.subtitles === "string")
+            mediaSubtitles = data.subtitles;
+    }
+    readonly property var playerTexts: ["player.play", "player.pause", "player.seek", "player.prevnext", "prompt.back",
+        "prompt.home", "player.hold", "player.state.audio", "player.state.subtitles", "player.off", "media.autoplay",
+        "media.on", "media.off", "player.track", "player.forward", "player.backward", "player.start",
+        "player.last.video", "player.last.song", "player.audio", "player.subtitles", "player.resumed",
+        "player.failed", "media.unknown_artist", "player.next", "player.last_song"]
+    // `list`: what plays after it (the rest of its folder, or of the album)
+    function playMedia(entry, list, fromStart) {
+        // what plays already: back to the player
+        if (runningPlayer && player.open && player.path === entry.path) {
+            Nav.feedback("launch");
+            root.resume(runningPlayer);
+            return;
+        }
+        if ((runningGame || runningWebApp) && owneetd.connected) {     // one at a time
+            toast.show(Tr.tr("toast.app.busy", { name: openName() }));
+            Nav.feedback("edge");
+            return;
+        }
+        const music = mediaKind === "music";
+        const items = list.map(e => {
+            const folder = media.trail(e.path.substring(0, e.path.lastIndexOf("/")));
+            if (!music)
+                return { path: e.path, title: e.name, folder: folder, hue: MediaText.hue(folder.split(" › ")[0] || e.name) };
+            const d = media.details(e.path);
+            const album = d.album || folder.split(" › ").pop() || "";
+            return { path: e.path, title: d.title || e.name, artist: d.artist || "", album: album, hue: MediaText.hue(album || d.title || e.name) };
+        });
+        const hex = c => "#" + [c.r, c.g, c.b].map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join("");
+        const texts = {};
+        playerTexts.forEach(k => texts[k] = Tr.tr(k));
+        texts["label.playing"] = Tr.tr("home.playing").toLocaleUpperCase();
+        const codes = media.languageCodes();
+        const languages = {};
+        Object.keys(codes).forEach(k => { const c = codes[k]; if (!(c in languages)) languages[c] = MediaText.language(c); });
+        const request = {
+            kind: music ? "music" : "videos", items: items, index: Math.max(0, list.findIndex(e => e.path === entry.path)),
+            from_start: fromStart === true, autoplay: mediaAutoplay, audio_language: mediaAudioLanguage,
+            subtitles: mediaSubtitles, texts: texts, languages: languages, codes: codes,
+            look: { bg: hex(Theme.bg), surface: hex(Theme.surface), raised: hex(Theme.raised), line: hex(Theme.line),
+                    fg: hex(Theme.fg), muted: hex(Theme.muted), accent: hex(Theme.accent), onAccent: hex(Theme.onAccent),
+                    displayFont: Theme.displayFont, textFont: Theme.textFont, textScale: Theme.textScale, glyphs: Theme.glyphs }
+        };
+        Nav.feedback("launch");
+        const origin = { kind: mediaKind, from: mediaFrom, state: mediaPage.saveState() };
+        owneetd.post("/v1/player", request, (status, data) => {
+            if (status === 201) {
+                playerOrigin = origin;
+                playerStopped = "";
+                setPlayer(data);
+                return;
+            }
+            const code = data && data.error ? data.error.code : "";
+            toast.show(code === "apps.game_running" ? Tr.tr("toast.app.busy", { name: openName() }) : Tr.tr("error.player"));
+            Nav.feedback("error");
+        });
+    }
+    // Close on the home screen's hero: at once (its position kept), no question
+    function closePlayer() {
+        const title = nowPlaying ? nowPlaying.title : "";
+        closingApps["player"] = true;
+        owneetd.post("/v1/apps/player/close", {}, status => {
+            if (status >= 300 || status === 0) { toast.show(Tr.tr("error.close")); return; }
+            Nav.feedback("confirm");
+            if (title !== "") toast.show(Tr.tr("toast.closed", { title: title }));
+        });
+    }
+    // The player has quit: the positions are read again; when it was on screen, the console is
+    // back on the list it was opened from, the selection on what played last. A file that could
+    // not be played, or its USB disk removed, is said.
+    function playerEnded() {
+        const last = player;
+        const onTop = focusedApp === "player" || focusedApp === "";
+        media.refreshPositions();
+        if (playerStopped !== "" || (last.path && !media.fileExists(last.path))) {
+            toast.show(Tr.tr("toast.usb", { title: playerStopped || last.title || "" }));
+        } else if (last.error && last.error === last.path) {
+            toast.show(Tr.tr("player.failed", { title: last.title || "" }));
+        }
+        playerStopped = "";
+        const o = playerOrigin;
+        playerOrigin = null;
+        if (!onTop || !o || modalOpen)
+            return;
+        if (section !== "home") goSection("home");
+        mediaFrom = o.from || "home";
+        mediaKind = o.kind;
+        mediaPage.restoreState(o.state, last.path || "");
+        mediaPage.focusStart();
+    }
+    // A USB disk removed while the player plays one of its files: the player stops (mpv keeps the
+    // video's position as it quits), the console says so when it has ended
+    Connections {
+        target: media
+        function onRevisionChanged() {
+            if (!root.runningPlayer || !root.player.open || !root.player.path || media.fileExists(root.player.path))
+                return;
+            root.playerStopped = root.player.title || "";
+            root.closingApps["player"] = true;
+            owneetd.post("/v1/apps/player/close", {});
+        }
+    }
+    // Menu on a started video: resume it, or watch it from the start
+    function mediaOptions(entry, list) {
+        const position = media.details(entry.path).position || 0;
+        dialog.game = null;
+        dialog.mode = "options";
+        dialog.contentWidth = 0;
+        dialog.title = entry.name;
+        dialog.text = Tr.tr("media.stopped", { t: MediaText.clock(position), d: MediaText.clock(media.details(entry.path).duration) });
+        dialog.buttons = [
+            { text: Tr.tr("media.resume_from", { t: MediaText.clock(position) }), style: "primary", action: () => { dialog.close(true); root.playMedia(entry, list, false); } },
+            { text: Tr.tr("media.from_start"), action: () => { dialog.close(true); root.playMedia(entry, list, true); } }
+        ];
+        dialog.defaultIndex = 0;
+        dialog.open();
+    }
+
     // ---- Optional web apps (5.0.0, approved demo design/demos/5.0.0-optional-apps.html): installed
     // and removed from the home screen's Apps grid. The engine behind them is never named.
     property var webApps: []                  // owneetd's catalogue: { id, nameKey, icon, installed, busy, sizeMiB }
@@ -1193,7 +1443,7 @@ FocusScope {
     property var termsFor: null           // { app, updated }: the question waiting for Google's page
     function openAfterConsent(app) {
         // already open (brought back), or another one open ("close it first"): nothing to ask
-        if (runningGame || runningWebApp) {
+        if (runningGame || runningWebApp || runningPlayer) {
             startWebApp(app);
             return;
         }
@@ -1254,7 +1504,7 @@ FocusScope {
     // brings it back when it is already open
     function startWebApp(app) {
         const open = runningWebApp !== null && runningWebApp.id === "web:" + app.id;
-        if (!open && (runningGame || runningWebApp)) {
+        if (!open && (runningGame || runningWebApp || runningPlayer)) {
             toast.show(Tr.tr("toast.app.busy", { name: openName() }));
             Nav.feedback("edge");
             return;
@@ -1266,6 +1516,8 @@ FocusScope {
         const hex = c => "#" + [c.r, c.g, c.b].map(v => Math.round(v * 255).toString(16).padStart(2, "0")).join("");
         const look = { accent: hex(Theme.accent), language: Tr.language };
         owneetd.post("/v1/apps/catalog/" + encodeURIComponent(app.id) + "/open", look, (status, data) => {
+            if (!open && (status === 204 || status === 200 || status === 202))
+                countUse("web:" + app.id);        // opened (not brought back): a use (5.7)
             if (status === 204 || status === 200)
                 return;
             if (status === 202) {                 // its first opening: Brave first gets Widevine (5.4)
@@ -2150,7 +2402,10 @@ FocusScope {
     function openSteam(page) {
         if (steamOffline(page === "store" ? "store" : "play")) return;
         withSteamNotice(() => {
-            if (page === "store") root.storeVisited = true;
+            if (page === "store") {
+                root.storeVisited = true;
+                root.countUse("store");          // a use of the store's tile (5.7)
+            }
             if (page === "storage") Nav.feedback("launch");     // an app opens, as from its tile
             steamRequest({ open: page }, null);
         });
@@ -3078,10 +3333,13 @@ FocusScope {
         HomePage {
             id: home
             anchors.fill: parent
-            visible: root.section === "home"
+            visible: root.section === "home" && root.mediaKind === "" && !root.appsOpen
             live: root.liveSystem
             onInstall: root.openInstaller()
             focus: visible
+            onOpenMedia: root.openMedia(kind, "home")
+            onOpenApps: root.openApps()
+            uses: root.appUses
             games: root.homeGames
             notices: root.steamNotices.concat(root.installNotices).concat(root.windowsNotices)
             onOpenNotice: if (notice.game) root.showDetails(notice.game)
@@ -3093,10 +3351,12 @@ FocusScope {
             onOpenLibrary: root.goSection("library")
             onHowToAdd: root.showHowToAdd()
             onOpenStore: root.openSteam("store")
-            running: root.runningGame || root.runningWebApp
+            running: root.runningGame || root.runningWebApp || root.runningPlayer
+            nowPlaying: root.nowPlaying
+            playerKind: root.runningPlayer ? (root.player.kind === "music" ? "music" : "videos") : ""
             canResume: root.sessionMode === "gamescope"
             onResume: root.resume(app)
-            onCloseApp: root.confirmClose(app)
+            onCloseApp: if (app.kind === "media") root.closePlayer(); else root.confirmClose(app)
             pointerOn: root.pointerStatus.on === true && root.runningGame !== null && root.pointerStatus.app === root.runningGame.id
             onResumeWithPointer: root.resumeWithPointer(app)
             onPointerOff: root.turnPointerOff()
@@ -3105,6 +3365,40 @@ FocusScope {
             webApps: root.webApps
             onOpenWebApp: root.openWebApp(app)
             onWebAppOptions: root.webAppOptions(app)
+        }
+        AppsPage {
+            id: appsPage
+            anchors.fill: parent
+            visible: root.section === "home" && root.mediaKind === "" && root.appsOpen
+            focus: visible
+            webApps: root.webApps
+            running: root.runningGame || root.runningWebApp || root.runningPlayer
+            playerKind: root.runningPlayer ? (root.player.kind === "music" ? "music" : "videos") : ""
+            steamRunning: root.apps.some(a => a.id === "steam")
+            onOpenWebApp: root.openWebApp(app)
+            onWebAppOptions: root.webAppOptions(app)
+            onOpenMedia: root.openMedia(kind, "apps")
+            onOpenStore: root.openSteam("store")
+            onSteamOptions: root.confirmCloseSteam()
+            onLeave: root.leaveApps()
+        }
+        MediaPage {
+            id: mediaPage
+            anchors.fill: parent
+            visible: root.section === "home" && root.mediaKind !== ""
+            focus: visible
+            kind: root.mediaKind || "videos"
+            autoplay: root.mediaAutoplay
+            playingPath: root.nowPlaying ? root.nowPlaying.path : ""
+            playingPosition: root.nowPlaying ? root.nowPlaying.position : 0
+            onPlay: root.playMedia(entry, list, fromStart)
+            onOptions: root.mediaOptions(entry, list)
+            onToggleAutoplay: {
+                root.mediaAutoplay = !root.mediaAutoplay;
+                Nav.feedback(root.mediaAutoplay ? "toggle-on" : "toggle-off");
+                toast.show(Tr.tr(root.mediaAutoplay ? "toast.autoplay.on" : "toast.autoplay.off"));
+            }
+            onLeave: root.leaveMedia()
         }
         LibraryPage {
             id: library
@@ -4437,6 +4731,33 @@ FocusScope {
         layered: root.sessionMode === "gamescope"     // drawn over the page (part 6)
         layout: osk.layout
         onFinished: root.backToPage()
+    }
+
+    // ---- The command legend (5.6a, approved demo design/demos/5.6a-command-legend.html): View in a
+    // web app or the player opens it (the app asks owneetd, "legend.changed"); over the app in
+    // gamescope, a page in front in cage (B or View: back to the app)
+    function setLegend(data) {
+        const st = data || {};
+        if (!st.open) {
+            const wasPage = legend.visible;
+            legend.hide();
+            if (wasPage) root.backToPage();
+            return;
+        }
+        let name = "";
+        if (st.app === "player")
+            name = Tr.tr(st.context === "player.song" ? "app.music" : "app.videos");
+        else {
+            const w = webApps.find(a => "web:" + a.id === st.app);
+            const a = apps.find(x => x.id === st.app);
+            name = w ? Tr.tr(w.nameKey) : a ? a.name : "";
+        }
+        legend.show(st, name);
+    }
+    Legend {
+        id: legend
+        layered: root.sessionMode === "gamescope"
+        onClosed: owneetd.post("/v1/legend", { action: "close" })
     }
 
     // ---- The cage session (5.2): the interface shows or hides its own window, as owneetd decides

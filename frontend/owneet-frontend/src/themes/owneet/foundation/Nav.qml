@@ -70,6 +70,9 @@ QtObject {
         }
     }
 
+    // View (the controller's GamepadKeyId::SELECT, 0x10000A): the command legend's page closes with
+    // it (5.6a); nothing else on the console's screens uses it (reserved for screenshots)
+    function isView(event) { return event.key === 0x10000A && !event.isAutoRepeat; }
     function action(event) {
         if (inputPaused)
             return "ignored";

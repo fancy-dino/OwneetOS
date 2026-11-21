@@ -59,6 +59,8 @@ var OwneetTV = (() => {
       page: () => true,
       seek: () => true,
       scroll: () => true,
+      // the command legend for the screen on show (frontend legends.js, [[step-5.6a-command-legend]])
+      legend: () => 'youtube',
     };
   }
 
