@@ -34,6 +34,12 @@ public:
     static void applyChoice(model::Game& game, const QString& game_dir, const QString& file);
     /// A Windows game's own prefix, in the console's disk ([[step-4.5-windows-games-proton]])
     static QString windowsPrefix(const QString& game_dir);
+    // The name of the folder a game is installed into: its game folder's name with ": " written
+    // " - " (owner, 2026-11-11; owneetd's installs.FolderName, the same rule)
+    static QString installFolderName(const QString& name);
+    // OwneetOS's compatibility library a known game's launcher needs (packages/lib32-owneet-compat:
+    // /usr/lib32/owneet/libowneet-NAME.so), "" when the name is not valid or it is not installed
+    static QString compatLibrary(const QString& name);
     /// A game's own folder on the console's disk: ~/.local/share/owneet/KIND/<name>-<hash>
     static QString gameDataDir(const QString& kind, const QString& game_dir);
 
@@ -52,6 +58,9 @@ public:
     Q_INVOKABLE QVariantMap installRequest(QObject* game, const QString& language) const;
     /// The bytes a game's folder takes (what uninstalling it frees)
     Q_INVOKABLE double folderSize(const QString& path) const;
+    /// What deleting a game's installer frees (6.8): the installer with its parts (GOG's setup_*.exe and
+    /// setup_*-N.bin); the whole folder when it is a folder of its own. 0 when it is gone.
+    Q_INVOKABLE double installerSize(const QString& installer, const QString& game_dir) const;
 
     bool quietReading() const { return m_quiet_reading; }
     void setQuietReading(bool quiet);

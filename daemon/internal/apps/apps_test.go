@@ -6,6 +6,8 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -25,11 +27,13 @@ type fakeUnits struct {
 	workdirs []string
 	argvs    [][]string
 	stops    [][]string
+	whileAny []bool
 }
 
-func (f *fakeUnits) Start(unit, desc string, argv, stop, env []string, workdir string) error {
+func (f *fakeUnits) Start(unit, desc string, argv, stop, env []string, workdir string, whileAny bool) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.whileAny = append(f.whileAny, whileAny)
 	if unit == f.failAt {
 		return errors.New("exec failed")
 	}
@@ -61,24 +65,54 @@ type fakeFocus struct {
 	mu      sync.Mutex
 	tag     func(pid int) uint32
 	request func([]uint32)
+	changed func()
 	visible []uint32
 	shown   []uint32
 	focused uint32
 }
 
-func (f *fakeFocus) Watch(tag func(pid int) uint32, request func([]uint32)) {
+func (f *fakeFocus) Watch(tag func(pid int) uint32, request func([]uint32), changed func()) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.tag = tag
 	f.request = request
+	f.changed = changed
 }
+
+// closeWindow simulates the app's window going away (the process may still run): gamescope shows
+// what is left and announces it
+func (f *fakeFocus) closeWindow(id uint32) {
+	f.mu.Lock()
+	var left []uint32
+	for _, v := range f.visible {
+		if v != id {
+			left = append(left, v)
+		}
+	}
+	f.visible = left
+	f.recompute()
+	changed := f.changed
+	f.mu.Unlock()
+	if changed != nil {
+		changed()
+	}
+}
+
+// recompute: the first app asked for that has a window; with none, gamescope keeps the window it
+// showed while that window is there (with it gone, its last picture: nothing focused)
 func (f *fakeFocus) recompute() {
+	before := f.focused
 	f.focused = 0
 	for _, id := range f.shown {
 		for _, v := range f.visible {
 			if v == id && f.focused == 0 {
 				f.focused = id
 			}
+		}
+	}
+	for _, v := range f.visible {
+		if f.focused == 0 && v == before {
+			f.focused = before
 		}
 	}
 }
@@ -141,7 +175,8 @@ func newManager(t *testing.T, mode string) (*Manager, *fakeUnits, *fakeFocus, <-
 			}
 			return "/usr/bin/" + strings.TrimPrefix(p, "/usr/bin/"), nil
 		},
-		Hold: 300 * time.Millisecond,
+		Hold:      300 * time.Millisecond,
+		watchExit: func(int, func()) bool { return true }, // the test processes never end by themselves
 	}
 	return m, units, focus, ch
 }
@@ -303,9 +338,20 @@ func TestGuideTogglesHomeAndGame(t *testing.T) {
 	if st := m.Status(); st.Focus != "home" {
 		t.Fatalf("focus = %q, want home", st.Focus)
 	}
-	m.Guide(true) // no app: nothing happens
+	ch, stop := m.Broker.Subscribe(16)
+	m.Guide(true) // no app: the screen stays; the interface is told Home was asked (6.6e)
+	stop()
 	if st := m.Status(); st.Focus != "home" {
 		t.Fatal("Guide without apps changed the screen")
+	}
+	asked := false
+	for len(ch) > 0 {
+		if ev := <-ch; ev.Type == "home.requested" {
+			asked = true
+		}
+	}
+	if !asked {
+		t.Error("Guide on the home screen with nothing running did not send home.requested")
 	}
 	if _, err := m.Launch(LaunchRequest{ID: "game", Kind: KindGame, Command: []string{"game"}}); err != nil {
 		t.Fatal(err)
@@ -403,5 +449,462 @@ func TestCageHoldGuideToClose(t *testing.T) {
 	defer units.mu.Unlock()
 	if len(units.stopped) != 1 || units.stopped[0] != UnitName("game") {
 		t.Fatalf("stopped = %v", units.stopped)
+	}
+}
+
+// A game's window goes away while its process still ends (Proton): the home screen is announced as
+// soon as gamescope says so, not at the next regular check (the late sound, owner's test 2026-11-08)
+// An app's window goes while the app runs on: the home screen behind it is announced at once.
+func TestHomeAnnouncedWhenTheWindowGoes(t *testing.T) {
+	m, _, focus, ch := newManager(t, "gamescope")
+	m.checkEvery = time.Hour // only gamescope's notice can do it
+	m.watchSession()
+	focus.openWindow(10) // the home screen
+	if _, err := m.Launch(LaunchRequest{ID: "app", Name: "App", Kind: KindApp, Command: []string{"/bin/app"}}); err != nil {
+		t.Fatal(err)
+	}
+	focus.openWindow(1001)
+	m.checkWindows()
+	if st := m.Status(); st.Focus != "app" {
+		t.Fatalf("app not on screen: %q", st.Focus)
+	}
+	stop := make(chan struct{})
+	defer close(stop)
+	go m.Run(stop)
+	for len(ch) > 0 {
+		<-ch
+	}
+	focus.closeWindow(m.appIDOf("app"))
+	timeout := time.After(2 * time.Second)
+	for {
+		select {
+		case e := <-ch:
+			if e.Type == "focus.changed" && e.Data.(map[string]string)["focus"] == "home" {
+				return
+			}
+		case <-timeout:
+			t.Fatal("home not announced when gamescope said the window went")
+		}
+	}
+}
+
+// A game started by the console goes alone in front: between two of its windows (its launcher
+// closes, its game window opens) gamescope keeps its last picture and the home screen is not
+// announced (The Witcher 2 on FrankenPC, 2026-11-09); Guide, Resume and its end work as before.
+func TestGameKeepsTheScreenBetweenItsWindows(t *testing.T) {
+	m, _, focus, ch := newManager(t, "gamescope")
+	m.watchSession()
+	focus.openWindow(10) // the home screen
+	focus.Show([]uint32{HomeAppID})
+	if _, err := m.Launch(LaunchRequest{ID: "game", Name: "Game", Kind: KindGame, Command: []string{"/bin/game"}}); err != nil {
+		t.Fatal(err)
+	}
+	game := m.appIDOf("game")
+	if !sameIDs(focus.shown, []uint32{game}) {
+		t.Fatalf("shown at launch: %v", focus.shown)
+	}
+	m.checkWindows()
+	if st := m.Status(); st.Focus != "home" { // no window yet: the home screen stays
+		t.Fatalf("before its window: %q", st.Focus)
+	}
+	focus.openWindow(1001) // the launcher
+	m.checkWindows()
+	if st := m.Status(); st.Focus != "game" {
+		t.Fatalf("launcher not on screen: %q", st.Focus)
+	}
+	for len(ch) > 0 {
+		<-ch
+	}
+	focus.closeWindow(game) // the launcher closes; the game's window is not there yet
+	m.checkWindows()
+	focus.openWindow(1001) // the game's window
+	m.checkWindows()
+	for len(ch) > 0 {
+		if e := <-ch; e.Type == "focus.changed" && e.Data.(map[string]string)["focus"] == "home" {
+			t.Fatal("home announced between two windows of the game")
+		}
+	}
+	if st := m.Status(); st.Focus != "game" {
+		t.Fatalf("game window not on screen: %q", st.Focus)
+	}
+	// Guide, then Resume: the game goes alone in front again
+	if err := m.ShowHome(); err != nil || m.Status().Focus != "home" {
+		t.Fatalf("home: %v %q", err, m.Status().Focus)
+	}
+	if err := m.FocusApp("game"); err != nil || !sameIDs(focus.shown, []uint32{game}) || m.Status().Focus != "game" {
+		t.Fatalf("resume: %v %v %q", err, focus.shown, m.Status().Focus)
+	}
+	// the game closes its window, then its process ends: the home screen
+	focus.closeWindow(game)
+	m.checkWindows()
+	m.exited(Exit{Unit: UnitName("game"), Result: "success"})
+	if !sameIDs(focus.shown, []uint32{HomeAppID}) || m.Status().Focus != "home" {
+		t.Fatalf("after its end: %v %q", focus.shown, m.Status().Focus)
+	}
+}
+
+// An app (not a game) keeps the home screen behind it.
+func TestAppKeepsTheHomeScreenBehind(t *testing.T) {
+	m, _, focus, _ := newManager(t, "gamescope")
+	m.watchSession()
+	focus.openWindow(10)
+	if _, err := m.Launch(LaunchRequest{ID: "app", Name: "App", Kind: KindApp, Command: []string{"/bin/app"}}); err != nil {
+		t.Fatal(err)
+	}
+	if !sameIDs(focus.shown, []uint32{m.appIDOf("app"), HomeAppID}) {
+		t.Fatalf("shown: %v", focus.shown)
+	}
+}
+
+// Back to a game (Resume, Guide) only once the button that chose it is up: the game must not take
+// it (The Witcher 2 took the A of "Resume", FrankenPC, 2026-11-09). Guide over a game between two
+// of its windows shows the home screen.
+func TestBackToTheGameWhenTheButtonIsUp(t *testing.T) {
+	m, _, focus, _ := newManager(t, "gamescope")
+	m.watchSession()
+	focus.openWindow(10)
+	focus.Show([]uint32{HomeAppID})
+	var mu sync.Mutex
+	up := make(chan struct{})
+	close(up)
+	m.SetReleased(func() <-chan struct{} {
+		mu.Lock()
+		defer mu.Unlock()
+		return up
+	})
+	press := func() { // a button goes down
+		mu.Lock()
+		up = make(chan struct{})
+		mu.Unlock()
+	}
+	release := func() {
+		mu.Lock()
+		close(up)
+		mu.Unlock()
+	}
+	if _, err := m.Launch(LaunchRequest{ID: "game", Name: "Game", Kind: KindGame, Command: []string{"/bin/game"}}); err != nil {
+		t.Fatal(err)
+	}
+	focus.openWindow(1001)
+	game := m.appIDOf("game")
+	// between two of its windows: Guide still shows the home screen
+	focus.closeWindow(game)
+	m.Guide(true)
+	m.Guide(false)
+	if st := m.Status(); st.Focus != "home" || !sameIDs(focus.shown, []uint32{HomeAppID}) {
+		t.Fatalf("Guide over the game without a window: %q %v", st.Focus, focus.shown)
+	}
+	focus.openWindow(1001)
+	// Resume with A still held
+	press()
+	done := make(chan error, 1)
+	go func() { done <- m.FocusApp("game") }()
+	select {
+	case <-done:
+		t.Fatal("back to the game while A is held")
+	default:
+	}
+	release()
+	if err := <-done; err != nil || m.Status().Focus != "game" {
+		t.Fatalf("after A came up: %v %q", err, m.Status().Focus)
+	}
+	// Guide to the home screen, Guide back: the game comes when Guide is up
+	m.Guide(true)
+	m.Guide(false)
+	press()
+	m.Guide(true)
+	if m.Status().Focus != "home" {
+		t.Fatal("back to the game while Guide is held")
+	}
+	release()
+	m.Guide(false)
+	deadline := time.Now().Add(2 * time.Second)
+	for m.Status().Focus != "game" {
+		if time.Now().After(deadline) {
+			t.Fatal("not back to the game after Guide came up")
+		}
+		runtime.Gosched()
+	}
+}
+
+// A game, or a video app, behind the home screen goes silent; on screen it is heard; music apps
+// play on; the interface's own sounds and other processes are never silenced (owner, 2026-11-09).
+func TestSilentBehindTheHomeScreen(t *testing.T) {
+	m, _, focus, _ := newManager(t, "gamescope")
+	m.watchSession()
+	focus.openWindow(10)
+	focus.Show([]uint32{HomeAppID})
+	m.SetSilent(func(id string) bool { return id == "web:netflix" })
+	// processes 1001, 1002, 1003 belong to the units in start order
+	for i, c := range []struct {
+		req    LaunchRequest
+		behind bool // silent behind the home screen
+	}{
+		{LaunchRequest{ID: "game", Name: "Game", Kind: KindGame, Command: []string{"/bin/game"}}, true},
+		{LaunchRequest{ID: "web:netflix", Name: "netflix", Kind: KindWebApp, Command: []string{"/bin/brave"}}, true},
+		{LaunchRequest{ID: "web:spotify", Name: "spotify", Kind: KindWebApp, Command: []string{"/bin/brave"}}, false},
+	} {
+		pid := 1001 + i
+		if _, err := m.Launch(c.req); err != nil {
+			t.Fatal(c.req.ID, err)
+		}
+		focus.openWindow(pid)
+		m.checkWindows()
+		if m.Status().Focus != c.req.ID || m.SilentNow(pid) {
+			t.Fatalf("%s on screen: focus %q, silent %v", c.req.ID, m.Status().Focus, m.SilentNow(pid))
+		}
+		if err := m.ShowHome(); err != nil {
+			t.Fatal(err)
+		}
+		if m.SilentNow(pid) != c.behind || m.SilentNow(10) || m.SilentNow(4242) {
+			t.Fatalf("%s behind the home screen: silent %v, want %v", c.req.ID, m.SilentNow(pid), c.behind)
+		}
+		if err := m.FocusApp(c.req.ID); err != nil || m.SilentNow(pid) {
+			t.Fatalf("%s back on screen: %v, silent %v", c.req.ID, err, m.SilentNow(pid))
+		}
+		focus.closeWindow(m.appIDOf(c.req.ID))
+		m.exited(Exit{Unit: UnitName(c.req.ID), Result: "success"})
+	}
+}
+
+// A console game quit from its menu: the home screen comes back once its programs have ended,
+// before its unit (Wine, the container) has; a launcher that ends after starting the game does
+// not bring it (owner, FrankenPC, 2026-11-09).
+func TestHomeWhenTheGamesProgramsEnd(t *testing.T) {
+	m, _, focus, _ := newManager(t, "gamescope")
+	procs := &fakeProcs{unit: map[int]string{}, cmd: map[int][]string{}, parent: map[int]int{}}
+	m.Procs = procs
+	m.UnitOf = func(pid int) string {
+		procs.mu.Lock()
+		defer procs.mu.Unlock()
+		return procs.unit[pid]
+	}
+	var mu sync.Mutex
+	ends := map[int]func(){}
+	m.watchExit = func(pid int, ended func()) bool {
+		procs.mu.Lock()
+		_, alive := procs.unit[pid]
+		procs.mu.Unlock()
+		if !alive {
+			return false // as a pidfd: an ended process cannot be followed
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		ends[pid] = ended
+		return true
+	}
+	end := func(pid int) {
+		procs.remove(pid)
+		mu.Lock()
+		f := ends[pid]
+		mu.Unlock()
+		if f == nil {
+			t.Fatalf("process %d not followed", pid)
+		}
+		f()
+	}
+	followed := func(pid int) {
+		deadline := time.Now().Add(2 * time.Second)
+		for {
+			mu.Lock()
+			_, ok := ends[pid]
+			mu.Unlock()
+			if ok {
+				return
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("process %d never followed", pid)
+			}
+			runtime.Gosched()
+		}
+	}
+	shown := func() []uint32 {
+		focus.mu.Lock()
+		defer focus.mu.Unlock()
+		return append([]uint32(nil), focus.shown...)
+	}
+	m.watchSession()
+	procs.add(10, 1, "home.service", "owneet-frontend")
+	focus.openWindow(10)
+	focus.Show([]uint32{HomeAppID})
+	if _, err := m.Launch(LaunchRequest{ID: "game", Name: "Game", Kind: KindGame, Command: []string{"/usr/lib/owneet/owneet-windows-run"}}); err != nil {
+		t.Fatal(err)
+	}
+	unit := UnitName("game")
+	game := m.appIDOf("game")
+	procs.add(2000, 1, unit, `C:\windows\system32\services.exe`) // Wine's: never counted
+	procs.add(2001, 1, unit, `X:\Games\Witcher\Launcher.exe`)
+	focus.openWindow(2001)
+	m.checkWindows()
+	followed(2001)
+	// the launcher starts the game, closes its window and ends: the game goes on
+	procs.add(2002, 2001, unit, `X:\Games\Witcher\bin\witcher2.exe`, "-silent")
+	focus.closeWindow(game)
+	end(2001)
+	if !sameIDs(shown(), []uint32{game}) || m.Status().Focus != "game" {
+		t.Fatalf("the launcher ended: %v %q", shown(), m.Status().Focus)
+	}
+	followed(2002)
+	focus.openWindow(2002)
+	m.checkWindows()
+	// Wine's explorer.exe shows a window of its own: still Wine's, never waited for (3b)
+	procs.add(2003, 1, unit, `C:\windows\system32\explorer.exe`)
+	focus.openWindow(2003)
+	m.checkWindows()
+	mu.Lock()
+	_, waited := ends[2003]
+	mu.Unlock()
+	if waited {
+		t.Fatal("Wine's explorer.exe followed as the game's")
+	}
+	// quit from its menu: its window goes, then its program ends; Wine's go on
+	focus.closeWindow(game)
+	end(2002)
+	// (the window's own look at its process may come last and tell the end once more)
+	deadline := time.Now().Add(2 * time.Second)
+	for !sameIDs(shown(), []uint32{HomeAppID}) || m.Status().Focus != "home" {
+		if time.Now().After(deadline) {
+			t.Fatalf("the game's programs ended: %v %q", shown(), m.Status().Focus)
+		}
+		runtime.Gosched()
+	}
+	if _, ok := m.apps["game"]; !ok {
+		t.Fatal("the game is still running until its unit ends")
+	}
+}
+
+// A Linux launcher that hands over (owner, 2026-11-12, The Witcher 2's TV launcher): it starts the
+// game and ends before the game has a window; the app stays in front while its unit has a process,
+// and its unit lasts while any of its processes runs.
+func TestHandoverKeepsTheGame(t *testing.T) {
+	m, units, focus, _ := newManager(t, "gamescope")
+	procs := &fakeProcs{unit: map[int]string{}, cmd: map[int][]string{}, parent: map[int]int{}}
+	m.Procs = procs
+	m.UnitOf = func(pid int) string {
+		procs.mu.Lock()
+		defer procs.mu.Unlock()
+		return procs.unit[pid]
+	}
+	var mu sync.Mutex
+	ends := map[int]func(){}
+	m.watchExit = func(pid int, ended func()) bool {
+		mu.Lock()
+		defer mu.Unlock()
+		ends[pid] = ended
+		return true
+	}
+	end := func(pid int) {
+		procs.remove(pid)
+		mu.Lock()
+		f := ends[pid]
+		mu.Unlock()
+		if f == nil {
+			t.Fatalf("process %d not followed", pid)
+		}
+		f()
+	}
+	followed := func(pid int) {
+		deadline := time.Now().Add(2 * time.Second)
+		for {
+			mu.Lock()
+			_, ok := ends[pid]
+			mu.Unlock()
+			if ok {
+				return
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("process %d never followed", pid)
+			}
+			runtime.Gosched()
+		}
+	}
+	shown := func() []uint32 {
+		focus.mu.Lock()
+		defer focus.mu.Unlock()
+		return append([]uint32(nil), focus.shown...)
+	}
+	m.watchSession()
+	procs.add(10, 1, "home.service", "owneet-frontend")
+	focus.openWindow(10)
+	focus.Show([]uint32{HomeAppID})
+	if _, err := m.Launch(LaunchRequest{ID: "game", Name: "Game", Kind: KindGame, Command: []string{"/usr/bin/env"}, Handover: true}); err != nil {
+		t.Fatal(err)
+	}
+	units.mu.Lock()
+	whileAny := append([]bool(nil), units.whileAny...)
+	units.mu.Unlock()
+	if len(whileAny) != 1 || !whileAny[0] {
+		t.Fatalf("the unit does not last while any process runs: %v", whileAny)
+	}
+	unit := UnitName("game")
+	game := m.appIDOf("game")
+	procs.add(3001, 1, unit, "/games/w2/game/tenfoot-launcher")
+	focus.openWindow(3001)
+	m.checkWindows()
+	followed(3001)
+	// the launcher starts the game (no window yet), closes its window and ends
+	procs.add(3002, 3001, unit, "./witcher2")
+	focus.closeWindow(game)
+	end(3001)
+	if !sameIDs(shown(), []uint32{game}) || m.Status().Focus != "game" {
+		t.Fatalf("the launcher handed over: %v %q", shown(), m.Status().Focus)
+	}
+	// the game's window comes; quit from its menu: the home screen comes back
+	focus.openWindow(3002)
+	m.checkWindows()
+	followed(3002)
+	focus.closeWindow(game)
+	end(3002)
+	deadline := time.Now().Add(2 * time.Second)
+	for !sameIDs(shown(), []uint32{HomeAppID}) || m.Status().Focus != "home" {
+		if time.Now().After(deadline) {
+			t.Fatalf("the game ended: %v %q", shown(), m.Status().Focus)
+		}
+		runtime.Gosched()
+	}
+	// other games: the unit ends with its first program, as before
+	if _, err := m.Launch(LaunchRequest{ID: "other", Name: "Other", Kind: KindGame, Command: []string{"/usr/bin/env"}}); err == nil {
+		t.Fatal("two games at once")
+	}
+}
+
+func TestWindowsProgram(t *testing.T) {
+	for argv, want := range map[string]bool{
+		`X:\Giochi\Exe Test\game.exe`:      true,
+		`Z:\home\owneet\Games\x\setup.exe`: true,
+		`C:\windows\system32\services.exe`: false,
+		`c:\windows\system32\umu.exe`:      false,
+		`/usr/bin/python3`:                 false,
+		``:                                 false,
+	} {
+		if got := windowsProgram([]string{argv}); got != want {
+			t.Errorf("%q: %v", argv, got)
+		}
+	}
+}
+
+// pidfdWatch tells the end of a real process.
+func TestPidfdWatch(t *testing.T) {
+	cmd := exec.Command("sleep", "0.2")
+	if err := cmd.Start(); err != nil {
+		t.Skip("cannot start sleep:", err)
+	}
+	done := make(chan struct{})
+	if !pidfdWatch(cmd.Process.Pid, func() { close(done) }) {
+		t.Fatal("cannot follow a running process")
+	}
+	select {
+	case <-done:
+		t.Fatal("ended before the process did")
+	default:
+	}
+	go cmd.Wait()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the end of the process was not told")
+	}
+	if pidfdWatch(1<<22+12345, func() {}) {
+		t.Fatal("a process that does not exist was followed")
 	}
 }

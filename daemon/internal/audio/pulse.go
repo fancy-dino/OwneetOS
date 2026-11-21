@@ -21,10 +21,14 @@ type Pulse struct {
 	Log    *slog.Logger
 	Broker *events.Broker
 
-	mu     sync.Mutex // guards client, conn, last
-	client *proto.Client
-	conn   net.Conn
-	last   Status
+	mu      sync.Mutex // guards client, conn, last, silence
+	client  *proto.Client
+	conn    net.Conn
+	last    Status
+	silence func(pid int) bool // SetSilence
+
+	silenceMu sync.Mutex      // one ApplySilence at a time; guards silenced
+	silenced  map[uint32]bool // streams muted by ApplySilence, by index
 }
 
 // Run keeps a connection to the audio server, reconnecting when it restarts, and publishes
@@ -32,7 +36,7 @@ type Pulse struct {
 func (p *Pulse) Run(ctx context.Context) {
 	wait := time.Second
 	for ctx.Err() == nil {
-		changes, closed, err := p.connect()
+		changes, streams, closed, err := p.connect()
 		if err != nil {
 			p.Log.Debug("audio server not reachable", "err", err)
 			select {
@@ -46,15 +50,17 @@ func (p *Pulse) Run(ctx context.Context) {
 		wait = time.Second
 		p.Log.Info("connected to the audio server")
 		p.refresh()
-		p.serve(ctx, changes, closed)
+		p.ApplySilence()
+		p.serve(ctx, changes, streams, closed)
 		p.disconnect()
 		p.refresh()
 	}
 }
 
 // serve waits for changes until the connection closes or ctx ends. The server sends bursts of
-// change notifications: the state is read again at most every 100 ms.
-func (p *Pulse) serve(ctx context.Context, changes, closed <-chan struct{}) {
+// change notifications: the state is read again at most every 100 ms. A new sound stream is looked
+// at once (ApplySilence: it may have to be silent).
+func (p *Pulse) serve(ctx context.Context, changes, streams, closed <-chan struct{}) {
 	var timer <-chan time.Time
 	for {
 		select {
@@ -63,6 +69,8 @@ func (p *Pulse) serve(ctx context.Context, changes, closed <-chan struct{}) {
 		case <-closed:
 			p.Log.Warn("audio server connection closed")
 			return
+		case <-streams:
+			p.ApplySilence()
 		case <-changes:
 			if timer == nil {
 				timer = time.After(100 * time.Millisecond)
@@ -74,17 +82,26 @@ func (p *Pulse) serve(ctx context.Context, changes, closed <-chan struct{}) {
 	}
 }
 
-func (p *Pulse) connect() (changes, closed chan struct{}, err error) {
+func (p *Pulse) connect() (changes, streams, closed chan struct{}, err error) {
 	client, conn, err := proto.Connect("")
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	changes, closed = make(chan struct{}, 1), make(chan struct{})
+	changes, streams, closed = make(chan struct{}, 1), make(chan struct{}, 1), make(chan struct{})
 	var once sync.Once
 	// The callback runs on the client's read loop: it must not send requests.
 	client.Callback = func(msg any) {
-		switch msg.(type) {
+		switch ev := msg.(type) {
 		case *proto.SubscribeEvent:
+			if ev.Event.GetFacility() == proto.EventSinkSinkInput {
+				if ev.Event.GetType() == proto.EventNew {
+					select {
+					case streams <- struct{}{}:
+					default: // a look is already pending
+					}
+				}
+				return
+			}
 			select {
 			case changes <- struct{}{}:
 			default: // a refresh is already pending
@@ -96,17 +113,21 @@ func (p *Pulse) connect() (changes, closed chan struct{}, err error) {
 	props := proto.PropList{"application.name": proto.PropListString("owneetd")}
 	if err := client.Request(&proto.SetClientName{Props: props}, &proto.SetClientNameReply{}); err != nil {
 		conn.Close()
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	mask := proto.SubscriptionMaskSink | proto.SubscriptionMaskServer | proto.SubscriptionMaskCard
+	mask := proto.SubscriptionMaskSink | proto.SubscriptionMaskServer | proto.SubscriptionMaskCard |
+		proto.SubscriptionMaskSinkInput
 	if err := client.Request(&proto.Subscribe{Mask: mask}, nil); err != nil {
 		conn.Close()
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
+	p.silenceMu.Lock()
+	p.silenced = nil // stream numbers belong to a connection to the server
+	p.silenceMu.Unlock()
 	p.mu.Lock()
 	p.client, p.conn = client, conn
 	p.mu.Unlock()
-	return changes, closed, nil
+	return changes, streams, closed, nil
 }
 
 func (p *Pulse) disconnect() {

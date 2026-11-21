@@ -15,10 +15,11 @@ import (
 // GAMESCOPE_FOCUSED_WINDOW on the root window (what is on screen), and the pointer's image
 // through XFixes (gamescope draws the cursor the apps set, so the X server has it).
 type X struct {
-	conn   *xgb.Conn
-	root   xproto.Window
-	app    xproto.Atom
-	window xproto.Atom
+	conn    *xgb.Conn
+	root    xproto.Window
+	app     xproto.Atom
+	window  xproto.Atom
+	changes chan bool
 }
 
 // DialX connects to the X server of the console's session (its DISPLAY).
@@ -47,8 +48,42 @@ func DialX(display string) (Screen, error) {
 		conn.Close()
 		return nil, err
 	}
+	// the X server tells every change of the pointer's image (XFixes CursorNotify): no time is
+	// waited for an app to change it ([[waiting-for-events]])
+	if err := xfixes.SelectCursorInputChecked(conn, x.root, xfixes.CursorNotifyMaskDisplayCursor).Check(); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	x.changes = make(chan bool, 1)
+	go x.followCursor()
 	return x, nil
 }
+
+// followCursor sends whether the pointer is the text "I" each time its image changes, the latest
+// only; the channel closes with the connection.
+func (x *X) followCursor() {
+	defer close(x.changes)
+	for {
+		ev, err := x.conn.WaitForEvent()
+		if ev == nil && err == nil {
+			return // the connection closed
+		}
+		if _, ok := ev.(xfixes.CursorNotifyEvent); !ok {
+			continue
+		}
+		text, err2 := x.TextCursor()
+		if err2 != nil {
+			continue
+		}
+		select { // the latest value only
+		case <-x.changes:
+		default:
+		}
+		x.changes <- text
+	}
+}
+
+func (x *X) CursorChanges() <-chan bool { return x.changes }
 
 func (x *X) cardinal(atom xproto.Atom) (uint32, error) {
 	reply, err := xproto.GetProperty(x.conn, false, x.root, atom, xproto.AtomCardinal, 0, 1).Reply()
@@ -69,6 +104,27 @@ func (x *X) Focused() (uint32, uint32, error) {
 	}
 	win, err := x.cardinal(x.window)
 	return app, win, err
+}
+
+// InputFocusOn: the X server's keyboard focus is on that window or inside it (Wine and toolkits may
+// give it to a child window): the window takes the keys typed now.
+func (x *X) InputFocusOn(window uint32) (bool, error) {
+	reply, err := xproto.GetInputFocus(x.conn).Reply()
+	if err != nil {
+		return false, err
+	}
+	w := reply.Focus
+	for i := 0; i < 32 && w != 0; i++ {
+		if uint32(w) == window {
+			return true, nil
+		}
+		tree, err := xproto.QueryTree(x.conn, w).Reply()
+		if err != nil || tree.Parent == 0 || tree.Parent == tree.Root {
+			return false, err
+		}
+		w = tree.Parent
+	}
+	return false, nil
 }
 
 // textCursorNames: the names toolkits give the text cursor (Qt, GTK, Chromium, X core cursors).

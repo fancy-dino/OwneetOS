@@ -24,6 +24,8 @@ public:
     /// The tables of CREDITS.md ($OWNEET_CREDITS, or /usr/share/doc/owneetos/CREDITS.md):
     /// [{ name, who, licence }]
     Q_INVOKABLE QVariantList credits() const;
+    /// The authors, the table under "## Authors" in the same file: [{ name, github }]
+    Q_INVOKABLE QVariantList authors() const;
     /// The installed packages, from pacman's local database: [{ name, version, licence }]
     Q_INVOKABLE QVariantList packages() const;
     /// The interface sounds: $OWNEET_SOUNDS, or /usr/share/owneet-frontend/sounds

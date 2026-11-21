@@ -4,6 +4,7 @@
 // home: [[step-3.6-home-screen]] (design/demos/3.6-home.html). Library (3.7) and Settings (3.9) are
 // temporary pages for now.
 import QtQuick 2.15
+import QtQuick.Window 2.15
 import "foundation"
 
 FocusScope {
@@ -13,9 +14,15 @@ FocusScope {
     // ---- Preferences, saved in the theme's memory (moved to Settings in [[step-3.9-settings]])
     Binding { target: Theme; property: "width"; value: root.width }
     Binding { target: Theme; property: "height"; value: root.height }
+    // The display area: the frontend's main.qml draws the theme inside it (3y)
+    readonly property real displayAreaX: Theme.areaX
+    readonly property real displayAreaY: Theme.areaY
+    readonly property real screenWidth: Window.width        // the whole screen (an Item reads it)
+    readonly property real screenHeight: Window.height
+    Binding { target: Theme; property: "bleed"; value: Math.ceil(Math.max(Theme.areaX * root.screenWidth, Theme.areaY * root.screenHeight)) + 2 }
     readonly property var prefs: [
         ["palette", "paletteKey"], ["textScale", "textScale"], ["glyphs", "glyphSetting"],
-        ["reduceMotion", "reduceMotion"], ["showSafeArea", "showSafeArea"], ["uiSounds", "uiSounds"],
+        ["reduceMotion", "reduceMotion"], ["displayAreaX", "areaX"], ["displayAreaY", "areaY"], ["uiSounds", "uiSounds"],
         ["uiSoundsVolume", "uiSoundsVolume"], ["keyboard", "keyboardSetting"]
     ]
     property string librarySort: "recent"
@@ -45,12 +52,16 @@ FocusScope {
             }
         }
         updatePad();
+        findCoverPictures();
         // once per boot, not when the interface restarts: the start-up animation with its sound
         if (systemInfo.firstStartThisBoot()) {
             intro.show();
-            sounds.playStartup();
-            introFallback.start();
+            introHold.start();
         }
+        // The first start (6.1): until "Ready" on an installed console; from the USB stick at
+        // every start, since nothing there is kept at power-off
+        if (!api.memory.has("firstStartDone"))
+            firstStart.start();
         refreshGames();
         refreshDaemon();          // owneetd may have connected before the theme was loaded
         knownVolumes = volumeKeys();
@@ -66,7 +77,8 @@ FocusScope {
         function onTextScaleChanged() { save("textScale", Theme.textScale); }
         function onGlyphSettingChanged() { save("glyphs", Theme.glyphSetting); }
         function onReduceMotionChanged() { save("reduceMotion", Theme.reduceMotion); }
-        function onShowSafeAreaChanged() { save("showSafeArea", Theme.showSafeArea); }
+        function onAreaXChanged() { save("displayAreaX", Theme.areaX); }
+        function onAreaYChanged() { save("displayAreaY", Theme.areaY); }
         function onUiSoundsChanged() { save("uiSounds", Theme.uiSounds); }
         function onUiSoundsVolumeChanged() { save("uiSoundsVolume", Theme.uiSoundsVolume); }
         function onKeyboardSettingChanged() { save("keyboard", Theme.keyboardSetting); root.applyKeyboard(); }
@@ -108,6 +120,15 @@ FocusScope {
     // installed ones only (every owned Steam game is in the library, 4.2c)
     property var games: []
     function refreshGames() { games = GameInfo.recent(api.allGames); }
+    // A download's time left: minutes up to an hour, then hours and minutes ("1 h 56 min", not
+    // "116 min"; no "about": owner, 2026-11-09)
+    function timeLeft(seconds) {
+        if (seconds < 60) return Tr.tr("details.left.less");
+        const minutes = Math.round(seconds / 60);
+        if (minutes < 60) return Tr.tr("details.left.minutes", { n: minutes });
+        const h = Math.floor(minutes / 60), m = minutes % 60;
+        return m === 0 ? Tr.tr("details.left.hours.whole", { h: h }) : Tr.tr("details.left.hours", { h: h, m: m });
+    }
     readonly property var homeGames: GameInfo.sorted(games.filter(g => GameInfo.installed(g)), "played")
 
     // ---- Steam's games as owneetd sees them (4.2c): installed, downloading, on a disk that is not
@@ -188,8 +209,10 @@ FocusScope {
         const g = ds.length > 0 ? steamGame(ds[0].appid) : null;
         if (!g) return [];
         const p = ds[0].total > 0 ? Math.floor(ds[0].done * 100 / ds[0].total) : 0;
+        // while Steam prepares it, no percentage ([[open-items]] 8, approved demo 4.2c-steam-preparing)
         const text = !online ? Tr.tr("home.notice.paused")
-            : Tr.tr(ds[0].state === "updating" ? "home.notice.update" : "home.notice.download", { title: g.title, p: p })
+            : Tr.tr(ds[0].state === "updating" ? "home.notice.update" : ds[0].state === "preparing" ? "home.notice.preparing"
+                    : "home.notice.download", { title: g.title, p: p })
               + (ds.length > 1 ? "  ·  " + Tr.tr("home.notice.more", { n: ds.length - 1 }) : "");
         return [{ text: text, game: g }];
     }
@@ -202,6 +225,23 @@ FocusScope {
     readonly property var sections: ["home", "library", "settings"]
     property string section: "home"
     readonly property Item page: section === "home" ? home : section === "library" ? library : settings
+    // Guide while nothing runs (owner, 2026-11-14: it did nothing): back to the home screen, the
+    // windows over the pages closed (as B or Cancel would); the copy of games goes on behind its
+    // window (6.6e). Not during the first start or the installer.
+    function guideHome() {
+        if (firstStart.visible || installer.visible)
+            return;
+        const was = windowOpen || fileManager.visible;
+        if (moveSheet.visible) { if (moveSheet.running) moveSheet.hide(); else moveSheet.close(true); }
+        for (const w of [osk, dialog, quick, notices, controls, credits, palettes, languages, zoneSheet, versionsSheet, coverSheet])
+            if (w.visible) w.close(true);
+        if (clockSheet.visible) clockSheet.close(true);
+        if (displayArea.visible) displayArea.close(false);
+        if (fileManager.visible) fileManager.close();
+        if (section !== "home") goSection("home");
+        else if (was) Nav.feedback("sheet-close");
+        backToPage();
+    }
     function goSection(name) {
         if (name === section)
             return;
@@ -209,10 +249,30 @@ FocusScope {
         Nav.feedback("section");
         page.focusStart();
     }
-    readonly property bool modalOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
-                                      || notices.visible || quick.visible || controls.visible || steamPrep.visible || webPrep.visible
-                                      || webKeys.shown
-    function backToPage() { Qt.callLater(() => { if (!root.modalOpen) root.page.forceActiveFocus(); }); }
+    readonly property bool modalOpen: firstStart.visible || installer.visible || windowOpen
+    // a window over the pages (the first start is not one: the Wi-Fi window opens over it)
+    readonly property bool windowOpen: palettes.visible || languages.visible || credits.visible || dialog.visible || osk.visible
+                                       || zoneSheet.visible || clockSheet.visible || displayArea.visible || fileManager.visible || moveSheet.visible || versionsSheet.visible
+                                       || coverSheet.visible
+                                       || notices.visible || quick.visible || controls.visible || steamPrep.visible || webPrep.visible
+                                       || webKeys.shown
+    function backToPage() {
+        Qt.callLater(() => {
+            // the file manager's own windows (6.11): back to it once they close
+            if (fileManager.visible && !dialog.visible && !osk.visible) {
+                fileManager.refocus();
+                return;
+            }
+            if (root.windowOpen)
+                return;
+            if (installer.visible)
+                installer.refocus();
+            else if (firstStart.visible)
+                firstStart.refocus();
+            else
+                root.page.forceActiveFocus();
+        });
+    }
 
     // ---- Buttons the sections leave to the whole interface (section 9.1)
     Keys.onPressed: {
@@ -232,8 +292,15 @@ FocusScope {
 
     // ---- owneetd (3.8): running apps, what is on screen, controllers, network
     property var apps: []                 // running games and apps: { id, name, kind, started }
+    // the Home prompt only while Guide does something: nothing runs (with a game, a media app or
+    // Steam, Guide goes back to it), and not on the home screen itself with no window over it
+    // (owner, 2026-11-17)
+    Binding { target: Nav; property: "homePrompt"; value: root.apps.length === 0 && (root.section !== "home" || root.windowOpen) }
     property string focusedApp: ""        // "home", an app id, or "" (cage)
     property string sessionMode: ""       // "gamescope" or "cage"
+    // live (from the USB stick), tester or installed (owneetd's /v1/status, 6.2)
+    property string systemMode: ""
+    readonly property bool liveSystem: systemMode === "live"
     property var controllers: []
     property var network: null
     readonly property var runningGame: {
@@ -263,8 +330,62 @@ FocusScope {
     function refreshControllers() {
         owneetd.get("/v1/controllers", (status, data) => { if (status === 200) controllers = data.controllers || []; });
     }
+    // ---- Time (6.1): the console's time zone, its date and time (owneetd), the zones' distance
+    // from UTC now (TimeZones.offsets). The clock in the top bar is UTC plus the zone's distance:
+    // the interface's own idea of the local time stays the one it started with.
+    property var timeStatus: null
+    function refreshTime() {
+        owneetd.get("/v1/time", (status, data) => { if (status === 200) root.timeStatus = data; });
+        refreshZones();
+    }
+    function refreshZones() {
+        const zones = TimeZones.allZones.slice();
+        const own = timeStatus ? timeStatus.zone : "";
+        if (own !== "" && zones.indexOf(own) < 0) zones.push(own);
+        owneetd.get("/v1/time/zones?" + zones.map(z => "zone=" + encodeURIComponent(z)).join("&"), (status, data) => {
+            if (status !== 200)
+                return;
+            const map = {};
+            (data.zones || []).forEach(z => { map[z.zone] = z.offset; });
+            TimeZones.offsets = map;
+        });
+    }
+    onTimeStatusChanged: if (timeStatus && TimeZones.offsets[timeStatus.zone] === undefined) refreshZones()
+    Timer { interval: 3600000; running: true; repeat: true; onTriggered: root.refreshZones() }   // summer time
+    // Date and time by hand (without the internet), from the first start or Settings → Language, in
+    // a zone: the first start's city (the console's zone is not set yet), or the console's own zone
+    function openClock(zone) {
+        owneetd.get("/v1/time", (status, data) => {
+            if (status !== 200) { toast.show(Tr.tr("clock.failed")); return; }
+            root.timeStatus = data;
+            const z = zone || data.zone;
+            clockSheet.open(TimeZones.fieldsIn(data.date, data.time, data.zone, z), z);
+        });
+    }
+    function openTimeZones() {
+        const zone = timeStatus ? timeStatus.zone : "";
+        zoneSheet.openPicker(TimeZones.cityOf(zone, api.memory.has("city") ? api.memory.get("city") : ""));
+    }
+    // Terms to read on a phone, as a code with the address under it (Microsoft's, for the Xbox
+    // adapter's firmware at the first start: the same window as a game's licence agreement, 4.2c)
+    function showTerms(title, text, url) {
+        dialog.game = null;
+        dialog.mode = "agreement";
+        dialog.agreementUrl = url;
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.title = title;
+        dialog.text = text;
+        dialog.buttons = [{ text: Tr.tr("prompt.close"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.prompts = [{ buttons: ["a"], label: Tr.tr("prompt.close") }, { buttons: ["b"], label: Tr.tr("prompt.close") }];
+        dialog.open();
+    }
+
     function refreshDaemon() {
-        owneetd.get("/v1/status", (status, data) => { if (status === 200) sessionMode = data.session_mode || ""; });
+        owneetd.get("/v1/status", (status, data) => {
+            if (status === 200) { sessionMode = data.session_mode || ""; systemMode = data.mode || ""; }
+        });
         owneetd.get("/v1/network", (status, data) => { if (status === 200) { network = data; lastNetwork = data; } });
         refreshApps();
         refreshControllers();
@@ -274,7 +395,9 @@ FocusScope {
         refreshInstalls();
         owneetd.get("/v1/pointer", (status, data) => { if (status === 200) root.pointerStatus = data; });
         owneetd.get("/v1/update", (status, data) => { if (status === 200) root.updateStatus = data; });
+        owneetd.get("/v1/system-update", (status, data) => { if (status === 200) root.systemUpdateReceived(data, true); });
         refreshCatalog();
+        refreshTime();
         checkDisplayPending();
         // a web keyboard opened while the interface was restarting
         owneetd.get("/v1/webapps/keyboard", (status, data) => { if (status === 200 && data.open) root.webKeyboard(data); });
@@ -284,6 +407,9 @@ FocusScope {
         function onConnectedChanged() { if (owneetd.connected) root.refreshDaemon(); }
         function onEvent(type, data) {
             root.noticeFor(type, data);
+            // Guide with nothing to go back to (owneetd's "home.requested"): the home screen
+            if (type === "home.requested")
+                root.guideHome();
             if (type === "app.started" || type === "app.exited") {
                 // Google's terms page closed: its question again, but only once the home screen has
                 // caught up (it selects its hero when the running app changes, which would take
@@ -294,22 +420,24 @@ FocusScope {
                     root.agreementAccepted(String(data.id).slice(6));
                 if (type === "app.exited" && (data.id === "steam" || String(data.id).startsWith("steam:")))
                     root.refreshSteam(true);
-                if (type === "app.exited")
-                    refreshTimer.restart();       // play time and "last played" have changed
             } else if (type === "steam.launch_failed") {
                 if (data && data.reason === "linux_version") root.askWindowsVersion(String(data.appid));
             } else if (type === "focus.changed") {
+                if (root.pointerTextApp !== "" && data.focus === root.pointerTextApp) root.sendPointerTextNow();
                 if (data.focus === "home") root.refreshSteam(true);
-                // Guide brings the home screen over a running game: the "launch" sound, the other way
-                const fromGame = root.gameOnScreen;
+                // Back on the home screen from a game or an app (Guide, or it closed): the "launch" sound,
+                // the other way (owner's test with Steam, 2026-11-05)
+                const fromApp = root.focusedApp !== "home" && root.focusedApp !== "";
                 root.focusedApp = data.focus;
-                if (data.focus === "home" && fromGame)
+                if (data.focus === "home" && fromApp)
                     sounds.play("launch");
                 // Guide over Google's terms page: back to the question it was opened from
                 if (data.focus === "home")
                     root.closeTerms();
             } else if (type.startsWith("controller.")) {
                 root.refreshControllers();
+            } else if (type === "time.changed") {
+                root.timeStatus = data;
             } else if (type === "network.changed") {
                 root.network = data;
             } else if (type.startsWith("bluetooth.")) {
@@ -328,9 +456,13 @@ FocusScope {
                 GameInfo.installs = (data && data.installs) || [];
             } else if (type === "install.done" || type === "install.failed") {
                 root.installEnded(type, data);
+            } else if (type === "install.stalled") {      // 6.8: nothing written for 10 minutes
+                if (data) root.notify({ key: "notices.install.stalled", args: { name: data.title }, icon: "alert", kind: "attention" });
             } else if (type === "update.changed") {
                 root.updateStatus = data;
                 root.showUpdate(data);
+            } else if (type === "system-update.changed") {
+                root.systemUpdateReceived(data, false);
             } else if (type === "apps.catalog.changed") {
                 root.catalogChanged(data);
             } else if (type === "webapp.keyboard") {
@@ -437,21 +569,21 @@ FocusScope {
     }
     function sendPointerText(app) {
         pointerText = pointerInput.text;
+        pointerTextApp = pointerText !== "" ? app.id : "";
         osk.close(true);
         dialog.close(true);
         root.resume(app);
-        if (pointerText !== "") pointerSend.restart();
     }
-    Timer {                                   // the window is on screen again: the text goes to it
-        id: pointerSend
-        interval: 400
-        onTriggered: {
-            const text = root.pointerText;
-            root.pointerText = "";
-            owneetd.post("/v1/input/text", { text: text }, status => {
-                if (status !== 204) toast.show(Tr.tr("error.pointer.text"));
-            });
-        }
+    // the text goes to the app as soon as its window is on screen again (owneetd's "focus.changed":
+    // no time waited, [[waiting-for-events]])
+    property string pointerTextApp: ""
+    function sendPointerTextNow() {
+        const text = root.pointerText;
+        root.pointerText = "";
+        root.pointerTextApp = "";
+        owneetd.post("/v1/input/text", { text: text }, status => {
+            if (status !== 204) toast.show(Tr.tr("error.pointer.text"));
+        });
     }
     // back: what Cancel and B also do (e.g. bring the web app back)
     function confirmClose(app, back) {
@@ -480,7 +612,7 @@ FocusScope {
 
     // ---- Notifications (3.11, approved demo design/demos/3.11-notifications.html): banners at the top
     // right, the bell in the top bar, the list on Y from the home screen. "attention": something to
-    // act on (notify-error sound); "info": news (notify). Kept until the console restarts (30 at most).
+    // act on (in the accent); "info": news. Both play "notify" (owner, 2026-11-03). Kept until the console restarts (30 at most).
     property var noticeList: []
     property int unseen: 0
     property var quietPads: ({})              // controllers turned off from Settings: id → time
@@ -501,7 +633,7 @@ FocusScope {
         unseen++;
         if (gameOnScreen)
             return;
-        Nav.feedback(n.kind === "attention" ? "notify-error" : "notify");
+        Nav.feedback("notify");
         const detailKey = n.detailKey !== undefined ? n.detailKey : n.key + ".detail";
         banners.show({ title: Tr.tr(n.key, n.args), detail: detailKey ? Tr.tr(detailKey, n.args) : "",
                        icon: n.icon, crossed: n.crossed, kind: n.kind });
@@ -576,7 +708,7 @@ FocusScope {
     }
     function openNotice(n) {
         notices.close(true);
-        if (n.action === "controllers" || n.action === "network") {
+        if (n.action === "controllers" || n.action === "network" || n.action === "system") {
             settings.section = n.action;
             goSection("settings");
         } else if (n.action === "play") {
@@ -587,6 +719,8 @@ FocusScope {
 
     // ---- Games: launch, details, options
     function launch(game, agreementShown) {
+        // 6.6e: a game being copied is never started: A shows the copy's window
+        if (GameInfo.onDisk(game) && moveSheet.badge(String(game.extra["disk.dir"])) !== null) { moveSheet.reopen(); return; }
         // a game with only an installer (4.6): installed first, after the console's question
         if (GameInfo.hasInstaller(game)) { installStart(game); return; }
         // Steam (4.2c): a game not installed is installed first; one being downloaded or on a disk
@@ -628,6 +762,8 @@ FocusScope {
         Nav.feedback("launch");
         if (GameInfo.isWindows(game))               // "Preparing {game}…" until its first picture (4.5)
             steamPrep.start(diskGames.firstStart(game), game.title, true);
+        else if (GameInfo.onDisk(game))             // "Starting {game}…" until its first picture (owner, 2026-11-11)
+            steamPrep.start(false, game.title, false, true);
         else
             toast.show(Tr.tr("toast.launch", { title: game.title }));
         if (GameInfo.isSteam(game) && owneetd.connected) {
@@ -638,9 +774,13 @@ FocusScope {
             });
         }
         game.launch();                    // through owneetd, [[step-3.8-frontend-daemon-bridge]]
-        refreshTimer.restart();           // "last played" changes once the game has started
     }
-    Timer { id: refreshTimer; interval: 3000; onTriggered: root.refreshGames() }
+    // play counts, play time and "last played" change: the recent games again, when the games say
+    // so (no time waited, [[waiting-for-events]])
+    Connections {
+        target: api.allGames
+        function onDataChanged() { root.refreshGames(); }
+    }
     // Details: Play an installed game, Install one that is not, otherwise Close; the facts follow
     // the download while the window is open (4.2c)
     function showDetails(game) {
@@ -680,7 +820,7 @@ FocusScope {
         if (d && (s === "downloading" || s === "updating") && d.rate > 0) {
             const left = (d.total - d.done) / d.rate;
             facts.push([Tr.tr("details.speed"), Number(d.rate / 1e6).toLocaleString(Qt.locale(), "f", 1) + " MB/s"],
-                       [Tr.tr("details.left"), left < 60 ? Tr.tr("details.left.less") : Tr.tr("details.left.minutes", { n: Math.round(left / 60) })]);
+                       [Tr.tr("details.left"), root.timeLeft(left)]);
         }
         if (s === "queued") {
             const first = (GameInfo.steam.downloads || [])[0];
@@ -691,16 +831,33 @@ FocusScope {
                    [Tr.tr("details.time"), GameInfo.played(game) ? GameInfo.playTime(game) : "\u2014"]);
         if (GameInfo.onDisk(game))
             facts.push([Tr.tr("details.disk"), diskName(GameInfo.diskRoot(game))]);
+        // a GOG DOS game on a disk left read only keeps its saves on the console (6.5, approved demo
+        // 6.5-saves-read-only); on a writable disk they go with it, and nothing is said
+        if (GameInfo.onDisk(game) && game.extra["disk.dos"] === true) {
+            const v = storage.volumes().find(v => v.key === GameInfo.diskRoot(game));
+            if (v && v.readOnly)
+                facts.push([Tr.tr("details.saves"), Tr.tr("details.saves.console")]);
+        }
         return facts;
     }
     function showOptions(game) {
         const s = GameInfo.steamState(game), steam = GameInfo.isSteam(game);
+        // the game running now: what the home screen's card offers (approved demo 3.7c, open item 2)
+        const app = runningGame && owneetd.connected && runningGame.name === game.title ? runningGame : null;
+        const pointerOn = app !== null && pointerStatus.on === true && pointerStatus.app === app.id;
         dialog.game = game;
         dialog.mode = "options";
         dialog.contentWidth = 0;
         dialog.title = game.title;
         dialog.text = "";
-        dialog.buttons = (s === "installed"
+        dialog.buttons = (app
+            ? [{ text: Tr.tr("home.resume"), style: "primary", action: () => { dialog.close(true); Nav.feedback("launch"); root.resume(app); } },
+               { text: Tr.tr(pointerOn ? "home.pointer.off" : "home.pointer"), action: () => {
+                    dialog.close(true);
+                    if (pointerOn) root.turnPointerOff(); else root.resumeWithPointer(app);
+                } },
+               { text: Tr.tr("home.close"), action: () => { dialog.close(true); root.confirmClose(app); } }]
+            : s === "installed"
             ? [{ text: Tr.tr("home.play"), style: "primary", action: () => { dialog.close(true); root.launch(game); } }]
             : s === "none"
             ? [{ text: Tr.tr("options.install"), style: "primary", action: () => {
@@ -709,6 +866,12 @@ FocusScope {
                 } }]
             : []).concat([
             { text: Tr.tr("home.details"), action: () => { dialog.close(true); root.showDetails(game); } },
+            // 6.6: a game on a disk moves with the console; a Steam game is moved by Steam
+            { text: Tr.tr("move.option"), action: () => {
+                dialog.close(true);
+                if (!steam && moveSheet.running) { toast.show(Tr.tr("move.busy")); return; }   // 6.6e: one copy at a time
+                if (steam) moveSheet.openSteam(game); else moveSheet.openMove(game);
+            } },
             { text: Tr.tr(game.favorite ? "options.unfavorite" : "options.favorite"), action: () => {
                 game.favorite = !game.favorite;
                 library.favoritesRevision++;
@@ -716,18 +879,39 @@ FocusScope {
                 toast.show(Tr.tr(game.favorite ? "toast.favorite" : "toast.unfavorite"));
             } }
         ]);
+        // 6.9 (approved demo 6.9): a local game's cover from a picture on a disk plugged in; not
+        // for a game on a disk mounted read only
+        if (!steam && GameInfo.onDisk(game) && coverImages.available && !root.diskReadOnly(game))
+            dialog.buttons = dialog.buttons.concat([{ text: Tr.tr(game.assets.boxFront ? "options.cover.change" : "options.cover.add"), action: () => {
+                dialog.close(true);
+                if (root.coverPictures.length > 0)
+                    coverSheet.openFor(game, root.coverPictures);
+                root.findCoverPictures();
+            } }]);
         // a Steam game can always be uninstalled, and its download cancelled, without Steam's interface
         if (steam && (s === "installed" || s === "updating"))
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.uninstall"), action: () => { dialog.close(true); root.askUninstall(game, false); } }]);
-        if (steam && (s === "downloading" || s === "queued" || s === "paused"))
+        if (steam && (s === "downloading" || s === "preparing" || s === "queued" || s === "paused"))
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.cancel_install"), action: () => { dialog.close(true); root.askUninstall(game, true); } }]);
         if (GameInfo.diskFiles(game).length > 1)
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.choose_file"), action: () => { dialog.close(true); root.chooseFile(game, false); } }]);
         // 4.6: an install stops; a game the console installed is uninstalled (its installer stays)
         if (GameInfo.hasInstaller(game) && (s === "installing" || s === "queued"))
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.stop_install"), action: () => { dialog.close(true); root.askStopInstall(game); } }]);
-        if (GameInfo.installedHere(game) && !(runningGame && runningGame.name === game.title))
-            dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.uninstall"), action: () => { dialog.close(true); root.askRemoveInstalled(game); } }]);
+        // 6.8: every game on a disk can be uninstalled: the copy the console installed, otherwise its
+        // folder (a game ready to start, an installer); the installer of an installed game goes apart.
+        // Not while it runs, an install works in it, or its disk is read only.
+        const running = runningGame && runningGame.name === game.title;
+        const busy = GameInfo.hasInstaller(game) && (s === "installing" || s === "queued");
+        if (GameInfo.onDisk(game) && !steam && !running && !busy && !root.diskReadOnly(game)) {
+            if (GameInfo.installedHere(game)) {
+                dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.uninstall"), action: () => { dialog.close(true); root.askRemoveInstalled(game); } }]);
+                if (root.installerLeft(game) > 0)
+                    dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.delete_installer"), action: () => { dialog.close(true); root.askDeleteInstaller(game); } }]);
+            } else {
+                dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.uninstall"), action: () => { dialog.close(true); root.askDeleteGame(game); } }]);
+            }
+        }
         if (section !== "library")
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr("options.library"), action: () => {
                 dialog.close(true);
@@ -748,6 +932,231 @@ FocusScope {
         dialog.open();
     }
     function notYet() { toast.show(Tr.tr("toast.later")); }
+    // "Install OwneetOS" from the USB stick (6.2): the installer (6.4)
+    function openInstaller() {
+        Nav.feedback("sheet-open");
+        installer.open();
+    }
+    // The installer's "Change the name" (6.4, approved demo 6.4-installer): the console's keyboard
+    // opens under the field; Done (or Enter) keeps the name, B goes back without it
+    property var consoleNameDone: null
+    function renameConsole(name, done) {
+        dialog.game = null;
+        dialog.mode = "consoleName";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.title = Tr.tr("installer.name.change");
+        dialog.text = "";
+        dialog.buttons = [];
+        consoleNameInput.text = name;
+        consoleNameDone = done;
+        dialog.initialItem = consoleNameField;
+        dialog.open();
+        dialog.backAction = () => { osk.close(true); dialog.close(); };
+        Qt.callLater(() => { if (dialog.visible && dialog.mode === "consoleName") osk.open(consoleNameInput, false); });
+    }
+    function keepConsoleName() {
+        const name = consoleNameInput.text.trim();
+        if (consoleNameDone) consoleNameDone(name !== "" ? name : "OwneetOS");
+        osk.close(true);
+        dialog.close();
+    }
+
+    // ---- A disk's name ([[step-6.7-preparing-other-disks]], approved demos 6.7): the installer's
+    // disks for games (Done keeps it; a name that cannot be given keeps the old one and says why) and
+    // Settings → Disks (`inline`: why under the field, Continue off until the name can be given).
+    // `check(name)` gives "" or the message key of the problem.
+    property var diskNameDone: null
+    property var diskNameCheck: null
+    property bool diskNameInline: false
+    property string diskNameProblem: ""
+    function renameDisk(title, name, maxBytes, check, done) {
+        openDiskName(title, "", name, check, done, false);
+    }
+    function openDiskName(title, text, name, check, done, inline) {
+        const following = dialog.visible;
+        dialog.game = null;
+        dialog.mode = "diskName";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.title = title;
+        dialog.text = text;
+        diskNameCheck = check;
+        diskNameDone = done;
+        diskNameInline = inline;
+        diskNameInput.text = name;
+        diskNameProblem = inline ? check(name.trim()) : "";
+        dialog.buttons = inline ? diskNameButtons() : [];
+        dialog.defaultIndex = 0;
+        dialog.initialItem = diskNameField;
+        dialog.prompts = Qt.binding(() => dialog.defaultPrompts);
+        dialog.open(following);
+        dialog.backAction = () => { osk.close(true); dialog.close(); };
+        if (!inline)
+            Qt.callLater(() => { if (dialog.visible && dialog.mode === "diskName") osk.open(diskNameInput, false); });
+    }
+    function diskNameButtons() {
+        return [{ text: Tr.tr("installer.continue"), style: "primary", enabled: diskNameProblem === "", action: () => root.keepDiskName() },
+                { text: Tr.tr("prompt.cancel"), action: () => { osk.close(true); dialog.close(); } }];
+    }
+    function keepDiskName() {
+        const name = diskNameInput.text.trim();
+        const problem = diskNameCheck ? diskNameCheck(name) : "";
+        const done = diskNameDone;
+        osk.close(true);
+        if (diskNameInline) {
+            diskNameProblem = problem;
+            dialog.buttons = diskNameButtons();
+            if (problem !== "") {
+                Nav.feedback("error");
+                Qt.callLater(() => dialog.focusDefault());
+            } else if (done) {
+                done(name);
+            }
+            return;
+        }
+        dialog.close();
+        if (problem !== "") {
+            Nav.feedback("error");
+            toast.show(Tr.tr(problem, { name: name }));
+        } else if (done) {
+            done(name);
+        }
+    }
+    // A name a disk may get: ext4's label (1 to 16 bytes, no "/"), never one another disk keeps;
+    // `skip`: the disks whose names go (they are erased)
+    function diskNameProblemFor(name, disks, skip, keys) {
+        if (name === "" || name.indexOf("/") >= 0 || name.charAt(0) === ".")
+            return keys.empty;
+        if (unescape(encodeURIComponent(name)).length > 16)
+            return keys.long;
+        const lower = name.toLowerCase();
+        for (let i = 0; i < disks.length; i++) {
+            if (skip.indexOf(disks[i].path) >= 0)
+                continue;
+            if ((disks[i].partitions || []).some(p => (p.label || "").toLowerCase() === lower))
+                return keys.taken;
+        }
+        return "";
+    }
+
+    // ---- Preparing a disk for games from Settings → Disks (6.7, approved demo 6.7-settings-disks):
+    // the question (what is on it, Windows's switch), its name, A held three seconds, the wait, then a
+    // notice. owneetd: POST /v1/disks/prepare, "disks.prepare.changed".
+    property var prepDisk: null
+    property var prepDisks: []
+    property string prepShown: ""         // the disk as the list shows it (its name, else its model)
+    property string prepName: ""
+    property bool prepUnderstood: false
+    readonly property bool prepWindows: prepDisk !== null && (prepDisk.windows || prepDisk.bitlocker)
+    function prepareDisk(disk, disks, shown) {
+        // what is on it now (the list may be a moment old); gone: nothing to ask
+        owneetd.get("/v1/disks", (status, data) => {
+            const now = status === 200 ? (data.disks || []) : disks;
+            const fresh = now.find(d => d.path === disk.path && d.serial === disk.serial && d.size === disk.size);
+            if (!fresh || fresh.console || fresh.owneetlog) {
+                Nav.feedback("error");
+                toast.show(Tr.tr("disk.prep.failed", { disk: shown }));
+                settings.refresh();
+                return;
+            }
+            root.prepDisk = fresh;
+            root.prepDisks = now;
+            root.prepShown = shown;
+            root.prepUnderstood = false;
+            root.prepAsk();
+        });
+    }
+    function prepButtons() {
+        return [{ text: Tr.tr("disk.prep.go"), enabled: !prepWindows || prepUnderstood, action: () => root.prepNaming() },
+                { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+    }
+    function prepAsk() {
+        dialog.game = null;
+        dialog.mode = "prepAsk";
+        dialog.contentWidth = Theme.px(660);
+        dialog.icon = "";
+        dialog.title = Tr.tr("disk.prep.title", { disk: prepShown });
+        dialog.text = "";
+        dialog.buttons = prepButtons();
+        dialog.defaultIndex = 1;
+        dialog.initialItem = null;
+        dialog.prompts = Qt.binding(() => dialog.defaultPrompts);
+        dialog.open();
+    }
+    function prepToggle() {
+        prepUnderstood = !prepUnderstood;
+        dialog.buttons = prepButtons();
+        Qt.callLater(() => dialog.focusItem(prepSwitch));
+    }
+    function prepNameProblem(name) {
+        return diskNameProblemFor(name, prepDisks, [prepDisk.path],
+                                  { empty: "disk.name.empty", long: "disk.name.long", taken: "disk.name.taken" });
+    }
+    function prepNaming() {
+        const base = Tr.tr("disk.name.default");
+        let name = base;
+        for (let n = 2; prepNameProblem(name) !== ""; n++)
+            name = base + " " + n;
+        openDiskName(Tr.tr("disk.name.title"), Tr.tr("disk.name.text"), name, root.prepNameProblem,
+                     name => { root.prepName = name; root.prepHold(); }, true);
+    }
+    function prepHold() {
+        dialog.mode = "prepHold";
+        dialog.contentWidth = Theme.px(520);
+        dialog.title = Tr.tr("disk.hold.title");
+        dialog.text = Tr.tr("disk.hold.text", { disk: prepShown });
+        dialog.buttons = [{ text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.initialItem = prepHoldButton;
+        dialog.backAction = null;
+        dialog.prompts = [{ buttons: ["a"], label: Tr.tr("disk.p.hold") }, { buttons: ["b"], label: Tr.tr("prompt.cancel") }];
+        dialog.focusDefault();
+    }
+    function prepStart() {
+        const d = prepDisk;
+        dialog.mode = "prepWorking";
+        dialog.title = Tr.tr("disk.prep.working", { disk: prepShown });
+        dialog.text = "";
+        dialog.buttons = [];
+        dialog.initialItem = null;
+        dialog.prompts = [];
+        dialog.backAction = () => {};          // it cannot be stopped half way
+        Nav.feedback("confirm");
+        dialog.focusDefault();
+        owneetd.post("/v1/disks/prepare", { disk: d.path, size: d.size, serial: d.serial, name: prepName,
+                                            folder: Tr.language.indexOf("it") === 0 ? "Giochi" : "Games",
+                                            erase_windows: prepWindows && prepUnderstood }, (code, data) => {
+            if (code === 202 || code === 200)
+                return;
+            const refused = data && data.error ? data.error.code : "";
+            root.prepEnded(refused === "disks.name_taken" || refused === "disks.bad_name" ? "name_taken" : "refused");
+        });
+    }
+    function prepEnded(error) {
+        if (dialog.visible && dialog.mode === "prepWorking")
+            dialog.close(true);
+        if (error === "") {
+            Nav.feedback("notify");
+            toast.show(Tr.tr("disk.prep.done", { disk: prepName }));
+        } else {
+            Nav.feedback("error");
+            toast.show(Tr.tr(error === "in_use" ? "disk.prep.in_use" : error === "name_taken" ? "disk.name.taken" : "disk.prep.failed",
+                             { disk: prepShown, name: prepName }));
+        }
+        settings.refresh();
+    }
+    Connections {
+        target: owneetd
+        function onEvent(type, data) {
+            if (type !== "disks.prepare.changed" || !dialog.visible || dialog.mode !== "prepWorking" || !data)
+                return;
+            if (data.state === "done")
+                root.prepEnded("");
+            else if (data.state === "failed")
+                root.prepEnded(data.error || "failed");
+        }
+    }
 
     // ---- Optional web apps (5.0.0, approved demo design/demos/5.0.0-optional-apps.html): installed
     // and removed from the home screen's Apps grid. The engine behind them is never named.
@@ -1073,7 +1482,7 @@ FocusScope {
         dialog.prompts = dialog.defaultPrompts;
         dialog.backAction = null;
         dialog.title = Tr.tr("installer.ask.title", { title: game.title });
-        dialog.text = Tr.tr("installer.ask.text", { size: GameInfo.sizeAuto(info.need) });
+        dialog.text = Tr.tr("installer.ask.text", { size: GameInfo.sizeAuto(info.need), disk: root.installDisk(game) });
         dialog.buttons = [
             { text: Tr.tr("installer.read"), action: () => root.showInstallLicence(game, info) },
             { text: Tr.tr("installer.go"), style: "primary", action: () => { dialog.close(true); root.requestInstall(game); } },
@@ -1106,7 +1515,7 @@ FocusScope {
         dialog.prompts = dialog.defaultPrompts;
         dialog.backAction = null;
         dialog.title = Tr.tr("installer.space.title", { title: game.title });
-        dialog.text = Tr.tr("installer.space.text", { title: game.title, size: GameInfo.sizeAuto(info.need), free: GameInfo.sizeAuto(info.free) });
+        dialog.text = Tr.tr("installer.space.text", { title: game.title, size: GameInfo.sizeAuto(info.need), free: GameInfo.sizeAuto(info.free), disk: root.installDisk(game) });
         dialog.buttons = [{ text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() }];
         dialog.defaultIndex = 0;
         dialog.open();
@@ -1135,7 +1544,7 @@ FocusScope {
             }
             const code = data && data.error ? data.error.code : "";
             if (code === "installs.no_space") { root.inspectInstaller(game, info => root.showInstallSpace(game, info)); return; }
-            toast.show(Tr.tr(code === "installs.exists" ? "error.install.exists" : "error.installer"));
+            toast.show(code === "installs.exists" ? Tr.tr("error.install.exists", { disk: root.diskOf(req.dest) }) : Tr.tr("error.installer"));
             Nav.feedback("error");
         });
     }
@@ -1174,8 +1583,17 @@ FocusScope {
         dialog.prompts = dialog.defaultPrompts;
         dialog.backAction = null;
         dialog.title = Tr.tr("installer.uninstall.title", { title: game.title });
-        dialog.text = Tr.tr("installer.uninstall.text", { size: GameInfo.sizeAuto(diskGames.folderSize(dir)),
-                                                           disk: vol ? diskName(vol.key) : diskName("internal") });
+        // 6.8: moved to another disk, or its installer deleted: the text says so
+        const size = GameInfo.sizeAuto(diskGames.folderSize(dir));
+        const here = GameInfo.diskRoot(game) === "internal" || GameInfo.diskRoot(game) === "";
+        // the installer gone too: a Windows or DOS game on a disk inside the console takes its saves
+        // and settings with it (owneetd, 6.11, owner 2026-11-12 / 2026-11-17)
+        const gameVol = storage.volumes().find(v => v.key !== "internal" && dir.startsWith(v.key + "/"));
+        const ownData = (GameInfo.isWindows(game) || game.extra["disk.dos"] === true) && !(gameVol && gameVol.usb);
+        dialog.text = root.installerLeft(game) === 0
+            ? Tr.tr(ownData ? "installer.uninstall.text.gone.data" : "installer.uninstall.text.gone", { size: size, where: root.diskOf(dir) })
+            : here ? Tr.tr("installer.uninstall.text", { size: size, disk: vol ? diskName(vol.key) : diskName("internal") })
+            : Tr.tr("installer.uninstall.text.disk", { size: size, where: root.diskOf(dir), disk: vol ? diskName(vol.key) : diskName("internal") });
         dialog.buttons = [
             { text: Tr.tr("uninstall.go"), style: "primary", action: () => {
                 dialog.close(true);
@@ -1194,6 +1612,80 @@ FocusScope {
         dialog.defaultIndex = 1;             // Cancel first: nothing removed by accident
         dialog.open();
     }
+    // ---- Games on disk (6.8, approved demo 6.8-games-on-disk): their folder or their installer deleted
+    function diskReadOnly(game) {
+        const root = GameInfo.diskRoot(game);
+        if (root === "" || root === "internal")
+            return false;
+        const v = storage.volumes().find(v => v.key === root);
+        return !!v && v.readOnly === true;
+    }
+    // The disk a game is installed on: its installer's, or the console's own (owner, 2026-11-12)
+    function installDisk(game) {
+        return root.diskOf(diskGames.installRequest(game, Tr.language).dest);
+    }
+    function diskOf(path) {
+        const v = storage.volumes().find(v => v.key !== "internal" && String(path).startsWith(v.key + "/"));
+        return v ? diskName(v.key) : diskName("internal");
+    }
+    function installerLeft(game) {           // what deleting its installer frees; 0 when it is gone
+        const from = String(game.extra["disk.installed.from"] || "");
+        return from === "" ? 0 : diskGames.installerSize(from, String(game.extra["disk.dir"]));
+    }
+    function deleteFailed(data) {
+        const code = data && data.error ? data.error.code : "";
+        toast.show(Tr.tr(code === "installs.in_use" ? "error.install.in_use" : code === "installs.read_only" ? "error.delete.read_only" : "error.installer"));
+        Nav.feedback("error");
+    }
+    // A game on a disk that the console did not install (ready to start, or only an installer): its folder
+    function askDeleteGame(game) {
+        const dir = String(game.extra["disk.dir"]);
+        dialog.game = null;
+        dialog.mode = "installRemove";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.prompts = dialog.defaultPrompts;
+        dialog.backAction = null;
+        dialog.title = Tr.tr("installer.uninstall.title", { title: game.title });
+        dialog.text = Tr.tr("disk.delete.text", { size: GameInfo.sizeAuto(diskGames.folderSize(dir)), disk: root.diskOf(dir) });
+        dialog.buttons = [
+            { text: Tr.tr("uninstall.go"), action: () => {
+                dialog.close(true);
+                owneetd.post("/v1/installs/delete", { dest: dir }, (status, data) => {
+                    if (status !== 204) { root.deleteFailed(data); return; }
+                    toast.show(Tr.tr("toast.install.removed", { title: game.title }));
+                    root.readGamesQuietly();
+                });
+            } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 1;             // Cancel first: nothing deleted by accident
+        dialog.open();
+    }
+    function askDeleteInstaller(game) {
+        const dir = String(game.extra["disk.dir"]);
+        const from = String(game.extra["disk.installed.from"] || "");
+        dialog.game = null;
+        dialog.mode = "installRemove";
+        dialog.contentWidth = Theme.px(560);
+        dialog.icon = "";
+        dialog.prompts = dialog.defaultPrompts;
+        dialog.backAction = null;
+        dialog.title = Tr.tr("disk.delete_installer.title", { title: game.title });
+        dialog.text = Tr.tr("disk.delete_installer.text", { title: game.title, size: GameInfo.sizeAuto(root.installerLeft(game)), disk: root.diskOf(from) });
+        dialog.buttons = [
+            { text: Tr.tr("disk.delete.go"), action: () => {
+                dialog.close(true);
+                owneetd.post("/v1/installs/delete-installer", { dest: dir }, (status, data) => {
+                    if (status !== 204) { root.deleteFailed(data); return; }
+                    toast.show(Tr.tr("toast.installer.deleted", { title: game.title }));
+                    root.readGamesQuietly();
+                });
+            } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 1;
+        dialog.open();
+    }
+
     // The end of an install: the installed copy replaces the game (read again quietly), a notice
     // says so; or why it stopped
     function installEnded(type, data) {
@@ -1204,7 +1696,7 @@ FocusScope {
         } else if (data.reason === "source_gone") {
             notify({ key: "notices.install.stopped", args: { name: data.title }, icon: "usb", kind: "info" });
         } else if (data.reason === "no_space") {
-            notify({ key: "notices.install.space", args: { name: data.title }, icon: "alert", kind: "attention" });
+            notify({ key: "notices.install.space", args: { name: data.title, disk: root.diskOf(data.dest) }, icon: "alert", kind: "attention" });
         } else if (data.reason === "windows") {
             toast.show(Tr.tr("error.install.windows"));
         } else if (data.reason !== "cancelled") {
@@ -1214,10 +1706,39 @@ FocusScope {
     // An install or uninstall changes the library at once, also while a game runs (owner,
     // 2026-10-19: the uninstalled game kept its place until the game on screen closed); the
     // reading is quiet and short (the games folders only change)
+    // The file manager's windows (6.11): Options (Delete), "it may hold saves" and "Delete …?", with
+    // Cancel selected; the answer goes back to it
+    function filesAsk(kind, item, answer) {
+        dialog.game = null;
+        dialog.mode = "files";
+        dialog.contentWidth = 0;
+        if (kind === "options") {
+            dialog.title = item.name;
+            dialog.text = "";
+            dialog.buttons = [{ text: Tr.tr("files.delete"), style: "primary", action: () => { dialog.close(true); answer(); } }];
+            dialog.defaultIndex = 0;
+        } else if (kind === "saves") {
+            dialog.title = Tr.tr("files.saves.title");
+            dialog.text = Tr.tr("files.saves.text", { g: item.game });
+            dialog.buttons = [{ text: Tr.tr("files.continue"), action: () => { dialog.close(true); answer(); } },
+                              { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+            dialog.defaultIndex = 1;
+        } else {
+            dialog.title = Tr.tr("files.delete.title", { name: item.name });
+            dialog.text = Tr.tr("files.delete.text", { size: item.size, disk: item.disk });
+            dialog.buttons = [{ text: Tr.tr("files.delete"), action: () => { dialog.close(true); answer(); } },
+                              { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+            dialog.defaultIndex = 1;
+        }
+        dialog.open();
+    }
     function readGamesQuietly() {
         console.log("Installs changed: reading the games again, quietly");
         diskGames.quietReading = true;
         Internal.settings.reloadProviders();
+        // and the disks' free space (owner, 2026-11-10: after a move it changed only when the
+        // library was shown again)
+        library.refreshVolumes();
     }
     // The home screen's notice of the install in progress (and how many wait)
     readonly property var installNotices: {
@@ -1225,7 +1746,8 @@ FocusScope {
         const cur = list.find(i => i.state === "installing");
         if (!cur) return [];
         const text = (cur.total > 0 ? Tr.tr("home.notice.install", { title: cur.title, p: Math.floor(cur.done * 100 / cur.total) })
-                                    : Tr.tr("home.notice.install.busy", { title: cur.title }))
+                                    : Tr.tr(cur.stalled ? "home.notice.install.stalled" : "home.notice.install.written",
+                                            { title: cur.title, gb: GameInfo.sizeAuto(cur.done || 0) }))
                      + (list.length > 1 ? "  ·  " + Tr.tr("home.notice.more", { n: list.length - 1 }) : "");
         return [{ text: text, game: games.find(g => g.title === cur.title) || null }];
     }
@@ -1303,16 +1825,25 @@ FocusScope {
         if (Date.now() - d.time > 600000)
             return;
         d.plugged.forEach(k => {
-            const n = games.filter(g => GameInfo.diskRoot(g) === k).length;
-            if (n > 0)
-                notify({ key: "notices.disk.plugged", args: { n: n }, icon: "usb", kind: "info" });
+            const list = games.filter(g => GameInfo.diskRoot(g) === k);
+            if (list.length === 0)
+                return;
+            // 6.6, approved demo 6.6: "Play from here / Copy to the console" (the notice when the
+            // question cannot come now: another window, or a game on screen)
+            // 6.6e: while a copy runs (its window closed) the notice too: one copy at a time
+            if (!windowOpen && !firstStart.visible && !installer.visible && !gameOnScreen && d.plugged.length === 1 && !moveSheet.running)
+                moveSheet.openPlug(k, list);
+            else
+                notify({ key: "notices.disk.plugged", args: { n: list.length }, icon: "usb", kind: "info" });
         });
         if (d.unplugged.length > 0)
             notify({ key: "notices.disk.unplugged", args: {}, icon: "usb", crossed: true, kind: "info" });
     }
     Connections {
         target: storage
-        function onVolumesChanged() { root.checkDisks(); }
+        // the library's disks too, at once (owner, 2026-11-19: an SSD taken out stayed listed
+        // until the library was shown again)
+        function onVolumesChanged() { root.checkDisks(); root.findCoverPictures(); library.refreshVolumes(); }
     }
     Connections {                         // the games read again quietly are ready
         target: api
@@ -1370,7 +1901,7 @@ FocusScope {
             dialog.buttons = [
                 { text: Tr.tr("update.restart"), style: "primary", action: () => {
                     dialog.close(true);
-                    owneetd.post("/v1/power/restart", {}, () => {});
+                    root.powerNow("restart");
                 } },
                 { text: Tr.tr("update.later"), action: () => dialog.close() }];
             dialog.defaultIndex = 0;
@@ -1384,12 +1915,243 @@ FocusScope {
         Qt.callLater(dialog.focusDefault);
     }
 
+    // ---- Updates of an installed OwneetOS (7.1, approved demo design/demos/7.1-updates.html):
+    // Settings → System. The console checks by itself (a notification when it finds one), installs
+    // only when the player asks, then "Restart now" or "Later"; "Go back to the previous version";
+    // "Other versions" (7.1b, VersionsSheet); after going back by itself it says so once.
+    // GET /v1/system-update, "system-update.changed".
+    property var systemUpdate: null
+    property string updateAnnounced: ""        // the version a notification was given for
+    property bool updateAsked: false            // "Check for updates" chosen: its answer is shown
+    property bool versionsAsked: false          // "Other versions" chosen before the list was there
+    property bool updateDetails: false          // the window lists the packages that change
+    property bool updateDetailsFocus: false     // Details was just chosen: it keeps the selection
+    property string fellBackShown: ""           // the going back by itself already told
+    function updateNotes(st) {
+        const notes = st.notes || {};
+        return notes[Tr.language] || notes.en || "";
+    }
+    function systemUpdateReceived(st, quiet) {
+        const before = systemUpdate;
+        systemUpdate = st;
+        if (!st || !st.installed)
+            return;
+        const open = dialog.visible && dialog.mode === "sysUpdate";
+        if (st.state === "available" && st.version !== updateAnnounced) {
+            updateAnnounced = st.version;           // found by the console: told once per version
+            if (!quiet && !updateAsked && !open)
+                notify({ key: "upd.notice", args: { v: st.version }, detailKey: "", icon: "download", kind: "info", action: "system" });
+        }
+        if (st.back === "done") {                   // the previous version starts at the restart
+            powerNow("restart");
+            return;
+        }
+        if (st.back === "failed") {
+            owneetd.post("/v1/system-update/notice-seen", {});
+            updateError("upd.error.back");
+            return;
+        }
+        if (st.rolled_back && st.rolled_back !== fellBackShown && !dialog.visible) {
+            fellBackShown = st.rolled_back;
+            showFellBack(st);
+            return;
+        }
+        const was = before ? before.state : "";
+        if (open) {
+            showSystemUpdate(st);
+        } else if (!quiet && st.state === "ready" && was !== "ready") {
+            notify({ key: "upd.ready", args: { v: st.version }, detailKey: "upd.ready.sub", icon: "download", kind: "info", action: "system" });
+        } else if (!quiet && st.state === "failed" && (was === "downloading" || was === "installing") && !dialog.visible) {
+            updateError(st.error === "install_failed" ? "upd.error.install" : "upd.error.download");
+        }
+    }
+    // Settings → System's update row: the window for what the console knows, or a check now
+    function openSystemUpdate() {
+        const st = systemUpdate;
+        if (!st) return;
+        if (!online) { toast.show(Tr.tr("upd.offline")); return; }
+        if (st.state === "ready") { restartForUpdate(); return; }
+        updateDetails = false;
+        updateDetailsFocus = false;
+        if (st.state === "available" || st.state === "downloading" || st.state === "installing") {
+            showSystemUpdate(st, true);
+            return;
+        }
+        checkSystemUpdate(false);
+    }
+    // "Other versions": the list comes with the signed list of releases, downloaded by a check
+    function otherVersions() {
+        const st = systemUpdate;
+        if (!st) return;
+        if (!online) { toast.show(Tr.tr("upd.offline")); return; }
+        if (st.listed) { versionsSheet.openList(); return; }
+        checkSystemUpdate(true);
+    }
+    // the "Checking…" window; `forVersions`: then the list of versions, not the update found
+    function checkSystemUpdate(forVersions) {
+        versionsAsked = forVersions;
+        updateAsked = true;
+        dialog.game = null;
+        dialog.mode = "sysUpdate";
+        dialog.sysView = "checking";
+        dialog.sysPackages = [];
+        dialog.sysNotes = "";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("upd.check");
+        dialog.text = "";
+        dialog.buttons = [];
+        dialog.prompts = [{ buttons: ["b"], label: Tr.tr("prompt.back") }];
+        dialog.open();
+        owneetd.post("/v1/system-update/check", {}, (status, data) => {
+            const code = data && data.error ? data.error.code : "";
+            if (status === 202 || code === "system_update.busy") return;
+            updateAsked = false;
+            dialog.close(true);
+            updateError("upd.error.download");
+        });
+    }
+    // The window open on the update follows what owneetd says
+    function showSystemUpdate(st, opening) {
+        const open = dialog.visible && dialog.mode === "sysUpdate";
+        if (!open && !opening)
+            return;
+        const v = { v: st.version, size: GameInfo.sizeAuto(st.size) };
+        if (dialog.sysView === "checking" && open) {
+            if (st.checking) return;
+            updateAsked = false;
+            if (versionsAsked) {
+                versionsAsked = false;
+                dialog.close(true);
+                if (st.listed) versionsSheet.openList();
+                else if (st.state === "failed" && st.error === "offline") toast.show(Tr.tr("upd.offline"));
+                else updateError("upd.error.download");
+                return;
+            }
+            if (st.state !== "available") {
+                dialog.close(true);
+                if (st.state === "none") toast.show(Tr.tr("upd.uptodate"));
+                else if (st.state === "failed" && st.error === "offline") toast.show(Tr.tr("upd.offline"));
+                else if (st.state === "failed") updateError("upd.error.download");
+                return;
+            }
+        }
+        dialog.game = null;
+        dialog.mode = "sysUpdate";
+        dialog.contentWidth = 0;
+        dialog.icon = "";
+        dialog.sysPackages = [];
+        dialog.sysNotes = "";
+        if (st.state === "available") {
+            const details = updateDetails;
+            dialog.sysView = "available";
+            dialog.contentWidth = Theme.px(details ? 900 : 860);
+            dialog.title = Tr.tr("upd.available", v);
+            dialog.text = Tr.tr("upd.size", v);
+            dialog.sysNotes = updateNotes(st);
+            dialog.sysPackages = details ? st.packages : [];
+            dialog.buttons = [
+                { text: Tr.tr("upd.install"), style: "primary", action: () => {
+                    owneetd.post("/v1/system-update/install", {}, (status, data) => {
+                        const code = data && data.error ? data.error.code : "";
+                        if (status === 202 || code === "system_update.busy") return;
+                        dialog.close(true);
+                        updateError("upd.error.download");
+                    });
+                    showSystemUpdate(Object.assign({}, st, { state: "downloading", percent: 0 }));
+                } },
+                { text: details ? Tr.tr("upd.details.hide") : Tr.tr("upd.details") + " · " + Tr.tr("upd.details.sub"), action: () => {
+                    updateDetails = !details;
+                    updateDetailsFocus = true;
+                    showSystemUpdate(systemUpdate);
+                } },
+                { text: Tr.tr("upd.later"), action: () => dialog.close() }];
+            dialog.defaultIndex = updateDetailsFocus ? 1 : 0;
+            dialog.prompts = [{ buttons: ["a"], label: Tr.tr("prompt.select") }, { buttons: ["b"], label: Tr.tr("prompt.back") }]
+                .concat(details ? [{ buttons: ["rs"], label: Tr.tr("prompt.scroll") }] : []);
+        } else if (st.state === "downloading" || st.state === "installing") {
+            const downloading = st.state === "downloading" && st.percent < 100;
+            dialog.sysView = "progress";
+            dialog.contentWidth = Theme.px(640);
+            dialog.title = Tr.tr("upd.available", v);
+            dialog.text = "";
+            dialog.sysMessage = downloading ? Tr.tr("upd.downloading", { p: st.percent }) : Tr.tr("upd.installing");
+            dialog.sysPercent = downloading ? st.percent : 100;
+            dialog.buttons = [];
+            dialog.prompts = [];
+        } else if (st.state === "ready") {
+            Nav.feedback("notify");
+            dialog.sysView = "ready";
+            dialog.contentWidth = Theme.px(640);
+            dialog.title = Tr.tr("upd.ready", v);
+            dialog.text = Tr.tr("upd.ready.sub");
+            dialog.sysNotes = Tr.tr("upd.ready.text");
+            dialog.buttons = [
+                { text: Tr.tr("upd.restartnow"), style: "primary", action: () => { dialog.close(true); restartForUpdate(); } },
+                { text: Tr.tr("upd.later"), action: () => dialog.close() }];
+            dialog.defaultIndex = 0;
+            dialog.prompts = [{ buttons: ["a"], label: Tr.tr("prompt.select") }, { buttons: ["b"], label: Tr.tr("prompt.back") }];
+        } else {
+            dialog.close(true);
+            if (st.state === "failed")
+                updateError(st.error === "install_failed" ? "upd.error.install" : "upd.error.download");
+            return;
+        }
+        if (!dialog.visible) dialog.open();
+        else Qt.callLater(dialog.focusDefault);
+    }
+    function restartForUpdate() {
+        powerNow("restart");
+    }
+    // "Go back to the previous version": Cancel first; the console restarts once it is ready
+    function goBackVersion() {
+        const st = systemUpdate;
+        if (!st || !st.previous) { toast.show(Tr.tr("upd.prev.none")); return; }
+        dialog.game = null;
+        dialog.mode = "sysUpdateBack";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("upd.prev.confirm", { v: st.previous.version || "—" });
+        dialog.text = Tr.tr("upd.prev.text");
+        dialog.buttons = [
+            { text: Tr.tr("upd.goback"), action: () => {
+                dialog.close();
+                owneetd.post("/v1/system-update/go-back", {}, status => { if (status !== 202) updateError("upd.error.back"); });
+            } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 1;
+        dialog.prompts = [{ buttons: ["a"], label: Tr.tr("prompt.select") }, { buttons: ["b"], label: Tr.tr("prompt.cancel") }];
+        dialog.open();
+    }
+    function showFellBack(st) {
+        dialog.game = null;
+        dialog.mode = "sysUpdateBack";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("upd.fellback");
+        dialog.text = Tr.tr("upd.fellback.text", { v: st.current });
+        dialog.buttons = [{ text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.prompts = [{ buttons: ["a"], label: Tr.tr("prompt.ok") }];
+        dialog.open();
+        owneetd.post("/v1/system-update/notice-seen", {});
+    }
+    function updateError(key) {
+        Nav.feedback("error");
+        dialog.game = null;
+        dialog.mode = "sysUpdateError";
+        dialog.contentWidth = 0;
+        dialog.title = Tr.tr("update.title");
+        dialog.text = Tr.tr(key);
+        dialog.buttons = [{ text: Tr.tr("prompt.ok"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open(true);
+    }
+
     // ---- Steam (4.2, 4.2c): its store, installing and uninstalling; owneetd starts Steam when
     // needed. Steam's window shows only for its store and its confirmations.
     function openSteam(page) {
         if (steamOffline(page === "store" ? "store" : "play")) return;
         withSteamNotice(() => {
             if (page === "store") root.storeVisited = true;
+            if (page === "storage") Nav.feedback("launch");     // an app opens, as from its tile
             steamRequest({ open: page }, null);
         });
     }
@@ -1452,7 +2214,7 @@ FocusScope {
             } },
             { text: Tr.tr("prompt.close"), action: () => dialog.close() }];
         dialog.defaultIndex = 0;
-        Nav.feedback("notify-error");
+        Nav.feedback("error");
         dialog.open(true);
         return true;
     }
@@ -1713,7 +2475,7 @@ FocusScope {
     }
     // The on-screen keyboard's layout (owneetd): the chosen one, or the language's
     function keyboardFor(language, layouts) {
-        const byLanguage = { en: "us", it: "it" };
+        const byLanguage = { en: "us", it: "it", de: "de", fr: "fr", es: "es" };
         const l = byLanguage[language] || "us";
         return !layouts || layouts.indexOf(l) >= 0 ? l : "us";
     }
@@ -1738,10 +2500,22 @@ FocusScope {
         dialog.open();
     }
     function power(action) {
+        // 6.6e: during a copy of games a shutdown or a restart is confirmed first (owner, 2026-11-10)
+        if (moveSheet.running && (action === "shutdown" || action === "restart")) { confirmPower(action); return; }
         quick.close(true);
         dialog.close(true);
+        powerNow(action);
+    }
+    // A shutdown or a restart shows "Shutting down" at once, while owneetd closes the apps (7.6b,
+    // approved demo design/demos/7.6b-shutting-down.html); refused, the console goes on
+    function powerNow(action) {
+        const off = action === "shutdown" || action === "restart";
+        if (off) poweringOff.show();
         owneetd.post("/v1/power/" + action, {}, status => {
-            if (status >= 300 || status === 0) toast.show(Tr.tr("error.power"));
+            if (status >= 300 || status === 0) {
+                if (off) poweringOff.hide();
+                toast.show(Tr.tr("error.power"));
+            }
         });
     }
     function confirmPower(action) {
@@ -1749,13 +2523,13 @@ FocusScope {
         dialog.mode = "power";
         dialog.contentWidth = 0;
         dialog.title = Tr.tr("system.power.confirm." + action);
-        dialog.text = runningGame ? Tr.tr("system.power.game") : "";
+        dialog.text = [runningGame ? Tr.tr("system.power.game") : "",
+                       moveSheet.running && action !== "suspend" ? Tr.tr("system.power.copy") : ""].filter(t => t !== "").join(" ");
         dialog.buttons = [
             { text: Tr.tr("system.power." + action), action: () => {
                 dialog.close();
-                owneetd.post("/v1/power/" + action, {}, status => {
-                    if (status >= 300 || status === 0) toast.show(Tr.tr("error.power"));
-                });
+                quick.close(true);
+                root.powerNow(action);
             } },
             { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }
         ];
@@ -2103,8 +2877,8 @@ FocusScope {
         dialog.open();
     }
 
-    Rectangle {
-        anchors.fill: parent
+    Rectangle {             // also past the display area, to the screen's edges
+        anchors { fill: parent; margins: -Theme.bleed }
         color: Theme.bg
     }
 
@@ -2117,17 +2891,9 @@ FocusScope {
         }
         height: Math.max(mark.height, tabs.height)
 
-        Text {
+        Logo {
             id: mark
             anchors.verticalCenter: parent.verticalCenter
-            opacity: intro.visible ? 0 : 1      // the start-up animation brings it here
-            textFormat: Text.StyledText
-            text: "Owneet<font color=\"" + Theme.accent + "\">OS</font>"
-            color: Theme.fg
-            font.family: Theme.displayFont
-            font.weight: Font.ExtraBold
-            font.pixelSize: Theme.px(23)
-            font.letterSpacing: -Theme.px(0.7)
         }
         Row {
             id: tabs
@@ -2158,6 +2924,43 @@ FocusScope {
         Row {
             anchors { right: parent.right; verticalCenter: parent.verticalCenter }
             spacing: Theme.px(20)
+            Rectangle {                    // 6.6e: a copy of games going on: its step and percentage
+                visible: moveSheet.running
+                anchors.verticalCenter: parent.verticalCenter
+                width: jobRow.implicitWidth + Theme.px(20)
+                height: jobRow.implicitHeight + Theme.px(8)
+                radius: height / 2
+                color: Theme.raised
+                Row {
+                    id: jobRow
+                    anchors.centerIn: parent
+                    spacing: Theme.px(8)
+                    Spinner {
+                        visible: !moveSheet.failedNow
+                        width: Theme.fs(14); height: width
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Rectangle {            // the copy did not work
+                        visible: moveSheet.failedNow
+                        width: Theme.fs(14); height: width; radius: width / 2
+                        color: Theme.fg
+                        anchors.verticalCenter: parent.verticalCenter
+                        Text {
+                            anchors.centerIn: parent
+                            text: "✕"
+                            color: Theme.bg
+                            font.pixelSize: Theme.fs(10)
+                        }
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: moveSheet.jobText
+                        color: Theme.fg
+                        font.family: Theme.textFont
+                        font.pixelSize: Theme.fs(14.5)
+                    }
+                }
+            }
             Item {                         // notifications: the bell counts the ones not seen yet
                 anchors.verticalCenter: parent.verticalCenter
                 width: Theme.fs(20); height: width
@@ -2243,9 +3046,23 @@ FocusScope {
                 font.family: Theme.textFont
                 font.weight: Font.Medium
                 font.pixelSize: Theme.fs(14.5)
-                function tick() { text = Qt.formatTime(new Date(), "hh:mm"); }
+                function tick() {
+                    const zone = root.timeStatus ? root.timeStatus.zone : "";
+                    text = zone !== "" && TimeZones.offsets[zone] !== undefined ? TimeZones.clockAt(zone, Date.now())
+                                                                               : Qt.formatTime(new Date(), "hh:mm");
+                }
+                Connections { target: TimeZones; function onOffsetsChanged() { clock.tick(); } }
+                Connections { target: root; function onTimeStatusChanged() { clock.tick(); } }
                 Component.onCompleted: tick()
-                Timer { interval: 10000; running: true; repeat: true; onTriggered: clock.tick() }
+                Timer {
+                    interval: 10000; running: true; repeat: true
+                    onTriggered: {
+                        clock.tick();
+                        // Settings → Language shows the date and time too: the same minute as here
+                        if (root.section === "settings")
+                            owneetd.get("/v1/time", (status, data) => { if (status === 200) root.timeStatus = data; });
+                    }
+                }
             }
         }
     }
@@ -2262,6 +3079,8 @@ FocusScope {
             id: home
             anchors.fill: parent
             visible: root.section === "home"
+            live: root.liveSystem
+            onInstall: root.openInstaller()
             focus: visible
             games: root.homeGames
             notices: root.steamNotices.concat(root.installNotices).concat(root.windowsNotices)
@@ -2290,6 +3109,7 @@ FocusScope {
         LibraryPage {
             id: library
             anchors.fill: parent
+            copying: moveSheet
             visible: root.section === "library"
             focus: visible
             games: root.games
@@ -2306,9 +3126,17 @@ FocusScope {
             id: settings
             anchors.fill: parent
             visible: root.section === "settings"
+            live: root.liveSystem
+            onInstall: root.openInstaller()
             focus: visible
             onOpenPalettes: palettes.openPicker()
+            onAdjustDisplayArea: displayArea.open()
+            onOpenFiles: fileManager.open()
             onOpenLanguages: languages.openPicker()
+            onOpenTimeZones: root.openTimeZones()
+            onOpenClock: root.online ? toast.show(Tr.tr("language.time.auto")) : root.openClock()
+            time: root.timeStatus
+            online: root.online
             onChooseOutput: root.chooseOutput(outputs, current)
             onChooseKeyboard: root.chooseKeyboard(layouts, current)
             onConfirmPower: root.confirmPower(action)
@@ -2326,7 +3154,12 @@ FocusScope {
             onChooseDisplay: root.chooseDisplay(what, state)
             updatesFromStick: root.updateStatus !== null && root.updateStatus.tester === true
             onCheckUpdates: root.checkUpdates()
+            systemUpdate: root.systemUpdate
+            onOpenSystemUpdate: root.openSystemUpdate()
+            onGoBackVersion: root.goBackVersion()
+            onOtherVersions: root.otherVersions()
             onQuickMenu: quick.openMenu()
+            onPrepareDisk: root.prepareDisk(disk, disks, shown)
         }
     }
     // after the first layout; a window already open (e.g. "Keep this screen?") keeps the focus
@@ -2340,24 +3173,10 @@ FocusScope {
         }
         visible: !root.modalOpen
         prompts: root.page.prompts
-        globalPrompts: [{ buttons: ["lb", "rb"], label: Tr.tr("prompt.sections") }, { buttons: ["guide"], label: Tr.tr("prompt.home") }]
+        globalPrompts: [{ buttons: ["lb", "rb"], label: Tr.tr("prompt.sections") }]
+                       .concat(Nav.homePrompt ? [{ buttons: ["guide"], label: Tr.tr("prompt.home") }] : [])
     }
 
-    // ---- TV safe area outline (Appearance → Show TV safe area)
-    Rectangle {
-        visible: Theme.showSafeArea
-        anchors {
-            fill: parent
-            leftMargin: Theme.safeX; rightMargin: Theme.safeX
-            topMargin: Theme.safeTop; bottomMargin: Theme.safeBottom
-        }
-        color: "transparent"
-        border.color: Theme.muted
-        border.width: Math.max(1, Theme.px(1))
-        radius: Theme.px(8)
-        opacity: 0.7
-        z: 50
-    }
 
     // ---- Windows
     Dialog {
@@ -2375,11 +3194,17 @@ FocusScope {
         property bool updateBusy: false     // update: checking or installing
         property var updateLines: []        // update: "name  from  →  to"
         property string updateNote: ""
+        property string sysView: ""         // sysUpdate: checking, available, progress, ready (7.1)
+        property string sysNotes: ""        // sysUpdate: what's new, or the ready window's note
+        property var sysPackages: []        // sysUpdate: the packages that change, when Details is open
+        property string sysMessage: ""      // sysUpdate: downloading or installing
+        property int sysPercent: 0
         property var facts: []              // app: [label, value] lines
         property string note: ""            // app: Google's terms for Widevine come at the first opening
         property string agreementUrl: ""    // agreement: the licence agreement's address (4.2c)
         property string licence: ""         // licence: an installer's licence text (4.6)
-        scrollTarget: mode === "licence" && licence !== "" ? licenceFlick : null
+        scrollTarget: mode === "licence" && licence !== "" ? licenceFlick
+                      : mode === "sysUpdate" && sysPackages.length > 0 ? updateFlick : null
         property string appId: ""           // close: the app it asks about
         property var files: []              // chooseFile: what the game on a disk can start (4.3)
         property bool thenStart: false      // chooseFile: the game starts once chosen
@@ -2421,14 +3246,121 @@ FocusScope {
             }
             Repeater {
                 model: dialog.updateLines
-                Text {
+                FitText {
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
                     text: modelData
                     color: Theme.fg
                     font.family: Theme.textFont
                     font.pixelSize: Theme.fs(14.5)
-                    elide: Text.ElideRight
+                }
+            }
+        }
+        Column {                          // sysUpdate: an update of OwneetOS (7.1, demo 7.1-updates)
+            visible: dialog.mode === "sysUpdate"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(12)
+            Row {                         // checking, downloading or installing
+                visible: dialog.sysView === "checking" || dialog.sysView === "progress"
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Theme.px(10)
+                Spinner { anchors.verticalCenter: parent.verticalCenter }
+                Text {
+                    text: dialog.sysView === "checking" ? Tr.tr("upd.checking") : dialog.sysMessage
+                    color: Theme.muted
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(17)
+                }
+            }
+            Rectangle {                   // the progress bar
+                visible: dialog.sysView === "progress"
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Theme.px(640); height: Theme.px(6)
+                radius: height / 2
+                color: Theme.raised
+                Rectangle {
+                    width: parent.width * Math.min(dialog.sysPercent, 100) / 100
+                    height: parent.height
+                    radius: height / 2
+                    color: Theme.accent
+                }
+            }
+            Text {
+                visible: dialog.sysView === "progress"
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: Tr.tr("upd.bg")
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(14.5)
+            }
+            Text {                        // "What's new"
+                visible: dialog.sysView === "available" && dialog.sysNotes !== ""
+                width: notesText.width
+                text: Tr.tr("upd.new")
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.weight: Font.Medium
+                font.pixelSize: Theme.fs(14.5)
+            }
+            Text {                        // the release's notes, or the ready window's note
+                id: notesText
+                visible: (dialog.sysView === "available" || dialog.sysView === "ready") && dialog.sysNotes !== ""
+                width: Math.min(implicitWidth, Math.min(dialog.contentWidth, Theme.px(860)))
+                text: dialog.sysNotes
+                color: dialog.sysView === "ready" ? Theme.muted : Theme.fg
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(17)
+                wrapMode: Text.Wrap
+            }
+            Flickable {                   // Details: the packages that change, scrolled with the right stick
+                id: updateFlick
+                visible: dialog.sysView === "available" && dialog.sysPackages.length > 0
+                width: Theme.px(900)
+                height: Math.min(contentHeight, Theme.px(330))
+                clip: true
+                contentHeight: packagesColumn.height
+                boundsBehavior: Flickable.StopAtBounds
+                Behavior on contentY { enabled: !Theme.reduceMotion; NumberAnimation { duration: Theme.motionMs; easing.type: Easing.OutCubic } }
+                Column {
+                    id: packagesColumn
+                    width: updateFlick.width
+                    spacing: Theme.px(8)
+                    Repeater {
+                        model: dialog.sysPackages
+                        Rectangle {
+                            width: packagesColumn.width
+                            height: Theme.px(34)
+                            radius: Theme.radiusS
+                            color: Theme.surface
+                            FitText {
+                                anchors { left: parent.left; leftMargin: Theme.px(12); right: fromText.left; rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
+                                text: modelData.name
+                                color: Theme.fg
+                                font.family: Theme.textFont
+                                font.weight: Font.Medium
+                                font.pixelSize: Theme.fs(14.5)
+                            }
+                            FitText {
+                                id: fromText
+                                x: parent.width - Theme.px(428)
+                                width: Theme.px(200)
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: modelData.from
+                                color: Theme.muted
+                                font.family: Theme.textFont
+                                font.pixelSize: Theme.fs(14.5)
+                            }
+                            FitText {
+                                x: parent.width - Theme.px(212)
+                                width: Theme.px(200)
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: modelData.to
+                                color: Theme.fg
+                                font.family: Theme.textFont
+                                font.pixelSize: Theme.fs(14.5)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -2630,10 +3562,22 @@ FocusScope {
             Text { text: root.termsAddress; color: Theme.fg; font.family: Theme.displayFont; font.weight: Font.Bold; font.pixelSize: Theme.fs(14.5) }
         }
         Column {                          // details: facts about the game (Steam: its download, 4.2c)
+            id: factsBox
             visible: dialog.mode === "details" && dialog.game !== null
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Theme.px(6)
+            // a value never wider than the window: a long one (an installer's file name) is
+            // shortened in the middle with "…" (owner, 2026-11-10)
+            readonly property real labelWidth: {
+                let w = 0;
+                for (let i = 0; i < factsGrid.children.length; i++)
+                    if (factsGrid.children[i].factLabel === true)
+                        w = Math.max(w, factsGrid.children[i].implicitWidth);
+                return w;
+            }
+            readonly property real valueMax: Math.max(Theme.px(80), parent.width - labelWidth - factsGrid.columnSpacing)
             Grid {
+                id: factsGrid
                 anchors.horizontalCenter: parent.horizontalCenter
                 columns: 2
                 columnSpacing: Theme.px(18)
@@ -2641,24 +3585,40 @@ FocusScope {
                 Repeater {
                     model: dialog.game && dialog.mode === "details" ? root.detailsFacts(dialog.game).reduce((a, f) => a.concat(f), []) : []
                     Text {
+                        readonly property bool factLabel: index % 2 === 0
+                        width: factLabel ? implicitWidth : Math.min(implicitWidth, factsBox.valueMax)
                         text: modelData
-                        color: index % 2 === 0 ? Theme.muted : Theme.fg
+                        color: factLabel ? Theme.muted : Theme.fg
                         font.family: Theme.textFont
                         font.pixelSize: Theme.fs(14.5)
+                        elide: Text.ElideMiddle
                     }
                 }
             }
             Rectangle {                   // the download's progress
                 readonly property string s: dialog.game ? GameInfo.steamState(dialog.game) : ""
-                visible: s === "downloading" || s === "updating" || s === "queued" || s === "paused"
+                visible: s === "downloading" || s === "updating" || s === "queued" || s === "paused" || s === "preparing"
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: Theme.px(420); height: Theme.px(8); radius: height / 2
                 color: Theme.raised
+                clip: true
                 Rectangle {
+                    visible: parent.s !== "preparing"
                     width: parent.width * (dialog.game ? GameInfo.progress(dialog.game) : 0) / 100
                     height: parent.height; radius: height / 2
                     color: Theme.accent
                     Behavior on width { NumberAnimation { duration: Theme.motionMs } }
+                }
+                Rectangle {               // Steam prepares: no percentage, a piece that keeps moving (as the cover)
+                    id: detailsMoving
+                    visible: parent.s === "preparing"
+                    width: parent.width * 0.35; height: parent.height; radius: height / 2
+                    color: Theme.accent
+                    NumberAnimation on x {
+                        running: detailsMoving.visible && !Theme.reduceMotion
+                        from: -detailsMoving.width; to: detailsMoving.parent.width
+                        duration: 1400; loops: Animation.Infinite
+                    }
                 }
             }
             Text {                        // on a disk that is not connected
@@ -2785,6 +3745,257 @@ FocusScope {
                     model: [["a", "pointer.help.click"], ["x", "pointer.help.right"], ["rs", "pointer.help.scroll"], ["y", "pointer.help.type"]]
                     Prompt { buttons: [modelData[0]]; label: Tr.tr(modelData[1]) }
                 }
+            }
+        }
+        Column {                          // consoleName: the installer's console name (6.4)
+            visible: dialog.mode === "consoleName"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(480)
+            FocusScope {
+                id: consoleNameField
+                // A opens the on-screen keyboard; a keyboard plugged in types here, Enter keeps it
+                readonly property bool navigable: true
+                signal activated()
+                onActivated: osk.open(consoleNameInput, false)
+                width: parent.width
+                height: Theme.px(52)
+                Rectangle {
+                    anchors.fill: parent
+                    radius: Theme.radiusS + Theme.px(2)
+                    color: Theme.surface
+                    border.color: osk.visible && osk.target === consoleNameInput ? Theme.accent : Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                }
+                TextInput {
+                    id: consoleNameInput
+                    focus: true
+                    anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: Theme.px(16) }
+                    color: Theme.fg
+                    selectionColor: Theme.accent
+                    selectedTextColor: Theme.onAccent
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(20)
+                    maximumLength: 40
+                    clip: true
+                    cursorVisible: consoleNameField.activeFocus || (osk.visible && osk.target === consoleNameInput)
+                    Keys.onReturnPressed: root.keepConsoleName()
+                    Keys.onEnterPressed: root.keepConsoleName()
+                }
+                FocusFrame { shown: consoleNameField.activeFocus }
+            }
+        }
+        Column {                          // diskName: a disk's name (6.7)
+            visible: dialog.mode === "diskName"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(480)
+            spacing: Theme.px(10)
+            FocusScope {
+                id: diskNameField
+                // A opens the on-screen keyboard; a keyboard plugged in types here, Enter keeps it
+                readonly property bool navigable: true
+                signal activated()
+                onActivated: osk.open(diskNameInput, false)
+                width: parent.width
+                height: Theme.px(52)
+                Rectangle {
+                    anchors.fill: parent
+                    radius: Theme.radiusS + Theme.px(2)
+                    color: Theme.surface
+                    border.color: osk.visible && osk.target === diskNameInput ? Theme.accent : Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                }
+                TextInput {
+                    id: diskNameInput
+                    focus: true
+                    anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: Theme.px(16) }
+                    color: Theme.fg
+                    selectionColor: Theme.accent
+                    selectedTextColor: Theme.onAccent
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(20)
+                    maximumLength: 32
+                    clip: true
+                    cursorVisible: diskNameField.activeFocus || (osk.visible && osk.target === diskNameInput)
+                    Keys.onReturnPressed: root.keepDiskName()
+                    Keys.onEnterPressed: root.keepDiskName()
+                    onTextChanged: {
+                        if (!root.diskNameInline || dialog.mode !== "diskName" || !root.diskNameCheck)
+                            return;
+                        const problem = root.diskNameCheck(text.trim());
+                        if (problem !== root.diskNameProblem) {
+                            root.diskNameProblem = problem;
+                            dialog.buttons = root.diskNameButtons();
+                        }
+                    }
+                }
+                FocusFrame { shown: diskNameField.activeFocus }
+            }
+            Text {                        // Settings: why the name cannot be given, else the rule
+                visible: root.diskNameInline
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: root.diskNameProblem !== "" ? Tr.tr(root.diskNameProblem, { name: diskNameInput.text.trim() }) : Tr.tr("disk.name.hint")
+                color: root.diskNameProblem !== "" ? Theme.accent : Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(14.5)
+                wrapMode: Text.Wrap
+            }
+        }
+        Column {                          // prepAsk: what is on the disk, what will happen (6.7)
+            visible: dialog.mode === "prepAsk"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(640)
+            spacing: Theme.px(14)
+            Text {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: root.prepDisk ? (root.prepDisk.model || root.prepDisk.path) + " · " + GameInfo.size(root.prepDisk.size) : ""
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(14.5)
+            }
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Theme.px(8)
+                Repeater {
+                    model: {
+                        const d = root.prepDisk, t = [];
+                        if (!d) return t;
+                        if (d.windows) t.push(["windows", true]);
+                        if (d.bitlocker) t.push(["bitlocker", true]);
+                        if ((d.partitions || []).some(p => p.fstype !== "" && p.fstype !== "BitLocker")) t.push(["data", false]);
+                        if (t.length === 0) t.push(["empty", false]);
+                        return t;
+                    }
+                    Rectangle {
+                        width: prepTag.implicitWidth + Theme.px(20)
+                        height: prepTag.implicitHeight + Theme.px(4)
+                        radius: height / 2
+                        color: modelData[1] ? Theme.accent : Theme.raised
+                        Text {
+                            id: prepTag
+                            anchors.centerIn: parent
+                            text: Tr.tr("installer.disk." + modelData[0])
+                            color: modelData[1] ? Theme.onAccent : Theme.fg
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(16)
+                        }
+                    }
+                }
+            }
+            Text {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: Tr.tr("disk.prep.text")
+                color: Theme.fg
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(17)
+                wrapMode: Text.Wrap
+            }
+            Rectangle {                   // Windows or BitLocker: what will be lost
+                visible: root.prepWindows
+                width: parent.width
+                height: prepAlert.implicitHeight + Theme.px(28)
+                radius: Theme.radiusM
+                color: Qt.tint(Theme.bg, Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.1))
+                border.color: Theme.accent
+                border.width: Theme.px(2)
+                Column {
+                    id: prepAlert
+                    anchors { left: parent.left; right: parent.right; leftMargin: Theme.px(16); rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
+                    spacing: Theme.px(6)
+                    Text {
+                        width: parent.width
+                        text: root.prepDisk ? [root.prepDisk.windows ? Tr.tr("installer.warn.windows") : "",
+                                               root.prepDisk.bitlocker ? Tr.tr("disk.prep.bitlocker") : ""].filter(x => x !== "").join(" · ") : ""
+                        color: Theme.fg
+                        font.family: Theme.textFont
+                        font.weight: Font.DemiBold
+                        font.pixelSize: Theme.fs(17)
+                        wrapMode: Text.Wrap
+                    }
+                    Text {
+                        width: parent.width
+                        text: Tr.tr("installer.warn.windows.text")
+                        color: Theme.fg
+                        font.family: Theme.textFont
+                        font.pixelSize: Theme.fs(14.5)
+                        wrapMode: Text.Wrap
+                    }
+                }
+            }
+            Rectangle {                   // the switch to turn on before "Erase and prepare"
+                id: prepSwitch
+                visible: root.prepWindows
+                readonly property bool navigable: true
+                readonly property string feedbackKind: root.prepUnderstood ? "toggle-off" : "toggle-on"
+                signal activated()
+                onActivated: root.prepToggle()
+                width: parent.width
+                height: Math.max(Theme.px(56), prepSwitchText.implicitHeight + Theme.px(24))
+                radius: Theme.radiusM
+                color: Theme.surface
+                border.color: Theme.line
+                border.width: Math.max(1, Theme.px(1))
+                Text {
+                    id: prepSwitchText
+                    anchors { left: parent.left; leftMargin: Theme.px(16); right: prepKnob.left; rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
+                    text: Tr.tr("installer.warn.understand")
+                    color: Theme.fg
+                    font.family: Theme.textFont
+                    font.pixelSize: Theme.fs(17)
+                    wrapMode: Text.Wrap
+                }
+                Rectangle {
+                    id: prepKnob
+                    anchors { right: parent.right; rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
+                    width: Theme.px(44); height: Theme.px(24); radius: height / 2
+                    color: root.prepUnderstood ? Theme.accent : Theme.raised
+                    border.color: root.prepUnderstood ? Theme.accent : Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                    Rectangle {
+                        width: Theme.px(16); height: width; radius: width / 2
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: root.prepUnderstood ? Theme.px(23) : Theme.px(3)
+                        color: root.prepUnderstood ? Theme.onAccent : Theme.muted
+                        Behavior on x { NumberAnimation { duration: Theme.motionMs; easing.type: Easing.OutCubic } }
+                    }
+                }
+                FocusFrame {}
+            }
+        }
+        Column {                          // prepHold: the final confirmation (6.7)
+            visible: dialog.mode === "prepHold"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(12)
+            HoldButton {
+                id: prepHoldButton
+                anchors.horizontalCenter: parent.horizontalCenter
+                onConfirmed: root.prepStart()
+            }
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: Tr.tr("disk.hold")
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(14.5)
+            }
+        }
+        Column {                          // prepWorking: the wait (6.7)
+            visible: dialog.mode === "prepWorking"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.px(12)
+            Spinner {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Theme.px(32); height: width
+            }
+            Text {
+                visible: root.prepDisk !== null && root.prepDisk.usb === true
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: Tr.tr("disk.prep.usb")
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(17)
             }
         }
         Column {                          // pointerType: what goes to the window (4.7)
@@ -3042,14 +4253,17 @@ FocusScope {
                                 color: Theme.accent
                             }
                         }
-                        Text {
-                            visible: modelData.readOnly
-                            width: parent.width
-                            text: Tr.tr("disk.note.readonly")
-                            color: Theme.muted
-                            font.family: Theme.textFont
-                            font.pixelSize: Theme.fs(12.5)
-                            wrapMode: Text.Wrap
+                        Repeater {                 // why it is read only; Windows games on NTFS (6.5, demo 3.7)
+                            model: (modelData.readOnly ? [modelData.why === "windows" ? "disk.note.windows" : "disk.note.readonly"] : [])
+                                   .concat(modelData.ntfs ? ["disk.note.ntfs"] : [])
+                            Text {
+                                width: parent.width
+                                text: Tr.tr(modelData)
+                                color: Theme.muted
+                                font.family: Theme.textFont
+                                font.pixelSize: Theme.fs(12.5)
+                                wrapMode: Text.Wrap
+                            }
                         }
                     }
                 }
@@ -3092,6 +4306,7 @@ FocusScope {
         id: sounds
         dir: systemInfo.soundsDir
         muted: root.gameOnScreen && !webKeys.shown    // the web keyboard is the console's
+        startupOnly: intro.running
     }
     Connections {
         target: Nav
@@ -3103,19 +4318,25 @@ FocusScope {
         id: osk
         layout: {
             const l = Theme.keyboardSetting === "same" ? root.keyboardFor(Tr.language) : Theme.keyboardSetting;
-            return ["us", "it"].indexOf(l) >= 0 ? l : "us";
+            return ["us", "it", "de", "fr", "es"].indexOf(l) >= 0 ? l : "us";
         }
         showPassword: showPassword.checked
         onTogglePassword: showPassword.checked = !showPassword.checked
         onDone: {
-            if (dialog.visible && (dialog.mode === "connect" || dialog.mode === "pointerType") && dialog.buttons.length > 0)
+            if (dialog.visible && dialog.mode === "consoleName")
+                root.keepConsoleName();      // Done = keep the name
+            else if (dialog.visible && dialog.mode === "diskName")
+                root.keepDiskName();
+            else if (dialog.visible && (dialog.mode === "connect" || dialog.mode === "pointerType") && dialog.buttons.length > 0)
                 dialog.buttons[0].action();      // Done = Connect
             else
                 close(true);
         }
         onClosed: {
             close();
-            if (dialog.visible)
+            if (dialog.visible && (dialog.mode === "consoleName" || (dialog.mode === "diskName" && !root.diskNameInline)))
+                dialog.close();              // B: the name as it was
+            else if (dialog.visible)
                 Qt.callLater(() => dialog.focusButton(0));
             else
                 root.backToPage();
@@ -3132,9 +4353,81 @@ FocusScope {
         z: 101
         onVisibleChanged: if (!visible) root.backToPage()
     }
+    // ---- The time zone and the date and time (6.1)
+    TimeZoneSheet {
+        id: zoneSheet
+        z: 101
+        toast: toast
+        onChosen: root.refreshTime()
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
+    // ---- The display area (Settings → Display, 3y)
+    DisplayArea {
+        id: displayArea
+        toast: toast
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
+    FileManager {
+        id: fileManager
+        toast: toast
+        games: root.games
+        steamRunning: root.apps.some(a => a.id === "steam")
+        diskName: root.diskName
+        covered: dialog.visible || osk.visible
+        onVisibleChanged: if (!visible) root.backToPage()
+        onDeletedInGames: root.readGamesQuietly()
+        onAsk: root.filesAsk(kind, item, answer)
+    }
+    ClockSheet {
+        id: clockSheet
+        toast: toast
+        onSaved: root.refreshTime()
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
     CreditsSheet {
         id: credits
         z: 101
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
+    // ---- A local game's cover from a picture on a disk (6.9, approved demo 6.9): the pictures of
+    // the disks plugged in are read at the start and whenever a disk comes or goes (the option
+    // shows while there are some); the chosen one is copied into the game's folder, and the games
+    // are read again quietly, so the new cover shows at once
+    property var coverPictures: []
+    property int coverFinding: 0
+    property var coverCopies: ({})          // token → the game's title, for the notice
+    function findCoverPictures() { coverFinding = coverImages.find(); }
+    function useCover(game, picture) {
+        const token = coverImages.use(picture, String(game.extra["disk.dir"]));
+        const copies = coverCopies;
+        copies[token] = game.title;
+        coverCopies = copies;
+    }
+    Connections {
+        target: coverImages
+        function onFound(token, pictures) {
+            if (token !== root.coverFinding)
+                return;
+            root.coverPictures = pictures;
+            coverSheet.update(pictures);
+        }
+        function onUsed(token, ok, cover) {
+            const title = root.coverCopies[token];
+            if (title === undefined)
+                return;
+            delete root.coverCopies[token];
+            if (!ok) {
+                toast.show(Tr.tr("covers.failed"));
+                return;
+            }
+            root.readGamesQuietly();
+            toast.show(Tr.tr("toast.cover", { g: title }));
+        }
+    }
+    CoverSheet {
+        id: coverSheet
+        z: 101
+        onChosen: root.useCover(forGame, picture)
         onVisibleChanged: if (!visible) root.backToPage()
     }
 
@@ -3167,7 +4460,7 @@ FocusScope {
             // Steam behind until then), or Steam, if it needs the user (focus.changed)
             const steamWindow = id === "steam" && steamPrep.gameTitle === "";
             if ((type === "app.window" && (steamWindow || id.startsWith("steam:")))
-                    || (type === "app.exited" && ((id === "steam" && !steamPrep.steamRestart) || id.startsWith("steam:") || steamPrep.windows))
+                    || (type === "app.exited" && ((id === "steam" && !steamPrep.steamRestart) || id.startsWith("steam:") || steamPrep.windows || steamPrep.diskGame))
                     || (type === "focus.changed" && data.focus !== "home"))
                 steamPrep.close(true);
         }
@@ -3220,16 +4513,57 @@ FocusScope {
         onVisibleChanged: if (!visible && quick.visible) quick.refocus()
     }
 
+    // ---- The first start (6.1): over the pages, under the windows (the Wi-Fi password, the
+    // keyboard) and the start-up animation
+    MoveSheet {
+        id: moveSheet
+        theme: root
+        toast: toast
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
+    VersionsSheet {
+        id: versionsSheet
+        theme: root
+        onVisibleChanged: if (!visible) root.backToPage()
+    }
+    Installer {
+        id: installer
+        theme: root
+        onClosed: root.backToPage()
+    }
+    FirstStart {
+        id: firstStart
+        pads: root.pads
+        network: root.network
+        online: root.online
+        theme: root
+        onFinished: root.page.focusStart()
+    }
+
     // ---- Start-up animation (3.13): with the start-up sound; without it (sounds off, or the
     // output not ready), on its own after a while
     Intro {
         id: intro
-        target: mark
         pages: pages
+    }
+    PoweringOff {
+        id: poweringOff
     }
     Connections {
         target: sounds
         function onStartupStarted() { intro.go(); }
+    }
+    // The black waits before the animation starts: a real screen may take seconds to show the session's
+    // first frames, and it would miss the fade (owner's tests on FrankenPC, 2026-11-05). A duration
+    // chosen with the owner, not an event's stand-in: nothing tells a program when the monitor shows
+    // the picture ([[waiting-for-events]]).
+    Timer {
+        id: introHold
+        interval: 2500
+        onTriggered: {
+            sounds.playStartup();
+            introFallback.start();
+        }
     }
     Timer {
         id: introFallback

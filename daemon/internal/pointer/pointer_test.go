@@ -5,6 +5,7 @@ package pointer
 import (
 	"io"
 	"log/slog"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -19,7 +20,8 @@ type fakeMouse struct {
 	mu     sync.Mutex
 	dx, dy int
 	wheel  int
-	clicks []string
+	clicks []string // buttons pressed and let go
+	held   map[string]bool
 }
 
 func (f *fakeMouse) MovePointer(dx, dy, wheel int) error {
@@ -30,11 +32,23 @@ func (f *fakeMouse) MovePointer(dx, dy, wheel int) error {
 	f.wheel += wheel
 	return nil
 }
-func (f *fakeMouse) Click(b string) error {
+func (f *fakeMouse) Button(b string, down bool) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.clicks = append(f.clicks, b)
+	if f.held == nil {
+		f.held = map[string]bool{}
+	}
+	if !down && f.held[b] {
+		f.clicks = append(f.clicks, b)
+	}
+	f.held[b] = down
 	return nil
+}
+
+func (f *fakeMouse) isHeld(b string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.held[b]
 }
 
 type fakeApps struct {
@@ -49,16 +63,40 @@ func (f *fakeApps) ShowHome() error          { f.mu.Lock(); defer f.mu.Unlock();
 type fakeScreen struct {
 	mu          sync.Mutex
 	app, window uint32
+	keyboard    uint32 // the window with the keyboard focus
 	text        bool
+	changes     chan bool
 }
 
+func (f *fakeScreen) InputFocusOn(window uint32) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.keyboard == window, nil
+}
 func (f *fakeScreen) Focused() (uint32, uint32, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.app, f.window, nil
 }
 func (f *fakeScreen) TextCursor() (bool, error) { f.mu.Lock(); defer f.mu.Unlock(); return f.text, nil }
-func (f *fakeScreen) Close()                    {}
+func (f *fakeScreen) CursorChanges() <-chan bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.changes == nil {
+		f.changes = make(chan bool, 4)
+	}
+	return f.changes
+}
+
+// shape: the app changes the pointer's image (as XFixes tells it)
+func (f *fakeScreen) shape(text bool) {
+	f.mu.Lock()
+	f.text = text
+	f.mu.Unlock()
+	f.CursorChanges()
+	f.changes <- text
+}
+func (f *fakeScreen) Close() {}
 func (f *fakeScreen) set(app, window uint32) {
 	f.mu.Lock()
 	f.app, f.window = app, window
@@ -140,6 +178,7 @@ func TestPointerFollowsOneWindow(t *testing.T) {
 	m.input(Input{Control: "a", Value: 1})
 	m.input(Input{Control: "a", Value: 0})
 	m.input(Input{Control: "x", Value: 1})
+	m.input(Input{Control: "x", Value: 0})
 	m.input(Input{Control: "y", Value: 1})
 	if d := next(t, ch, "pointer.type").Data.(map[string]string); d["app"] != "steam:480" || d["reason"] != "button" {
 		t.Fatalf("pointer.type %v", d)
@@ -209,6 +248,33 @@ func TestPointerOffWhenTheAppCloses(t *testing.T) {
 	m.Off("user") // already off: nothing
 }
 
+// The mouse's button stays down as long as A is held (BioShock's menu, FrankenPC 2026-11-19, never
+// saw a click with no time between down and up), and is let go when the pointer goes off.
+func TestButtonHeldAsLongAsA(t *testing.T) {
+	m, mouse, _, screen, now, _ := newPointer(t)
+	screen.set(gameID, 7)
+	m.On("steam:480")
+	advance(m, now, checkEvery)
+	m.input(Input{Control: "a", Value: 1})
+	advance(m, now, 100*time.Millisecond)
+	if !mouse.isHeld("left") {
+		t.Fatal("the left button is not held while A is")
+	}
+	m.input(Input{Control: "a", Value: 1}) // the same press read again: no second press
+	m.input(Input{Control: "a", Value: 0})
+	if mouse.isHeld("left") || len(mouse.clicks) != 1 {
+		t.Fatalf("after A: held %v, clicks %v", mouse.isHeld("left"), mouse.clicks)
+	}
+	m.input(Input{Control: "x", Value: 1})
+	if !mouse.isHeld("right") {
+		t.Fatal("the right button is not held while X is")
+	}
+	m.Off("user")
+	if mouse.isHeld("right") {
+		t.Fatal("the right button still held after the pointer went off")
+	}
+}
+
 // A click on a text field (the pointer becomes the text "I") asks the keyboard by itself.
 func TestClickOnATextField(t *testing.T) {
 	m, _, apps, screen, now, ch := newPointer(t)
@@ -217,6 +283,7 @@ func TestClickOnATextField(t *testing.T) {
 	m.On("steam:480")
 	advance(m, now, checkEvery)
 	m.input(Input{Control: "a", Value: 1})
+	m.input(Input{Control: "a", Value: 0}) // the keyboard once the click is over
 	if d := next(t, ch, "pointer.type").Data.(map[string]string); d["reason"] != "field" {
 		t.Fatalf("pointer.type %v", d)
 	}
@@ -225,6 +292,46 @@ func TestClickOnATextField(t *testing.T) {
 	apps.mu.Unlock()
 	if homes != 1 {
 		t.Fatalf("home %d", homes)
+	}
+}
+
+// The app gives the pointer the text "I" only for the click: the keyboard comes when the X server
+// says so, no time waited; after a move, a later change is not the click's
+func TestClickThenTheTextShape(t *testing.T) {
+	m, _, _, screen, now, ch := newPointer(t)
+	screen.set(gameID, 7)
+	m.On("steam:480")
+	advance(m, now, checkEvery)
+	m.input(Input{Control: "a", Value: 1}) // an arrow: nothing yet
+	m.input(Input{Control: "a", Value: 0})
+	screen.shape(true)
+	if d := next(t, ch, "pointer.type").Data.(map[string]string); d["reason"] != "field" {
+		t.Fatalf("pointer.type %v", d)
+	}
+	screen.shape(false)
+	// the shape read by followCursor before the next click (it runs on its own goroutine)
+	for deadline := time.Now().Add(2 * time.Second); ; {
+		m.mu.Lock()
+		text := m.textCursor
+		m.mu.Unlock()
+		if !text {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the arrow shape never read")
+		}
+		runtime.Gosched()
+	}
+	m.input(Input{Control: "a", Value: 1})
+	m.input(Input{Control: "a", Value: 0})
+	m.input(Input{Control: "dpleft", Value: 1}) // moved before the shape changed
+	screen.shape(true)
+	select {
+	case e := <-ch:
+		if e.Type == "pointer.type" {
+			t.Fatalf("the keyboard after a move: %v", e.Data)
+		}
+	case <-time.After(200 * time.Millisecond):
 	}
 }
 
@@ -288,5 +395,70 @@ func TestMappingFromTheDatabase(t *testing.T) {
 	if !ignored(&evdev.Device{Name: "Steam Virtual Gamepad", ID: evdev.ID{Vendor: 0x28de, Product: 0x11ff}}) ||
 		!ignored(&evdev.Device{ID: evdev.ID{Bustype: evdev.BusVirtual}}) || ignored(d) {
 		t.Fatal("ignored devices")
+	}
+}
+
+// A game's install script (an installer made for a mouse, and its own file window): the pointer holds
+// for every window of the app until it is turned off, and turning it on again changes nothing (owner,
+// 2026-11-19: Red Dead Redemption 2's installer lost the pointer when its file window closed).
+func TestPointerForEveryWindowOfAnInstallScript(t *testing.T) {
+	m, _, _, screen, now, ch := newPointer(t)
+	if err := m.OnAnyWindow("steam:480"); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "pointer.changed")
+	screen.set(gameID, 0x400001) // the installer
+	advance(m, now, checkEvery)
+	screen.set(gameID, 0x400002) // its file window
+	advance(m, now, checkEvery)
+	screen.set(gameID, 0x400001) // the file window closed: the installer again
+	advance(m, now, checkEvery)
+	if st := m.Status(); !st.On {
+		t.Fatalf("the pointer went off between the installer's windows: %+v", st)
+	}
+	if err := m.OnAnyWindow("steam:480"); err != nil { // another window of it: nothing changes
+		t.Fatal(err)
+	}
+	select {
+	case e := <-ch:
+		if e.Type == "pointer.changed" {
+			t.Fatalf("turned on again: %+v", e.Data)
+		}
+	default:
+	}
+	screen.set(HomeAppID, 0) // the home screen: it waits
+	advance(m, now, checkEvery)
+	if st := m.Status(); !st.On {
+		t.Fatalf("off over the home screen: %+v", st)
+	}
+	m.Off("install script ended")
+	if st := m.Status(); st.On {
+		t.Fatalf("still on: %+v", st)
+	}
+}
+
+// Text from the console's keyboard waits until the window on screen has the keyboard focus (owner,
+// 2026-11-19: a launcher took only the last digits of a code typed too early).
+func TestWaitKeyboard(t *testing.T) {
+	m, _, _, screen, _, ch := newPointer(t)
+	if m.WaitKeyboard(50 * time.Millisecond) {
+		t.Fatal("waited with the pointer off")
+	}
+	if err := m.On("steam:480"); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "pointer.changed")
+	screen.set(gameID, 0x400001)
+	if m.WaitKeyboard(50 * time.Millisecond) {
+		t.Fatal("the window had not the keyboard yet")
+	}
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		screen.mu.Lock()
+		screen.keyboard = 0x400001
+		screen.mu.Unlock()
+	}()
+	if !m.WaitKeyboard(2 * time.Second) {
+		t.Fatal("the keyboard came to the window, not seen")
 	}
 }

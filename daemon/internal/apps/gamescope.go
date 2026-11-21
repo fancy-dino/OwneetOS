@@ -244,19 +244,21 @@ func (g *Gamescope) Close() {
 // Watch tags every window, present and future, with the app id that tag returns for its process
 // (0: leave it alone), and reports what someone else (Steam) asks gamescope to show. Until
 // something is chosen, the home screen is shown. It runs until Close.
-func (g *Gamescope) Watch(tag func(pid int) uint32, request func(appIDs []uint32)) {
+// changed is called as soon as what gamescope shows may have changed (the app it focuses, the apps
+// that have windows, a window gone): no once-a-second wait ([[waiting-for-events]]).
+func (g *Gamescope) Watch(tag func(pid int) uint32, request func(appIDs []uint32), changed func()) {
 	g.watchOnce.Do(func() {
 		g.mu.Lock()
 		g.stop = make(chan struct{})
 		stop := g.stop
 		g.mu.Unlock()
-		go g.watch(tag, request, stop)
+		go g.watch(tag, request, changed, stop)
 	})
 }
 
-func (g *Gamescope) watch(tag func(pid int) uint32, request func([]uint32), stop <-chan struct{}) {
+func (g *Gamescope) watch(tag func(pid int) uint32, request func([]uint32), changed func(), stop <-chan struct{}) {
 	for {
-		if err := g.watchConn(tag, request, stop); err != nil && g.Log != nil {
+		if err := g.watchConn(tag, request, changed, stop); err != nil && g.Log != nil {
 			g.Log.Debug("gamescope window watch interrupted", "err", err)
 		}
 		select {
@@ -268,7 +270,7 @@ func (g *Gamescope) watch(tag func(pid int) uint32, request func([]uint32), stop
 }
 
 // watchConn watches until the connection fails or stop is closed.
-func (g *Gamescope) watchConn(tag func(pid int) uint32, request func([]uint32), stop <-chan struct{}) error {
+func (g *Gamescope) watchConn(tag func(pid int) uint32, request func([]uint32), changed func(), stop <-chan struct{}) error {
 	conn, root, atoms, err := g.dial()
 	if err != nil {
 		return err
@@ -317,7 +319,15 @@ func (g *Gamescope) watchConn(tag func(pid int) uint32, request func([]uint32), 
 			if g.tagWindow(conn, atoms, e.Window, tag, xres) != HomeAppID {
 				clearWindow(conn, e.Window)
 			}
+		case xproto.UnmapNotifyEvent, xproto.DestroyNotifyEvent:
+			if changed != nil {
+				changed() // a window gone: the home screen may be on screen now
+			}
 		case xproto.PropertyNotifyEvent:
+			if (e.Atom == atoms["GAMESCOPE_FOCUSED_APP"] || e.Atom == atoms["GAMESCOPE_FOCUSABLE_APPS"]) && changed != nil {
+				changed()
+				continue
+			}
 			if e.Atom != atoms["GAMESCOPECTRL_BASELAYER_APPID"] || e.State != xproto.PropertyNewValue || request == nil {
 				continue
 			}

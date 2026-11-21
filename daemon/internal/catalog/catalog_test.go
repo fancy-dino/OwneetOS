@@ -251,3 +251,18 @@ func TestShippedCatalog(t *testing.T) {
 		t.Errorf("youtube %+v: want the TV interface with a user agent", yt)
 	}
 }
+
+// The video apps go silent behind the home screen; the music app plays on (owner, 2026-11-09).
+func TestShippedCatalogSilentBehindHome(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "packages", "owneet-base", "apps.json")
+	if _, err := os.Stat(path); err != nil {
+		t.Skip("packages/owneet-base/apps.json is not here")
+	}
+	m := &Manager{CatalogFile: path}
+	for id, want := range map[string]bool{"web:netflix": true, "web:youtube": true, "web:spotify": false,
+		"web:nope": false, "game-x": false} {
+		if got := m.SilentBehindHome(id); got != want {
+			t.Errorf("%s: %v, want %v", id, got, want)
+		}
+	}
+}

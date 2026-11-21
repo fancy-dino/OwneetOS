@@ -14,7 +14,9 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 )
 
-// fakeUnits writes what owneet-update would, a moment after the unit is started.
+// fakeUnits writes what owneet-update would, a moment after the unit is started, as it does: a
+// file apart, then renamed (written in place, the watcher could read it emptied and then whole, two
+// "installing" for one: TestCheckThenApply failed once that way, 2026-11-17).
 type fakeUnits struct {
 	state   string
 	results []string
@@ -26,7 +28,9 @@ func (f *fakeUnits) Start(unit string) error {
 	go func() {
 		for _, r := range f.results {
 			time.Sleep(30 * time.Millisecond)
-			_ = os.WriteFile(f.state, []byte(r), 0o644)
+			if os.WriteFile(f.state+".tmp", []byte(r), 0o644) == nil {
+				_ = os.Rename(f.state+".tmp", f.state)
+			}
 		}
 	}()
 	return nil

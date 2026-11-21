@@ -53,6 +53,8 @@ type Manager struct {
 	DataDir  string      // e.g. ~/.local/share/owneet/windows
 	Online   func() bool // the console has an internet connection
 	Preparer Preparer
+	// Native downloads the native games' runtime once Windows games are ready (native.go)
+	Native NativePreparer
 
 	mu      sync.Mutex
 	status  Status
@@ -60,6 +62,9 @@ type Manager struct {
 	failed  time.Time // the last failed try: the next one after a network change or 10 minutes
 	kick    chan struct{}
 	once    sync.Once
+	// the native games' runtime: being downloaded, and the last failed try
+	nativeRunning bool
+	nativeFailed  time.Time
 }
 
 func (m *Manager) init() {
@@ -88,6 +93,9 @@ func (m *Manager) protonDir() string {
 	}
 	return dir
 }
+
+// Ready tells whether Windows programs can run: the Proton made ready is still there.
+func (m *Manager) Ready() bool { return m.protonDir() != "" }
 
 // Status reports the preparation's state.
 func (m *Manager) Status() Status {
@@ -175,7 +183,7 @@ func (m *Manager) Run(ctx context.Context) {
 				continue
 			}
 			m.mu.Lock()
-			m.failed = time.Time{}
+			m.failed, m.nativeFailed = time.Time{}, time.Time{}
 			m.mu.Unlock()
 		case <-tick.C:
 		case <-m.kick:
@@ -190,7 +198,11 @@ func (m *Manager) maybeStart(ctx context.Context) {
 	busy := m.running
 	recent := !m.failed.IsZero() && time.Since(m.failed) < 10*time.Minute
 	m.mu.Unlock()
-	if busy || recent || !st.Needed || st.State == StateReady || m.Preparer == nil {
+	if st.State == StateReady {
+		m.maybeNative(ctx)
+		return
+	}
+	if busy || recent || !st.Needed || m.Preparer == nil {
 		return
 	}
 	if m.Online != nil && !m.Online() {
@@ -244,4 +256,5 @@ func (m *Manager) prepare(ctx context.Context) {
 		m.Log.Info("Windows games are ready", "proton", dir)
 	}
 	m.set(func(s *Status) { *s = Status{State: StateReady, Percent: 100, Needed: true} })
+	m.maybeNative(ctx) // then what native games run in
 }

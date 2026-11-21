@@ -13,6 +13,7 @@
 #include <QJsonObject>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QStorageInfo>
 
 
 namespace {
@@ -35,6 +36,13 @@ QString quoted(const QString& path)
 {
     const QChar quote = path.contains(QChar('"')) ? QChar('\'') : QChar('"');
     return quote + path + quote;
+}
+
+// An ELF program (not a script)
+bool is_elf(const QString& path)
+{
+    QFile file(path);
+    return file.open(QIODevice::ReadOnly) && file.read(4) == QByteArray("\x7f" "ELF");
 }
 } // namespace
 
@@ -62,6 +70,13 @@ QString DiskGames::savedChoice(const QString& game_dir)
 void DiskGames::applyChoice(model::Game& game, const QString& game_dir, const QString& file)
 {
     game.extraMapMut().insert(QStringLiteral("disk.start"), file);
+    // a known game's launcher (owner, 2026-11-12): the OwneetOS library it needs, and whether it
+    // hands over to the game (the app then lasts while any of its programs runs)
+    const QVariantMap launcher = game.extraMap().value(QStringLiteral("disk.launchers")).toMap().value(file).toMap();
+    game.extraMapMut().insert(QStringLiteral("disk.handover"), launcher.value(QStringLiteral("hands-over")).toBool());
+    const QString compat = compatLibrary(launcher.value(QStringLiteral("compat")).toString());
+    // the library the game the launcher starts gets (the launcher's library hands it over)
+    const QString gameCompat = compat.isEmpty() ? QString() : compatLibrary(launcher.value(QStringLiteral("game-compat")).toString());
     if (file.isEmpty()) {
         game.setLaunchCmd(QString()).setLaunchWorkdir(QString());
         return;
@@ -86,7 +101,11 @@ void DiskGames::applyChoice(model::Game& game, const QString& game_dir, const QS
     }
     if (extra.value(QStringLiteral("disk.windows")).toBool()) {
         const bool gog = extra.value(QStringLiteral("disk.gog.start")).toString() == file;
-        QString cmd = QStringLiteral("/usr/lib/owneet/owneet-windows-run ") + quoted(windowsPrefix(game_dir))
+        // GOG's product id: owneet-windows-run finds the game in umu's database, so the community's
+        // fixes for it apply ([[umu-fixes-and-runtime]], owner 2026-11-18)
+        const QString gog_id = extra.value(QStringLiteral("disk.gog.id")).toString();
+        QString cmd = (gog_id.isEmpty() ? QString() : QStringLiteral("/usr/bin/env OWNEET_GOG_ID=") + gog_id + QChar(' '))
+            + QStringLiteral("/usr/lib/owneet/owneet-windows-run ") + quoted(windowsPrefix(game_dir))
             + QChar(' ') + quoted(path);
         const QString args = gog ? extra.value(QStringLiteral("disk.gog.args")).toString() : QString();
         if (!args.isEmpty())
@@ -97,11 +116,23 @@ void DiskGames::applyChoice(model::Game& game, const QString& game_dir, const QS
     }
     // Scripts run with bash and AppImages unpack themselves (no FUSE in the system): neither
     // needs anything written on the disk, which is mounted read only
+    // A program starts with its own folder among the libraries' folders, as GOG's start.sh does
+    // (The Witcher 2's libopenal-eon.so.1 is next to it; owner, 2026-11-11), unless the folder's
+    // name has ":", the separator of that list
+    // Scripts and programs start through owneet-native-run, in Valve's Steam Runtime once owneetd has
+    // downloaded it, as before until then ([[umu-fixes-and-runtime]], owner 2026-11-20); AppImages
+    // carry their own libraries
+    const QString native_run = QStringLiteral("/usr/lib/owneet/owneet-native-run ") + quoted(game_dir) + QChar(' ');
     QString cmd;
     if (suffix == QLatin1String("sh"))
-        cmd = QStringLiteral("/usr/bin/bash ") + quoted(path);
+        cmd = native_run + QStringLiteral("/usr/bin/bash ") + quoted(path);
     else if (suffix == QLatin1String("appimage"))
         cmd = QStringLiteral("/usr/bin/env APPIMAGE_EXTRACT_AND_RUN=1 ") + quoted(path);
+    else if (is_elf(path) && !finfo.absolutePath().contains(QChar(':')))
+        cmd = QStringLiteral("/usr/bin/env ")
+            + (compat.isEmpty() ? QString() : quoted(QStringLiteral("LD_PRELOAD=") + compat) + QChar(' '))
+            + (gameCompat.isEmpty() ? QString() : quoted(QStringLiteral("OWNEET_GAME_PRELOAD=") + gameCompat) + QChar(' '))
+            + quoted(QStringLiteral("LD_LIBRARY_PATH=") + finfo.absolutePath()) + QChar(' ') + native_run + quoted(path);
     else
         cmd = quoted(path);
     game.setLaunchCmd(cmd).setLaunchWorkdir(finfo.absolutePath());
@@ -131,6 +162,25 @@ QString DiskGames::gameDataDir(const QString& kind, const QString& game_dir)
     return paths::homePath() + QStringLiteral("/.local/share/owneet/") + kind + QChar('/') + slug + QChar('-') + hash;
 }
 
+QString DiskGames::compatLibrary(const QString& name)
+{
+    static const QRegularExpression valid(QStringLiteral("^[a-z0-9-]+$"));
+    if (!valid.match(name).hasMatch())
+        return {};
+    const QString path = QStringLiteral("/usr/lib32/owneet/libowneet-") + name + QStringLiteral(".so");
+    if (!QFileInfo::exists(path)) {
+        Log::warning(LOGMSG("OwneetOS's library `%1` is not installed").arg(path));
+        return {};
+    }
+    return path;
+}
+
+QString DiskGames::installFolderName(const QString& name)
+{
+    static const QRegularExpression colons(QStringLiteral("\\s*:\\s*"));
+    return QString(name).replace(colons, QStringLiteral(" - ")).trimmed();
+}
+
 QVariantMap DiskGames::installRequest(QObject* game_obj, const QString& language) const
 {
     const auto* game = qobject_cast<model::Game*>(game_obj);
@@ -143,8 +193,13 @@ QVariantMap DiskGames::installRequest(QObject* game_obj, const QString& language
     if (installer.isEmpty() || game_dir.isEmpty())
         return {};
     QString dest;
-    if (extra.value(QStringLiteral("disk.root")).toString() == QLatin1String("internal")) {
-        dest = game_dir;                 // already on the console's disk: installed in place
+    const QString folder = installFolderName(QFileInfo(game_dir).fileName());
+    // installed where its installer is, in place (owner, 2026-11-12: the user chooses the disk by
+    // putting the installer there; owneetd first renames a folder whose name has ":"); a disk read
+    // only: on the console's own disk
+    if (extra.value(QStringLiteral("disk.root")).toString() == QLatin1String("internal")
+        || !QStorageInfo(game_dir).isReadOnly()) {
+        dest = QFileInfo(game_dir).absolutePath() + QChar('/') + folder;
     } else {
         // the home folder's games folder, or a new one named in the console's language
         QString games_dir;
@@ -157,7 +212,7 @@ QVariantMap DiskGames::installRequest(QObject* game_obj, const QString& language
         }
         if (games_dir.isEmpty())
             games_dir = home.filePath(language.startsWith(QLatin1String("it")) ? QStringLiteral("Giochi") : QStringLiteral("Games"));
-        dest = games_dir + QChar('/') + QFileInfo(game_dir).fileName();
+        dest = games_dir + QChar('/') + folder;
     }
     QVariantMap out {
         { QStringLiteral("installer"), installer },
@@ -179,6 +234,21 @@ double DiskGames::folderSize(const QString& path) const
         bytes += it.fileInfo().size();
     }
     return static_cast<double>(bytes);
+}
+
+double DiskGames::installerSize(const QString& installer, const QString& game_dir) const
+{
+    const QFileInfo info(installer);
+    if (installer.isEmpty() || !info.isFile())
+        return 0;
+    if (QDir::cleanPath(info.absolutePath()) != QDir::cleanPath(game_dir))
+        return folderSize(info.absolutePath());     // a folder of its own: it goes with the installer
+    double bytes = static_cast<double>(info.size());
+    const QDir dir = info.absoluteDir();
+    const QStringList parts = dir.entryList({ info.completeBaseName() + QStringLiteral("-*.bin") }, QDir::Files);
+    for (const QString& part : parts)
+        bytes += static_cast<double>(QFileInfo(dir.filePath(part)).size());
+    return bytes;
 }
 
 bool DiskGames::firstStart(QObject* game_obj) const

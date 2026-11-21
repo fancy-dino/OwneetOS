@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
+#
+# 32-bit SDL2_ttf for 32-bit Linux games (owner, 2026-11-11, [[games-on-disk]]: The Witcher 2's
+# own launcher for the TV), not in Arch's multilib; built from source ([[supply-chain-security]]).
+# The release and its signature were checked on 2026-11-11 in the builder VM: good signature by
+# Sam Lantinga (1528635D8053A57F77D1E08630A59377A7763BE6), and the same SHA-512 as Arch's sdl2_ttf
+# 2.24.0-2 recipe. With Arch's 32-bit FreeType; without HarfBuzz (complex scripts' shaping).
+
+pkgname=lib32-sdl2_ttf
+pkgver=2.24.0
+pkgrel=1
+pkgdesc="32-bit SDL2_ttf (TrueType fonts), for 32-bit Linux games in OwneetOS"
+arch=('x86_64')
+url="https://github.com/libsdl-org/SDL_ttf"
+license=('Zlib')
+depends=('lib32-sdl2-compat' 'lib32-freetype2' 'lib32-glibc')
+makedepends=('sdl2-compat' 'freetype2' 'lib32-gcc-libs' 'pkgconf')
+options=('!debug')
+source=("https://github.com/libsdl-org/SDL_ttf/releases/download/release-$pkgver/SDL2_ttf-$pkgver.tar.gz")
+sha512sums=('a0f94e26f0387385f13ec1eb08ddca677d4181969073a50af387a0dce9c7bdddf393c028c8084538e01f875e19790ef7ae9a00c5106bf7ca9d21f3fcf9eee885')
+
+build() {
+  cd "SDL2_ttf-$pkgver"
+  export CC="gcc -m32" CXX="g++ -m32" PKG_CONFIG_PATH=/usr/lib32/pkgconfig
+  ./configure --prefix=/usr --libdir=/usr/lib32 --disable-static --disable-sdltest \
+    --disable-freetype-builtin --disable-harfbuzz
+  make
+}
+
+# A 32-bit program starts SDL2_ttf
+check() {
+  cat > ttftest.c <<'C'
+#include <SDL_ttf.h>
+#include <stdio.h>
+int main(void) {
+  if (TTF_Init() != 0) { printf("TTF_Init: %s\n", TTF_GetError()); return 1; }
+  const SDL_version *v = TTF_Linked_Version();
+  printf("SDL2_ttf %d.%d.%d\n", v->major, v->minor, v->patch);
+  TTF_Quit();
+  return 0;
+}
+C
+  gcc -m32 -o ttftest ttftest.c $(PKG_CONFIG_PATH=/usr/lib32/pkgconfig pkg-config --cflags sdl2) \
+    -I"SDL2_ttf-$pkgver" -L"SDL2_ttf-$pkgver/.libs" -lSDL2_ttf -L/usr/lib32 -lSDL2
+  LD_LIBRARY_PATH="$PWD/SDL2_ttf-$pkgver/.libs" ./ttftest
+}
+
+package() {
+  cd "SDL2_ttf-$pkgver"
+  make DESTDIR="$pkgdir" install
+  rm -rf "$pkgdir"/usr/{include,share}
+  install -Dm644 LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

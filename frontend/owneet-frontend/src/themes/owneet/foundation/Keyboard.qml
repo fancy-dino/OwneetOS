@@ -15,7 +15,7 @@ FocusScope {
     property bool password: false         // shows the show / hide key
     property bool showPassword: false
     property bool eyeKey: true            // false: no show / hide key (nothing here shows the text)
-    property string layout: "us"          // us, it
+    property string layout: "us"          // us, it, de, fr, es
     signal done()                         // Done (or Menu, or Enter on a keyboard)
     signal closed()                       // B
     signal togglePassword()               // the show / hide key
@@ -32,7 +32,10 @@ FocusScope {
     // ---- Keys
     readonly property var letterRows: ({
         us: ["1234567890", "qwertyuiop", "asdfghjkl'", "zxcvbnm,.-"],
-        it: ["1234567890", "qwertyuiopè", "asdfghjklòàù", "zxcvbnm,.-"]
+        it: ["1234567890", "qwertyuiopè", "asdfghjklòàù", "zxcvbnm,.-"],
+        de: ["1234567890ß", "qwertzuiopü", "asdfghjklöä", "yxcvbnm,.-"],
+        fr: ["1234567890", "azertyuiop", "qsdfghjklm", "wxcvbn,.'-"],
+        es: ["1234567890", "qwertyuiop", "asdfghjklñ", "zxcvbnm,.-"]
     })
     readonly property var symbolRows: ["1234567890", "@#€$%&*()_", "+=/\\:;\"!?'", "<>[]{}~^|`"]
     readonly property var accentRows: ["àáâäãåæ", "èéêëìíîï", "òóôöõøùúûü", "çñßÿ"]
@@ -63,6 +66,7 @@ FocusScope {
         held = false;
         row = 1;
         col = 0;
+        Nav.windowOpened();         // A just after it opens types nothing
         visible = true;
         forceActiveFocus();
     }
@@ -183,7 +187,11 @@ FocusScope {
             return;
         }
         if (event.key === Qt.Key_Backspace) { deleteBack(); event.accepted = true; return; }
-        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { Nav.feedback("confirm"); done(); event.accepted = true; return; }
+        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            if (!Nav.acceptBlocked()) { Nav.feedback("confirm"); done(); }
+            event.accepted = true;
+            return;
+        }
         if (api.keys.isPageUp(event)) {        // LT: capitals while held (its repeats change nothing)
             if (!event.isAutoRepeat && !held) {
                 held = true;

@@ -100,6 +100,37 @@ QVariantList SystemInfo::credits() const
     return out;
 }
 
+// The authors: the table under "## Authors" in CREDITS.md (name, GitHub account), first in the
+// console's credits (approved demo 3.9b)
+QVariantList SystemInfo::authors() const
+{
+    QString path = qEnvironmentVariable("OWNEET_CREDITS");
+    if (path.isEmpty())
+        path = QStringLiteral("/usr/share/doc/owneetos/CREDITS.md");
+
+    QVariantList out;
+    bool inside = false;
+    for (const QString& line : read_lines(path)) {
+        if (line.startsWith(QLatin1String("## "))) {
+            inside = line.trimmed() == QLatin1String("## Authors");
+            continue;
+        }
+        if (!inside || !line.startsWith(QLatin1String("| ")))
+            continue;
+        const QStringList cells = line.split(QLatin1Char('|'));
+        if (cells.size() < 4)
+            continue;
+        const QString name = plain(cells.at(1));
+        if (name.isEmpty() || name == QLatin1String("Author") || name.startsWith(QLatin1String("---")))
+            continue;
+        out.append(QVariantMap {
+            {QStringLiteral("name"), name},
+            {QStringLiteral("github"), plain(cells.at(2))},
+        });
+    }
+    return out;
+}
+
 QVariantList SystemInfo::packages() const
 {
     // Each package has /var/lib/pacman/local/NAME-VERSION/desc with %NAME%, %VERSION%, %LICENSE%

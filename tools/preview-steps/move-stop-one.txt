@@ -1,0 +1,34 @@
+@nogames
+@owneetd
+@disk
+# Copying several games from a plugged-in disk (approved demo 6.6d): with the originals kept the
+# window shows the copy and its check only, each with its percentage; B asks "Stop?" with "Stop
+# this game" (the next game goes on) and "Stop all".
+wait 2
+unplug
+wait 3
+plug
+wait 4
+pad right a
+wait 1
+pad up up up up up up up up up up up up up up up up up up up up
+pad a
+wait 0.5
+pad down a down a down a
+pad down down down down down down down down down down down down down down down down down down down down
+pad a
+wait 1
+pad a
+wait 1
+shot 01-copying-two-steps
+pad b
+wait 0.5
+shot 02-stop-question
+pad right a
+shot 03-next-game
+wait 1.6
+shot 04-checking
+wait 1
+shot 05-checking-later
+wait 6
+shot 06-done

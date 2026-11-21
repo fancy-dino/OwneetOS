@@ -21,21 +21,27 @@ import (
 	"github.com/fancy-dino/OwneetOS/daemon/internal/audio"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/bluetooth"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/catalog"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/clock"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/config"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/diskprep"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/display"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/installer"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/installs"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/live"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/moves"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/network"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/pointer"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/power"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/sdldb"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/sysupdate"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/update"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/vinput"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/webapps"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/windows"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/xone"
 )
 
 func main() {
@@ -105,6 +111,7 @@ func run(configPath string) error {
 	if appsAPI != nil {
 		// The Guide button belongs to the system ([[controller-input-map]]).
 		pads.OnGuide = func(_ string, down bool) { appsMgr.Guide(down) }
+		appsMgr.SetReleased(pads.WhenReleased)
 	}
 	bt.Controllers = func() int { return len(pads.List()) }
 	go func() {
@@ -149,6 +156,19 @@ func run(configPath string) error {
 	}
 
 	sound := &audio.Pulse{Log: log, Broker: broker}
+	if appsAPI != nil {
+		// a game or a video app behind the home screen goes silent (owner, 2026-11-09)
+		sound.SetSilence(appsMgr.SilentNow)
+		screen, stop := broker.Subscribe(64)
+		defer stop()
+		go func() {
+			for ev := range screen {
+				if ev.Type == "focus.changed" {
+					sound.ApplySilence()
+				}
+			}
+		}()
+	}
 	go sound.Run(ctx)
 
 	var powerAPI api.Power
@@ -196,15 +216,41 @@ func run(configPath string) error {
 	// and the optional apps, installed from the ISO's bundled repository
 	// ([[step-5.0.0-optional-web-apps]]): both start root units that polkit allows
 	var updateAPI api.Update
+	var systemUpdateAPI api.SystemUpdate
 	var catalogAPI api.Catalog
+	var xoneAPI api.Xone
+	var installerAPI api.Installer
+	var diskPrepAPI api.DiskPrep
 	if starter, err := update.NewSystemdStarter(); err == nil {
 		defer starter.Close()
+		// The Xbox wireless adapter's firmware, after the player's consent ([[step-6.1-first-boot-flow]])
+		adapter := &xone.Manager{Broker: broker, Log: log, Units: starter,
+			NeededFile: "/run/owneet/xone-firmware-needed", StateFile: "/run/owneet/xone-firmware.json"}
+		go adapter.Run(ctx.Done())
+		xoneAPI = adapter
+		// Installing OwneetOS from the USB stick ([[step-6.4-installer-ui]])
+		installerAPI = &installer.Manager{Broker: broker, Log: log, Units: starter,
+			Command: "/usr/lib/owneet/owneet-install", RequestFile: "/run/owneet-install/request",
+			StateFile: "/run/owneet/install.json", Live: func() bool { return live.Mode() == live.ModeLive }}
+		// A disk prepared for games from Settings → Disks ([[step-6.7-preparing-other-disks]])
+		diskPrepAPI = &diskprep.Manager{Broker: broker, Log: log, Units: starter,
+			Command: "/usr/lib/owneet/owneet-prepare-disk", RequestFile: "/run/owneet-prepare/request",
+			StateFile: "/run/owneet/prepare.json", Live: func() bool { return live.Mode() == live.ModeLive }}
 		updateAPI = &update.Manager{Broker: broker, Log: log, Units: starter,
 			StateFile: "/run/owneet/update.json", TesterMark: "/etc/owneet/tester"}
 		stateDir := os.Getenv("XDG_STATE_HOME")
 		if stateDir == "" {
 			stateDir = filepath.Join(os.Getenv("HOME"), ".local", "state")
 		}
+		// The updates of an installed OwneetOS, from Settings → System ([[step-7.1-updates]],
+		// [[step-7.1b-going-back-to-any-version]])
+		updates := &sysupdate.Manager{Broker: broker, Log: log, Units: starter,
+			StateFile: "/run/owneet/system-update.json", ReleasesFile: "/run/owneet/releases.json",
+			RollbackFile: "/run/owneet/rollback.json", GotoFile: "/run/owneet/system-goto.json",
+			VersionFile:   "/usr/share/owneet/version",
+			InstalledMark: "/etc/owneet/installed", SeenFile: filepath.Join(stateDir, "owneetd", "system-update.json")}
+		go updates.Run(ctx.Done())
+		systemUpdateAPI = updates
 		dataDir := os.Getenv("XDG_DATA_HOME")
 		if dataDir == "" {
 			dataDir = filepath.Join(os.Getenv("HOME"), ".local", "share")
@@ -225,6 +271,9 @@ func run(configPath string) error {
 		webApps.ExtensionDir = "/usr/share/owneet/extension"
 		webApps.ConsentFile = filepath.Join(stateDir, "owneetd", "widevine.json")
 		catalogAPI = webApps
+		if appsAPI != nil {
+			appsMgr.SetSilent(webApps.SilentBehindHome)
+		}
 	}
 
 	// The console's Brave extension and the interface ([[extension-design]])
@@ -254,8 +303,10 @@ func run(configPath string) error {
 		winMgr.Online = func() bool { return netAPI.Status().State == "connected" }
 	}
 	if umu, err := exec.LookPath("umu-run"); err == nil {
-		winMgr.Preparer = &windows.Umu{Command: umu, PrefixDir: filepath.Join(winData, "prepare"),
-			CacheDir: filepath.Join(cacheDir, "umu")}
+		u := &windows.Umu{Command: umu, PrefixDir: filepath.Join(winData, "prepare"),
+			CacheDir: filepath.Join(cacheDir, "umu"), UmuDir: filepath.Join(home, ".local", "share", "umu")}
+		// what Windows games need, then what native games run in ([[umu-fixes-and-runtime]])
+		winMgr.Preparer, winMgr.Native = u, u
 	} else {
 		log.Warn("Windows games not available: umu-run not found")
 	}
@@ -265,6 +316,7 @@ func run(configPath string) error {
 	// Windows installers run in the console's session (its DISPLAY), never shown
 	instMgr := &installs.Manager{Broker: broker, Log: log, Home: home,
 		StateDir: filepath.Join(home, ".config", "owneet"), WindowsRun: "/usr/lib/owneet/owneet-windows-run",
+		WindowsReady: winMgr.Ready,
 		Env: func() []string {
 			if sess, err := appsMgr.Session(); err == nil {
 				return sess.Env
@@ -287,8 +339,24 @@ func run(configPath string) error {
 				return pointer.DialX(sess.Display)
 			},
 			Pads: pointer.ReadPads(db, log)}
+		// a window of a game's install script (a publisher's installer, made for a mouse) gets the
+		// pointer by itself (owner, 2026-11-19, [[controller-input-map]])
+		pm := pointerAPI.(*pointer.Manager)
+		appsMgr.PointerOn = func(app string) error { return pm.OnAnyWindow(app) }
+		appsMgr.PointerOff = func(reason string) { pm.Off(reason) }
+		pm.Changed = func(st pointer.Status) { appsMgr.PointerChanged(st.On) }
 	}
 
+	// The time zone, chosen at the first start and in Settings ([[step-6.1-first-boot-flow]])
+	var clockAPI api.Clock
+	if td, err := clock.NewTimedated(); err != nil {
+		log.Warn("the time zone cannot be set", "err", err)
+	} else {
+		defer td.Close()
+		clockAPI = &clock.Manager{Bus: td, Broker: broker, Log: log}
+	}
+
+	movesMgr := &moves.Manager{Broker: broker, Log: log, Home: os.Getenv("HOME"), Media: "/run/media/owneet"}
 	srv := &api.Server{
 		Broker:          broker,
 		Log:             log,
@@ -302,14 +370,22 @@ func run(configPath string) error {
 		Apps:            appsAPI,
 		Display:         screen,
 		Update:          updateAPI,
+		SystemUpdate:    systemUpdateAPI,
 		Catalog:         catalogAPI,
 		WebApps:         hub,
 		Windows:         winMgr,
 		Installs:        instMgr,
 		Pointer:         pointerAPI,
+		Clock:           clockAPI,
+		Xone:            xoneAPI,
+		Installer:       installerAPI,
+		DiskPrep:        diskPrepAPI,
+		Moves:           movesMgr,
 	}
 	log.Info("owneetd started", "version", version.Version, "socket", cfg.Socket, "controller_db_entries", db.Len())
 	err = srv.Serve(ctx, ln)
+	// stopped (the console shuts down): a copy of games ends first, its partial copy removed
+	movesMgr.Abort(20 * time.Second)
 	log.Info("owneetd stopped")
 	return err
 }

@@ -42,7 +42,7 @@ Sheet {
     ListView {
         id: list
         width: parent.width
-        height: root.flickable.height - Theme.px(24)
+        height: root.flickable.height - Theme.px(36)
         clip: true
         interactive: false
         spacing: Theme.px(6)

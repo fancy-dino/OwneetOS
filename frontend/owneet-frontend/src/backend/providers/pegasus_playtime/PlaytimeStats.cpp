@@ -285,9 +285,14 @@ void PlaytimeStats::onGameFinished(model::GameFile* const gamefile)
     Q_ASSERT(m_last_launch_time.isValid());
 
     // OwneetOS: Steam counts the play time of its games (read from its files,
-    // [[step-4.1-steam-library]])
-    if (gamefile->uri().startsWith(QLatin1String("steam:")))
+    // [[step-4.1-steam-library]]); it writes them only when Steam closes, so a game played now was
+    // not among the recently played until then (owner, 2026-11-18, [[open-items]] 14): it is marked
+    // as played now, in memory only (Steam's files say the same once written)
+    if (gamefile->uri().startsWith(QLatin1String("steam:"))) {
+        if (model::Game* const game = gamefile->parentGame())
+            game->update_playstats(0, 0, QDateTime::currentDateTimeUtc());
         return;
+    }
 
     QMutexLocker lock(&m_queue_guard);
 

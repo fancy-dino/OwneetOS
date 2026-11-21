@@ -5,12 +5,21 @@ that makes it boot, draw, play sound, talk to controllers and run games was writ
 software community, often by volunteers, over decades. **Thank you.**
 
 This page names the projects OwneetOS is built on and how they are licensed. The complete list of
-every package in an OwneetOS image, with its licence, is generated from the system itself
-([[step-3.9-settings]], "About → Credits and licences"); every package's licence texts are installed
-in `/usr/share/licenses`.
+every package in an OwneetOS image, with its licence, is generated from the system itself (on the
+console: Settings → System → Credits and licences); every package's licence texts are installed in
+`/usr/share/licenses`.
 
 Licences are given as [SPDX](https://spdx.org/licenses/) identifiers, as declared by each package.
 "And contributors" is meant literally: these projects are the work of many people.
+
+## Authors
+
+OwneetOS is made by (also first in the console's credits):
+
+| Author | GitHub |
+|---|---|
+| Marco De Franco | [fancy-dino](https://github.com/fancy-dino) |
+| Daniele De Padova | [Danidepadawan](https://github.com/Danidepadawan) |
 
 ## Foundations
 
@@ -41,7 +50,7 @@ Licences are given as [SPDX](https://spdx.org/licenses/) identifiers, as declare
 
 ## Windows games
 
-DRM-free games for Windows run with Proton ([[step-4.5-windows-games-proton]]). Only umu-launcher
+DRM-free games for Windows run with Proton. Only umu-launcher
 is part of OwneetOS; GE-Proton and the Steam Linux Runtime are downloaded once by the user's own
 console from their authors' official releases, the first time a Windows game is in the library.
 
@@ -58,6 +67,9 @@ console from their authors' official releases, the first time a Windows game is 
 | [DOSBox Staging](https://www.dosbox-staging.org) | The DOSBox Staging Team and contributors, on DOSBox by the DOSBox Team | GPL-2.0-or-later | Runs GOG's DOS games, in place of the Windows DOSBox they come with (built by OwneetOS from source) |
 | [iir1](https://github.com/berndporr/iir1) | Bernd Porr and contributors | MIT | Audio filters inside DOSBox Staging |
 | [Munt (libmt32emu)](https://github.com/munt/munt) | The Munt team | LGPL-2.1-or-later | Roland MT-32 emulation inside DOSBox Staging |
+| [sdl2-compat](https://github.com/libsdl-org/sdl2-compat) | Sam Lantinga and the SDL contributors | Zlib | 32-bit SDL2 for 32-bit Linux games (built by OwneetOS from source) |
+| [SDL_image](https://github.com/libsdl-org/SDL_image) | Sam Lantinga and the SDL contributors (stb_image: Sean Barrett) | Zlib (stb_image: MIT or public domain) | 32-bit SDL2_image for 32-bit Linux games (built by OwneetOS from source) |
+| [SDL_ttf](https://github.com/libsdl-org/SDL_ttf) | Sam Lantinga and the SDL contributors | Zlib | 32-bit SDL2_ttf for 32-bit Linux games (built by OwneetOS from source) |
 
 ## Sound, network, Bluetooth, system services
 
@@ -76,7 +88,6 @@ console from their authors' official releases, the first time a Windows game is 
 |---|---|---|---|
 | [SDL](https://www.libsdl.org) | Sam Lantinga and contributors | Zlib | Game controller support for games and the frontend |
 | [SDL_GameControllerDB](https://github.com/mdqinc/SDL_GameControllerDB) | Gabriel Jacobo and contributors | Zlib | Button layouts of hundreds of controllers (owneetd uses it to find the Guide button) |
-| [xone](https://github.com/dlundqvist/xone) | medusalix (original author), dlundqvist (maintainer) and contributors | GPL-2.0-or-later | Driver for the Xbox wireless dongle |
 
 ## The OwneetOS daemon (`owneetd`)
 
@@ -84,11 +95,11 @@ console from their authors' official releases, the first time a Windows game is 
 |---|---|---|---|
 | [Go](https://go.dev) | The Go Authors | BSD-3-Clause | The language and standard library of `owneetd` |
 | [godbus/dbus](https://github.com/godbus/dbus) | Georg Reinke and contributors | BSD-2-Clause | D-Bus: Bluetooth, network, power, apps |
-| [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys) | The Go Authors | BSD-3-Clause | Low-level system calls (used by godbus) |
+| [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys) | The Go Authors | BSD-3-Clause | Low-level system calls (used by godbus; owneetd: syncfs after removing games) |
 | [jfreymuth/pulse](https://github.com/jfreymuth/pulse) | Johann Freymuth | MIT | Talks to PipeWire for volume and outputs |
 | [jezek/xgb](https://github.com/jezek/xgb) | The XGB Authors (originally by Andrew Gallant), maintained by jezek | BSD-3-Clause | Talks to gamescope to choose what is on screen |
 
-## The console interface (from [[phase-3-frontend]])
+## The console interface
 
 | Project | Who | Licence | What it does in OwneetOS |
 |---|---|---|---|
@@ -101,7 +112,7 @@ OwneetOS's interface is a modified version of Pegasus Frontend. As its licence r
 not use the names "Pegasus Frontend", "Pegasus Launcher" or "Pegasus" as its title, nor Pegasus's
 logos; Pegasus's copyright notices are kept in its source code.
 
-## Web apps (from [[phase-5-streaming-apps-and-media]])
+## Web apps
 
 | Project | Who | Licence | What it does in OwneetOS |
 |---|---|---|---|
@@ -120,10 +131,8 @@ Both fonts are bundled in `owneet-frontend` as static instances generated from t
 by `tools/branding/make-fonts` (Qt 5 cannot select variation axes); their licence texts are
 installed in `/usr/share/licenses/owneet-frontend/`.
 
-Interface sounds: made by the OwneetOS project owner with FL Studio (GPL-3.0-or-later). Sounds
-still to be delivered use placeholders (until [[step-7.7-final-interface-sounds]]) by
-[Kenney](https://kenney.nl) (Kenney Vleugels), "Interface Sounds" and "Music Jingles" packs, CC0 1.0
-(public domain); sources listed in `frontend/sounds/SOURCES.md`.
+Interface sounds: all ten made by the OwneetOS project owner with FL Studio (GPL-3.0-or-later);
+listed in `frontend/sounds/SOURCES.md`.
 
 ## Inspiration
 

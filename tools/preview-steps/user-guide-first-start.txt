@@ -1,0 +1,46 @@
+@owneetd
+@firststart
+@nogames
+# Pictures for the user guide ([[step-7.3-user-guide]]): the first start in English, as in
+# first-start.txt (English kept in the language picker).
+wait 3
+shot 01-language
+pad a
+wait 2
+shot 03-network
+pad a
+wait 1
+shot 04-password
+type rightpassword
+key Return
+wait 3
+shot 05-connected
+pad a
+wait 1
+shot 06-time-suggested
+pad right
+shot 07-other-city-selected
+pad a
+wait 1
+shot 08-every-city
+pad down down down down down down
+shot 09-every-city-scrolled
+pad b
+wait 1
+shot 10-back-to-suggested
+pad left a
+wait 1
+shot 11-xbox-adapter
+pad right a
+wait 1
+shot 11b-terms
+pad b
+wait 1
+pad left a
+wait 1
+shot 12-downloading
+wait 4
+shot 13-ready
+pad a
+wait 2
+shot 14-home

@@ -5,6 +5,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/pointer"
 )
@@ -15,6 +16,8 @@ type Pointer interface {
 	Status() pointer.Status
 	On(app string) error
 	Off(reason string)
+	// WaitKeyboard: the window on screen has the keyboard focus (at most limit)
+	WaitKeyboard(limit time.Duration) bool
 }
 
 // handlePointer: {on, app, reason}; changes come as "pointer.changed", the keyboard asked as

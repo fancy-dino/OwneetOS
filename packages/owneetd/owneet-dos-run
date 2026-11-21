@@ -5,9 +5,12 @@
 # ships with it ([[step-4.5-windows-games-proton]], owner 2026-10-16: no Proton for them; under
 # Proton GOG's DOSBox ended when the home screen was shown, and Arch's DOSBox 0.74.3 could not start
 # Stargunner). GOG's own DOSBox configuration files are used, with Linux paths: the game runs from
-# its folder on its disk (read only until [[step-6.5-automatic-disk-mounting]]) and everything it
-# writes goes to GOG's "cloud_saves" overlay, here a folder of the game on the console's disk,
-# seeded with GOG's starting saves (__support/save). The game's disk is never written.
+# its folder on its disk, and everything it writes goes to GOG's "cloud_saves" overlay, seeded with
+# GOG's starting saves (__support/save). On a disk the console may write
+# ([[step-6.5-automatic-disk-mounting]]) it is GOG's own cloud_saves next to the game, so settings
+# and saves travel with it (owner, 2026-10-16, [[games-on-disk]]); on a disk left read only (e.g. a
+# Windows disk left dirty) it is a folder of the game on the console's disk. What that folder held
+# goes to the game's cloud_saves the first time it can, and is kept aside (cloud_saves.old).
 #
 #   owneet-dos-run DATA GAME_DIR WORKDIR [GOG's ARGUMENTS...]
 #
@@ -51,13 +54,31 @@ if [[ -f "$data/copied" ]]; then
     rm -rf "$data/game" "$data/copied"
 fi
 mkdir -p "$saves" "$data/conf"
-if [[ ! -f "$data/seeded" ]]; then
-    start="$(resolve "$game" "__support/save")"
+start="$(resolve "$game" "__support/save")"
+if [[ ! -f "$data/seeded" && ! -w "$game" ]]; then
     [[ -d "$start" ]] && cp -an "$start/." "$saves/"
     touch "$data/seeded"
 fi
 
 cwd="$(resolve "$game" "$work")" || cwd="$game"
+
+# Where the game writes: GOG's own folder (PATH, as GOG's configuration names it) next to the game
+# when its disk can be written, else the folder on the console's disk
+overlay() {
+    local disk
+    disk="$(resolve "$cwd" "$1")"
+    if [[ ! -w "$game" ]] || ! mkdir -p "$disk" 2>/dev/null || [[ ! -w "$disk" ]]; then
+        echo "$saves"
+        return
+    fi
+    # the first time: GOG's starting saves, and what the console's folder held (kept aside)
+    [[ -d "$start" && -z "$(ls -A "$disk" 2>/dev/null)" ]] && cp -an "$start/." "$disk/"
+    if [[ -n "$(ls -A "$saves" 2>/dev/null)" ]] && cp -a --no-clobber "$saves/." "$disk/"; then
+        rm -rf "$data/cloud_saves.old"
+        mv "$saves" "$data/cloud_saves.old" && mkdir -p "$saves"
+    fi
+    echo "$disk"
+}
 
 # ---- GOG's configuration files: DOS text (code page 437, CR LF) to UTF-8, which DOSBox Staging
 # reads (the boxes of GOG's menus), and Linux paths in the [autoexec] mounts; GOG's cloud_saves
@@ -73,7 +94,7 @@ rewrite() {
         if [[ "$section" == autoexec && "$line" =~ ^([[:space:]]*@?([Ii][Mm][Gg])?[Mm][Oo][Uu][Nn][Tt][[:space:]]+[^[:space:]]+[[:space:]]+)\"([^\"]*)\"(.*)$ ]]; then
             rest="${BASH_REMATCH[4]}"
             if [[ "${rest,,}" == *"-t overlay"* ]]; then
-                path="$saves"
+                path="$(overlay "${BASH_REMATCH[3]}")"
             else
                 path="$(resolve "$cwd" "${BASH_REMATCH[3]}")"
             fi

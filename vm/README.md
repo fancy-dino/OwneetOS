@@ -101,9 +101,9 @@ hardware), blank virtual disks.
 ```text
 vm/test.sh fetch-arch-iso        stock Arch ISO, verified (used until OwneetOS has its own ISO)
 vm/test.sh create [single|multi] single: one 32G disk; multi: 32G + 64G data disk
-vm/test.sh boot [ISO] [options]  --headless, --gamepad auto|none|PATH, --gl, --audio, --ssh, --kargs, --journal, --debug-shell, --tools DIR
+vm/test.sh boot [ISO] [options]  --headless, --gamepad auto|none|PATH, --gl, --audio, --audio-record, --ssh, --kargs, --journal, --debug-shell, --tools DIR
 vm/test.sh run 'CMD'             run a command in the debug shell and print its output
-vm/test.sh keys COMBO            press keys in the VM, e.g. ctrl-alt-f9
+vm/test.sh keys COMBO[@MS]       press keys in the VM, e.g. ctrl-alt-f9; ret@3500 holds Enter 3.5 s
 vm/test.sh gamepads              gamepads connected to this computer
 vm/test.sh ssh [CMD]             root shell in the live system (after boot --ssh)
 vm/test.sh stop | reset | destroy
@@ -133,6 +133,20 @@ vm/test.sh stop | reset | destroy
   `tools/build-in-vm 'cd daemon && CGO_ENABLED=0 go build -o ../out/vm-tools/owneet-testpad ./cmd/owneet-testpad'`,
   then in the VM: mount the vfat disk (`mount -o ro /dev/vdc1 /mnt`) and run
   `/mnt/owneet-testpad -wait 4s a guide` (buttons a b x y lb rb view menu guide up down left right).
+- **New packages in the installed test VM** ([[step-7.0-update-stick-image-for-the-test-vm]]): no
+  new ISO and no reinstall. A system installed with the tester installer updates itself from the
+  OWNEETLOG stick at start-up ([[step-4.2b-updates-from-a-usb-stick]]); in the VM the stick is an
+  image made in the builder VM from `out/repo/x86_64`:
+
+  ```text
+  tools/build-in-vm 'tools/build-packages PKG... && tools/make-update-stick --image out/owneetlog.img'
+  vm/test.sh boot --disk --stick out/owneetlog.img
+  ```
+
+  Only packages with a higher version than the installed ones are installed (raise `pkgver` or
+  `pkgrel`). The image is made anew each time: the logs the VM wrote on it are lost.
+- **Screen size:** `OWNEET_VM_RES=1920x1080 vm/test.sh boot …` gives the VM a virtual screen of that size
+  (a Full HD TV); unset, QEMU's own size (1280×800).
 - **Extra kernel arguments:** `--kargs "..."` is passed through SMBIOS and appended by systemd-boot
   (e.g. `owneet.session=cage`); `--journal` sends the system journal to the serial log.
 - **Debug shell:** `--debug-shell` starts a root shell on a virtio console (`hvc0`, kernel argument
@@ -144,6 +158,9 @@ vm/test.sh stop | reset | destroy
   (`vm/images/.keys/test_ed25519`) in root's `authorized_keys`, on `127.0.0.1:2223`.
 - **Sound cards:** `--audio` adds a built-in sound card (Intel HDA) and a USB sound card, to test
   output selection ([[step-2.7-audio]]). The QEMU backend is `none`: nothing plays on the host.
+  With `--audio-record`, each card writes what it plays into `vm/run/test/audio-builtin.wav` and
+  `audio-usb.wav` (QEMU's `wav` backend, made anew at each start), to check which interface sounds
+  played; the console plays on the USB card by default.
   Fixed PCI slots `0x11` and `0x12`.
 - **Simulated Wi-Fi** ([[step-2.6-network]]): the kernel module `mac80211_hwsim` creates virtual
   Wi-Fi radios that see each other, and NetworkManager makes one of them a hotspot. NetworkManager's

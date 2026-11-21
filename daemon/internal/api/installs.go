@@ -17,6 +17,8 @@ type Installs interface {
 	Install(req installs.Request) error
 	Stop(dest string) error
 	Uninstall(dest string) error
+	Delete(dest string) error
+	DeleteInstaller(dest string) error
 }
 
 var installErrors = []struct {
@@ -29,6 +31,7 @@ var installErrors = []struct {
 	{installs.ErrExists, http.StatusConflict, "installs.exists"},
 	{installs.ErrNotFound, http.StatusNotFound, "installs.not_found"},
 	{installs.ErrInUse, http.StatusConflict, "installs.in_use"},
+	{installs.ErrReadOnly, http.StatusConflict, "installs.read_only"},
 }
 
 func (s *Server) installsError(w http.ResponseWriter, err error) {
@@ -114,6 +117,33 @@ func (s *Server) handleUninstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Installs.Uninstall(req.Dest); err != nil {
+		s.installsError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleDelete deletes a game's folder from its disk (6.8): {"dest"}; 204.
+func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
+	var req destBody
+	if !s.installsAvailable(w) || !decode(w, r, &req) {
+		return
+	}
+	if err := s.Installs.Delete(req.Dest); err != nil {
+		s.installsError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleDeleteInstaller deletes the installer of a game the console installed; the game stays (6.8):
+// {"dest"}; 204.
+func (s *Server) handleDeleteInstaller(w http.ResponseWriter, r *http.Request) {
+	var req destBody
+	if !s.installsAvailable(w) || !decode(w, r, &req) {
+		return
+	}
+	if err := s.Installs.DeleteInstaller(req.Dest); err != nil {
 		s.installsError(w, err)
 		return
 	}

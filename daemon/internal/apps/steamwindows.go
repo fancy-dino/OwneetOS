@@ -49,18 +49,23 @@ type launchState struct {
 
 // busy: Steam works on the launch (downloading what the game needs, e.g. its version for
 // Windows and Proton the first time: 45 s for Dragon's Wake on the FrankenPC, 2026-10-18), so its
-// window stays hidden; a question Steam has waited on for steamAnswerWait is the user's.
-func (s launchState) busy(now time.Time) bool {
+// window stays hidden; a question that is not one of Steam's own routine ones is the user's.
+func (s launchState) busy() bool {
 	switch s.task {
 	case "", "Failed", "Completed":
 		return false
 	}
-	return !s.waiting || now.Sub(s.at) < steamAnswerWait
+	return !s.waiting || steamRoutineQuestions[s.task]
 }
 
-// steamAnswerWait: Steam answers its own routine questions at once (ShowInterstitials,
-// CreatingProcess: within a second); one still open after this is for the user.
-const steamAnswerWait = 3 * time.Second
+// asksUser: Steam waits for the user's answer (a licence, a cloud conflict, launch options…).
+func (s launchState) asksUser() bool { return s.waiting && !steamRoutineQuestions[s.task] }
+
+// steamRoutineQuestions: the questions Steam asks and answers itself on every launch ("waiting for
+// user response to ShowInterstitials", then "continues with user response": every launch in
+// FrankenPC's logs, 2026-10-14 to 2026-11-09); any other is for the user ([[waiting-for-events]]:
+// no time stands for it).
+var steamRoutineQuestions = map[string]bool{"ShowInterstitials": true, "CreatingProcess": true}
 
 // steamLaunchWatch: how long after asking for a game its launch is followed while Steam is not
 // working on it.
@@ -231,7 +236,7 @@ func setCompatTool(text, appid, tool string) (string, bool) {
 func (m *Manager) watchLaunch() {
 	m.mu.Lock()
 	launch, dir := m.steamLaunch, m.SteamDir
-	if launch != nil && time.Since(launch.at) > steamLaunchWatch && !launch.state.busy(time.Now()) {
+	if launch != nil && time.Since(launch.at) > steamLaunchWatch && !launch.state.busy() {
 		m.steamLaunch, launch = nil, nil
 	}
 	var appid string
@@ -246,6 +251,7 @@ func (m *Manager) watchLaunch() {
 		return
 	}
 	failed := state.failed
+	before := state
 	state, offset = steamLaunchRead(steamConsoleLog(dir), offset, appid, since, state)
 	failed = !failed && state.failed
 	m.mu.Lock()
@@ -257,7 +263,29 @@ func (m *Manager) watchLaunch() {
 	if failed {
 		m.steamLaunch = nil
 	}
+	hidden := m.steamHidden
 	m.mu.Unlock()
+	// Steam hidden while it works on the launch: shown as soon as its log says it needs the user,
+	// or that the launch ended without a game (Steam's error, or nothing started)
+	ended := state != before && (state.task == "Completed" || (state.task == "Failed" && !state.failed))
+	if hidden && !failed && (state.asksUser() && !before.asksUser() || ended) {
+		m.scanSteam() // a game that has just started counts
+		m.steamAskNow()
+	}
+	// a game started but without its window yet, and Steam asks the user something: Steam behind it
+	if state.asksUser() && !before.asksUser() {
+		m.mu.Lock()
+		var waiting []*App
+		for _, a := range m.apps {
+			if a.steamBehind {
+				waiting = append(waiting, a)
+			}
+		}
+		m.mu.Unlock()
+		for _, a := range waiting {
+			m.steamGameNoWindow(a)
+		}
+	}
 	if !failed {
 		return
 	}

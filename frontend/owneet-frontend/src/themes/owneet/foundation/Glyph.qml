@@ -3,8 +3,8 @@
 // Nintendo-style sets show letters, the PlayStation-style set shows the four shapes; Theme.glyphs
 // picks the set. On Nintendo pads SDL follows the printed labels (sdl2-compat's default
 // SDL_GAMECONTROLLER_USE_BUTTON_LABELS), so "a" is the button labelled A there too.
-// button: a, b, x, y, lb, rb, lt, rt, menu, guide; on every controller: lr, rs, dpad, ls (the
-// left stick moving the pointer, 4.7).
+// button: a, b, x, y, lb, rb, lt, rt, menu, guide; on every controller: lr, ud (up / down, a taller
+// pill: the display area, 3y), rs, dpad, ls (the left stick moving the pointer, 4.7).
 import QtQuick 2.15
 
 Item {
@@ -18,7 +18,7 @@ Item {
         xbox: { lb: ["LB", 34], rb: ["RB", 34], lt: ["LT", 32], rt: ["RT", 32] },
         ps: { lb: ["L1", 30], rb: ["R1", 30], lt: ["L2", 30], rt: ["R2", 30], menu: ["OPTIONS", 62] },
         nintendo: { lb: ["L", 28], rb: ["R", 28], lt: ["ZL", 32], rt: ["ZR", 32] },
-        any: { lr: ["", 44] }             // the same on every controller
+        any: { lr: ["", 44], ud: ["", 26] }   // the same on every controller
     })
     readonly property var pill: pills[set][button] || pills.any[button] || null
     // Lines and shapes inside the circle (SVG path syntax, 26 x 26 grid)
@@ -31,17 +31,18 @@ Item {
         "guide": "M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12",
         // left / right (sliders), and the right stick up / down (scrolling)
         "lr": "M15 8l-5 5 5 5M29 8l5 5-5 5",
+        "ud": "M8 11l5-5 5 5M8 23l5 5 5-5",   // on a 26 x 34 grid
         "rs": "M13 9.4a3.6 3.6 0 1 1-0.01 0M13 3.8v2.4M11 5.6l2-2 2 2M13 22.2v-2.4M11 20.4l2 2 2-2",
         // the D-pad (and left stick): moving the selection
         "dpad": "M11 7.5h4v3.5h3.5v4H15v3.5h-4V15H7.5v-4H11z",
         "ls": "M13 9.4a3.6 3.6 0 1 1-0.01 0M13 3.8v2.4M11 5.6l2-2 2 2M13 22.2v-2.4M11 20.4l2 2 2-2M3.8 13h2.4M5.6 11l-2 2 2 2M22.2 13h-2.4M20.4 11l2 2-2 2"
     })
-    readonly property string path: paths[["guide", "lr", "rs", "dpad", "ls"].indexOf(button) >= 0 ? button : set + "." + button] || ""
+    readonly property string path: paths[["guide", "lr", "ud", "rs", "dpad", "ls"].indexOf(button) >= 0 ? button : set + "." + button] || ""
     readonly property string letter: set !== "ps" && ["a", "b", "x", "y"].indexOf(button) >= 0
                                      ? button.toUpperCase() : ""
 
     implicitWidth: (pill ? pill[1] : 26) * unit
-    implicitHeight: 26 * unit
+    implicitHeight: (button === "ud" ? 34 : 26) * unit
 
     // Frame: a circle, or a rounded pill for shoulder buttons and labels
     Rectangle {
@@ -89,7 +90,7 @@ Item {
             ctx.reset();
             if (root.path === "")
                 return;
-            ctx.scale(height / 26, height / 26);
+            ctx.scale(root.unit, root.unit);
             ctx.strokeStyle = strokeColor;
             ctx.lineWidth = 2;
             ctx.lineCap = "round";

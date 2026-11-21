@@ -1,19 +1,28 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A game's cover: its own image from local files when there is one, otherwise generated art with
-// the title. A badge shows where the game comes from (Steam, Local); a heart marks a favourite;
+// the title (one line: "…", scrolling while the cover is highlighted, approved demo 3.7b). A badge
+// shows where the game comes from (Steam, Local); a heart marks a favourite;
 // a game owned but not installed is dimmed, with a download mark; a Steam game being downloaded
 // shows its state and progress under its title (4.2c); so does a game being installed from its
 // installer (4.6: a moving bar when the installer tells no percentage), and one that cannot be
-// installed yet has an "info" mark.
+// installed yet has an "info" mark. With more than one disk, the disk it is on under the title
+// (6.6, approved demo 6.6). A game being copied says so over its art, with its step's progress
+// (6.6e, approved demo 6.6e). `picture` shows a picture as the cover would show it (the cover
+// chooser's preview, approved demo 6.9): its middle, cut to the cover's shape, read at the cover's
+// size (a big photo never loads whole).
 import QtQuick 2.15
 
 Item {
     id: root
     property var game: null
-    readonly property bool navigable: true
+    property bool navigable: true
+    property url picture: ""
+    readonly property bool showsPicture: picture.toString() !== ""
     readonly property string kind: "game"
     property real radius: Theme.radiusM
     property bool running: false                // this game runs now
+    property string disk: ""                    // the disk's name, when the console has several
+    property var copy: null                     // being copied (6.6e): { text, percent } (-1: no bar)
     signal activated()
 
     // Steam (4.2c): not installed, downloading, or on a disk that is not connected
@@ -21,40 +30,88 @@ Item {
     readonly property bool installed: steamState === "installed" || steamState === "updating"
     readonly property string stateText: game ? GameInfo.stateText(game) : ""
     readonly property bool busy: steamState === "downloading" || steamState === "updating" || steamState === "queued"
-                                 || steamState === "paused" || steamState === "installing"
-    // installing with no percentage (Windows installers, 4.6): the bar keeps moving
-    readonly property bool unknownProgress: steamState === "installing" && GameInfo.install(game) !== null
-                                            && GameInfo.install(game).total <= 0
+                                 || steamState === "paused" || steamState === "installing" || steamState === "preparing"
+    // no percentage: installing (Windows installers, 4.6), or Steam preparing a download ([[open-items]] 8,
+    // approved demo 4.2c-steam-preparing): the bar keeps moving
+    readonly property bool unknownProgress: steamState === "preparing" || (steamState === "installing"
+                                            && GameInfo.install(game) !== null && GameInfo.install(game).total <= 0)
     // Art (4.4): the portrait cover (Steam's, or cover.jpg / .png of a game on a disk), else a
     // Steam game's wide header shown whole over the generated art (option A, owner 2026-10-16),
     // else the generated art
     readonly property string cover: game ? (game.assets.poster || game.assets.boxFront || game.assets.tile || "") : ""
     readonly property string image: cover || (game ? game.assets.banner : "") || ""
 
+    readonly property real artOpacity: installed ? 1 : (activeFocus ? 0.8 : 0.55)
     GameArt {
         anchors.fill: parent
         radius: root.radius
         seed: root.game ? root.game.title : ""
-        image: root.image
-        fit: root.cover === "" && root.image !== ""
+        image: root.showsPicture ? "" : root.image
+        fit: !root.showsPicture && root.cover === "" && root.image !== ""
         fitY: 0.4
+        shade: !root.showsPicture
+        opacity: root.artOpacity
+    }
+    Item {               // the picture (6.9), its corners rounded as the art's
+        visible: root.showsPicture
+        anchors.fill: parent
+        opacity: root.artOpacity
+        layer.enabled: visible
+        layer.effect: ShaderEffect {
+            property size box: Qt.size(width, height)
+            property real corner: Math.min(root.radius, width / 2, height / 2)
+            fragmentShader: "
+                varying highp vec2 qt_TexCoord0;
+                uniform sampler2D source;
+                uniform lowp float qt_Opacity;
+                uniform highp vec2 box;
+                uniform highp float corner;
+                void main() {
+                    highp vec2 p = qt_TexCoord0 * box;
+                    highp vec2 q = min(p, box - p);
+                    highp float a = 1.0;
+                    if (q.x < corner && q.y < corner)
+                        a = clamp(corner - length(vec2(corner) - q) + 0.5, 0.0, 1.0);
+                    gl_FragColor = texture2D(source, qt_TexCoord0) * a * qt_Opacity;
+                }"
+        }
+        Image {
+            anchors.fill: parent
+            source: root.picture
+            sourceSize: Qt.size(Math.ceil(width), Math.ceil(height))
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            cache: false
+        }
+    }
+    GameArt {            // the shade over the picture, for the title
+        visible: root.showsPicture
+        anchors.fill: parent
+        radius: root.radius
         shade: true
-        opacity: root.installed ? 1 : (root.activeFocus ? 0.8 : 0.55)
+        shadeOnly: true
     }
     Column {
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: Theme.px(10) }
         spacing: Theme.px(6)
-        Text {
+        FitText {           // the title on one line: "…", scrolling while the cover is highlighted (3.7b)
             width: parent.width
             text: root.game ? root.game.title : ""
             color: "#FFFFFF"
             font.family: Theme.displayFont
             font.weight: Font.Bold
             font.pixelSize: Theme.fs(17)
-            wrapMode: Text.Wrap
-            maximumLineCount: 3
-            elide: Text.ElideRight
-            lineHeight: 0.95
+        }
+        FitText {               // the disk it is on (6.6)
+            visible: root.disk !== ""
+            width: parent.width
+            text: root.disk
+            color: "#FFFFFF"
+            opacity: 0.85
+            style: Text.Raised
+            styleColor: "#80000000"
+            font.family: Theme.textFont
+            font.pixelSize: Theme.fs(12.5)
         }
         Text {               // the state: "Not installed", "Downloading · 45%"…
             visible: root.stateText !== ""
@@ -105,6 +162,41 @@ Item {
             color: "#FFFFFF"
             font.family: Theme.textFont
             font.pixelSize: Theme.fs(12.5)
+        }
+    }
+    Rectangle {          // being copied (6.6e): its step and percentage, or waiting, or failed
+        visible: root.copy !== null
+        anchors { left: parent.left; right: parent.right; top: parent.top
+                  leftMargin: Theme.px(8); rightMargin: Theme.px(8); topMargin: Theme.px(44) }
+        height: copyColumn.implicitHeight + Theme.px(14)
+        radius: Theme.radiusS
+        color: Theme.artShade
+        Column {
+            id: copyColumn
+            anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter
+                      leftMargin: Theme.px(9); rightMargin: Theme.px(9) }
+            spacing: Theme.px(5)
+            Text {
+                width: parent.width
+                text: root.copy ? root.copy.text : ""
+                color: Theme.onArt
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(12.5)
+                wrapMode: Text.Wrap
+                maximumLineCount: 2
+                elide: Text.ElideRight
+            }
+            Rectangle {
+                visible: root.copy !== null && root.copy.percent >= 0
+                width: parent.width; height: Theme.px(5); radius: height / 2
+                color: Theme.artTrack
+                clip: true
+                Rectangle {
+                    width: parent.width * (root.copy ? Math.max(0, root.copy.percent) : 0) / 100
+                    height: parent.height; radius: height / 2
+                    color: Theme.accent
+                }
+            }
         }
     }
     Rectangle {          // running now

@@ -1,0 +1,17 @@
+@owneetd
+# Long texts (open item 3s, approved demo design/demos/3.3b-scrolling-text.html): text size XL; a
+# highlighted text that does not fit scrolls, the others end with "…".
+pad lb down down down down right down
+pad right right right a
+wait 1
+shot 01-text-size-xl
+pad b up up up
+wait 1
+shot 02-controllers-start
+wait 2
+shot 03-controllers-scrolling
+wait 2
+shot 04-controllers-end
+pad down
+wait 1
+shot 05-other-highlighted

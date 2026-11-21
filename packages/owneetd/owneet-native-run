@@ -1,0 +1,77 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Starts a native Linux game from a disk in Valve's "Steam Linux Runtime 1.0 (scout)", as Steam
+# runs native games on a Steam Deck and Heroic runs GOG's: umu-launcher's umu-scout tool (Valve's
+# scout libraries, 32-bit ones included) in the soldier container ([[umu-fixes-and-runtime]],
+# step 3 of [[game-compatibility-method]], owner 2026-11-20). owneetd downloads it once, after what
+# Windows games need; while it is missing (or with the testers' switch
+# owneet.debug.native_runtime=off) the game starts as before, with the system's libraries.
+# Nothing is downloaded here: a game's start never needs the internet.
+#
+#   owneet-native-run GAME_FOLDER PROGRAM [ARGUMENTS...]
+#
+# Started by the interface through owneetd (POST /v1/apps/launch), in the game's own service, with
+# what the game needs from the console in its environment: LD_LIBRARY_PATH (the program's own
+# folder, as GOG's start.sh does), LD_PRELOAD and OWNEET_GAME_PRELOAD (the console's fixes for a
+# known launcher, The Witcher 2's: frontend/known-games).
+
+set -u
+
+# Inside the runtime (run by itself through umu-run, below): the program's folder goes before the
+# runtime's libraries and the console's fixes are loaded, then the program starts.
+if [[ "${1:-}" == "--in-runtime" ]]; then
+    shift
+    if [[ -n "${OWNEET_NATIVE_LIBS:-}" ]]; then
+        export LD_LIBRARY_PATH="$OWNEET_NATIVE_LIBS${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    fi
+    if [[ -n "${OWNEET_NATIVE_PRELOAD:-}" ]]; then
+        export LD_PRELOAD="$OWNEET_NATIVE_PRELOAD"
+    fi
+    unset OWNEET_NATIVE_LIBS OWNEET_NATIVE_PRELOAD
+    exec "$@"
+fi
+
+if [[ $# -lt 2 ]]; then
+    echo "usage: owneet-native-run GAME_FOLDER PROGRAM [ARGUMENTS...]" >&2
+    exit 2
+fi
+game_dir="$1"
+shift
+
+data="${XDG_DATA_HOME:-$HOME/.local/share}"
+tool="$(cat "$data/owneet/windows/native" 2>/dev/null)"
+if [[ -z "$tool" || ! -f "$tool/toolmanifest.vdf" || ! -f "$data/umu/steamrt2/VERSIONS.txt" ]] \
+        || ! command -v umu-run >/dev/null \
+        || grep -qs 'owneet.debug.native_runtime=off' /proc/cmdline /run/owneet-testlog/owneet-debug.txt; then
+    echo "owneet-native-run: with the system's libraries: $*"
+    exec "$@"
+fi
+
+# The container sees the console's /usr under /run/host/usr; the game's folders keep their paths
+# (the home folder, and the game's folder shared below).
+in_container() {
+    local out="" path
+    local IFS=:
+    for path in $1; do
+        [[ -z "$path" ]] && continue
+        [[ "$path" == /usr/* ]] && path="/run/host$path"
+        out="${out:+$out:}$path"
+    done
+    printf '%s' "$out"
+}
+OWNEET_NATIVE_LIBS="$(in_container "${LD_LIBRARY_PATH:-}")"
+OWNEET_NATIVE_PRELOAD="$(in_container "${LD_PRELOAD:-}")"
+export OWNEET_NATIVE_LIBS OWNEET_NATIVE_PRELOAD
+if [[ -n "${OWNEET_GAME_PRELOAD:-}" ]]; then
+    OWNEET_GAME_PRELOAD="$(in_container "$OWNEET_GAME_PRELOAD")"
+    export OWNEET_GAME_PRELOAD
+fi
+unset LD_PRELOAD LD_LIBRARY_PATH
+
+echo "owneet-native-run: in the Steam Runtime (scout): $*"
+# the game's whole folder is shared with the container (not only the program's own); no prefix is
+# made for a native game: WINEPREFIX only keeps umu's default (~/Games) unused
+export PROTONPATH="$tool" GAMEID=umu-0 UMU_RUNTIME_UPDATE=0 \
+    STEAM_COMPAT_INSTALL_PATH="$game_dir" WINEPREFIX="$data/owneet/windows/prepare"
+exec umu-run "/run/host$(realpath "$0")" --in-runtime "$@"

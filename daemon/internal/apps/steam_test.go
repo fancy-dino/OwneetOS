@@ -72,6 +72,9 @@ func newSteamManager(t *testing.T) (*Manager, *fakeUnits, *fakeFocus, *fakeProcs
 	m.StateDir = t.TempDir()
 	m.SteamAllowed = func() bool { return true }
 	m.NVIDIA = func() bool { return false }
+	// the tests below check the old way of step 4.2c (Steam hidden during a launch, the testers' switch
+	// owneet.debug.steam_launch=hidden); TestSteamShownDuringALaunch checks today's default
+	m.HideSteamLaunch = func() bool { return true }
 	m.Forward = func(argv, _ []string) error { *forwarded = append(*forwarded, strings.Join(argv, " ")); return nil }
 	m.watchSession() // tags windows: the home screen is process 10
 	focus.openWindow(10)
@@ -108,9 +111,44 @@ func TestReaperAppID(t *testing.T) {
 		"reaper SteamLaunch -- AppId=480":     "", // the game's own arguments
 		"/usr/bin/game SteamLaunch AppId=480": "",
 		"reaper SteamLaunch AppId=48x0 -- x":  "",
+		// Steam's install script of a first start, before the game
+		"reaper SteamLaunch AppId=208650 Install=1 -- proton run iscriptevaluator.exe": "",
+		"reaper SteamLaunch AppId=480 -- /g/game Install=1":                            "480",
 	} {
 		if got := reaperAppID(strings.Fields(argv)); got != want {
 			t.Errorf("%q: got %q, want %q", argv, got, want)
+		}
+	}
+}
+
+func TestSteamInstallScript(t *testing.T) {
+	for argv, want := range map[string]bool{
+		"/s/steamrt64/reaper SteamLaunch AppId=1172380 Install=1 -- proton run iscriptevaluator.exe": true,
+		"reaper SteamLaunch AppId=480 -- /g/game Install=1":                                          false, // the game's own argument
+		"reaper SteamLaunch AppId=480":                                                               false,
+		"reaper Install=1 -- x":                                                                      false, // not a launch
+		"/usr/bin/game SteamLaunch AppId=480 Install=1":                                              false,
+	} {
+		if got := steamInstallScript(strings.Fields(argv)); got != want {
+			t.Errorf("%q: got %v, want %v", argv, got, want)
+		}
+	}
+}
+
+// A game Steam started in a scope of its own (Steam's client of November 2026) counts as Steam's: its
+// launcher is found where owneetd looks for Steam's games.
+func TestSteamGameInItsOwnScope(t *testing.T) {
+	const base = "0::/user.slice/user-1000.slice/user@1000.service/app.slice/"
+	for cgroup, want := range map[string]string{
+		base + "app-steam-app2102040-4267.scope":      "owneet-app-steam.service",
+		base + "owneet-app-steam.service":             "owneet-app-steam.service",
+		base + "owneet-app-brave.service":             "owneet-app-brave.service",
+		base + "app-org.chromium.Chromium-1234.scope": "",
+		base + "app-steam-appx-1.scope":               "",
+		"0::/system.slice/owneetd.service":            "",
+	} {
+		if got := unitOfCgroup(cgroup + "\n"); got != want {
+			t.Errorf("%q: got %q, want %q", cgroup, got, want)
 		}
 	}
 }
@@ -178,6 +216,104 @@ func TestSteamWithNVIDIAKeepsTheGPU(t *testing.T) {
 	argv := strings.Join(units.argvs[0], " ")
 	if argv != "/usr/bin/env -u GAMESCOPE_WAYLAND_DISPLAY /usr/bin/steam -gamepadui" {
 		t.Fatalf("argv %q", argv)
+	}
+}
+
+// Started from the console with an account, Steam's window stays hidden while it shows its logo and
+// flickers; the page asked for goes first, when its interface is ready (FrankenPC, 2026-11-05)
+// steamHoldReady starts Steam for its storage with an account and an old log, and opens its window.
+func steamHoldReady(t *testing.T) (*Manager, *[]string, string) {
+	t.Helper()
+	m, _, focus, _, forwarded, _ := newSteamManager(t)
+	for _, dir := range []string{"config", "logs"} {
+		if err := os.MkdirAll(filepath.Join(m.SteamDir, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(m.SteamDir, "config", "loginusers.vdf"), []byte(`"users" { "76561198000000001" { "AccountName" "a" } }`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !steamAccount(m.SteamDir) {
+		t.Fatal("the account's file is not the one steamAccount reads")
+	}
+	log := steamInterfaceLog(m.SteamDir)
+	// the line of an earlier start does not count
+	if err := os.WriteFile(log, []byte(steamInterfaceLine), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Steam(SteamRequest{Open: "storage"}); err != nil {
+		t.Fatal(err)
+	}
+	focus.openWindow(1001)
+	return m, forwarded, log
+}
+
+const steamInterfaceLine = "[2026-11-05 13:28:13] notificationtoasts_uid2: STARTUP LoadEnd t=12.116 +9.4ms from create\n"
+
+func TestSteamWindowWaitsForItsInterface(t *testing.T) {
+	m, forwarded, log := steamHoldReady(t)
+	// however long the interface takes on this computer, nothing shows and nothing is sent
+	for i := 1; i < steamHoldMax-1; i++ {
+		m.checkWindows()
+		if len(*forwarded) != 0 || m.Status().Focus == SteamID {
+			t.Fatalf("check %d: forwarded %v, focus %q", i, *forwarded, m.Status().Focus)
+		}
+	}
+	f, err := os.OpenFile(log, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(steamInterfaceLine); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	// its interface is up: the page goes, and the window waits for the page
+	for i := 0; i < steamPageChecks; i++ {
+		m.checkWindows()
+		if len(*forwarded) != 1 || !strings.HasSuffix((*forwarded)[0], "/usr/bin/steam steam://settings/storage") {
+			t.Fatalf("forwarded %v", *forwarded)
+		}
+		if m.Status().Focus == SteamID {
+			t.Fatalf("check %d after the line: Steam on screen", i)
+		}
+	}
+	m.checkWindows()
+	if len(*forwarded) != 1 || m.Status().Focus != SteamID {
+		t.Fatalf("forwarded %v, focus %q", *forwarded, m.Status().Focus)
+	}
+}
+
+// Should the line never come (a new Steam, a sign-in that expired), Steam still shows.
+func TestSteamWindowDoesNotWaitForEver(t *testing.T) {
+	m, forwarded, _ := steamHoldReady(t)
+	for i := 1; i < steamHoldMax; i++ {
+		m.checkWindows()
+	}
+	if len(*forwarded) != 0 {
+		t.Fatalf("forwarded %v", *forwarded)
+	}
+	for i := 0; i <= steamPageChecks; i++ {
+		m.checkWindows()
+	}
+	if len(*forwarded) != 1 || m.Status().Focus != SteamID {
+		t.Fatalf("forwarded %v, focus %q", *forwarded, m.Status().Focus)
+	}
+}
+
+// Steam started a new log: the line is looked for from its start.
+func TestSteamInterfaceLogStartedAgain(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "logs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(steamInterfaceLog(dir), []byte(steamInterfaceLine), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !steamInterfaceReady(dir, 1<<20) {
+		t.Fatal("a shorter log not read from its start")
+	}
+	if steamInterfaceReady(dir, steamInterfaceLogSize(dir)) {
+		t.Fatal("a line from before the start counted")
 	}
 }
 
@@ -344,10 +480,102 @@ func TestSteamGameStartedInSteamAndSteamClosing(t *testing.T) {
 	}
 }
 
+// Steam asked for while it is still closing (FrankenPC, 2026-11-19: closed and opened again within
+// 4 s) is not given the address, which would start a second Steam of its own without -gamepadui: it
+// starts again in the console's service once it has ended.
+func TestSteamAskedForWhileClosingStartsAgainAfter(t *testing.T) {
+	m, units, focus, _, forwarded, ch := newSteamManager(t)
+	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "app.started")
+	steamUnit := units.started[0]
+	focus.openWindow(1001)
+	settle(m)
+	*forwarded = nil // its first page, given once its window was there
+	if err := m.Close(SteamID); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- m.Steam(SteamRequest{Open: "store"}) }()
+	select {
+	case err := <-done:
+		t.Fatalf("Steam went on while the old one was closing: %v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+	stop := make(chan struct{})
+	t.Cleanup(func() { close(stop) })
+	go m.Run(stop)
+	units.exits <- Exit{Unit: steamUnit, Result: "success"}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Steam did not start again after it ended")
+	}
+	units.mu.Lock()
+	started := len(units.started)
+	argv := strings.Join(units.argvs[len(units.argvs)-1], " ")
+	units.mu.Unlock()
+	if started != 2 || !strings.Contains(argv, "-gamepadui") {
+		t.Fatalf("Steam not started again with its options: %d starts, %q", started, argv)
+	}
+	if len(*forwarded) != 0 {
+		t.Fatalf("the address went to the closing Steam: %v", *forwarded)
+	}
+	// once ended, a later Close of the new Steam waits again (no channel left over)
+	m.mu.Lock()
+	left := m.steamGone
+	m.mu.Unlock()
+	if left != nil {
+		t.Fatal("Steam still seen as closing")
+	}
+}
+
 // A Steam game that has no window yet keeps Steam's window off the screen (Silksong, FrankenPC
 // 2026-10-16: Steam's window was shown for 10 s before the game's): the home screen covers the
-// wait; Steam comes back behind the game once the game's window is there, or after steamAskAfter
+// wait; Steam comes back behind the game once the game's window is there, or after steamLaunchWatch
 // without one (Steam may be asking the user something).
+// Today's default ([[game-compatibility-method]], owner 2026-11-18): Steam's window is on screen while
+// it launches a game, and stays behind the game from its start until the game's own window comes.
+func TestSteamShownDuringALaunch(t *testing.T) {
+	m, units, focus, procs, _, ch := newSteamManager(t)
+	m.HideSteamLaunch = func() bool { return false }
+	if err := m.Steam(SteamRequest{Run: "480", Name: "Spacewar"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "app.started") // Steam itself
+	steamUnit := units.started[0]
+	focus.openWindow(1001)
+	settle(m)
+	if st := m.Status(); st.Focus != SteamID {
+		t.Fatalf("Steam not on screen while it launches the game: %q", st.Focus)
+	}
+	steamID := m.appIDOf(SteamID)
+	shown := func() []uint32 {
+		focus.mu.Lock()
+		defer focus.mu.Unlock()
+		return append([]uint32(nil), focus.shown...)
+	}
+	procs.add(1001, 1, steamUnit, "steam", "-gamepadui")
+	procs.add(2000, 1001, steamUnit, "reaper", "SteamLaunch", "AppId=480", "--", "/g/spacewar")
+	procs.add(2001, 2000, steamUnit, "/g/spacewar")
+	m.scanSteam()
+	next(t, ch, "app.started")
+	gameID := m.appIDOf("steam:480")
+	// the game without its window yet: Steam behind it, so Steam's window stays on screen
+	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) {
+		t.Fatalf("game without window: %v", got)
+	}
+	focus.openWindow(2001)
+	m.checkWindows()
+	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) || m.Status().Focus != "steam:480" {
+		t.Fatalf("game's window: %v, focus %q", got, m.Status().Focus)
+	}
+}
+
 func TestSteamStaysBehindAGameWithoutWindow(t *testing.T) {
 	m, units, focus, procs, _, ch := newSteamManager(t)
 	if err := m.Steam(SteamRequest{Run: "480", Name: "Spacewar"}); err != nil {
@@ -386,10 +614,10 @@ func TestSteamStaysBehindAGameWithoutWindow(t *testing.T) {
 	m.mu.Unlock()
 	m.steamGameNoWindow(game) // the game had its window: nothing changes
 	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) {
-		t.Fatalf("after steamAskAfter with a window: %v", got)
+		t.Fatalf("after steamLaunchWatch with a window: %v", got)
 	}
 
-	// another game that never opens a window: Steam is shown after steamAskAfter
+	// another game that never opens a window: Steam is shown after steamLaunchWatch
 	procs.remove(2001)
 	procs.remove(2000)
 	m.scanSteam()
@@ -407,7 +635,7 @@ func TestSteamStaysBehindAGameWithoutWindow(t *testing.T) {
 	}
 	m.steamGameNoWindow(other)
 	if got := shown(); !sameIDs(got, []uint32{otherID, steamID, HomeAppID}) || m.Status().Focus != SteamID {
-		t.Fatalf("after steamAskAfter without a window: %v, focus %q", got, m.Status().Focus)
+		t.Fatalf("after steamLaunchWatch without a window: %v, focus %q", got, m.Status().Focus)
 	}
 }
 
@@ -442,6 +670,20 @@ func TestSteamRequestsWhatToShow(t *testing.T) {
 	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) {
 		t.Fatalf("Steam game: %v", got)
 	}
+	// Steam names the game in owneetd's own codes (read back from its window), or only itself:
+	// the game stays in front
+	focus.request([]uint32{gameID, steamID})
+	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) {
+		t.Fatalf("the game in owneetd's codes: %v", got)
+	}
+	focus.request([]uint32{steamID})
+	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) || m.Status().Focus != "steam:480" {
+		t.Fatalf("Steam asking for itself over the game: %v, focus %q", got, m.Status().Focus)
+	}
+	focus.request([]uint32{steamUIAppID, 413091})
+	if got := shown(); !sameIDs(got, []uint32{gameID, steamID, HomeAppID}) {
+		t.Fatalf("Steam asking for its own window over the game: %v", got)
+	}
 	m.HomeHold = 50 * time.Millisecond
 	m.Guide(true) // held: the home screen; Steam cannot take it back
 	time.Sleep(150 * time.Millisecond)
@@ -449,6 +691,28 @@ func TestSteamRequestsWhatToShow(t *testing.T) {
 	focus.request([]uint32{steamUIAppID})
 	if got := shown(); !sameIDs(got, []uint32{HomeAppID}) || m.Status().Focus != "home" {
 		t.Fatalf("home screen: %v, focus %q", got, m.Status().Focus)
+	}
+
+	// Steam's write reaches gamescope before owneetd puts the home screen back: Steam focused for a
+	// moment is not announced (each announce plays the interface's sound: twice, 2026-11-13)
+	m.checkWindows()
+	for len(ch) > 0 {
+		<-ch
+	}
+	focus.mu.Lock()
+	focus.shown = []uint32{steamID}
+	focus.recompute()
+	focus.mu.Unlock()
+	m.checkWindows()
+	focus.request([]uint32{steamID})
+	m.checkWindows()
+	for len(ch) > 0 {
+		if e := <-ch; e.Type == "focus.changed" {
+			t.Fatalf("announced: %v", e.Data)
+		}
+	}
+	if m.Status().Focus != "home" {
+		t.Fatalf("focus %q", m.Status().Focus)
 	}
 }
 
@@ -655,6 +919,16 @@ func TestSteamStatusDownloadsAndDisks(t *testing.T) {
 	if len(st.Downloads) != 2 || st.Downloads[0].State != "queued" || st.Downloads[1].State != "queued" {
 		t.Fatalf("first look %+v", st.Downloads)
 	}
+	// Steam runs: its log says 510 downloads; 480's manifest says its update runs
+	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, steamContentLog(dir), "[2026-11-09 10:00:00] AppID 510 App update changed : Running Update,Downloading,Staging,\n")
+	man("510", 1026, 100, 2000)
+	m.SteamStatus()
+	m.steamMu.Lock()
+	m.steamSamples["510"].at = time.Now().Add(-time.Second)
+	m.steamMu.Unlock()
 	man("510", 1026, 900, 2000)
 	man("480", 4|stateUpdateRunning, 30, 60)
 	st = m.SteamStatus()
@@ -782,5 +1056,102 @@ func TestSteamInputTurnedOnOnce(t *testing.T) {
 	}
 	if _, ok := setTopLevel("\"other\"\n{\n}\n", "UserLocalConfigStore", steamInputSettings, "1"); ok {
 		t.Fatal("changed a file without the root block")
+	}
+}
+
+// A Steam game whose window goes some seconds before its end (Jedi: Fallen Order's EA launcher closing
+// after it, FrankenPC 2026-11-18): Steam, behind it, comes in front meanwhile; the game's end brings the
+// home screen. Steam chosen during the game stays.
+func TestSteamGameEndBringsHomeOverSteam(t *testing.T) {
+	m, units, focus, procs, _, ch := newSteamManager(t)
+	if err := m.Steam(SteamRequest{Run: "480", Name: "Spacewar"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "app.started") // Steam itself
+	steamUnit := units.started[0]
+	focus.openWindow(1001)
+	settle(m)
+	steamID := m.appIDOf(SteamID)
+	start := func() uint32 {
+		procs.add(1001, 1, steamUnit, "steam", "-gamepadui")
+		procs.add(2000, 1001, steamUnit, "reaper", "SteamLaunch", "AppId=480", "--", "/g/spacewar")
+		procs.add(2001, 2000, steamUnit, "/g/spacewar")
+		m.scanSteam()
+		next(t, ch, "app.started")
+		focus.openWindow(2001)
+		m.checkWindows()
+		return m.appIDOf("steam:480")
+	}
+	end := func() {
+		procs.remove(2001)
+		procs.remove(2000)
+		m.scanSteam()
+		next(t, ch, "app.exited")
+	}
+	gameID := start()
+	if st := m.Status(); st.Focus != "steam:480" {
+		t.Fatalf("game in front: %q", st.Focus)
+	}
+	focus.closeWindow(gameID) // its window gone, the game not ended yet: Steam behind it shows
+	if f, _ := focus.Focused(); f != steamID {
+		t.Fatalf("Steam not in front after the game's window: %d", f)
+	}
+	end()
+	if f, _ := focus.Focused(); f != HomeAppID {
+		t.Fatalf("the game's end did not bring the home screen: %d", f)
+	}
+
+	// Steam chosen by the user during the game: it stays when the game ends
+	gameID = start()
+	if err := m.FocusApp(SteamID); err != nil {
+		t.Fatal(err)
+	}
+	focus.closeWindow(gameID)
+	end()
+	if f, _ := focus.Focused(); f != steamID {
+		t.Fatalf("Steam chosen during the game left for the home screen: %d", f)
+	}
+}
+
+func TestSteamOSArgs(t *testing.T) {
+	for choice, want := range map[string]string{"": "", "os": "-steamos3", "pal": "-steampal", "deck": "-steamdeck",
+		"all": "-steamos3 -steampal -steamdeck", "other": ""} {
+		if got := strings.Join(steamOSArgs(choice), " "); got != want {
+			t.Errorf("%q: %q, want %q", choice, got, want)
+		}
+	}
+}
+
+// While the console's pointer is on, Proton's Xalia is paused, and it goes on after (owner,
+// 2026-11-19: a launcher's checkbox ticked by the pointer and unticked by Xalia).
+func TestXaliaPausedWhileThePointerIsOn(t *testing.T) {
+	m, units, focus, procs, _, ch := newSteamManager(t)
+	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "app.started")
+	focus.openWindow(1001)
+	settle(m)
+	unit := units.started[0]
+	procs.add(1001, 1, unit, "steam", "-gamepadui")
+	procs.add(3000, 1001, unit, `\\?\Z:\home\owneet\.local\share\Steam\steamapps\common\Proton - Experimental\files\share\wine/../xalia/xalia.exe`)
+	procs.add(3001, 1001, unit, `C:\Program Files\Rockstar Games\Launcher\Launcher.exe`)
+	signals := func() string {
+		procs.mu.Lock()
+		defer procs.mu.Unlock()
+		return strings.Join(procs.signals, " ")
+	}
+	m.PointerChanged(true)
+	m.watchSteam() // once more while on: nothing new
+	if got := signals(); got != "3000:19" {
+		t.Fatalf("pointer on: %q, want Xalia stopped once", got)
+	}
+	m.PointerChanged(false)
+	if got := signals(); got != "3000:19 3000:18" {
+		t.Fatalf("pointer off: %q, want Xalia going on", got)
+	}
+	m.watchSteam() // the pointer off: Xalia left alone
+	if got := signals(); got != "3000:19 3000:18" {
+		t.Fatalf("pointer off, later: %q", got)
 	}
 }

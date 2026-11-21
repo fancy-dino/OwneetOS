@@ -12,6 +12,8 @@ FocusScope {
     // The page's scrolling content ([[controller-input-map]]: the right stick scrolls the
     // page); up / down scroll it too when there is nothing more to select that way.
     property Flickable scrollTarget: null
+    // Left / right stay on the selected item's row (Dialog: buttons on two rows, owner 2026-11-08)
+    property bool rowsHold: false
     function scrollBy(dy) {
         const f = scrollTarget;
         if (!f || f.contentHeight <= f.height) { Nav.feedback("edge"); return; }
@@ -42,7 +44,7 @@ FocusScope {
     Keys.onPressed: {
         const a = Nav.action(event);
         if (Nav.isDirection(a)) {
-            const next = Nav.find(root, current, a);
+            const next = Nav.find(root, current, a, rowsHold);
             if (next) {
                 Nav.feedback("move");
                 focusItem(next);
@@ -53,6 +55,9 @@ FocusScope {
             }
         } else if ((a === "scroll-up" || a === "scroll-down") && scrollTarget) {
             scrollBy((a === "scroll-up" ? -1 : 1) * scrollTarget.height * 0.4);
+        } else if (a === "ignored") {
+            // A just after a window opened (Nav.acceptBlocked), or any button while input is
+            // paused (the start-up animation): taken and dropped, no sound
         } else if (a === "accept" && current) {
             // the item pressed: its action may select another one (e.g. a window's next page)
             const item = current;

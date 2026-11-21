@@ -11,15 +11,61 @@ import "foundation"
 NavArea {
     id: page
     property string section: "network"
-    readonly property var sections: ["network", "controllers", "audio", "display", "appearance", "language", "storage", "system"]
+    readonly property var sections: ["network", "controllers", "audio", "display", "appearance", "language", "storage", "system", "advanced"]
     property var network: null          // owneetd's network state (from the shell)
     property var controllers: []        // connected controllers (from the shell)
     property bool updatesFromStick: false   // a tester's PC: updates from the USB stick (4.2b)
     property string windowsText: ""     // Windows games: getting ready, ready… (4.5); "" without any
+    // Started from the USB stick (6.2, approved demo 6.2-live-settings): System says so and offers
+    // to install OwneetOS in place of the updates, which need an installed system
+    property bool live: false
+    signal install()
     signal checkUpdates()
+    // An installed system's updates (7.1, approved demo 7.1-updates): owneetd's GET /v1/system-update
+    property var systemUpdate: null
+    readonly property bool updatesOnline: !live && !updatesFromStick && systemUpdate !== null && systemUpdate.installed === true
+    signal openSystemUpdate()
+    signal goBackVersion()
+    signal otherVersions()              // any older version (7.1b)
+    function updateRow() {
+        const st = systemUpdate;
+        const v = { v: st.version, size: GameInfo.sizeAuto(st.size) };
+        if (!online)
+            return { text: Tr.tr("upd.check"), detail: Tr.tr("upd.offline"), value: "", badge: "" };
+        if (st.state === "available")
+            return { text: Tr.tr("upd.available", v), detail: Tr.tr("upd.size", v), value: "", badge: Tr.tr("upd.install") };
+        if (st.state === "downloading" || st.state === "installing")
+            return { text: Tr.tr("upd.available", v), value: "", badge: "",
+                     detail: st.state === "downloading" && st.percent < 100 ? Tr.tr("upd.downloading", { p: st.percent }) : Tr.tr("upd.installing") };
+        if (st.state === "ready")
+            return { text: Tr.tr("upd.ready", v), detail: Tr.tr("upd.ready.sub"), value: "", badge: Tr.tr("upd.restartnow") };
+        if (!st.checked)
+            return { text: Tr.tr("upd.check"), detail: "", value: "", badge: "" };
+        const d = new Date(st.checked);
+        const today = d.toDateString() === new Date().toDateString();
+        return { text: Tr.tr("upd.uptodate"), value: Tr.tr("upd.check"), badge: "",
+                 detail: today ? Tr.tr("upd.checked", { time: Qt.formatTime(d, "hh:mm") })
+                               : Tr.tr("upd.checked.on", { date: shortDate(d) }) };
+    }
+    function shortDate(d) {             // the language's short date, with the whole year (12/10/2026)
+        return Qt.formatDate(d, Qt.locale(Tr.language).dateFormat(Locale.ShortFormat).replace(/y+/, "yyyy"));
+    }
+    function previousDetail() {
+        const p = systemUpdate.previous;
+        if (!p)
+            return Tr.tr("upd.prev.none");
+        return Tr.tr("upd.prev.sub", { v: p.version || "—",
+                                       date: shortDate(new Date(p.since)) });
+    }
 
     signal openPalettes()
+    signal adjustDisplayArea()           // Display → "Display area" (3y)
+    signal openFiles()                   // Advanced → "File manager" (6.11)
     signal openLanguages()
+    signal openTimeZones()              // Language → Time zone (6.1)
+    signal openClock()                  // Language → Date and time: by hand without the internet
+    property var time: null             // owneetd's GET /v1/time: zone, date, time, synchronized
+    property bool online: true
     signal chooseOutput(var outputs, string current)
     signal chooseKeyboard(var layouts, string current)
     signal confirmPower(string action)
@@ -33,6 +79,9 @@ NavArea {
     signal failed(string message)       // a message key, shown as a toast
     signal quickMenu()                  // B on the list of sections: nothing to go back to (3.13)
     signal chooseDisplay(string what, var state)   // what: screen, resolution, rate
+    // Disks (6.7, approved demo 6.7-settings-disks): A on a disk prepares it for games; `shown` is
+    // the disk as its row names it
+    signal prepareDisk(var disk, var disks, string shown)
 
     scrollTarget: panel
 
@@ -51,9 +100,16 @@ NavArea {
         }
         if (current.kind === "pad" || current.device === true)
             return [P("a", "prompt.options"), P("b", "prompt.back")];
+        if (current.kind === "disk")
+            return [P("a", "disk.prep.prompt"), P("b", "prompt.back")];
         return [P("a", "prompt.select"), P("b", "prompt.back")];
     }
 
+    // 96%, 99,5 %: the part of the screen the display area uses, in the language's numbers
+    function displayAreaPercent(side) {
+        const v = Math.round((1 - 2 * side) * 1000) / 10;
+        return Tr.tr("area.percent", { n: Number(v).toLocaleString(Qt.locale(), "f", v % 1 === 0 ? 0 : 1) });
+    }
     function navItem(name) {
         for (let i = 0; i < navColumn.children.length; i++)
             if (navColumn.children[i].section === name)
@@ -139,6 +195,21 @@ NavArea {
     property var keyboardLayouts: []
     property string keyboardLayout: ""
     property var volumes: []
+    property var disks: []              // every disk (owneetd: GET /v1/disks), for preparing one (6.7)
+    // The disk a mounted volume is on, when it may be prepared (not the console's own, not OWNEETLOG)
+    function diskOf(volume) {
+        for (let i = 0; i < disks.length; i++) {
+            const d = disks[i];
+            if (d.console || d.owneetlog)
+                continue;
+            if ((d.partitions || []).some(p => p.mountpoint !== "" && p.mountpoint === volume.key))
+                return d;
+        }
+        return null;
+    }
+    // Disks with nothing the console can read on them: "Not ready for games"
+    readonly property var unreadyDisks: disks.filter(d => !d.console && !d.owneetlog
+                                                     && !(d.partitions || []).some(p => p.mountpoint !== ""))
     property var wifiNetworks: []
     property bool scanning: false
     property var bluetooth: null
@@ -150,7 +221,16 @@ NavArea {
         owneetd.get("/v1/input/layout", (status, data) => {
             if (status === 200) { page.keyboardLayouts = data.supported || []; page.keyboardLayout = data.layout || ""; }
         });
+        refreshDisks();
+    }
+    function refreshDisks() {
         volumes = storage.volumes();
+        owneetd.get("/v1/disks", (status, data) => { if (status === 200) page.disks = data.disks || []; });
+    }
+    // a disk plugged in, out, mounted or prepared: the list follows (6.7)
+    Connections {
+        target: storage
+        function onVolumesChanged() { page.refreshDisks(); }
     }
     // Networks nearby: the connected one first, then by signal; `scan` also asks for a new search
     function refreshNetworks(scan) {
@@ -167,6 +247,8 @@ NavArea {
             });
         }
     }
+    // the search ends with owneetd's "wifi.scan_done" (below); this is only its safety limit, should
+    // that never come ([[waiting-for-events]])
     Timer { id: scanTimer; interval: 20000; onTriggered: page.scanning = false }
     property var display: null
     function refreshDisplay() {
@@ -271,17 +353,26 @@ NavArea {
                         anchors.verticalCenter: parent.verticalCenter
                         width: Theme.fs(22); height: width
                         name: ({ network: "wifi", controllers: "controller", audio: "sound", display: "display", appearance: "palette",
-                                 language: "globe", storage: "disks", system: "gear" })[modelData]
+                                 language: "globe", storage: "disks", system: "gear", advanced: "sliders" })[modelData]
                         color: parent.shown ? Theme.fg : Theme.muted
                     }
-                    Text {
+                    FitText {           // too long for the list: "…", or scrolling while selected (3s)
                         id: navText
                         anchors { left: navIcon.right; leftMargin: Theme.px(14); verticalCenter: parent.verticalCenter }
+                        width: parent.width - x - Theme.px(16) - (updateDot.visible ? updateDot.width + Theme.px(10) : 0)
                         text: Tr.tr("settings." + modelData)
                         color: parent.shown ? Theme.fg : Theme.muted
                         font.family: Theme.textFont
                         font.weight: parent.shown ? Font.Medium : Font.Normal
                         font.pixelSize: Theme.fs(17)
+                    }
+                    Rectangle {             // System: an update is available (7.1)
+                        id: updateDot
+                        visible: modelData === "system" && page.updatesOnline && page.online && page.systemUpdate.state === "available"
+                        anchors { right: parent.right; rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
+                        width: Theme.px(9); height: width
+                        radius: width / 2
+                        color: Theme.accent
                     }
                     FocusFrame {}
                 }
@@ -388,7 +479,7 @@ NavArea {
                                     level: modelData.strength >= 67 ? 3 : modelData.strength >= 34 ? 2 : 1
                                     color: Theme.fg
                                 }
-                                Text {
+                                FitText {
                                     id: ssid
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: Math.min(implicitWidth, netRow.width * 0.55)
@@ -396,7 +487,6 @@ NavArea {
                                     color: Theme.fg
                                     font.family: Theme.textFont
                                     font.pixelSize: Theme.fs(14.5)
-                                    elide: Text.ElideRight
                                 }
                             }
                             Row {
@@ -494,13 +584,12 @@ NavArea {
                                 anchors { left: padIcon.right; leftMargin: Theme.px(10); verticalCenter: parent.verticalCenter }
                                 width: parent.width * 0.6
                                 spacing: Theme.px(2)
-                                Text {
+                                FitText {
                                     width: parent.width
                                     text: modelData.name
                                     color: Theme.fg
                                     font.family: Theme.textFont
                                     font.pixelSize: Theme.fs(14.5)
-                                    elide: Text.ElideRight
                                 }
                                 Text {
                                     text: Tr.tr("pad.connection." + (["usb", "bluetooth", "dongle"].indexOf(modelData.connection) >= 0 ? modelData.connection : "other"))
@@ -649,13 +738,8 @@ NavArea {
                         text: Tr.tr("display.one")
                         value: page.screenName(page.screens[0])
                     }
-                    SettingSlider {              // only on screens that allow it (laptops, many monitors)
-                        visible: page.display !== null && page.display.brightness !== undefined
-                        width: parent.width
-                        text: Tr.tr("display.brightness")
-                        value: page.display && page.display.brightness !== undefined ? page.display.brightness : 0
-                        onMoved: owneetd.put("/v1/display/brightness", { value: value })
-                    }
+                    // No brightness here in Wave 1 (owner, 2026-11-12: it did nothing on the FrankenPC);
+                    // brightness comes back in Wave 2 (owneetd keeps /v1/display/brightness)
                     SettingRow {
                         visible: page.modes.length > 0
                         width: parent.width
@@ -676,6 +760,17 @@ NavArea {
                         visible: page.activeScreen !== null && page.activeScreen.internal && page.display.available
                         width: parent.width
                         text: Tr.tr("display.native")
+                    }
+                    // For a TV that cuts the edges of the picture (3y, approved demo 3.9c-display-area);
+                    // it replaces "Show TV safe area" in Appearance
+                    SettingRow {
+                        width: parent.width
+                        kind: "picker"
+                        text: Tr.tr("area.title")
+                        detail: Tr.tr("area.detail")
+                        value: Theme.areaX === 0 && Theme.areaY === 0 ? Tr.tr("area.full")
+                               : Tr.tr("area.size", { w: page.displayAreaPercent(Theme.areaX), h: page.displayAreaPercent(Theme.areaY) })
+                        onActivated: page.adjustDisplayArea()
                     }
                 }
 
@@ -731,12 +826,6 @@ NavArea {
                         checked: Theme.reduceMotion
                         onActivated: Theme.reduceMotion = !Theme.reduceMotion
                     }
-                    SettingRow {
-                        width: parent.width
-                        text: Tr.tr("appearance.safe_area")
-                        checked: Theme.showSafeArea
-                        onActivated: Theme.showSafeArea = !Theme.showSafeArea
-                    }
                 }
 
                 // ---- Language
@@ -762,6 +851,32 @@ NavArea {
                             : Tr.tr("keyboard." + Theme.keyboardSetting)
                         onActivated: page.chooseKeyboard(page.keyboardLayouts, Theme.keyboardSetting)
                     }
+                    // the time zone: a city (the one chosen, for zones with several), never guessed
+                    SettingRow {
+                        readonly property string zone: page.time ? page.time.zone : ""
+                        readonly property string city: TimeZones.cityOf(zone, api.memory.has("city") ? api.memory.get("city") : "")
+                        visible: page.time !== null
+                        width: parent.width
+                        kind: "picker"
+                        text: Tr.tr("language.time_zone")
+                        detail: Tr.tr("language.time_zone.detail")
+                        value: (city !== "" ? Tr.tr("city." + city) : zone) + " · " + TimeZones.utcLabel(zone)
+                        onActivated: page.openTimeZones()
+                    }
+                    // the date and time: from the internet, or by hand without it
+                    SettingRow {
+                        visible: page.time !== null
+                        width: parent.width
+                        kind: "picker"
+                        text: Tr.tr("language.time")
+                        detail: page.online ? Tr.tr("language.time.net") : Tr.tr("language.time.pc")
+                        value: {
+                            if (!page.time) return "";
+                            const d = String(page.time.date).split("-");    // 29/10/2026 21:14
+                            return (d.length === 3 ? d[2] + "/" + d[1] + "/" + d[0] + " " : "") + page.time.time;
+                        }
+                        onActivated: page.openClock()
+                    }
                 }
 
                 // ---- Storage
@@ -772,10 +887,17 @@ NavArea {
                     Repeater {
                         model: page.volumes
                         InfoRow {
+                            // 6.7: every disk but the console's own can be prepared for games
+                            readonly property var disk: page.diskOf(modelData)
+                            readonly property string kind: "disk"
+                            readonly property string key: "volume:" + modelData.key
+                            selectable: disk !== null && !page.live
+                            onActivated: page.prepareDisk(disk, page.disks, modelData.name || disk.model)
                             width: parent.width
                             text: modelData.name || Tr.tr("disk.internal")
                             value: Tr.tr("disk.of", { free: GameInfo.size(modelData.free), total: GameInfo.size(modelData.total) })
-                            detail: modelData.readOnly ? Tr.tr("disk.note.readonly") : ""
+                            detail: modelData.key === "internal" ? Tr.tr("disk.console")
+                                    : modelData.readOnly ? Tr.tr(modelData.why === "windows" ? "disk.note.windows" : "disk.note.readonly") : ""
                             Rectangle {
                                 width: parent.width; height: Theme.px(6); radius: height / 2
                                 color: Theme.raised
@@ -787,6 +909,29 @@ NavArea {
                             }
                         }
                     }
+                    Repeater {
+                        model: page.unreadyDisks
+                        InfoRow {
+                            readonly property string kind: "disk"
+                            readonly property string key: "disk:" + modelData.path
+                            selectable: !page.live
+                            onActivated: page.prepareDisk(modelData, page.disks, modelData.model || modelData.path)
+                            width: parent.width
+                            text: modelData.model || modelData.path
+                            value: GameInfo.size(modelData.size)
+                            detail: Tr.tr("disk.notready")
+                        }
+                    }
+                    Text {
+                        visible: page.live
+                        width: parent.width
+                        topPadding: Theme.px(4)
+                        text: Tr.tr("disk.prep.live")
+                        color: Theme.muted
+                        font.family: Theme.textFont
+                        font.pixelSize: Theme.fs(14.5)
+                        wrapMode: Text.Wrap
+                    }
                 }
 
                 // ---- System
@@ -797,7 +942,22 @@ NavArea {
                     InfoRow {
                         width: parent.width
                         text: Tr.tr("system.version")
-                        value: systemInfo.version || "—"
+                        value: page.live ? Tr.tr("live.version", { v: systemInfo.version || "—" }) : (systemInfo.version || "—")
+                    }
+                    SettingRow {
+                        visible: page.live
+                        width: parent.width
+                        kind: "action"
+                        text: Tr.tr("live.install.pc")
+                        detail: Tr.tr("live.install.pc.detail")
+                        badge: Tr.tr("prompt.install")
+                        onActivated: page.install()
+                    }
+                    InfoRow {
+                        visible: page.live
+                        width: parent.width
+                        text: Tr.tr("live.updates")
+                        value: Tr.tr("live.updates.later")
                     }
                     InfoRow {                   // what Windows games need, downloaded once (4.5)
                         visible: page.windowsText !== ""
@@ -806,7 +966,35 @@ NavArea {
                         detail: Tr.tr("system.windows.detail")
                         value: page.windowsText
                     }
+                    SettingRow {                // the update: check, install, restart (7.1)
+                        readonly property var row: page.updatesOnline ? page.updateRow() : ({})
+                        visible: page.updatesOnline
+                        width: parent.width
+                        kind: "action"
+                        text: row.text || ""
+                        detail: row.detail || ""
+                        value: row.value || ""
+                        badge: row.badge || ""
+                        onActivated: page.openSystemUpdate()
+                    }
                     SettingRow {
+                        visible: page.updatesOnline
+                        width: parent.width
+                        kind: "action"
+                        text: Tr.tr("upd.prev")
+                        detail: page.updatesOnline ? page.previousDetail() : ""
+                        onActivated: page.goBackVersion()
+                    }
+                    SettingRow {                // any older version (7.1b)
+                        visible: page.updatesOnline
+                        width: parent.width
+                        kind: "picker"
+                        text: Tr.tr("upd.other")
+                        detail: Tr.tr("upd.other.sub")
+                        onActivated: page.otherVersions()
+                    }
+                    SettingRow {
+                        visible: !page.live && !page.updatesOnline
                         width: parent.width
                         kind: "picker"
                         text: Tr.tr("system.updates")
@@ -850,6 +1038,20 @@ NavArea {
                         text: Tr.tr("system.credits")
                         detail: Tr.tr("system.credits.detail")
                         onActivated: page.openCredits()
+                    }
+                }
+
+                // ---- Advanced (6.11, approved demo design/demos/6.11-file-manager.html)
+                Column {
+                    visible: page.section === "advanced"
+                    width: parent.width
+                    spacing: Theme.px(12)
+                    SettingRow {
+                        width: parent.width
+                        kind: "picker"
+                        text: Tr.tr("advanced.files")
+                        detail: Tr.tr("advanced.files.detail")
+                        onActivated: page.openFiles()
                     }
                 }
             }

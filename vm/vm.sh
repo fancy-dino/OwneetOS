@@ -35,6 +35,8 @@ OwneetOS VM manager
         --evdev PATH    pass a host input device (e.g. a gamepad) to the guest; repeatable
         --gl            3D-accelerated virtual GPU (virgl), needed for gamescope
         --audio         two virtual sound cards (built-in HDA + USB), silent on the host
+        --audio-record  with --audio: what each card plays is saved in vm/run/NAME/
+                        audio-builtin.wav and audio-usb.wav (made anew at each start)
         --kernel-args S extra kernel command line, appended by systemd-boot (SMBIOS type 11)
         --tools DIR     a host folder seen by the guest as a small read-only FAT disk (test tools)
         --stick IMAGE   a disk image plugged in as a USB stick (e.g. an OWNEETLOG stick)
@@ -45,7 +47,8 @@ OwneetOS VM manager
   vm/vm.sh revert   NAME TAG          Bring all disks back to a saved state (VM stopped)
   vm/vm.sh snapshots NAME             List saved states
   vm/vm.sh screenshot NAME FILE.png   Save what the VM's screen shows
-  vm/vm.sh keys NAME COMBO            Press a key combination, e.g. ctrl-alt-f9 (QEMU key names)
+  vm/vm.sh keys NAME COMBO[@MS]       Press a key combination, e.g. ctrl-alt-f9 (QEMU key names);
+                                      @MS holds it for MS milliseconds (e.g. ret@3500)
   vm/vm.sh reset-firmware NAME        Fresh UEFI variables (lost boot entries); disks untouched
   vm/vm.sh status  NAME               Show whether a VM is running
   vm/vm.sh list                       List VMs
@@ -122,8 +125,12 @@ s.settimeout(10)
 s.connect(sys.argv[1])
 f = s.makefile("rw")
 f.readline()  # greeting
-keys = [{"type": "qcode", "data": k} for k in sys.argv[2].split("-")]
-for cmd in ({"execute": "qmp_capabilities"}, {"execute": "send-key", "arguments": {"keys": keys}}):
+combo, _, hold = sys.argv[2].partition("@")
+keys = [{"type": "qcode", "data": k} for k in combo.split("-")]
+args = {"keys": keys}
+if hold:
+    args["hold-time"] = int(hold)
+for cmd in ({"execute": "qmp_capabilities"}, {"execute": "send-key", "arguments": args}):
     f.write(json.dumps(cmd) + "\n"); f.flush()
     while True:
         msg = json.loads(f.readline())
@@ -195,7 +202,7 @@ cmd_create() {
 cmd_start() {
     local name="${1:-}"; shift || true
     check_name "$name"
-    local iso="" headless=0 mem="$DEFAULT_MEM_MB" cpus="$DEFAULT_CPUS" net=1 ssh_port="" seed_url="" gl=0 audio=0
+    local iso="" headless=0 mem="$DEFAULT_MEM_MB" cpus="$DEFAULT_CPUS" net=1 ssh_port="" seed_url="" gl=0 audio=0 record=0
     local evdevs=() kargs="" tools="" stick=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -209,6 +216,7 @@ cmd_start() {
             --evdev)    evdevs+=("${2:-}"); shift 2 ;;
             --gl)       gl=1; shift ;;
             --audio)    audio=1; shift ;;
+            --audio-record) record=1; shift ;;
             --kernel-args) kargs="${2:-}"; shift 2 ;;
             --tools)    tools="${2:-}"; shift 2 ;;
             --stick)    stick="${2:-}"; shift 2 ;;
@@ -218,6 +226,7 @@ cmd_start() {
     [[ "$mem" =~ ^[0-9]+$ && "$cpus" =~ ^[0-9]+$ ]] || die "--mem and --cpus need numbers."
     [[ -z "$ssh_port" || "$ssh_port" =~ ^[0-9]+$ ]] || die "--ssh-port needs a number."
     (( net )) || [[ -z "$ssh_port" && -z "$seed_url" ]] || die "--ssh-port and --seed-url need the network (drop --no-net)."
+    (( audio || ! record )) || die "--audio-record needs --audio."
 
     check_host
     find_firmware
@@ -282,9 +291,17 @@ cmd_start() {
     if (( audio )); then
         # Two outputs to test output selection: a built-in HDA card and a USB card. The "none"
         # backend discards the sound (nothing plays on the host). Fixed PCI slots, as above.
+        # --audio-record: each card writes what it plays into a WAV file in the VM's run folder
+        # (QEMU's "wav" backend), so a test can tell which sounds played and when.
+        local builtin="snd0" usb="snd0"
+        if (( record )); then
+            builtin="rec0"; usb="rec1"
+            args+=(-audiodev "wav,id=rec0,path=$(vm_run_dir "$name")/audio-builtin.wav"
+                   -audiodev "wav,id=rec1,path=$(vm_run_dir "$name")/audio-usb.wav")
+        fi
         args+=(-audiodev "none,id=snd0"
-               -device "ich9-intel-hda,addr=0x11" -device "hda-output,audiodev=snd0"
-               -device "qemu-xhci,addr=0x12" -device "usb-audio,audiodev=snd0")
+               -device "ich9-intel-hda,addr=0x11" -device "hda-output,audiodev=$builtin"
+               -device "qemu-xhci,addr=0x12" -device "usb-audio,audiodev=$usb")
     fi
     if (( net )); then
         local nic="user,model=virtio-net-pci"
@@ -296,8 +313,17 @@ cmd_start() {
         args+=(-nic none)
     fi
 
+    # OWNEET_VM_RES=WIDTHxHEIGHT: the virtual screen's size (e.g. 1920x1080, a Full HD TV); unset: QEMU's own
+    local res="" xres yres
+    if [[ -n "${OWNEET_VM_RES:-}" ]]; then
+        [[ "$OWNEET_VM_RES" =~ ^([0-9]{3,4})x([0-9]{3,4})$ ]] || die "OWNEET_VM_RES must be WIDTHxHEIGHT, e.g. 1920x1080"
+        xres="${BASH_REMATCH[1]}" yres="${BASH_REMATCH[2]}"
+        res=",xres=$xres,yres=$yres"
+    fi
     if (( headless )); then
-        if (( gl )); then args+=(-device virtio-vga-gl -display egl-headless); else args+=(-display none); fi
+        if (( gl )); then args+=(-device "virtio-vga-gl$res" -display egl-headless)
+        elif [[ -n "$res" ]]; then args+=(-device "virtio-vga$res" -display none)
+        else args+=(-display none); fi
         args+=(-daemonize)
         qemu-system-x86_64 "${args[@]}" 2>"$run/qemu.log" || die "QEMU failed to start, see vm/run/$name/qemu.log"
         info "VM '$name' running in the background (pid $(cat "$run/qemu.pid")); serial log: vm/run/$name/serial.log"
@@ -306,7 +332,9 @@ cmd_start() {
             die "QEMU cannot open windows on this host. Install its GUI support (Debian/Ubuntu/Mint: qemu-system-gui;
        Arch: qemu-ui-gtk), or use --headless."
         fi
-        if (( gl )); then args+=(-device virtio-vga-gl -display "gtk,gl=on"); else args+=(-vga virtio -display gtk); fi
+        if (( gl )); then args+=(-device "virtio-vga-gl$res" -display "gtk,gl=on")
+        elif [[ -n "$res" ]]; then args+=(-device "virtio-vga$res" -display gtk)
+        else args+=(-vga virtio -display gtk); fi
         info "starting VM '$name' in a window; close the window to power it off"
         qemu-system-x86_64 "${args[@]}"
     fi
@@ -414,7 +442,7 @@ cmd_screenshot() {
 cmd_keys() {
     local name="${1:-}" combo="${2:-}"
     check_name "$name"
-    [[ "$combo" =~ ^[a-z0-9_]+(-[a-z0-9_]+)*$ ]] || die "usage: vm/vm.sh keys NAME COMBO (e.g. ctrl-alt-f9)"
+    [[ "$combo" =~ ^[a-z0-9_]+(-[a-z0-9_]+)*(@[0-9]{1,5})?$ ]] || die "usage: vm/vm.sh keys NAME COMBO[@MS] (e.g. ctrl-alt-f9, ret@3500)"
     vm_pid "$name" >/dev/null || die "VM '$name' is not running."
     qmp_keys "$(vm_run_dir "$name")/qmp.sock" "$combo" || die "could not send keys '$combo'"
 }

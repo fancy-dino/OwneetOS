@@ -56,9 +56,10 @@ type Manager struct {
 	// OnGuide is called when the Guide button goes down or up (after the events are published).
 	OnGuide func(controller string, down bool)
 
-	mu    sync.Mutex
-	devs  map[string]*tracked // by device path
-	ready chan struct{}
+	mu       sync.Mutex
+	devs     map[string]*tracked // by device path
+	ready    chan struct{}
+	released []chan struct{} // closed once nothing is held (WhenReleased)
 }
 
 type tracked struct {
@@ -67,6 +68,8 @@ type tracked struct {
 	guideCode int  // -1 if unknown
 	companion bool // not a gamepad, but may carry the Guide button of one (KEY_HOMEPAGE)
 	keyboard  bool // a keyboard: its Super keys are Guide
+	// buttons and keys down now (WhenReleased)
+	held map[uint16]bool
 }
 
 // pad: a controller (not a companion device or a keyboard), listed and reported to the API.
@@ -193,6 +196,11 @@ func (m *Manager) add(path string) {
 		}
 		return
 	}
+	if m.fromProgram(dev) {
+		m.Log.Debug("input device left out: made by a program", "path", path, "name", dev.Name)
+		dev.Close()
+		return
+	}
 	t := &tracked{dev: dev, guideCode: -1}
 	switch {
 	case IsGamepad(dev):
@@ -247,6 +255,9 @@ func (m *Manager) read(path string, t *tracked) {
 			return
 		}
 		for _, ev := range evs {
+			if ev.Type == evdev.EvKey && ev.Value <= 1 {
+				m.hold(t, ev.Code, ev.Value == 1)
+			}
 			// Value 1: pressed, 0: released, 2: autorepeat (ignored).
 			if ev.Type != evdev.EvKey || !t.isGuide(int(ev.Code)) || ev.Value > 1 {
 				continue
@@ -280,10 +291,53 @@ func (m *Manager) hasController(id string) bool {
 	return false
 }
 
+// hold notes a button or key going down or up; when nothing is held any more, WhenReleased's
+// waiters go on.
+func (m *Manager) hold(t *tracked, code uint16, down bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if t.held == nil {
+		t.held = map[uint16]bool{}
+	}
+	if down {
+		t.held[code] = true
+		return
+	}
+	delete(t.held, code)
+	m.wakeReleased()
+}
+
+// wakeReleased closes WhenReleased's channels if nothing is held; callers hold m.mu.
+func (m *Manager) wakeReleased() {
+	for _, t := range m.devs {
+		if len(t.held) > 0 {
+			return
+		}
+	}
+	for _, ch := range m.released {
+		close(ch)
+	}
+	m.released = nil
+}
+
+// WhenReleased returns a channel closed once no button or key is held on any controller or
+// keyboard (at once if none is). A game brought back to the front waits for it: the A that chose
+// "Resume" on the home screen, still held, must not reach the game (The Witcher 2 on FrankenPC,
+// owner, 2026-11-09).
+func (m *Manager) WhenReleased() <-chan struct{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	ch := make(chan struct{})
+	m.released = append(m.released, ch)
+	m.wakeReleased()
+	return ch
+}
+
 func (m *Manager) remove(path string) {
 	m.mu.Lock()
 	t, ok := m.devs[path]
 	delete(m.devs, path)
+	m.wakeReleased() // its buttons are not held any more
 	m.mu.Unlock()
 	if !ok {
 		return
@@ -404,6 +458,18 @@ func (m *Manager) driverName(d *evdev.Device) string {
 		return ""
 	}
 	return filepath.Base(link)
+}
+
+// testDevicePrefix names the project's own test devices (owneet-testpad, the uinput tests).
+const testDevicePrefix = "OwneetOS Test"
+
+// fromProgram: a device a program made through uinput (/sys/devices/virtual/input/…), not one the
+// player holds: Steam's virtual controller ("Microsoft X-Box 360 pad 0" while Steam runs: listed as
+// a second controller and its Guide read, owner's report, FrankenPC 2026-11-09), virtual keyboards
+// (owneetd's own too). Never listed nor read ([[step-2.3-controller-input]]). Bluetooth controllers
+// come through uhid (/sys/devices/virtual/misc/uhid/…) and stay; so do the project's test devices.
+func (m *Manager) fromProgram(d *evdev.Device) bool {
+	return strings.Contains(m.sysDevice(d), "/devices/virtual/input/") && !strings.HasPrefix(d.Name, testDevicePrefix)
 }
 
 // sysDevice is /sys/class/input/eventN/device resolved to its real path.

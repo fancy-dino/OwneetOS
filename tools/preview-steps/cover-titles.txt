@@ -1,0 +1,19 @@
+@owneetd
+@steam
+@disk
+@longtitle
+# Covers' titles on one line (approved demo 3.7b): "…" when a title does not fit, scrolling while
+# its cover is highlighted; the badge never over it.
+pad rb
+wait 1
+shot 01-library
+wait 3
+shot 02-first-scrolling
+pad right right right
+wait 3.5
+shot 03-long-title-scrolling
+pad rt rt rt rt
+wait 1
+pad down down down
+wait 3.5
+shot 04-local-installers

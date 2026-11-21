@@ -1,0 +1,10 @@
+# The credits open with the authors, side by side (approved demo 3.9b), then the projects.
+pad lb
+pad down down down down down down down
+wait 0.5
+pad right down down
+wait 0.5
+shot 00-system-credits-row
+pad a
+wait 1.5
+shot 01-credits-authors

@@ -125,6 +125,19 @@ QString I18n::tr(const QString& key, const QVariantMap& args) const
     return key;
 }
 
+QString I18n::trIn(const QString& tag, const QString& key) const
+{
+    for (const QString& t : {tag, DEFAULT_LANGUAGE}) {
+        const Language* lang = find(t);
+        if (!lang)
+            continue;
+        const QJsonValue value = lang->messages.value(key);
+        if (value.isString())
+            return format(value.toString(), {});
+    }
+    return key;
+}
+
 QString I18n::trn(const QString& key, int n, const QVariantMap& args) const
 {
     QVariantMap all = args;

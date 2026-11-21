@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The download size of going back to the older release %i (owneet-updates size,
+# [[step-7.1b-going-back-to-any-version]]), for the warning in Settings → System; started by owneetd
+# (polkit rule 50-owneet-updates.rules).
+[Unit]
+Description=OwneetOS: the size of going back to %i
+ConditionPathExists=/etc/owneet/installed
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/owneet/owneet-updates size %i
+TimeoutStartSec=5min

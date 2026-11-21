@@ -1,0 +1,21 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Writes a message under the spinner of the boot and shutdown splash: the message `$1` of the interface's
+# message files, in the language chosen in the console (its settings file), else in English. Without
+# message files (a system without the interface) the splash stays without a message.
+#
+#   owneet-splash-message splash.starting
+
+key="${1:?message key}"
+lang="$(sed -n 's/^general\.locale: *//p' /home/owneet/.config/owneet-frontend/settings.txt 2>/dev/null | head -n 1)"
+[[ "$lang" =~ ^[A-Za-z-]+$ ]] || lang=en
+
+text=""
+for file in "/usr/share/owneet-frontend/i18n/$lang.json" /usr/share/owneet-frontend/i18n/en.json; do
+    [[ -r "$file" ]] || continue
+    text="$(sed -n "s/^ *\"${key//./\\.}\": \"\(.*\)\",\{0,1\}\$/\1/p" "$file")"
+    [[ -n "$text" ]] && break
+done
+
+[[ -n "$text" ]] && plymouth display-message --text="$text"
+exit 0

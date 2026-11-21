@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // A settings row: a label on the left and, on the right, a switch (kind "switch"), the current
 // value with an arrow that opens a picker (kind "picker"), or an action with an optional state
-// text and no arrow (kind "action", e.g. "Search again").
+// text and no arrow (kind "action", e.g. "Search again"); `badge` shows the action in an accent
+// pill (e.g. "Install").
 import QtQuick 2.15
 
 Rectangle {
     id: root
     property string text: ""
     property string detail: ""         // a second, smaller line under the label
+    property string aside: ""          // a short muted text after the label, on its line (a size, demo 6.6b)
     property string kind: "switch"
     property bool checked: false
     property string value: ""
     property var swatches: []          // small color strip shown before the value
+    property string badge: ""
     readonly property bool navigable: true
     readonly property string feedbackKind: kind === "switch" ? (checked ? "toggle-off" : "toggle-on") : "confirm"
     signal activated()
@@ -27,14 +30,26 @@ Rectangle {
         anchors { left: parent.left; leftMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
         width: parent.width * 0.6
         spacing: Theme.px(2)
-        Text {
-            id: label
+        Row {
             width: parent.width
-            text: root.text
-            color: Theme.fg
-            font.family: Theme.textFont
-            font.pixelSize: Theme.fs(14.5)
-            elide: Text.ElideRight
+            spacing: Theme.px(6)
+            FitText {
+                id: label
+                width: Math.min(implicitWidth, parent.width - (asideText.visible ? asideText.implicitWidth + parent.spacing : 0))
+                text: root.text
+                color: Theme.fg
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(14.5)
+            }
+            Text {
+                id: asideText
+                visible: root.aside !== ""
+                anchors.baseline: label.baseline
+                text: "· " + root.aside
+                color: Theme.muted
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(12.5)
+            }
         }
         Text {
             visible: root.detail !== ""
@@ -57,7 +72,24 @@ Rectangle {
                 Rectangle { width: Theme.px(12); height: Theme.px(16); color: modelData }
             }
         }
+        Rectangle {
+            visible: root.badge !== ""
+            anchors.verticalCenter: parent.verticalCenter
+            width: badgeText.implicitWidth + Theme.px(20)
+            height: badgeText.implicitHeight + Theme.px(4)
+            radius: height / 2
+            color: Theme.accent
+            Text {
+                id: badgeText
+                anchors.centerIn: parent
+                text: root.badge
+                color: Theme.onAccent
+                font.family: Theme.textFont
+                font.pixelSize: Theme.fs(12.5)
+            }
+        }
         Text {
+            visible: text !== ""
             anchors.verticalCenter: parent.verticalCenter
             text: root.kind === "picker" ? root.value + "  ›" : root.value
             color: Theme.muted

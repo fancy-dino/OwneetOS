@@ -2,15 +2,16 @@
 // Input map and navigation, shared by every screen ([[controller-input-map]]):
 //   action(event)  turns a key event into what it means here:
 //     up, down, left, right   move the selection (D-pad, left stick; they repeat when held)
-//     accept (A), back (B), secondary (X), page (Y), options (Menu)
+//     accept (A), back (B), secondary (X), page (Y), options (Menu); "ignored": A just after a window
+//     opened (windowOpened, acceptBlocked), or any button while input is paused (inputPaused)
 //     section-prev / section-next (LB / RB), filter-prev / filter-next (LT / RT)
 //     scroll-up / scroll-down (right stick, repeats: fast scrolling)
 //   Guide never reaches the interface (owned by owneetd).
 //   find(area, from, direction)  spatial navigation: the nearest navigable item that way.
 //   feedback(kind)  what just happened, for the interface sounds ([[step-3.12-interface-sounds]]):
 //     move, edge, confirm, back, section, tab, toggle-on, toggle-off, sheet-open, sheet-close,
-//     launch, notify (news, something completed, e.g. Wi-Fi connected), notify-error (a
-//     notification that needs attention), error (something just done failed). The sounds
+//     launch, notify (a notification: news, something completed, something to act on), error
+//     (something just done failed, or cannot be done now, e.g. offline). The sounds
 //     listen to `played`: one per button press, the most specific one ("confirm" only when the
 //     action that follows, e.g. opening a window, reports nothing of its own).
 pragma Singleton
@@ -20,6 +21,37 @@ QtObject {
     signal played(string kind)
     property real lastPageStep: 0
     property string lastPage: ""
+
+    // A window just opened takes no A for windowAcceptDelay ms: one press of the controller can reach
+    // the interface twice about 50 ms apart (FrankenPC, 2026-11-09: "A ignored, 47 ms after opening"),
+    // and the second must not confirm the window the first one opened. Every window calls
+    // windowOpened() (Dialog, Sheet, the quick menu, the clock, the on-screen keyboards); A ignored
+    // reads as "ignored" from action() and is logged.
+    readonly property int windowAcceptDelay: 300
+    property real windowOpenedAt: 0
+    property real lastIgnoredLog: 0
+    function windowOpened() { windowOpenedAt = Date.now(); }
+    // While the start-up animation plays every button is ignored, with no sound and no action
+    // (owner, FrankenPC, 2026-11-09: buttons pressed during it played the interface's sounds)
+    property bool inputPaused: false
+    // The Home prompt (Guide) only while Guide leads to the home screen: nothing running (no game,
+    // media app or Steam; with one, Guide goes back to it), and not already there (owner,
+    // 2026-11-14, 2026-11-17). Set by the theme.
+    property bool homePrompt: true
+    // true (and logged, once per press) when A comes too soon after a window opened; always true
+    // while input is paused
+    function acceptBlocked() {
+        if (inputPaused)
+            return true;
+        const since = Date.now() - windowOpenedAt;
+        if (since >= windowAcceptDelay)
+            return false;
+        if (Date.now() - lastIgnoredLog > 20) {      // one line per press (parents read it again)
+            lastIgnoredLog = Date.now();
+            console.log("A ignored, " + since + " ms after a window opened");
+        }
+        return true;
+    }
 
     property bool confirmPending: false
     function feedback(kind) {
@@ -39,6 +71,8 @@ QtObject {
     }
 
     function action(event) {
+        if (inputPaused)
+            return "ignored";
         const k = api.keys;
         if (k.isUp(event)) return "up";
         if (k.isDown(event)) return "down";
@@ -63,7 +97,7 @@ QtObject {
         }
         if (event.isAutoRepeat)
             return "";
-        if (k.isAccept(event)) return "accept";
+        if (k.isAccept(event)) return acceptBlocked() ? "ignored" : "accept";
         if (k.isCancel(event)) return "back";
         if (k.isDetails(event)) return "secondary";
         if (k.isFilters(event)) return "page";
@@ -97,11 +131,13 @@ QtObject {
     // direction (the one overlapping the selection most). Entering sideways returns to the item
     // selected there last time (the first item the first time); entering up or down goes to the
     // nearest item. Returns null at the edge.
-    function find(root, from, direction) {
+    // `rows`: left / right never leave the selected item's row (a window whose buttons take two rows)
+    function find(root, from, direction, rows) {
         if (!from)
             return navigables(root)[0] || null;
         const group = groupOf(root, from);
-        const inside = nearest(root, navigables(group || root), from, direction, group !== null);
+        const sideways = direction === "left" || direction === "right";
+        const inside = nearest(root, navigables(group || root), from, direction, group !== null || (rows === true && sideways));
         if (inside || !group)
             return inside;
 

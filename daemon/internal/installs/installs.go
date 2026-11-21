@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package installs installs games from the installers found in their folders
-// ([[step-4.6-installers]], owner 2026-10-19, [[games-on-disk]]): on the console's own disk, in
-// its games folder, one at a time, in the background.
+// ([[step-4.6-installers]], owner 2026-10-19, [[games-on-disk]]): on the disk of the installer, in
+// place (owner, 2026-11-12: the user chooses the disk by putting the installer there), on the
+// console's own disk when that disk is read only; one at a time, in the background.
 //
 // GOG's Linux installers (.sh, MojoSetup) are extracted, never run: their data/noarch is the
 // game, and the archive gives the exact size (the only installers with a percentage). Windows
@@ -21,12 +22,15 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/gamedata"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/syncdisk"
 )
 
 // Kinds of installers the console can use.
@@ -78,6 +82,8 @@ type Install struct {
 	State string `json:"state"`
 	Done  int64  `json:"done"`  // bytes written
 	Total int64  `json:"total"` // bytes to write; 0 for Windows installers (no percentage)
+	// Stalled: a Windows installer has written nothing for StallAfter (6.8): it seems stuck
+	Stalled bool `json:"stalled,omitempty"`
 }
 
 // Status is GET /v1/installs and the "installs.changed" event.
@@ -119,18 +125,32 @@ type Manager struct {
 	// WindowsRun is owneet-windows-run; Env the console session's variables (DISPLAY…) for it.
 	WindowsRun string
 	Env        func() []string
-	Runner     Runner
+	// WindowsReady tells whether Proton is ready for Windows installers (nil: owneet-windows-run's
+	// exit code 3 alone says it is not)
+	WindowsReady func() bool
+	Runner       Runner
 	// Free tells the free bytes of the disk holding path (statfs by default).
 	Free func(path string) (int64, error)
 	// InUse tells whether a process works in a folder (its working folder or its program is in
 	// it: /proc by default)
 	InUse func(dir string) bool
+	// External tells whether a folder is on a disk plugged in from outside (USB; gamedata.External
+	// by default): there a game's own data stay when it is removed
+	External func(dir string) bool
+	// Media is where the console mounts the disks (default /run/media/owneet): games there can be
+	// deleted and uninstalled too (6.8)
+	Media string
+	// StallAfter: a Windows installer that writes nothing this long seems stuck (default 10 minutes)
+	StallAfter time.Duration
 
 	mu    sync.Mutex
 	queue []*job
 	kick  chan struct{}
 	once  sync.Once
 	sent  time.Time // the last "installs.changed" sent while bytes move
+
+	// cut short on a disk not plugged in when owneetd started: kept for a later start with the disk in
+	laterCutShort []string
 }
 
 type job struct {
@@ -155,6 +175,9 @@ func (m *Manager) init() {
 		}
 		if m.InUse == nil {
 			m.InUse = procInUse
+		}
+		if m.External == nil {
+			m.External = gamedata.External
 		}
 	})
 }
@@ -191,14 +214,27 @@ func within(path, dir string) bool {
 	return strings.HasPrefix(path, dir+string(filepath.Separator))
 }
 
-// gamesDest checks that dest is a game's folder in a games folder of the home folder.
+// colons are refused in an installed game's folder name: Linux uses ":" to separate the folders
+// of a list (the libraries' folders, ICU's data folders: The Witcher 2 could not start).
+var colons = regexp.MustCompile(`\s*:\s*`)
+
+// FolderName is the name of the folder a game is installed into: its game folder's name, with
+// ": " written " - " (owner, 2026-11-11, [[games-on-disk]]). The interface uses the same rule
+// (DiskGames::installFolderName).
+func FolderName(name string) string {
+	return strings.TrimSpace(colons.ReplaceAllString(name, " - "))
+}
+
+// gamesDest checks that dest is a game's folder in a games folder of the home folder or at the top
+// of a disk the console mounted (a game is installed on its installer's disk, owner 2026-11-12).
 func (m *Manager) gamesDest(dest string) (string, error) {
 	dest = filepath.Clean(dest)
 	if !filepath.IsAbs(dest) {
 		return "", ErrInvalid
 	}
 	name, parent := filepath.Base(dest), filepath.Dir(dest)
-	if name == "" || strings.HasPrefix(name, ".") || filepath.Dir(parent) != filepath.Clean(m.Home) {
+	root := filepath.Dir(parent)
+	if name == "" || strings.HasPrefix(name, ".") || (root != filepath.Clean(m.Home) && filepath.Dir(root) != m.mediaRoot()) {
 		return "", ErrInvalid
 	}
 	for _, g := range GamesFolders {
@@ -220,7 +256,7 @@ func (m *Manager) installerPath(path string) (string, error) {
 	if err != nil || !st.Mode().IsRegular() {
 		return "", ErrInvalid
 	}
-	if within(path, "/run/media/owneet") {
+	if within(path, m.mediaRoot()) {
 		return path, nil
 	}
 	rel, err := filepath.Rel(filepath.Clean(m.Home), path)
@@ -256,6 +292,7 @@ func (m *Manager) Inspect(installer, kind string) (Info, error) {
 	if kind == KindSh {
 		a, err := openArchive(path)
 		if err != nil {
+			m.Log.Warn("the installer cannot be read", "installer", path, "err", err)
 			return Info{}, ErrInvalid
 		}
 		info.Need, info.Exact, info.Licence = a.total, true, a.licence()
@@ -264,8 +301,18 @@ func (m *Manager) Inspect(installer, kind string) (Info, error) {
 		info.Need = windowsNeed(path)
 		info.Licence = folderLicence(filepath.Dir(path))
 	}
-	info.Free, _ = m.Free(m.Home)
+	info.Free, _ = m.Free(m.installDir(path))
 	return info, nil
+}
+
+// installDir: a folder on the disk a game is installed on: its installer's disk (owner,
+// 2026-11-12: the user chooses the disk by putting the installer there), the console's own disk
+// when the installer's disk is read only.
+func (m *Manager) installDir(installer string) string {
+	if dir := filepath.Dir(installer); within(installer, m.mediaRoot()) && !readOnly(dir) {
+		return dir
+	}
+	return m.Home
 }
 
 // Install queues an install; it starts when the one in progress is done.
@@ -286,11 +333,27 @@ func (m *Manager) Install(req Request) error {
 			return ErrInvalid
 		}
 	}
+	if FolderName(filepath.Base(dest)) != filepath.Base(dest) {
+		return ErrInvalid
+	}
+	if within(dest, m.mediaRoot()) && readOnly(filepath.Dir(dest)) {
+		return ErrReadOnly
+	}
+	// A game's folder on the console's disk whose name has ":" is renamed before its game is
+	// installed in it (owner, 2026-11-11): the interface asks for the new name
+	from := dest
+	if dir := filepath.Dir(installer); dir != dest && filepath.Dir(dir) == filepath.Dir(dest) &&
+		FolderName(filepath.Base(dir)) == filepath.Base(dest) {
+		if exists(dest) {
+			return ErrExists
+		}
+		from = dir
+	}
 	// the folder may exist only when the installer is in it (a game's folder on the console's
 	// disk): its files are kept, and stay when the game is uninstalled
 	var keep []string
-	if entries, err := os.ReadDir(dest); err == nil {
-		if filepath.Dir(installer) != dest || exists(filepath.Join(dest, MarkInstalled)) {
+	if entries, err := os.ReadDir(from); err == nil {
+		if filepath.Dir(installer) != from || exists(filepath.Join(from, MarkInstalled)) {
 			return ErrExists
 		}
 		for _, e := range entries {
@@ -314,6 +377,15 @@ func (m *Manager) Install(req Request) error {
 			m.mu.Unlock()
 			return nil // already queued
 		}
+	}
+	if from != dest {
+		if err := os.Rename(from, dest); err != nil {
+			m.mu.Unlock()
+			m.Log.Warn("cannot rename the game's folder", "from", from, "to", dest, "err", err)
+			return err
+		}
+		installer = filepath.Join(dest, filepath.Base(installer))
+		m.Log.Info("game folder renamed", "from", from, "to", dest)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	total := int64(0)
@@ -358,17 +430,20 @@ func (m *Manager) Stop(dest string) error {
 	return ErrNotFound
 }
 
-// Uninstall removes a game the console installed: everything in its folder but what was there
-// before (an installer in the folder itself); its prefix (with its saves) stays.
+// Uninstall removes a game the console installed, also after it was moved to another disk (6.8):
+// everything in its folder but what was there before (an installer in the folder itself); its prefix
+// (with its saves) stays while its installer does (it may be installed again), and goes with it on
+// an internal disk once the installer was deleted already (removeData).
 func (m *Manager) Uninstall(dest string) error {
 	m.init()
-	dest, err := m.gamesDest(dest)
+	dest, err := m.gameFolder(dest)
 	if err != nil {
 		return err
 	}
 	var mark struct {
-		Keep []string `json:"keep"`
-		Link string   `json:"link"`
+		Installer string   `json:"installer"`
+		Keep      []string `json:"keep"`
+		Link      string   `json:"link"`
 	}
 	data, err := os.ReadFile(filepath.Join(dest, MarkInstalled))
 	if err != nil {
@@ -379,6 +454,9 @@ func (m *Manager) Uninstall(dest string) error {
 	if m.InUse(dest) {
 		return ErrInUse
 	}
+	if readOnly(dest) {
+		return ErrReadOnly
+	}
 	m.mu.Lock()
 	for _, j := range m.queue {
 		if j.Dest == dest {
@@ -387,14 +465,28 @@ func (m *Manager) Uninstall(dest string) error {
 		}
 	}
 	m.mu.Unlock()
-	if err := m.remove(dest, mark.Keep); err != nil {
+	err = m.remove(dest, mark.Keep)
+	m.synced(filepath.Dir(dest))
+	if err != nil {
 		return err
 	}
 	if mark.Link != "" && within(filepath.Clean(mark.Link), m.linksDir()) {
 		os.Remove(mark.Link)
 	}
 	m.Log.Info("game uninstalled", "dest", dest)
+	// its installer gone already (deleted apart): nothing of the game is left
+	if !installerLeft(dest, mark.Installer) {
+		m.removeData(dest)
+	}
 	return nil
+}
+
+// synced makes the room freed on dir's disk shown at once (syncdisk: btrfs frees it only when it
+// commits, up to 30 s later; owner, 2026-11-11: as after a move).
+func (m *Manager) synced(dir string) {
+	if err := syncdisk.Dir(dir); err != nil {
+		m.Log.Warn("the disk not synced: its free space may show late", "dir", dir, "err", err)
+	}
 }
 
 // remove deletes the folder, or only what is not in keep.
@@ -492,7 +584,7 @@ func (m *Manager) run(ctx context.Context, j *job) {
 		}
 	} else {
 		mark, _ := json.Marshal(map[string]any{"installer": j.req.Installer, "kind": j.Kind, "keep": j.keep,
-			"link": link, "installed": time.Now().UTC().Format(time.RFC3339)})
+			"link": link, "title": j.Title, "installed": time.Now().UTC().Format(time.RFC3339)})
 		if werr := os.WriteFile(filepath.Join(j.Dest, MarkInstalled), mark, 0o644); werr != nil {
 			m.Log.Warn("cannot mark the game installed", "dest", j.Dest, "err", werr)
 		}
@@ -522,7 +614,8 @@ func (m *Manager) install(ctx context.Context, j *job) (link string, err error) 
 	if err := os.MkdirAll(j.Dest, 0o755); err != nil {
 		return "", err
 	}
-	mark, _ := json.Marshal(map[string]any{"installer": j.req.Installer, "keep": j.keep})
+	// title and kind: the interface keeps listing a game installed in place, with its progress
+	mark, _ := json.Marshal(map[string]any{"installer": j.req.Installer, "kind": j.Kind, "title": j.Title, "keep": j.keep})
 	if err := os.WriteFile(filepath.Join(j.Dest, MarkInstalling), mark, 0o644); err != nil {
 		return "", err
 	}
@@ -532,7 +625,10 @@ func (m *Manager) install(ctx context.Context, j *job) (link string, err error) 
 			return "", err
 		}
 		defer a.Close()
-		return "", a.extract(ctx, j.Dest, func(done int64) { m.progress(j, done) })
+		if err := a.extract(ctx, j.Dest, func(done int64) { m.progress(j, done) }); err != nil {
+			return "", err
+		}
+		return "", joinSplitFiles(ctx, j.Dest)
 	}
 	return m.windowsInstall(ctx, j)
 }
@@ -556,7 +652,7 @@ func (m *Manager) saveActive() {
 	if m.StateDir == "" {
 		return
 	}
-	var dests []string
+	dests := append([]string(nil), m.laterCutShort...)
 	for _, j := range m.queue {
 		dests = append(dests, j.Dest)
 	}
@@ -575,11 +671,15 @@ func (m *Manager) cleanCutShort() {
 	if err != nil {
 		return
 	}
-	var dests []string
+	var dests, later []string
 	_ = json.Unmarshal(data, &dests)
 	for _, d := range dests {
 		dest, err := m.gamesDest(d)
 		if err != nil {
+			continue
+		}
+		if _, err := os.Stat(filepath.Dir(dest)); err != nil && within(dest, m.mediaRoot()) {
+			later = append(later, dest) // its disk is not plugged in: next time
 			continue
 		}
 		raw, err := os.ReadFile(filepath.Join(dest, MarkInstalling))
@@ -596,6 +696,14 @@ func (m *Manager) cleanCutShort() {
 		} else if len(mark.Keep) > 0 {
 			os.Remove(filepath.Join(dest, MarkInstalling))
 		}
+	}
+	m.mu.Lock()
+	m.laterCutShort = later
+	m.mu.Unlock()
+	if len(later) > 0 {
+		data, _ := json.Marshal(later)
+		os.WriteFile(filepath.Join(m.StateDir, "installs.json"), data, 0o644)
+		return
 	}
 	os.Remove(filepath.Join(m.StateDir, "installs.json"))
 }

@@ -58,10 +58,14 @@ type App struct {
 	appID   uint32 // gamescope app id of its windows
 	reaper  int    // a Steam game: Steam's launcher process (steam.go)
 	window  bool   // has shown a window
+	// a console game's programs still running, by pid (closing.go)
+	programs map[int]bool
 	// settle: shown only once its window has stayed for a few seconds (Steam changes resolution
 	// and flashes windows while it starts: the console's "Preparing Steam" screen covers that)
 	settle bool
 	steady int // checks in a row with a window
+	// handover: started by a launcher that hands over to the game and ends (LaunchRequest.Handover)
+	handover bool
 	// steamBehind: a Steam game whose window has not appeared yet; Steam's window is left out of
 	// what gamescope may show (Silksong, FrankenPC 2026-10-16: Steam's window was on screen for
 	// 10 s before the game's), the home screen's "Starting …" covers the wait (steam.go)
@@ -69,7 +73,22 @@ type App struct {
 }
 
 // settleChecks is how many once-a-second checks a settling app's window must stay before it is shown.
+// Not an event's stand-in by choice: Steam says nothing when it stops changing its windows (its
+// logs checked, 2026-11-09), so steadiness is measured ([[waiting-for-events]]; its interface's own
+// start is read from its log, steamInterfaceReady).
 const settleChecks = 3
+
+// When the console starts Steam, its window stays hidden until Steam's interface has started: before
+// that Steam shows its logo and flickers, and it drops an address (FrankenPC, 2026-11-05: an address
+// 3 s before that moment was lost, one 2 s after it opened). The moment depends on the computer, so
+// it is read from Steam's log (steamInterfaceReady), not waited for. steamHoldMax: checks after which
+// the window shows anyway, should that line never come (the user must never be left waiting).
+// steamPageChecks: how long the page asked for has to replace Steam's home before the window shows
+// (Steam logs no page it shows: steadiness again).
+const (
+	steamHoldMax    = 30
+	steamPageChecks = 3
+)
 
 // HomeAppID tags the home screen's windows in gamescope; apps get ids just above it (see
 // newAppID). The range is far from Steam's app ids.
@@ -95,6 +114,10 @@ type LaunchRequest struct {
 	// Stop closes the app cleanly before its processes are stopped (owneetd's own apps only:
 	// Steam).
 	Stop []string `json:"-"`
+	// Handover: the program starts the game and ends (an old launcher); the app lasts while any of
+	// its programs runs, instead of ending with the first one. Only for the games the list of known
+	// games names (owner, 2026-11-12, [[games-on-disk]]).
+	Handover bool `json:"handover,omitempty"`
 }
 
 // Errors returned to the API.
@@ -113,7 +136,8 @@ var (
 type Units interface {
 	// stop, when not nil, is run to close the app (systemd's ExecStop) before its processes are
 	// stopped.
-	Start(unit, description string, argv, stop, env []string, workdir string) error
+	// whileAny: the unit lasts while any of its processes runs, not only the first (ExitType=cgroup).
+	Start(unit, description string, argv, stop, env []string, workdir string, whileAny bool) error
 	Stop(unit string) error
 	Kill(unit string) error
 	// Running lists the app units already running (owneetd restarted): unit and description.
@@ -132,7 +156,7 @@ type Exit struct {
 type Focus interface {
 	// Watch tags windows with the app id that tag returns for their process, and passes on what
 	// someone else (Steam) asks gamescope to show; runs until closed.
-	Watch(tag func(pid int) uint32, request func(appIDs []uint32))
+	Watch(tag func(pid int) uint32, request func(appIDs []uint32), changed func())
 	// Show shows the first of these apps that has a window.
 	Show(appIDs []uint32) error
 	// Focused returns the app id on screen (0: none).
@@ -173,25 +197,59 @@ type Manager struct {
 	StateDir     string // owneetd's own marks (~/.config/owneet): Steam Input set once per account
 	SteamAllowed func() bool
 	Forward      func(argv, env []string) error
+	// MountState is owneet-mount's state (MountStateDir): the disks prepared for games become
+	// Steam libraries (steamdisks.go).
+	MountState string
 	// NVIDIA tells whether the NVIDIA driver runs the screen (Steam then draws its pages
 	// without the GPU, see steamGPUArgs).
 	NVIDIA func() bool
 	// SteamRepaint: keep gamescope composing every frame while Steam's window is on screen
 	// (repaint.go; by default on NVIDIA, unless the test switch owneet.debug.steam_repaint=off).
 	SteamRepaint func() bool
+	// HideSteamLaunch: Steam's window kept out while it launches a game, until the game's own window
+	// (the way of step 4.2c). Off by default since 2026-11-18 (owner, [[game-compatibility-method]]:
+	// Steam's own windows shown during a launch, as on SteamOS); the testers' switch
+	// owneet.debug.steam_launch=hidden brings the old way back, to compare.
+	HideSteamLaunch func() bool
+	// PointerOn turns the controller pointer on for a running app (pointer.Manager.On): the console
+	// does it by itself for a window of a game's install script (owner, 2026-11-19); nil: never
+	PointerOn func(app string) error
+	// PointerOff turns the controller pointer off (pointer.Manager.Off): at the install script's end
+	PointerOff func(reason string)
+	// installPointer: the pointer was turned on for an install script; it goes off once no program of
+	// the script is left (watchSteam)
+	installPointer bool
+	// xaliaPaused: Proton's Xalia programs paused while the console's pointer is on (PointerChanged)
+	xaliaPaused map[int]bool
+	pointerIsOn bool
 
-	mu       sync.Mutex
-	apps     map[string]*App // by id
-	order    []string        // launch order, oldest first
-	lastApp  string          // the app shown before the home screen
-	hold     *time.Timer     // cage: Guide held
-	homeHold *time.Timer     // gamescope: Guide held over Steam
-	homePID  int             // of the session being watched
+	mu      sync.Mutex
+	apps    map[string]*App // by id
+	order   []string        // launch order, oldest first
+	lastApp string          // the app shown before the home screen
+	// steamChosen: when Steam was last brought to the front on purpose (FocusApp): a Steam game that
+	// ends while Steam is in front brings the home screen, unless Steam was chosen during the game
+	steamChosen time.Time
+	// steamGone: closed when Steam, asked to close (Close, Kill), has ended; nil while it is not
+	// closing. Steam asked for while it closes starts again after it (Steam)
+	steamGone chan struct{}
+	hold      *time.Timer // cage: Guide held
+	homeHold  *time.Timer // gamescope: Guide held over Steam
+	homePID   int         // of the session being watched
+	// closed once no button is held (SetReleased)
+	released func() <-chan struct{}
+	// apps besides games that go silent behind the home screen (SetSilent)
+	silent func(id string) bool
+	// follows a process until it ends (closing.go; tests replace it)
+	watchExit func(pid int, ended func()) bool
 	// names given by the interface to Steam games about to start, by Steam app id
 	steamNames map[string]string
 	// the steam:// address to hand to Steam once its window is shown (it started on its own
 	// home page, so that Back from that address has somewhere to go)
 	steamPending string
+	steamHold    bool     // started from the console with an account: its window waits for its interface
+	steamLogFrom int64    // where Steam's interface log ended when it started (steamInterfaceReady)
+	steamPageOff bool     // the hold: the page asked for has gone to Steam
 	shown        []uint32 // what owneetd last asked gamescope to show
 	lastFocus    string   // the last "focus.changed" sent
 	// Steam hidden while it starts a game; shown later if it seems to wait for the user (steam.go)
@@ -203,13 +261,19 @@ type Manager struct {
 
 	steamMu      sync.Mutex
 	steamSamples map[string]*steamSample // downloads: bytes at the last check (steamlib.go)
+	steamContent steamContent            // Steam's content log, read as it grows (steamprogress.go)
 	steamLast    string                  // the last status sent as "steam.changed"
 	steamRunning bool                    // Steam ran at the last check
+	screenWake   chan struct{}           // gamescope's notice that the screen may have changed
+	checkEvery   time.Duration           // the regular checks (a second; tests: longer)
 }
 
 func (m *Manager) init() {
 	if m.apps == nil {
 		m.apps = map[string]*App{}
+	}
+	if m.screenWake == nil {
+		m.screenWake = make(chan struct{}, 1)
 	}
 	if m.LookPath == nil {
 		m.LookPath = exec.LookPath
@@ -237,11 +301,17 @@ func (m *Manager) init() {
 	if m.Forward == nil {
 		m.Forward = forward
 	}
+	if m.MountState == "" {
+		m.MountState = MountStateDir
+	}
 	if m.NVIDIA == nil {
 		m.NVIDIA = nvidiaDriver
 	}
 	if m.SteamRepaint == nil {
 		m.SteamRepaint = m.steamRepaint
+	}
+	if m.HideSteamLaunch == nil {
+		m.HideSteamLaunch = func() bool { return DebugOption("steam_launch") == "hidden" }
 	}
 	if m.steamNames == nil {
 		m.steamNames = map[string]string{}
@@ -288,11 +358,17 @@ func (m *Manager) tag(pid int) uint32 {
 		if appid, reaper := m.reaperOf(pid); appid != "" {
 			return m.steamGame(appid, reaper, unit).appID
 		}
+		if m.inInstallScript(pid) { // a window of Steam's own (tagged so below) that waits for the user
+			go m.installScriptWindow(pid)
+		}
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, a := range m.apps {
 		if a.unit == unit && a.reaper == 0 {
+			if closesWithPrograms(a) {
+				go m.watchPrograms(a.ID, pid) // it showed a window of the game
+			}
 			return a.appID
 		}
 	}
@@ -331,7 +407,17 @@ func (m *Manager) focusChanged(id string) {
 	m.lastFocus = id
 	m.mu.Unlock()
 	if !same {
+		m.Log.Info("on screen", "focus", id) // its time in the log: when the home screen came back
 		m.Broker.Publish("focus.changed", map[string]string{"focus": id})
+	}
+}
+
+// screenChanged: gamescope says what it shows may have changed: looked at now (Run), not at the
+// next once-a-second check.
+func (m *Manager) screenChanged() {
+	select {
+	case m.screenWake <- struct{}{}:
+	default: // a look is already due
 	}
 }
 
@@ -356,6 +442,10 @@ func (m *Manager) checkWindows() {
 		shown[v] = true
 	}
 	m.mu.Lock()
+	hold, steamDir, steamLogFrom := m.steamHold && !m.steamPageOff, m.SteamDir, m.steamLogFrom
+	m.mu.Unlock()
+	interfaceUp := hold && steamInterfaceReady(steamDir, steamLogFrom)
+	m.mu.Lock()
 	var ready []string
 	var bring []uint32  // settled apps to bring to the front
 	var behind []uint32 // Steam games whose window came: Steam back behind them
@@ -375,7 +465,20 @@ func (m *Manager) checkWindows() {
 			}
 		}
 		if a.settle {
-			if a.steady++; a.steady < settleChecks {
+			a.steady++
+			need := settleChecks
+			if a.ID == SteamID && m.steamHold {
+				if !m.steamPageOff && a.steady >= settleChecks && (interfaceUp || a.steady >= steamHoldMax) {
+					pending, m.steamPending = m.steamPending, ""
+					m.steamPageOff = true
+					a.steady = 0
+				}
+				if !m.steamPageOff {
+					continue
+				}
+				need = steamPageChecks
+			}
+			if a.steady < need {
 				continue
 			}
 			// still wanted: nothing else was chosen meanwhile; Steam starting a game stays hidden
@@ -386,7 +489,10 @@ func (m *Manager) checkWindows() {
 		a.window = true
 		ready = append(ready, a.ID)
 		if a.ID == SteamID {
-			pending, m.steamPending = m.steamPending, ""
+			m.steamHold, m.steamPageOff = false, false
+			if m.steamPending != "" {
+				pending, m.steamPending = m.steamPending, ""
+			}
 		}
 	}
 	m.mu.Unlock()
@@ -413,6 +519,20 @@ func (m *Manager) checkWindows() {
 		return
 	}
 	m.mu.Lock()
+	// What gamescope focuses for a moment after someone else (Steam) wrote what it shows, before
+	// owneetd has answered (steamRequest, which looks again): not announced. Each announce plays
+	// the interface's sound: twice when Steam took the screen back for a moment after Guide
+	// (FrankenPC, 2026-11-13). With none of owneetd's apps on screen gamescope keeps the last
+	// window: announced as before.
+	for _, want := range m.shown {
+		if shown[want] {
+			if want != focused {
+				m.mu.Unlock()
+				return
+			}
+			break
+		}
+	}
 	id := ""
 	if focused == HomeAppID {
 		id = "home"
@@ -435,7 +555,11 @@ func (m *Manager) Run(stop <-chan struct{}) {
 			m.adopt(unit, desc)
 		}
 	}
-	tick := time.NewTicker(time.Second)
+	every := m.checkEvery
+	if every == 0 {
+		every = time.Second // a repeat interval: what gamescope does not announce
+	}
+	tick := time.NewTicker(every)
 	defer tick.Stop()
 	m.watchSession()
 	for {
@@ -444,6 +568,8 @@ func (m *Manager) Run(stop <-chan struct{}) {
 			return
 		case e := <-m.Units.Exited():
 			m.exited(e)
+		case <-m.screenWake: // gamescope says the screen changed: at once
+			m.checkWindows()
 		case <-tick.C:
 			m.watchSession()
 			m.scanSteam()
@@ -463,7 +589,7 @@ func (m *Manager) watchSession() {
 	m.homePID = sess.HomePID
 	m.mu.Unlock()
 	if f := m.focus(sess); f != nil {
-		f.Watch(m.tag, m.steamRequest)
+		f.Watch(m.tag, m.steamRequest, m.screenChanged)
 	}
 }
 
@@ -581,7 +707,7 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 		}
 	}
 	app := &App{ID: req.ID, Name: req.Name, Kind: req.Kind, Started: time.Now(), unit: UnitName(req.ID),
-		appID: m.newAppID(req.ID), settle: req.ID == SteamID}
+		appID: m.newAppID(req.ID), settle: req.ID == SteamID, handover: req.Handover}
 	m.apps[app.ID] = app // reserved while starting
 	m.order = append(m.order, app.ID)
 	m.mu.Unlock()
@@ -589,7 +715,7 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 	// gamescope: the new app comes to the front as soon as it has a window (a settling one once
 	// its window is steady: checkWindows); the home screen stays on screen until then.
 	if f := m.focus(sess); f != nil {
-		first := []uint32{app.appID, HomeAppID}
+		first := front(app)
 		if app.settle {
 			first = []uint32{HomeAppID}
 		}
@@ -597,13 +723,15 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 			m.Log.Debug("cannot choose what gamescope shows", "err", err)
 		}
 	}
-	if err := m.Units.Start(app.unit, description(app.Kind, app.Name), argv, req.Stop, sess.Env, req.Workdir); err != nil {
+	if err := m.Units.Start(app.unit, description(app.Kind, app.Name), argv, req.Stop, sess.Env, req.Workdir, req.Handover); err != nil {
 		m.forget(app.ID)
 		return App{}, err
 	}
 	m.Log.Info("app started", "id", app.ID, "kind", app.Kind, "unit", app.unit)
 	m.Broker.Publish("app.started", map[string]string{"id": app.ID, "name": app.Name, "kind": app.Kind})
 	m.cageFocus(sess)
+	m.mu.Lock() // checkWindows changes the app from another goroutine
+	defer m.mu.Unlock()
 	return *app, nil
 }
 
@@ -621,7 +749,12 @@ func (m *Manager) forget(id string) {
 		m.lastApp = ""
 	}
 	if id == SteamID {
+		if m.steamGone != nil {
+			close(m.steamGone)
+			m.steamGone = nil
+		}
 		m.steamPending = ""
+		m.steamHold, m.steamPageOff = false, false
 		m.steamHidden = false
 		m.steamConfirm = nil
 		if m.steamAsk != nil {
@@ -653,7 +786,20 @@ func (m *Manager) ended(app *App, result string) {
 	m.Broker.Publish("app.exited", map[string]string{"id": app.ID, "name": app.Name, "result": result})
 	if sess, err := m.Session(); err == nil {
 		if f := m.focus(sess); f != nil {
-			if focused, err := f.Focused(); err == nil && (focused == app.appID || focused == 0) {
+			m.mu.Lock()
+			// another game alone in front, between two of its windows (front): it keeps the screen
+			gap := len(m.shown) == 1 && m.shown[0] != HomeAppID && m.shown[0] != app.appID
+			// a Steam game whose window went before its end (a publisher's launcher closing after it,
+			// Jedi: Fallen Order, FrankenPC 2026-11-18): Steam, behind it, came in front meanwhile; the
+			// game's end still brings the home screen unless Steam was chosen during the game (owner:
+			// quitting a game must bring the console's home)
+			steamID := uint32(0)
+			if s, ok := m.apps[SteamID]; ok && app.reaper != 0 && m.steamChosen.Before(app.Started) {
+				steamID = s.appID
+			}
+			m.mu.Unlock()
+			if focused, err := f.Focused(); err == nil &&
+				(focused == app.appID || (focused == 0 && !gap) || (steamID != 0 && focused == steamID)) {
 				m.show(f, []uint32{HomeAppID}) // back to the home screen
 			}
 		}
@@ -699,6 +845,7 @@ func (m *Manager) Close(id string) error {
 		return nil
 	}
 	m.Log.Info("closing app", "id", id)
+	m.closingSteam(id)
 	return m.Units.Stop(a.unit)
 }
 
@@ -742,10 +889,27 @@ func (m *Manager) Kill(id string) error {
 		return nil
 	}
 	m.Log.Info("force-closing app", "id", id)
+	m.closingSteam(id)
 	return m.Units.Kill(a.unit)
 }
 
 // show asks gamescope to show the first of these apps that has a window, and remembers it.
+// front is what gamescope may show when an app is brought to the front. A game started by the
+// console goes alone: while it changes windows (its launcher closes, then its own window opens)
+// gamescope keeps showing its last picture, instead of falling back to the home screen (The Witcher
+// 2 on FrankenPC, 2026-11-09: the game and the home screen in turn, the "back home" sound each
+// time; [[step-4.5-windows-games-proton]]). Until its first window the home screen stays (gamescope
+// keeps what it showed); the home screen comes back when the game ends (ended) or with Guide.
+// Other apps keep the home screen behind them, since an app may go on without a window (Steam in
+// the background) and the home screen must come back then; Steam's games keep Steam behind them
+// (steam.go), as its questions come in its own window.
+func front(a *App) []uint32 {
+	if closesWithPrograms(a) {
+		return []uint32{a.appID}
+	}
+	return []uint32{a.appID, HomeAppID}
+}
+
 func (m *Manager) show(f Focus, appIDs []uint32) error {
 	m.mu.Lock()
 	m.shown = append([]uint32(nil), appIDs...)
@@ -802,7 +966,7 @@ func (m *Manager) Status() Status {
 	defer m.mu.Unlock()
 	if focused == HomeAppID {
 		st.Focus = "home"
-	} else if a := m.appOfID(focused); a != nil {
+	} else if a := m.onScreen(focused); a != nil {
 		st.Focus = a.ID
 	}
 	return st
@@ -815,12 +979,24 @@ func (m *Manager) FocusApp(id string) error {
 	m.init()
 	a, ok := m.apps[id]
 	var appID uint32
+	var shown []uint32
 	if ok {
-		appID = a.appID
+		appID, shown = a.appID, front(a)
+	}
+	if ok && id == SteamID {
+		m.steamChosen = time.Now()
 	}
 	m.mu.Unlock()
 	if !ok {
 		return ErrUnknownApp
+	}
+	// the button that chose it (A on Resume, Guide) comes up first: the app must not take it
+	if ch := m.held(); ch != nil {
+		select {
+		case <-ch:
+		case <-time.After(releaseLimit):
+			m.Log.Warn("a button still held: back to the app all the same", "id", id)
+		}
 	}
 	sess, err := m.Session()
 	if err != nil {
@@ -840,7 +1016,7 @@ func (m *Manager) FocusApp(id string) error {
 	}
 	for _, v := range visible {
 		if v == appID {
-			if err := m.show(f, []uint32{appID, HomeAppID}); err != nil {
+			if err := m.show(f, shown); err != nil {
 				return err
 			}
 			m.focusChanged(id)
@@ -882,7 +1058,7 @@ func (m *Manager) ShowHome() error {
 		}
 		m.mu.Lock()
 		m.init()
-		if shown := m.appOfID(focused); shown != nil {
+		if shown := m.onScreen(focused); shown != nil {
 			m.lastApp = shown.ID // Guide or Resume goes back to it
 		}
 		m.mu.Unlock()
@@ -993,7 +1169,7 @@ func (m *Manager) toggle(sess Session) {
 	}
 	m.mu.Lock()
 	m.init()
-	shown := m.appOfID(focused)
+	shown := m.onScreen(focused)
 	if shown != nil { // an app is on screen: show the home screen
 		m.lastApp = shown.ID
 	}
@@ -1020,11 +1196,130 @@ func (m *Manager) toggle(sess Session) {
 		return
 	}
 	if target == "" { // home screen, nothing running
+		// the interface may have a use for Home there: the copy of games' window closes, the copy
+		// goes on behind it (owner, 2026-11-10, [[step-6.6-moving-games-and-media-between-disks]])
+		m.Broker.Publish("home.requested", map[string]string{})
 		return
 	}
-	if err := m.FocusApp(target); err != nil {
-		m.Log.Debug("cannot go back to the app", "id", target, "err", err)
+	back := func() {
+		if err := m.FocusApp(target); err != nil {
+			m.Log.Debug("cannot go back to the app", "id", target, "err", err)
+			return
+		}
+		m.Log.Info("Guide: back to the app", "id", target)
+	}
+	if m.held() != nil {
+		go back() // FocusApp waits for Guide to come up, which this controller's reader must read
 		return
 	}
-	m.Log.Info("Guide: back to the app", "id", target)
+	back()
+}
+
+// onScreen: the app gamescope shows (its focused app id), or the game alone in front of it while it
+// has no window (front: gamescope keeps its last picture and names no app); callers hold m.mu.
+func (m *Manager) onScreen(focused uint32) *App {
+	if a := m.appOfID(focused); a != nil || focused != 0 {
+		return a
+	}
+	if len(m.shown) == 1 && m.shown[0] != HomeAppID {
+		return m.appOfID(m.shown[0])
+	}
+	return nil
+}
+
+// SetSilent says which apps besides games go silent behind the home screen (the catalogue's video
+// apps).
+func (m *Manager) SetSilent(f func(id string) bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.silent = f
+}
+
+// SilentNow: the sound of this process must be silent now. A game, or a video app, left open
+// behind the home screen (Guide) goes silent, and its sound comes back with it (owner, 2026-11-09,
+// [[step-4.5-windows-games-proton]]); music apps play on. Anything not on screen counts as behind.
+func (m *Manager) SilentNow(pid int) bool {
+	a, ok := m.appOfProcess(pid)
+	if !ok {
+		return false
+	}
+	m.mu.Lock()
+	focus, silent := m.lastFocus, m.silent
+	m.mu.Unlock()
+	if a.ID == focus {
+		return false
+	}
+	return a.Kind == KindGame || (silent != nil && silent(a.ID))
+}
+
+// appOfProcess: the app a process belongs to, as tag finds it but without taking note of anything
+// (a Steam game is only found once owneetd knows it).
+func (m *Manager) appOfProcess(pid int) (App, bool) {
+	m.mu.Lock()
+	m.init()
+	home := m.homePID
+	steamUnit := ""
+	if s, ok := m.apps[SteamID]; ok {
+		steamUnit = s.unit
+	}
+	m.mu.Unlock()
+	if pid <= 0 || pid == home || m.UnitOf == nil {
+		return App{}, false
+	}
+	unit := m.UnitOf(pid)
+	if unit == "" {
+		appID := m.parentOfApp(pid)
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		if a := m.appOfID(appID); a != nil && appID != 0 {
+			return *a, true
+		}
+		return App{}, false
+	}
+	if unit == steamUnit {
+		if appid, _ := m.reaperOf(pid); appid != "" {
+			m.mu.Lock()
+			defer m.mu.Unlock()
+			if g, ok := m.apps[steamGamePrefix+appid]; ok {
+				return *g, true
+			}
+			return App{}, false
+		}
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, a := range m.apps {
+		if a.unit == unit && a.reaper == 0 {
+			return *a, true
+		}
+	}
+	return App{}, false
+}
+
+// SetReleased gives the controllers' WhenReleased: an app brought back to the front waits for it.
+func (m *Manager) SetReleased(f func() <-chan struct{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.released = f
+}
+
+// releaseLimit: a safety limit for held: a button whose release never comes (a faulty controller)
+// does not keep the app away for good.
+const releaseLimit = 5 * time.Second
+
+// held returns a channel closed once no button or key is held, or nil when none is held now.
+func (m *Manager) held() <-chan struct{} {
+	m.mu.Lock()
+	f := m.released
+	m.mu.Unlock()
+	if f == nil {
+		return nil
+	}
+	ch := f()
+	select {
+	case <-ch:
+		return nil
+	default:
+		return ch
+	}
 }

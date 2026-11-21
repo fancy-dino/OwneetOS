@@ -1,0 +1,36 @@
+@nogames
+@owneetd
+@disk
+@moveslow
+# A copy that goes on behind its window (approved demo 6.6e): Home (owneetd's "home.requested")
+# closes the window and shows the home screen; the top bar shows the copy, the covers of its
+# games their state; A on the cover being copied shows the window again.
+wait 10
+unplug
+wait 3
+plug
+wait 4
+pad right a
+wait 1
+pad up up up up up up up up up up up up up up up up up up up up
+pad a
+wait 0.5
+pad down a down a down a
+pad down down down down down down down down down down down down down down down down down down down down
+pad a
+wait 1
+pad a
+wait 2
+shot 01-copy-window
+event home.requested {}
+wait 1
+shot 02-home-with-the-copy
+pad rb
+wait 1
+shot 03-library-covers
+pad a
+wait 1
+shot 05-window-again
+event home.requested {}
+wait 50
+shot 06-done-behind

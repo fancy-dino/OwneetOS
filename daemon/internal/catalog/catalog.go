@@ -53,6 +53,9 @@ type Entry struct {
 	URL      string   `json:"url,omitempty"`
 	// UserAgent replaces Brave's own (YouTube's TV interface, [[step-5.3-youtube]])
 	UserAgent string `json:"userAgent,omitempty"`
+	// SilentBehindHome: the app goes silent while the home screen is in front of it, as games do
+	// (video apps; music apps play on: owner, 2026-11-09)
+	SilentBehindHome bool `json:"silentBehindHome,omitempty"`
 }
 
 // App is a web app as the interface shows it.
@@ -132,6 +135,24 @@ type Manager struct {
 
 // spaceMargin is kept free beyond an engine's own size (pacman's database, logs).
 const spaceMargin = 100
+
+// SilentBehindHome: the web app with this app id ("web:netflix") goes silent behind the home screen.
+func (m *Manager) SilentBehindHome(appID string) bool {
+	id, ok := strings.CutPrefix(appID, "web:")
+	if !ok {
+		return false
+	}
+	entries, err := m.load()
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.ID == id {
+			return e.SilentBehindHome
+		}
+	}
+	return false
+}
 
 func (m *Manager) load() ([]Entry, error) {
 	data, err := os.ReadFile(m.CatalogFile)

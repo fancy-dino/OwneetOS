@@ -27,6 +27,7 @@ type Umu struct {
 	Command   string // "umu-run"
 	PrefixDir string // a prefix of its own (nothing runs in it)
 	CacheDir  string // umu-launcher's downloads, e.g. ~/.cache/umu
+	UmuDir    string // umu-launcher's own folder, e.g. ~/.local/share/umu (native.go)
 }
 
 // Rough sizes of the two downloads, for the progress only (a part never shows more than its share)

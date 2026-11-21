@@ -1,0 +1,154 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS - interactive demo: a prompt bar that does not fit (open item 3w b, owner's option 1, 2026-11-12).
+     Only when the screen's prompts and the ones on the right (Sections, Home) do not fit on one line, the ones
+     on the right keep their buttons and lose their words; the screen's own prompts keep theirs. Shown on the
+     library. Fonts are loaded from Google Fonts for the demo only: the console bundles the font files
+     (SIL Open Font License). -->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS - Prompt bar that fits (demo 3.3c)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1.4;
+  --bg: #0E1424; --surface: #172036; --raised: #222D4A; --line: #2E3A5C; --fg: #EEF1F8; --muted: #8F9AB5; --accent: #FF8A5B; --on-accent: #1E0E06; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.frame { position: relative; flex: none; }
+.stage {
+  width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px;
+  display: grid; grid-template-rows: auto auto auto 1fr auto; gap: 16px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350;
+}
+.t-s { font-size: calc(14.5px * var(--ts)); } .t-xl { font-size: calc(40px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 28px; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.clock { color: var(--fg); font-weight: 500; }
+.head { display: flex; align-items: baseline; gap: 16px; }
+.chips { display: flex; gap: 8px; align-items: center; }
+.chip { padding: 5px 14px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 500; }
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 14px; min-height: 0; overflow: hidden; }
+.cover { aspect-ratio: 3 / 4; border-radius: 14px; background: linear-gradient(160deg, hsl(var(--h) 45% 32%), hsl(calc(var(--h) + 25) 50% 14%)); }
+.cover.focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent); }
+
+/* ---------- The prompt bar ---------- */
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); gap: 26px; white-space: nowrap; }
+.prompts .set { display: flex; gap: 26px; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+/* Not enough room: the prompts on the right keep their buttons only */
+.prompts.tight .right .word { display: none; }
+.prompts.tight .right { gap: 18px; }
+
+.demo-bar { display: flex; gap: 22px; align-items: center; color: #8a90a0; font: 12px/1.4 system-ui, sans-serif; flex-wrap: wrap; justify-content: center; }
+.demo-bar .grp { display: inline-flex; gap: 6px; align-items: center; }
+.demo-bar button { padding: 3px 10px; border-radius: 999px; border: 1px solid #333a4a; color: #c9cdd8; font: inherit; }
+.demo-bar button[aria-pressed="true"] { background: #c9cdd8; color: #05070C; }
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; max-width: 900px; }
+</style>
+</head>
+<body>
+
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <header class="top">
+    <div class="top-left">
+      <span class="mark">Owneet<i>OS</i></span>
+      <nav class="tabs t-s"><span class="tab" data-t="tab.home"></span><span class="tab" aria-current="page" data-t="tab.library"></span><span class="tab" data-t="tab.settings"></span></nav>
+    </div>
+    <span class="clock t-s" id="clock">20:41</span>
+  </header>
+  <div class="head"><span class="disp t-xl" data-t="tab.library"></span><span class="muted" data-t="count"></span></div>
+  <div class="chips t-s" id="chips"></div>
+  <div class="grid" id="grid"></div>
+  <footer class="prompts t-s" id="bar"><div class="set" id="left"></div><div class="set right" id="right"></div></footer>
+</div></div>
+
+<div class="demo-bar" id="demo-bar">
+  <span class="grp"><span>Text size:</span><button data-ts="1">M</button><button data-ts="1.2">L</button><button data-ts="1.4" aria-pressed="true">XL</button></span>
+  <span class="grp"><span>Language:</span><button data-lang="it" aria-pressed="true">Italiano</button><button data-lang="en">English</button></span>
+</div>
+<p class="help">The prompts on the right lose their words only when the whole bar does not fit on one line; change the text size or the language to see it come and go.</p>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+  const EN = { 'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings', 'count': '97 games',
+    'c.all': 'All', 'c.installed': 'Installed', 'c.fav': 'Favorites', 'c.recent': 'Recently played',
+    'p.play': 'Play', 'p.details': 'Details', 'p.options': 'Options', 'p.sort': 'Sort', 'p.filter': 'Filter', 'p.menu': 'Menu',
+    'p.sections': 'Sections', 'p.home': 'Home' };
+  const IT = { 'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni', 'count': '97 giochi',
+    'c.all': 'Tutti', 'c.installed': 'Installati', 'c.fav': 'Preferiti', 'c.recent': 'Giocati di recente',
+    'p.play': 'Gioca', 'p.details': 'Dettagli', 'p.options': 'Opzioni', 'p.sort': 'Ordina', 'p.filter': 'Filtro', 'p.menu': 'Menu',
+    'p.sections': 'Sezioni', 'p.home': 'Home' };
+  let lang = 'it';
+  const tr = k => (lang === 'it' ? IT : EN)[k] || EN[k];
+
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const G = { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), lb: pill('LB', 34), rb: pill('RB', 34), lt: pill('LT', 32), rt: pill('RT', 32),
+    menu: circle(`<path d="M8.5 10h9M8.5 13h9M8.5 16h9" ${S}/>`), guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`) };
+  const P = (b, l) => `<span class="prompt">${b.map(x => G[x]).join('')}<span class="word">${tr(l)}</span></span>`;
+
+  function draw() {
+    document.documentElement.lang = lang;
+    $$('[data-t]').forEach(el => { el.textContent = tr(el.dataset.t); });
+    $('#chips').innerHTML = G.lt.replace('class="g"', 'class="g" style="color:var(--muted)"') +
+      [['c.all', 97, 1], ['c.installed', 9], ['c.fav', 0], ['c.recent']].map(([k, n, on]) => `<span class="chip${on ? ' on' : ''}">${tr(k)}${n !== undefined ? ' ' + n : ''}</span>`).join('') +
+      G.rt.replace('class="g"', 'class="g" style="color:var(--muted)"');
+    $('#grid').innerHTML = [330, 160, 30, 210, 280, 95, 250, 15, 190, 300, 60, 120, 230, 345].map((h, i) => `<div class="cover${i === 0 ? ' focus' : ''}" style="--h:${h}"></div>`).join('');
+    $('#left').innerHTML = P(['a'], 'p.play') + P(['x'], 'p.details') + P(['menu'], 'p.options') + P(['y'], 'p.sort') + P(['lt', 'rt'], 'p.filter') + P(['b'], 'p.menu');
+    $('#right').innerHTML = P(['lb', 'rb'], 'p.sections') + P(['guide'], 'p.home');
+    fitBar();
+  }
+  // Does everything fit on one line, with at least twice the gap between prompts (52 px) between the two
+  // groups, so they still read as two? If not: buttons only on the right
+  function fitBar() {
+    const bar = $('#bar');
+    bar.classList.remove('tight');
+    const need = $('#left').scrollWidth + $('#right').scrollWidth + 52;
+    if (need > bar.clientWidth) bar.classList.add('tight');
+  }
+
+  $('#demo-bar').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    $$('button', b.closest('.grp')).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    if (b.dataset.ts) document.documentElement.style.setProperty('--ts', b.dataset.ts);
+    if (b.dataset.lang) lang = b.dataset.lang;
+    draw(); b.blur();
+  });
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 70) / 720);
+    stage.style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+  const clock = () => { $('#clock').textContent = new Date().toTimeString().slice(0, 5); };
+  clock(); setInterval(clock, 10000);
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get('lang') === 'en') lang = 'en';
+  if (q.get('ts')) document.documentElement.style.setProperty('--ts', q.get('ts'));
+  draw();
+  if (document.fonts) document.fonts.ready.then(fitBar);
+})();
+</script>
+</body>
+</html>

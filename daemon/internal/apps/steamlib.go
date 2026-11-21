@@ -33,7 +33,9 @@ const (
 type SteamDownload struct {
 	AppID string `json:"appid"`
 	// State: "downloading" (a new game, the one Steam downloads now), "updating" (an installed
-	// game, now), "queued" (waiting for its turn, or paused by Steam, e.g. without internet)
+	// game, now), "preparing" (a new game Steam prepares before its download: no percentage, Steam's
+	// log does not tell how far it is; [[open-items]] 8, owner 2026-11-17), "queued" (waiting for its
+	// turn, or paused by Steam, e.g. without internet)
 	State string `json:"state"`
 	Done  int64  `json:"done"`  // bytes downloaded and written
 	Total int64  `json:"total"` // bytes to download and write
@@ -42,14 +44,15 @@ type SteamDownload struct {
 
 // steamSample is the last bytes seen of a download, to tell the one Steam works on and its speed.
 type steamSample struct {
-	done  int64
-	at    time.Time
-	rate  int64
-	moved time.Time // the bytes last grew
+	done int64
+	at   time.Time
+	rate int64
+	// what Steam has written, measured on its disks (steamprogress.go)
+	written  int64
+	measured time.Time
+	base     int64 // the room used on Steam's disks when the measures began
+	baseDone int64 // the bytes Steam had done then
 }
-
-// steamMoving: a download whose bytes grew this recently is the one Steam works on.
-const steamMoving = 5 * time.Second
 
 // kvText reads Steam's text KeyValues ("key" "value", "key" { … }) into nested maps; keys are
 // kept as written.
@@ -221,15 +224,17 @@ func steamLicences(dir string) int64 {
 
 // steamDownloads reads the games Steam is installing or updating, on every library folder
 // present, in the order Steam works on them as far as the files tell (the one moving first, then
-// the oldest request). samples keeps the bytes seen at the last check (updated here).
-func steamDownloads(dir string, samples map[string]*steamSample, now time.Time) []SteamDownload {
+// the oldest request). samples keeps the bytes seen at the last check (updated here); phases is
+// what Steam's content log says of each app while Steam runs (nil otherwise, steamprogress.go).
+func steamDownloads(dir string, samples map[string]*steamSample, phases map[string]string, now time.Time) []SteamDownload {
 	type entry struct {
 		d     SteamDownload
 		since time.Time
 	}
 	var found []entry
 	seen := map[string]bool{}
-	for _, lib := range steamLibraries(dir) {
+	libs := steamLibraries(dir)
+	for _, lib := range libs {
 		files, _ := filepath.Glob(filepath.Join(lib, "steamapps", "appmanifest_*.acf"))
 		for _, file := range files {
 			data, err := os.ReadFile(file)
@@ -252,21 +257,57 @@ func steamDownloads(dir string, samples map[string]*steamSample, now time.Time) 
 			pending := flags&(stateUpdateRequired|stateUpdateStarted|stateUpdatePaused) != 0
 			done := kvInt(st, "BytesDownloaded") + kvInt(st, "BytesStaged")
 			total := kvInt(st, "BytesToDownload") + kvInt(st, "BytesToStage")
+			phase, logged := phases[id]
 
 			s := samples[id]
-			if s == nil {
-				s = &steamSample{done: done, at: now}
+			fresh := s == nil
+			if fresh {
+				s = &steamSample{at: now}
 				samples[id] = s
-			} else {
-				if dt := now.Sub(s.at).Seconds(); dt > 0 && done >= s.done {
+			}
+			// Steam rewrites the manifest only now and then: what it has written on the disk
+			// tells more, as a share of what it has to write (BytesToStage)
+			// (only while it downloads: space Steam reserves before is not progress)
+			if stage := kvInt(st, "BytesToStage"); stage > 0 && total > 0 {
+				if phase == steamDownloading || (!logged && busy) {
+					if s.measured.IsZero() {
+						s.baseDone = done // what Steam had done when the measures began (a resumed download)
+					}
+					steamWritten(libs, s, now)
+				}
+				// the last measure stays while Steam has stopped
+				if byDisks := s.baseDone + int64(float64(total)*float64(s.written)/float64(stage)); byDisks > done {
+					done = byDisks
+				}
+				if done > total {
+					done = total
+				}
+			}
+			// the speed between two growths (the files are measured every few seconds)
+			switch {
+			case fresh:
+				s.done = done
+			case done > s.done:
+				if dt := now.Sub(s.at).Seconds(); dt > 0 {
 					s.rate = int64(float64(done-s.done) / dt)
 				}
-				if done > s.done {
-					s.moved = now
-				}
 				s.done, s.at = done, now
+			case done < s.done:
+				s.done, s.at, s.rate = done, now, 0
+			case now.Sub(s.at) > 2*steamWrittenEvery:
+				s.rate = 0
 			}
-			moving := busy || (!s.moved.IsZero() && now.Sub(s.moved) < steamMoving)
+			// what Steam does now ([[waiting-for-events]]: no time stands for it): nothing while Steam
+			// is closed; its log while it runs (the manifest's flags are as old as its bytes); the
+			// manifest's flags for a game the log has not named yet
+			moving := false
+			switch {
+			case phases == nil:
+			case logged:
+				moving = phase == steamDownloading
+			default:
+				moving = busy
+			}
 			var state string
 			switch {
 			case installed && moving:
@@ -275,6 +316,8 @@ func steamDownloads(dir string, samples map[string]*steamSample, now time.Time) 
 				continue
 			case moving:
 				state = "downloading"
+			case logged && phase == steamPreparing:
+				state = "preparing"
 			case pending:
 				state = "queued"
 			default:

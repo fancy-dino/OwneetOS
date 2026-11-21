@@ -37,11 +37,11 @@ QtObject {
     // Installed by the console: it can be uninstalled
     function installedHere(game) { return onDisk(game) && game.extra["disk.installed"] === true; }
     // The install of a game in progress or waiting: its folder on the console's disk has the
-    // game's folder name
+    // game's folder name, without ":" ("disk.install.folder")
     function install(game) {
         if (!hasInstaller(game))
             return null;
-        const name = String(game.extra["disk.dir"]).split("/").pop();
+        const name = String(game.extra["disk.install.folder"] || String(game.extra["disk.dir"]).split("/").pop());
         return installs.find(i => String(i.dest).split("/").pop() === name) || null;
     }
     // The same game after the games were read again (new objects): by app id, folder or title
@@ -110,7 +110,8 @@ QtObject {
         ((steam && steam.downloads) || []).forEach(d => { out[d.appid] = d; });
         return out;
     }
-    // "installed", "none", "downloading", "updating", "queued" (waiting for its turn), "paused"
+    // "installed", "none", "preparing" (Steam prepares its download: no percentage, [[open-items]] 8),
+    // "downloading", "updating", "queued" (waiting for its turn), "paused"
     // (waiting, no internet), "away" (installed on a disk that is not connected)
     function steamState(game) {
         if (hasInstaller(game)) {           // 4.6: none, queued, installing, unusable
@@ -155,7 +156,11 @@ QtObject {
             return "";
         if (s === "installing") {
             const i = install(game);
-            return i && i.total > 0 ? Tr.tr("installer.state.installing", { p: progress(game) }) : Tr.tr("installer.state.busy");
+            if (i && i.total > 0)
+                return Tr.tr("installer.state.installing", { p: progress(game) });
+            // 6.8: a Windows installer has no percentage: what it has written, and whether it seems stuck
+            return i ? Tr.tr(i.stalled ? "installer.state.stalled" : "installer.state.written", { gb: sizeAuto(i.done || 0) })
+                     : Tr.tr("installer.state.busy");
         }
         if (s === "unusable")
             return Tr.tr("installer.state.unusable");

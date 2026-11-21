@@ -1,0 +1,21 @@
+@owneetd
+@nogames
+@live
+@installfail
+# The installer ([[step-6.4-installer-ui]]): an empty disk (no Windows switch), then the copy
+# fails: the error in the player's words, "Only the chosen disk was changed."
+wait 3
+pad up a
+wait 1
+pad a
+wait 1
+pad down a
+wait 1
+pad down left a
+wait 1
+shot 01-warn-no-windows
+pad a
+wait 1
+hold a 3300
+wait 4
+shot 02-error

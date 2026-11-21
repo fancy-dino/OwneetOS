@@ -2,7 +2,9 @@
 # Testers only: writes the system log to a USB stick labelled OWNEETLOG, if one is plugged in.
 [Unit]
 Description=OwneetOS test log on a USB stick labelled OWNEETLOG
-After=local-fs.target
+# after the update from the stick at start-up: the log is the newly installed one's (2026-11-11: it
+# started a second before the update replaced it); the journal is read from the start anyway
+After=local-fs.target owneet-update-boot.service
 
 [Service]
 Type=simple

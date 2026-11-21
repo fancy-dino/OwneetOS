@@ -17,6 +17,7 @@ import (
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/gamepad"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/live"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/power"
 	"github.com/fancy-dino/OwneetOS/daemon/internal/version"
 )
@@ -49,6 +50,8 @@ type Server struct {
 	Display Display
 	// Update is the testers' update from a USB stick (nil without a system bus).
 	Update Update
+	// SystemUpdate is the updates of an installed OwneetOS (nil without a system bus).
+	SystemUpdate SystemUpdate
 	// Catalog installs and removes the optional apps (nil without a system bus).
 	Catalog Catalog
 	// WebApps connects the console's Brave extension with the interface (nil: not available).
@@ -59,6 +62,16 @@ type Server struct {
 	Installs Installs
 	// Pointer makes the controller a mouse for an app's window (nil: not available).
 	Pointer Pointer
+	// Clock reads and sets the time zone (nil without a system bus).
+	Clock Clock
+	// Xone installs the Xbox wireless adapter's firmware (nil without a system bus).
+	Xone Xone
+	// Installer installs OwneetOS from the USB stick (nil without a system bus).
+	Installer Installer
+	// DiskPrep prepares a disk for games from Settings → Disks (nil without a system bus).
+	DiskPrep DiskPrep
+	// Moves copies and moves games between disks.
+	Moves Moves
 
 	started time.Time
 }
@@ -121,10 +134,43 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/webapps/ask-close", s.handleWebAppsAskClose)
 	mux.HandleFunc("POST /v1/apps/{id}/close", s.handleAppAction(Apps.Close))
 	mux.HandleFunc("POST /v1/apps/{id}/kill", s.handleAppAction(Apps.Kill))
-	mux.HandleFunc("POST /v1/apps/{id}/focus", s.handleAppAction(Apps.FocusApp))
+	mux.HandleFunc("POST /v1/apps/{id}/focus", s.handleAppAction(func(a Apps, id string) error {
+		err := a.FocusApp(id)
+		if err == nil && s.Log != nil {
+			s.Log.Info("back to the app, asked by the interface", "id", id) // e.g. Resume (Guide logs its own)
+		}
+		return err
+	}))
 	mux.HandleFunc("GET /v1/update", s.handleUpdate)
 	mux.HandleFunc("POST /v1/update/check", s.handleUpdateAction(Update.Check))
 	mux.HandleFunc("POST /v1/update/apply", s.handleUpdateAction(Update.Apply))
+	mux.HandleFunc("GET /v1/system-update", s.handleSystemUpdate)
+	mux.HandleFunc("POST /v1/system-update/check", s.handleSystemUpdateAction(SystemUpdate.Check))
+	mux.HandleFunc("POST /v1/system-update/install", s.handleSystemUpdateAction(SystemUpdate.Install))
+	mux.HandleFunc("POST /v1/system-update/go-back", s.handleSystemUpdateAction(SystemUpdate.GoBack))
+	mux.HandleFunc("POST /v1/system-update/size", s.handleSystemUpdateVersion(SystemUpdate.Size))
+	mux.HandleFunc("POST /v1/system-update/go-to", s.handleSystemUpdateVersion(SystemUpdate.GoTo))
+	mux.HandleFunc("POST /v1/system-update/notice-seen", s.handleSystemUpdateNoticeSeen)
+	mux.HandleFunc("GET /v1/time", s.handleTime)
+	mux.HandleFunc("PUT /v1/time/zone", s.handleTimeZone)
+	mux.HandleFunc("GET /v1/time/zones", s.handleTimeZones)
+	mux.HandleFunc("PUT /v1/time/now", s.handleTimeNow)
+	mux.HandleFunc("GET /v1/xone", s.handleXone)
+	mux.HandleFunc("POST /v1/xone/install", s.handleXoneInstall)
+	if s.Moves != nil {
+		mux.HandleFunc("GET /v1/moves", s.handleMoves)
+		mux.HandleFunc("POST /v1/moves", s.handleMovesStart)
+		mux.HandleFunc("POST /v1/moves/pause", s.handleMovesPause)
+		mux.HandleFunc("POST /v1/moves/resume", s.handleMovesResume)
+		mux.HandleFunc("POST /v1/moves/stop", s.handleMovesStop)
+		mux.HandleFunc("POST /v1/moves/skip", s.handleMovesSkip)
+	}
+	mux.HandleFunc("GET /v1/installer", s.handleInstaller)
+	mux.HandleFunc("GET /v1/installer/disks", s.handleInstallerDisks)
+	mux.HandleFunc("POST /v1/installer/start", s.handleInstallerStart)
+	mux.HandleFunc("GET /v1/disks", s.handleDisks)
+	mux.HandleFunc("GET /v1/disks/prepare", s.handleDiskPrepStatus)
+	mux.HandleFunc("POST /v1/disks/prepare", s.handleDiskPrep)
 	mux.HandleFunc("GET /v1/windows", s.handleWindows)
 	mux.HandleFunc("POST /v1/windows/needed", s.handleWindowsNeeded)
 	mux.HandleFunc("GET /v1/installs", s.handleInstalls)
@@ -132,6 +178,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/installs/inspect", s.handleInstallInspect)
 	mux.HandleFunc("POST /v1/installs/stop", s.handleInstallStop)
 	mux.HandleFunc("POST /v1/installs/uninstall", s.handleUninstall)
+	mux.HandleFunc("POST /v1/installs/delete", s.handleDelete)
+	mux.HandleFunc("POST /v1/installs/delete-installer", s.handleDeleteInstaller)
 	mux.HandleFunc("GET /v1/pointer", s.handlePointer)
 	mux.HandleFunc("POST /v1/pointer", s.handlePointerSet)
 	mux.HandleFunc("GET /v1/steam", s.handleSteamStatus)
@@ -196,6 +244,7 @@ type Status struct {
 	DaemonVersion   string `json:"daemon_version"`
 	OwneetOSVersion string `json:"owneetos_version"`
 	SessionMode     string `json:"session_mode"`
+	Mode            string `json:"mode"` // live (from the USB stick), tester or installed (live.Mode)
 	UptimeSeconds   int64  `json:"uptime_seconds"`
 }
 
@@ -204,6 +253,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
 		DaemonVersion:   version.Version,
 		OwneetOSVersion: osReleaseValue(s.OSRelease, "IMAGE_VERSION"),
 		SessionMode:     readTrimmed(s.SessionModeFile),
+		Mode:            live.Mode(),
 		UptimeSeconds:   int64(time.Since(s.started).Seconds()),
 	})
 }

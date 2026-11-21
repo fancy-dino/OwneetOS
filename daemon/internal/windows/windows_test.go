@@ -8,9 +8,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
 )
 
 type fakePreparer struct {
@@ -135,4 +138,103 @@ func TestPercent(t *testing.T) {
 			t.Errorf("percentOf(%d, %d) = %d, want %d", c.part, c.bytes, got, c.want)
 		}
 	}
+}
+
+type fakeNative struct {
+	mu    sync.Mutex
+	dir   string
+	err   error
+	calls atomic.Int32
+}
+
+func (f *fakeNative) PrepareNative(context.Context) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls.Add(1)
+	return f.dir, f.err
+}
+
+func (f *fakeNative) set(dir string, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.dir, f.err = dir, err
+}
+
+func umuScoutFolder(t *testing.T) string {
+	dir := filepath.Join(t.TempDir(), "umu-scout")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "toolmanifest.vdf"), []byte("\"manifest\" {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+func waitNative(t *testing.T, m *Manager, want string) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if m.NativeDir() == want {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("native folder %q, want %q", m.NativeDir(), want)
+}
+
+// Native games' runtime comes right after what Windows games need, and only then
+// ([[umu-fixes-and-runtime]], owner 2026-11-20).
+func TestNativeRuntimeAfterWindowsGames(t *testing.T) {
+	data := t.TempDir()
+	native := &fakeNative{dir: umuScoutFolder(t)}
+	m := &Manager{DataDir: data, Online: func() bool { return true }, Preparer: &fakePreparer{dir: protonFolder(t)}, Native: native}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go m.Run(ctx)
+	time.Sleep(50 * time.Millisecond)
+	if native.calls.Load() != 0 {
+		t.Fatal("native games' runtime downloaded without the Windows games' download")
+	}
+	if err := m.SetNeeded(); err != nil {
+		t.Fatal(err)
+	}
+	waitState(t, m, StateReady)
+	waitNative(t, m, native.dir)
+	m.Kick() // ready: not downloaded again
+	time.Sleep(50 * time.Millisecond)
+	if n := native.calls.Load(); n != 1 {
+		t.Fatalf("%d downloads", n)
+	}
+}
+
+// A console whose Windows games were made ready before (an update) gets the runtime once online; a
+// failure leaves Windows games ready and is tried again after a network change.
+func TestNativeRuntimeForAConsoleAlreadyReady(t *testing.T) {
+	data := t.TempDir()
+	if err := os.WriteFile(filepath.Join(data, "proton"), []byte(protonFolder(t)+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	native := &fakeNative{err: errors.New("no network")}
+	broker := events.NewBroker()
+	m := &Manager{Broker: broker, DataDir: data, Online: func() bool { return true }, Native: native}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go m.Run(ctx)
+	deadline := time.Now().Add(3 * time.Second)
+	for native.calls.Load() == 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if st := m.Status(); st.State != StateReady || m.NativeDir() != "" {
+		t.Fatalf("after a failure: %+v, native %q", st, m.NativeDir())
+	}
+	scout := umuScoutFolder(t)
+	native.set(scout, nil)
+	m.Kick() // too soon after the failure: nothing
+	time.Sleep(50 * time.Millisecond)
+	if native.calls.Load() != 1 {
+		t.Fatalf("%d tries before a network change", native.calls.Load())
+	}
+	broker.Publish("network.changed", nil)
+	waitNative(t, m, scout)
 }

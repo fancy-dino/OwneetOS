@@ -85,6 +85,15 @@ Window {
         Loader {
             id: theme
             anchors.fill: parent
+            // OwneetOS: the display area (Settings → Display, [[screens-and-display]], 3y): for a TV that
+            // cuts the edges, the theme is drawn inside the part of the screen it shows; the theme's
+            // root says how much of each side is left out
+            readonly property real areaX: item && item.displayAreaX !== undefined ? item.displayAreaX : 0
+            readonly property real areaY: item && item.displayAreaY !== undefined ? item.displayAreaY : 0
+            anchors.leftMargin: Math.round(areaX * content.width)
+            anchors.rightMargin: Math.round(areaX * content.width)
+            anchors.topMargin: Math.round(areaY * content.height)
+            anchors.bottomMargin: Math.round(areaY * content.height)
 
             focus: true
             enabled: focus

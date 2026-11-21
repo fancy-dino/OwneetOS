@@ -11,13 +11,28 @@
 #   - display: two screens, modes of the TV, brightness; a change waits for "Keep" (screen 30 s,
 #     mode 15 s);
 #   - optional web apps (5.0.0): none installed; the first install takes 3 s (the engine), the next
-#     ones and the removals are immediate; the last removal takes 1.5 s.
+#     ones and the removals are immediate; the last removal takes 1.5 s;
+#   - the time zone (6.1): set at once; an Xbox wireless adapter that needs its firmware, which
+#     installs in 3 s (FAKE_FIRSTSTART=1: a new console, not connected to any network);
+#   - the system's mode (6.2): installed, or live with FAKE_MODE=live (started from the USB stick);
+#   - moving games (6.6): a copy in about 3 s, then the check and the removal (FAKE_MOVE_FAIL=1: the
+#     check fails; FAKE_MOVE_SLOW=1: four times slower, to look at it while it runs); pause, resume
+#     and stop;
+#   - the installer (6.4): the disks of demo 6.4, an installation in about 5 s (FAKE_INSTALL_FAIL=CODE:
+#     it stops while copying with that error);
+#   - the updates of an installed system (7.1), with FAKE_SYSUPDATE (otherwise a tester's PC that
+#     updates from the USB stick): uptodate (checked yesterday; a check finds 0.4.0), available,
+#     ready, fellback (went back by itself), installfail, backfail; a download and installation in
+#     about 6 s, going back in 1 s. The older versions of demo 7.1-updates (7.1b): their list comes
+#     with a check (already there, except with uptodate), the size of going back to one in about
+#     2.5 s, going back to it like an installation.
 #
 # Steps can send it events (tools/frontend-preview "event TYPE JSON"): one line each in the FIFO
 # given as second argument.
 #
 #   fake-owneetd.py SOCKET [EVENTS_FIFO]
 
+import datetime
 import json
 import os
 import queue
@@ -29,18 +44,33 @@ import threading
 import time
 import urllib.parse
 import zipfile
+import zoneinfo
 from http.server import BaseHTTPRequestHandler
 
 lock = threading.Lock()
 listeners = []
 
 state = {
+    "time": {"zone": "UTC", "synchronized": True},
+    "xone": {"needed": True, "state": ""},
+    # the installer (6.4): the disks of the approved demo 6.4-installer
+    "installer": {"state": "", "percent": 0},
+    "moves": {"state": "", "paused": False, "index": 0, "count": 0, "percent": 0, "failed": [], "skipped": [], "moved": []},
+    "disks": [
+        {"path": "/dev/nvme0n1", "serial": "S1", "size": 500107862016, "model": "Samsung SSD 980", "usable": True,
+         "reason": "", "windows": True, "bitlocker": True, "linux": False, "partitions": [{"path": "/dev/nvme0n1p1"}]},
+        {"path": "/dev/sda", "serial": "S2", "size": 1000204886016, "model": "Crucial MX500", "usable": True,
+         "reason": "", "windows": False, "bitlocker": False, "linux": False, "partitions": []},
+        {"path": "/dev/sdb", "serial": "S3", "size": 16008609792, "model": "Kingston SSD", "usable": False,
+         "reason": "too_small", "windows": False, "bitlocker": False, "linux": False, "partitions": [{"path": "/dev/sdb1"}]},
+    ],
     "network": {
         "available": True, "state": "connected", "connectivity": "full",
         "wifi": {"present": True, "enabled": True, "hardware_enabled": True, "state": "connected",
                  "ssid": "Casa Rossi", "strength": 82},
         "ethernet": {"present": True, "connected": False},
     },
+    "layout": "us",
     "networks": [
         {"ssid": "Casa Rossi", "strength": 82, "security": "wpa", "known": True, "connected": True},
         {"ssid": "Casa Rossi 5G", "strength": 64, "security": "wpa", "known": True, "connected": False},
@@ -84,7 +114,11 @@ state = {
     "apps": [],
     # Steam (4.2): change it with the event line "fake.steam {...}" (e.g. {"allowed": false})
     # testers' updates from a USB stick (4.2b)
-    "update": {"tester": True, "state": "", "packages": [], "running": False},
+    "update": {"tester": not os.environ.get("FAKE_SYSUPDATE"), "state": "", "packages": [], "running": False},
+    "system_update": {"installed": True, "state": "none", "current": "0.3.0", "size": 0, "packages": [], "percent": 0,
+                      "checked": "", "checking": False, "on_previous": False,
+                      "previous": {"version": "0.2.1", "since": "2026-10-12T08:00:00Z"},
+                      "listed": False, "releases": [], "goto": None},
     # Windows games (4.5): nothing until the interface says the library has one; then about
     # 20 seconds of "getting ready"
     "windows": {"state": "none", "percent": 0, "needed": False},
@@ -113,7 +147,74 @@ def later(seconds, fn):
     threading.Timer(seconds, fn).start()
 
 
-# Steam's downloads (4.2c): the first one moves, the others wait; about 20 seconds a game
+# The updates of an installed system (7.1)
+SYSUPDATE = os.environ.get("FAKE_SYSUPDATE", "")
+NEW_RELEASE = {"version": "0.4.0", "size": 412000000,
+               "notes": {"en": "Games on USB disks start faster, the library remembers where you were, and Bluetooth "
+                               "controllers reconnect more quickly.",
+                         "it": "I giochi sui dischi USB partono prima, la libreria ricorda dov’eri e i controller "
+                               "Bluetooth si ricollegano più in fretta."},
+               "packages": [{"name": "owneetd", "from": "0.22.0-1", "to": "0.23.0-1"},
+                            {"name": "owneet-frontend", "from": "0.31.0-1", "to": "0.32.0-1"},
+                            {"name": "linux", "from": "7.2.8.arch1-2", "to": "7.2.9.arch1-1"},
+                            {"name": "mesa", "from": "1:26.0.1-1", "to": "1:26.0.2-1"},
+                            {"name": "pipewire", "from": "1:1.6.0-1", "to": "1:1.6.1-1"},
+                            {"name": "networkmanager", "from": "1.56.0-1", "to": "1.56.2-1"},
+                            {"name": "bluez", "from": "5.84-1", "to": "5.85-1"},
+                            {"name": "systemd", "from": "259.1-1", "to": "259.2-1"},
+                            {"name": "steam", "from": "1.0.0.85-1", "to": "1.0.0.86-1"},
+                            {"name": "brave-bin", "from": "1:1.97.57-1", "to": "1:1.98.10-1"}]}
+
+
+# this version and the older ones (demo 7.1-updates)
+RELEASES = [{"version": v, "date": d} for v, d in (
+    ("0.3.0", "2026-10-18"), ("0.2.1", "2026-10-04"), ("0.2.0", "2026-09-27"), ("0.1.9", "2026-09-20"),
+    ("0.1.8", "2026-09-13"), ("0.1.7", "2026-09-06"), ("0.1.6", "2026-08-30"), ("0.1.5", "2026-08-23"),
+    ("0.1.4", "2026-08-16"), ("0.1.3", "2026-08-09"), ("0.1.2", "2026-08-02"), ("0.1.1", "2026-07-26"),
+    ("0.1.0", "2026-07-19"))]
+
+
+def sysupdate(**changes):
+    with lock:
+        state["system_update"].update(changes)
+        data = json.loads(json.dumps(state["system_update"]))
+    publish("system-update.changed", data)
+
+
+def sysupdate_start():
+    st = state["system_update"]
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if SYSUPDATE != "uptodate":
+        st.update(listed=True, releases=RELEASES)
+    if SYSUPDATE == "uptodate":
+        st["checked"] = (now - datetime.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    elif SYSUPDATE in ("available", "installfail"):
+        st.update(NEW_RELEASE, state="available", checked=now.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    elif SYSUPDATE == "ready":
+        st.update(NEW_RELEASE, state="ready", packages=[])
+    elif SYSUPDATE == "fellback":
+        st.update(previous=None, rolled_back=now.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    else:
+        st["checked"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def sysupdate_install():
+    for i in range(1, 11):
+        later(i * 0.3, lambda i=i: sysupdate(state="downloading", percent=i * 10))
+    for i in range(1, 6):
+        later(3 + i * 0.5, lambda i=i: sysupdate(state="installing", percent=i * 20))
+    if SYSUPDATE == "installfail":
+        later(6, lambda: sysupdate(state="failed", error="install_failed", percent=0))
+    else:
+        later(6, lambda: sysupdate(state="ready", percent=0, packages=[]))
+
+
+# Steam's downloads (4.2c): the first one moves, the others wait; about 20 seconds a game, after
+# Steam has prepared it (FAKE_STEAM_PREPARE seconds, 2 by default; @steamprepare: 60: "preparing", no percentage,
+# open item 8)
+STEAM_PREPARE = float(os.environ.get("FAKE_STEAM_PREPARE", "2"))
+
+
 def steam_publish():
     with lock:
         data = json.loads(json.dumps(state["steam"]))
@@ -125,11 +226,11 @@ def steam_install(appid):
         ds = state["steam"]["downloads"]
         if any(d["appid"] == appid for d in ds):
             return
-        ds.append({"appid": appid, "state": "queued", "done": 0, "total": 4_200_000_000, "rate": 0})
-        start = len(ds) == 1
+        start = len(ds) == 0
+        ds.append({"appid": appid, "state": "preparing" if start else "queued", "done": 0, "total": 4_200_000_000, "rate": 0})
     steam_publish()
     if start:
-        later(0.5, steam_tick)
+        later(STEAM_PREPARE, steam_tick)
 
 
 def steam_tick():
@@ -140,11 +241,14 @@ def steam_tick():
         d = ds[0]
         d["state"], d["rate"] = "downloading", 41_600_000
         d["done"] = min(d["total"], d["done"] + d["total"] // 40)
+        wait = 0.5
         if d["done"] >= d["total"]:
             ds.pop(0)
             state["steam"]["games"].append(d["appid"])
+            if ds:
+                ds[0]["state"], wait = "preparing", STEAM_PREPARE
     steam_publish()
-    later(0.5, steam_tick)
+    later(wait, steam_tick)
 
 
 # Installers (4.6): an install takes a few seconds (GOG's .sh with a percentage, Windows
@@ -175,6 +279,23 @@ def installs_copy():
     return {"installs": json.loads(json.dumps(state["installs"]))}
 
 
+def mark_installing(i):
+    """As owneetd: the folder being installed holds a mark naming its installer, kind and title."""
+    try:
+        os.makedirs(i["dest"], exist_ok=True)
+        with open(os.path.join(i["dest"], ".owneet-installing"), "w") as f:
+            json.dump({"installer": i["installer"], "kind": i["kind"], "title": i["title"]}, f)
+    except OSError:
+        pass
+
+
+def unmark_installing(i):
+    try:
+        os.remove(os.path.join(i["dest"], ".owneet-installing"))
+    except OSError:
+        pass
+
+
 def install_tick():
     with lock:
         cur = next((i for i in state["installs"] if i["state"] == "installing"), None)
@@ -187,9 +308,11 @@ def install_tick():
             nxt = next((i for i in state["installs"] if i["state"] == "queued"), None)
             if nxt:
                 nxt["state"] = "installing"
+                mark_installing(nxt)
         snapshot = installs_copy()
         more = bool(state["installs"])
     if finished:
+        unmark_installing(cur)
         dest = cur["dest"]
         os.makedirs(dest, exist_ok=True)
         start = os.path.join(dest, "start.sh" if cur["kind"] == "sh" else "game.exe")
@@ -282,6 +405,26 @@ def display_revert():
     display_done("display.reverted")
 
 
+def zone_known(zone):
+    try:
+        zoneinfo.ZoneInfo(zone)
+        return "/" in zone and ".." not in zone
+    except Exception:
+        return False
+
+
+def time_status():
+    now = datetime.datetime.fromtimestamp(time.time() + state.get("manual", 0), zoneinfo.ZoneInfo(state["time"]["zone"]))
+    return dict(state["time"], date=now.strftime("%Y-%m-%d"), time=now.strftime("%H:%M"))
+
+
+def zone_offsets(path):
+    zones = urllib.parse.parse_qs(urllib.parse.urlparse(path).query).get("zone", [])
+    now = datetime.datetime.now(datetime.timezone.utc)
+    return [{"zone": z, "offset": int(now.astimezone(zoneinfo.ZoneInfo(z)).utcoffset().total_seconds())}
+            for z in zones if zone_known(z)]
+
+
 def pair_new():
     if not state["bluetooth"]["auto_pair"]:
         return
@@ -328,11 +471,20 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/v1/events":
             return self.events()
         with lock:
+            if path.startswith("/v1/time/zones"):
+                return self.reply(200, {"zones": zone_offsets(path)})
             answers = {
-                "/v1/status": {"session_mode": os.environ.get("FAKE_SESSION", "cage"), "owneetos_version": "preview"},
+                "/v1/time": time_status(),
+                "/v1/xone": state["xone"],
+                "/v1/installer": state["installer"],
+                "/v1/moves": state["moves"],
+                "/v1/installer/disks": {"disks": state["disks"]},
+                "/v1/status": {"session_mode": os.environ.get("FAKE_SESSION", "cage"), "owneetos_version": "preview",
+                               "mode": os.environ.get("FAKE_MODE", "installed")},
                 "/v1/apps": {"apps": state["apps"], "focus": "home"},
                 "/v1/steam": state["steam"],
                 "/v1/update": state["update"],
+                "/v1/system-update": state["system_update"],
                 "/v1/apps/catalog": state["catalog"],
                 "/v1/windows": state["windows"],
                 "/v1/installs": {"installs": state["installs"]},
@@ -343,7 +495,7 @@ class Handler(BaseHTTPRequestHandler):
                 "/v1/bluetooth": state["bluetooth"],
                 "/v1/audio": state["audio"],
                 "/v1/display": state["display"],
-                "/v1/input/layout": {"layout": "us", "supported": ["it", "us"]},
+                "/v1/input/layout": {"layout": state["layout"], "supported": ["de", "es", "fr", "it", "us"]},
             }
             answer = json.loads(json.dumps(answers.get(path))) if path in answers else None
         if answer is None:
@@ -352,6 +504,107 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path, body = self.path, self.body()
+        if path == "/v1/xone/install":
+            with lock:
+                state["xone"] = {"needed": True, "state": "installing"}
+            publish("xone.changed", state["xone"])
+
+            def installed():
+                with lock:
+                    state["xone"] = {"needed": False, "state": "installed"}
+                publish("xone.changed", state["xone"])
+            later(3, installed)
+            return self.reply(202)
+        if path == "/v1/moves":
+            games = body.get("games") or []
+            with lock:
+                state["moves"] = {"state": "copy", "paused": False, "index": 0, "count": len(games), "title": games[0]["title"],
+                                  "percent": 0, "remove": bool(body.get("remove")) or bool(games[0].get("remove")),
+                                  "failed": [], "skipped": [], "moved": [], "stop": False, "skip": False}
+            remove_all = bool(body.get("remove"))   # or each game's own "remove" (6.6c)
+
+            def seen(mv):
+                return {k: v for k, v in mv.items() if k not in ("stop", "skip")}
+
+            # a step with its percentage (6.6d: the copy, the check and the removal)
+            def step(mv, name, pause):
+                with lock:
+                    mv.update(state=name, percent=0)
+                for pct in range(0, 101, 5):
+                    if name == "copy":
+                        while mv["paused"] and not mv["stop"] and not mv["skip"]:
+                            time.sleep(0.1)
+                        if mv["stop"] or mv["skip"]:
+                            return "stop" if mv["stop"] else "skip"
+                    with lock:
+                        mv["percent"] = pct
+                    publish("moves.changed", seen(mv))
+                    time.sleep(pause * (4 if os.environ.get("FAKE_MOVE_SLOW") else 1))
+                return ""
+
+            def run():
+                mv = state["moves"]
+                for i, g in enumerate(games):
+                    with lock:
+                        mv.update(index=i, title=g["title"], remove=remove_all or bool(g.get("remove")), skip=False)
+                    how = step(mv, "copy", 0.15)
+                    if how == "stop":
+                        with lock:
+                            mv["state"] = "cancelled"
+                        publish("moves.changed", seen(mv))
+                        return
+                    if how == "skip":            # only this game (6.6d)
+                        with lock:
+                            mv["skipped"].append(g["title"])
+                            mv["paused"] = False
+                        continue
+                    step(mv, "check", 0.1)
+                    if os.environ.get("FAKE_MOVE_FAIL"):
+                        with lock:
+                            mv["failed"].append(g["title"])
+                        continue
+                    if mv["remove"]:
+                        step(mv, "remove", 0.12)
+                    with lock:
+                        mv["moved"].append(g["dir"])
+                with lock:
+                    mv["state"] = "done"
+                publish("moves.changed", seen(mv))
+            threading.Thread(target=run, daemon=True).start()
+            return self.reply(202)
+        if path in ("/v1/moves/pause", "/v1/moves/resume", "/v1/moves/stop", "/v1/moves/skip"):
+            mv = state["moves"]
+            with lock:
+                if path.endswith("pause"):
+                    mv["paused"] = True
+                elif path.endswith("resume"):
+                    mv["paused"] = False
+                elif path.endswith("skip"):
+                    mv["skip"] = True
+                else:
+                    mv["stop"] = True
+            publish("moves.changed", {k: v for k, v in mv.items() if k not in ("stop", "skip")})
+            return self.reply(202)
+        if path == "/v1/installer/start":
+            disk = next((d for d in state["disks"] if d["path"] == body.get("disk")), None)
+            if not disk or disk["size"] != body.get("size") or disk["serial"] != body.get("serial"):
+                return self.error(409, "installer.disk_changed")
+            if (disk["windows"] or disk["bitlocker"]) and not body.get("erase_windows"):
+                return self.error(400, "installer.windows_not_confirmed")
+            fail = os.environ.get("FAKE_INSTALL_FAIL", "")
+
+            def progress(st, pct, err=""):
+                with lock:
+                    state["installer"] = {"state": st, "percent": pct, "error": err}
+                publish("installer.changed", state["installer"])
+            steps = [("preparing", 0), ("partitioning", 3), ("copying", 10), ("copying", 45), ("copying", 80),
+                     ("setting_up", 90), ("boot", 97), ("done", 100)]
+            for i, (st, pct) in enumerate(steps):
+                if fail and st == "copying" and pct == 45:
+                    later(0.6 * i, lambda: progress("failed", 0, fail))
+                    break
+                later(0.6 * i, lambda st=st, pct=pct: progress(st, pct))
+            return self.reply(202)
         if path == "/v1/network/wifi/scan":
             later(1.5, lambda: publish("wifi.scan_done"))
             return self.reply(202)
@@ -400,6 +653,31 @@ class Handler(BaseHTTPRequestHandler):
             display_revert()
             return self.reply(204)
         if path.startswith("/v1/power/"):
+            return self.reply(204)
+        if path == "/v1/system-update/check":
+            sysupdate(checking=True)
+            now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            later(1.5, lambda: sysupdate(**dict(NEW_RELEASE, state="available", checking=False, checked=now,
+                                                listed=True, releases=RELEASES)))
+            return self.reply(202)
+        if path == "/v1/system-update/size":
+            version = body.get("version", "")
+            sysupdate(goto={"version": version, "size": 0, "sizing": True})
+            later(2.5, lambda: sysupdate(goto={"version": version, "size": 1503238553, "sizing": False}))
+            return self.reply(202)
+        if path == "/v1/system-update/go-to":
+            sysupdate(version=body.get("version", ""), size=1503238553, packages=[], notes={})
+            sysupdate_install()
+            return self.reply(202)
+        if path == "/v1/system-update/install":
+            sysupdate_install()
+            return self.reply(202)
+        if path == "/v1/system-update/go-back":
+            sysupdate(back="working")
+            later(1, lambda: sysupdate(back="failed" if SYSUPDATE == "backfail" else "done"))
+            return self.reply(202)
+        if path == "/v1/system-update/notice-seen":
+            sysupdate(rolled_back="", back="")
             return self.reply(204)
         if path in ("/v1/update/check", "/v1/update/apply"):
             pkgs = [{"name": "owneetd", "from": "0.11.7-1", "to": "0.11.8-1"},
@@ -475,6 +753,8 @@ class Handler(BaseHTTPRequestHandler):
                 state["installs"].append({"dest": body["dest"], "title": body.get("title", ""), "kind": body["kind"],
                                           "installer": body["installer"], "state": "installing" if first else "queued",
                                           "done": 0, "total": info["need"] if body["kind"] == "sh" else 0})
+                if first:
+                    mark_installing(state["installs"][-1])
                 snapshot = installs_copy()
             publish("installs.changed", snapshot)
             if first:
@@ -485,9 +765,11 @@ class Handler(BaseHTTPRequestHandler):
                 gone = [i for i in state["installs"] if i["dest"] == body.get("dest")]
                 state["installs"] = [i for i in state["installs"] if i["dest"] != body.get("dest")]
                 if gone and gone[0]["state"] == "installing":
+                    unmark_installing(gone[0])
                     nxt = next((i for i in state["installs"] if i["state"] == "queued"), None)
                     if nxt:
                         nxt["state"] = "installing"
+                        mark_installing(nxt)
                 snapshot = installs_copy()
             if not gone:
                 return self.error(404, "installs.not_found")
@@ -535,6 +817,27 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         path, body = self.path, self.body()
+        if path == "/v1/time/now":
+            try:
+                t = datetime.datetime.strptime(body.get("date", "") + " " + body.get("time", ""), "%Y-%m-%d %H:%M")
+            except ValueError:
+                return self.error(400, "time.bad_time")
+            name = body.get("zone") or state["time"]["zone"]
+            if not zone_known(name):
+                return self.error(400, "time.unknown_zone")
+            zone = zoneinfo.ZoneInfo(name)
+            with lock:
+                state["manual"] = t.replace(tzinfo=zone).timestamp() - time.time()
+            publish("time.changed", time_status())
+            return self.reply(200, time_status())
+        if path == "/v1/time/zone":
+            zone = body.get("zone", "")
+            if not zone_known(zone):
+                return self.error(400, "time.unknown_zone")
+            with lock:
+                state["time"]["zone"] = zone
+            publish("time.changed", time_status())
+            return self.reply(200, time_status())
         if path == "/v1/network/wifi/enabled":
             with lock:
                 state["network"]["wifi"]["enabled"] = bool(body.get("enabled"))
@@ -566,6 +869,9 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/v1/audio/mute", "/v1/audio/volume"):
             with lock:
                 state["audio"].update(body)
+        if path == "/v1/input/layout":
+            with lock:
+                state["layout"] = body.get("layout", "us")
         if path.startswith("/v1/audio/") or path == "/v1/input/layout":
             publish("input.layout_changed" if "layout" in path else "audio.changed", body)
             return self.reply(204)
@@ -638,6 +944,14 @@ def read_events(path):
 
 if __name__ == "__main__":
     sock = sys.argv[1]
+    sysupdate_start()
+    if os.environ.get("FAKE_FIRSTSTART"):   # a new console: no network joined yet
+        state["time"]["synchronized"] = False
+        state["network"]["state"] = "disconnected"
+        state["network"]["wifi"].update({"state": "disconnected", "ssid": "", "strength": 0})
+        for n in state["networks"]:
+            n["connected"] = False
+            n["known"] = False
     if os.environ.get("FAKE_STEAM"):   # the invented Steam folder of fake-steam.py
         state["steam"].update({"prepared": True, "account": True, "nvidia": True, "games": ["2001", "2002", "2010"],
                                "away": {"2003": "Games SSD"}})

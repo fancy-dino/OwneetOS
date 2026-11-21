@@ -40,6 +40,9 @@ public:
     Q_INVOKABLE QString tr(const QString& key, const QVariantMap& args = {}) const;
     /// Like tr(), for messages with plural forms; {n} is replaced by `n`.
     Q_INVOKABLE QString trn(const QString& key, int n, const QVariantMap& args = {}) const;
+    /// The message `key` in the language `tag` (else in English): for the few places that show
+    /// several languages at once, e.g. the first start's "Connect a controller" in each language.
+    Q_INVOKABLE QString trIn(const QString& tag, const QString& key) const;
 
     const QString& language() const { return m_current; }
     void setLanguage(const QString& tag);

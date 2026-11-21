@@ -1,0 +1,10 @@
+@owneetd
+@longtitle
+# The home's card with text size XL and a title on two lines (open item 3w d): less space between its
+# rows, so its label stays inside the card.
+pad lb down down down down right down
+pad right right right a
+wait 1
+pad b rb
+wait 1
+shot 01-home-xl-long-title

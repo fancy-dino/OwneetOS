@@ -9,6 +9,9 @@
 // installs it, Menu opens its options (Open, Remove). An open web app takes the hero like a game
 // ([[step-5.1-brave-in-the-os]], approved demo design/demos/5.1-web-app-running.html): its letter
 // instead of art, Resume and Close; its tile shows a green dot.
+// Started from the USB stick ([[step-6.2-live-vs-installed-mode]], approved demo
+// design/demos/6.2-live-home.html): a strip above the hero, which gives it the room, says that
+// nothing is kept at power-off and offers to install OwneetOS; installed, Home is as above.
 // Still to come: real covers from Steam's local files (4.1).
 import QtQuick 2.15
 import "foundation"
@@ -45,6 +48,13 @@ NavArea {
     }
     property real now: Date.now()
     Timer { interval: 30000; running: page.running !== null; repeat: true; onTriggered: page.now = Date.now() }
+    // how long a game or a web app has been open: minutes up to an hour, then hours and minutes
+    // (owner, 2026-11-09: as the time left of a download)
+    function since(key, minutes) {
+        if (minutes < 60) return Tr.trn(key, minutes);
+        const h = Math.floor(minutes / 60), m = minutes % 60;
+        return m === 0 ? Tr.tr(key + ".hours.whole", { h: h }) : Tr.tr(key + ".hours", { h: h, m: m });
+    }
     readonly property int playingMinutes: running && running.started
         ? Math.max(0, Math.floor((now - new Date(running.started).getTime()) / 60000)) : 0
     signal resume(var app)
@@ -68,6 +78,8 @@ NavArea {
     signal openNotice(var notice)              // the downloads notice: the game's details (4.2c)
     property bool steamRunning: false           // Steam runs (hidden or not): Menu on its tile closes it
     signal steamOptions()
+    property bool live: false                  // started from the USB stick (owneetd: mode)
+    signal install()                           // "Install OwneetOS" (the installer, 6.4)
     onCancelled: quickMenu()
     backFeedback: ""                           // the quick menu plays its own sound
 
@@ -96,6 +108,8 @@ NavArea {
             return [P("a", "prompt.open"), P("menu", "prompt.options")];
         if (k === "app" || k === "all" || k === "notice" || k === "store")
             return [P("a", "prompt.open")];
+        if (k === "install")
+            return [P("a", "live.install")];
         return k ? [P("a", "prompt.select")] : [];
     }
     function gameOf(item) { return item ? (item.game || null) : null; }
@@ -134,6 +148,7 @@ NavArea {
         else if (k === "store" || item.steamStore) openStore();
         else if (k === "app" && item.webApp) openWebApp(item.webApp);
         else if (k === "notice" && page.notices.length > 0) openNotice(page.notices[0]);
+        else if (k === "install") install();
         else notYet();                         // apps (later steps)
     }
     onOtherAction: {
@@ -152,9 +167,61 @@ NavArea {
         id: top
         anchors { left: parent.left; right: parent.right; top: parent.top; bottom: rowBlock.top; bottomMargin: Theme.px(20) }
 
+        NavGroup {                              // from the USB stick: above the hero (6.2)
+            id: liveGroup
+            visible: page.live
+            anchors { left: parent.left; top: parent.top }
+            width: heroGroup.width
+            height: visible ? liveStrip.height : 0
+            Rectangle {
+                id: liveStrip
+                readonly property bool navigable: true
+                readonly property string kind: "install"
+                width: parent.width
+                height: liveFlow.implicitHeight + Theme.px(16)
+                radius: Theme.radiusM - Theme.px(2)
+                color: Theme.surface
+                border.color: Theme.accent
+                border.width: Math.max(1, Theme.px(1))
+                Flow {
+                    id: liveFlow
+                    anchors { left: parent.left; right: parent.right; leftMargin: Theme.px(14); rightMargin: Theme.px(14); verticalCenter: parent.verticalCenter }
+                    spacing: Theme.px(12)
+                    Rectangle {
+                        width: Theme.fs(26); height: width
+                        radius: Theme.px(8)
+                        color: Theme.raised
+                        Icon {
+                            anchors.centerIn: parent
+                            width: parent.width * 0.64; height: width
+                            name: "stick"
+                            color: Theme.accent
+                        }
+                    }
+                    Text {
+                        height: Theme.fs(26)
+                        verticalAlignment: Text.AlignVCenter
+                        text: Tr.tr("live.install")
+                        color: Theme.accent
+                        font.family: Theme.textFont
+                        font.weight: Font.DemiBold
+                        font.pixelSize: Theme.fs(14.5)
+                    }
+                    Text {
+                        height: Theme.fs(26)
+                        verticalAlignment: Text.AlignVCenter
+                        text: Tr.tr("live.text")
+                        color: Theme.muted
+                        font.family: Theme.textFont
+                        font.pixelSize: Theme.fs(14.5)
+                    }
+                }
+                FocusFrame {}
+            }
+        }
         NavGroup {
             id: heroGroup
-            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+            anchors { left: parent.left; top: liveGroup.bottom; topMargin: page.live ? Theme.px(12) : 0; bottom: parent.bottom }
             width: (parent.width - Theme.px(20)) * 0.62
 
             GameArt {
@@ -181,13 +248,66 @@ NavArea {
                 border.color: Theme.line
                 border.width: Math.max(1, Theme.px(1))
             }
+            // The title on two lines, measured (unseen): whether the card's rows fit with it (3ab)
+            Text {
+                id: titleMeasure
+                opacity: 0
+                width: heroText.width
+                text: heroText.titleText
+                font.family: Theme.displayFont
+                font.weight: Font.Bold
+                font.pixelSize: Theme.fs(40)
+                wrapMode: Text.Wrap
+                maximumLineCount: 2
+                // given to the card as a value: reading the height while deciding would lay the text out
+                // again inside that decision (a binding loop)
+                onHeightChanged: heroText.titleTwoLines = height
+                Component.onCompleted: heroText.titleTwoLines = height
+            }
             Column {
+                id: heroText
+                property real titleTwoLines: 0
                 // at the bottom over the art, in the middle of the welcome card
                 x: Theme.px(34)
                 width: parent.width - Theme.px(68)
                 readonly property bool art: (page.hero !== null || page.running !== null) && !page.webOpen
                 y: art ? parent.height - height - Theme.px(30) : (parent.height - height) / 2
-                spacing: Theme.px(12)
+                // 12 px between its rows; less (at least 4 px) when they would not fit in the card with
+                // 30 px above and below, e.g. text size XL and a title on two lines (owner 2026-11-12, 3w d)
+                readonly property real rows: {
+                    let h = 0;
+                    for (let i = 0; i < visibleChildren.length; i++)
+                        h += visibleChildren[i].height;
+                    return h;
+                }
+                readonly property int gaps: Math.max(1, visibleChildren.length - 1)
+                spacing: Math.max(Theme.px(4), Math.min(Theme.px(12), (parent.height - Theme.px(60) - rows) / gaps))
+                // Even 4 px apart the rows do not fit with the title on two lines (text size XL; owner
+                // 2026-11-13, approved demo design/demos/3.6c-hero-card-fit.html): the title goes on one
+                // line ("…", scrolling while a button of the card is selected) and the buttons are clipped
+                readonly property string titleText: page.webOpen ? (page.runningWeb ? Tr.tr(page.runningWeb.nameKey) : page.running.name)
+                    : page.running ? page.running.name : page.hero ? page.hero.title : Tr.tr("home.empty.title")
+                // the other rows (never the title, whose lines depend on this: no binding loop)
+                readonly property real otherRows: {
+                    let h = 0, n = 0;
+                    for (let i = 0; i < children.length; i++) {
+                        const c = children[i];
+                        if (c === titleTwo || c === titleOne || !c.visible)
+                            continue;
+                        h += c.height;
+                        n += 1;
+                    }
+                    return h + n * Theme.px(4);
+                }
+                // decided once what it reads has settled (Qt.callLater): deciding inside the change
+                // of what it changes was a binding loop
+                property bool tight: false
+                function decide() { tight = art && otherRows + titleTwoLines > parent.height - Theme.px(60); }
+                onArtChanged: Qt.callLater(decide)
+                onOtherRowsChanged: Qt.callLater(decide)
+                onTitleTwoLinesChanged: Qt.callLater(decide)
+                onHeightChanged: Qt.callLater(decide)
+                Connections { target: heroText.parent; function onHeightChanged() { Qt.callLater(heroText.decide); } }
                 readonly property color ink: art ? "#FFFFFF" : Theme.fg
 
                 Rectangle {                     // an open web app: its letter, no art
@@ -227,9 +347,10 @@ NavArea {
                     }
                 }
                 Text {
+                    id: titleTwo
+                    visible: !parent.tight
                     width: parent.width
-                    text: page.webOpen ? (page.runningWeb ? Tr.tr(page.runningWeb.nameKey) : page.running.name)
-                        : page.running ? page.running.name : page.hero ? page.hero.title : Tr.tr("home.empty.title")
+                    text: parent.titleText
                     color: parent.ink
                     font.family: Theme.displayFont
                     font.weight: Font.Bold
@@ -237,6 +358,17 @@ NavArea {
                     wrapMode: Text.Wrap
                     maximumLineCount: 2
                     elide: Text.ElideRight
+                }
+                FitText {
+                    id: titleOne
+                    visible: parent.tight
+                    width: parent.width
+                    text: parent.titleText
+                    color: parent.ink
+                    font.family: Theme.displayFont
+                    font.weight: Font.Bold
+                    font.pixelSize: Theme.fs(40)
+                    active: heroButtons.anyFocus
                 }
                 Text {
                     visible: page.hero === null && page.running === null
@@ -268,8 +400,8 @@ NavArea {
                         }
                     }
                     Text {
-                        text: page.webOpen ? Tr.trn("home.open.time", page.playingMinutes)
-                            : page.running ? Tr.trn("home.session", page.playingMinutes) : GameInfo.lastPlayed(page.hero)
+                        text: page.webOpen ? page.since("home.open.time", page.playingMinutes)
+                            : page.running ? page.since("home.session", page.playingMinutes) : GameInfo.lastPlayed(page.hero)
                         color: page.webOpen ? Theme.muted : "#E6FFFFFF"
                         font.family: Theme.textFont
                         font.pixelSize: Theme.fs(14.5)
@@ -306,7 +438,63 @@ NavArea {
                         }
                     }
                 }
+                // The buttons: clipped at the card's edge when they do not fit, sliding so that the selected
+                // one is whole, with a soft edge where one is cut (3ab); the clip leaves room for the ring
+                Item {
+                    width: parent.width
+                    height: heroButtons.height
+                    Item {
+                        id: buttonsClip
+                        readonly property real room: Theme.px(12)
+                        x: -room; y: -room
+                        width: parent.width + 2 * room
+                        height: parent.height + 2 * room
+                        clip: heroButtons.width > parent.width
+                        readonly property real shift: {
+                            const view = parent.width, ring = Theme.px(8);
+                            if (heroButtons.width <= view)
+                                return 0;
+                            for (let i = 0; i < heroButtons.children.length; i++) {
+                                const b = heroButtons.children[i];
+                                if (!b.visible || !b.activeFocus)
+                                    continue;
+                                let s = Math.max(0, b.x + b.width - view + ring);
+                                if (b.x - s < ring)
+                                    s = Math.max(0, b.x - ring);
+                                return s;
+                            }
+                            return 0;                   // the selection elsewhere: the first buttons shown
+                        }
+                        layer.enabled: clip
+                        layer.effect: ShaderEffect {
+                            property real edge: Theme.px(40) / buttonsClip.width
+                            property real fadeLeft: buttonsClip.shift > 0.5 ? 1 : 0
+                            property real fadeRight: heroButtons.width - buttonsClip.shift > buttonsClip.parent.width + 1 ? 1 : 0
+                            fragmentShader: "
+                                varying highp vec2 qt_TexCoord0;
+                                uniform sampler2D source;
+                                uniform lowp float qt_Opacity;
+                                uniform highp float edge;
+                                uniform lowp float fadeLeft;
+                                uniform lowp float fadeRight;
+                                void main() {
+                                    highp float x = qt_TexCoord0.x;
+                                    highp float a = mix(1.0, clamp(x / edge, 0.0, 1.0), fadeLeft)
+                                                  * mix(1.0, clamp((1.0 - x) / edge, 0.0, 1.0), fadeRight);
+                                    gl_FragColor = texture2D(source, qt_TexCoord0) * a * qt_Opacity;
+                                }"
+                        }
                 Row {
+                    id: heroButtons
+                    x: buttonsClip.room - buttonsClip.shift
+                    y: buttonsClip.room
+                    readonly property bool anyFocus: {
+                        for (let i = 0; i < children.length; i++)
+                            if (children[i].activeFocus)
+                                return true;
+                        return false;
+                    }
+                    Behavior on x { enabled: !Theme.reduceMotion; NumberAnimation { duration: Theme.motionMs; easing.type: Easing.OutCubic } }
                     spacing: Theme.px(20)
                     topPadding: Theme.px(4)
                     Button {
@@ -352,6 +540,8 @@ NavArea {
                         visible: page.hero === null && page.running === null
                         readonly property string kind: "how"
                         text: Tr.tr("home.empty.how")
+                    }
+                }
                     }
                 }
             }
@@ -430,7 +620,7 @@ NavArea {
                                 anchors { right: parent.right; top: parent.top; rightMargin: Theme.px(10); topMargin: Theme.px(10) }
                                 width: Theme.fs(18); height: width
                             }
-                            Text {
+                            FitText {
                                 id: appName
                                 anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: Theme.px(12); bottomMargin: Theme.px(10) }
                                 text: parent.webApp && parent.webApp.busy
@@ -440,7 +630,6 @@ NavArea {
                                 opacity: parent.dim
                                 font.family: Theme.textFont
                                 font.pixelSize: Theme.fs(14.5)
-                                elide: Text.ElideRight
                             }
                             FocusFrame {}
                         }

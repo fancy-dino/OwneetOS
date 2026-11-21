@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/vinput"
 )
@@ -64,6 +65,13 @@ func (s *Server) handleInputText(w http.ResponseWriter, r *http.Request) {
 	}
 	if !s.inputAvailable(w) || !decode(w, r, &body) {
 		return
+	}
+	// with the pointer on (text typed into an app's window with the console's keyboard): once the
+	// window has the keyboard, not merely once it is on screen again (the first keys were lost)
+	if s.Pointer != nil && s.Pointer.Status().On && !s.Pointer.WaitKeyboard(keyboardWait) {
+		if s.Log != nil {
+			s.Log.Warn("the window on screen has not the keyboard focus: typing all the same")
+		}
 	}
 	if err := s.Input.TypeText(body.Text); err != nil {
 		s.inputError(w, err)
@@ -144,3 +152,7 @@ func (s *Server) handlePutLayout(w http.ResponseWriter, r *http.Request) {
 	s.Broker.Publish("input.layout_changed", map[string]string{"layout": body.Layout})
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// keyboardWait: at most this long for an app's window to take the keyboard before text is typed (a
+// limit; the wait ends as soon as it has it)
+const keyboardWait = 2 * time.Second

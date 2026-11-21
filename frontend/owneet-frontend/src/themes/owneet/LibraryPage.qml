@@ -13,6 +13,9 @@ FocusScope {
     id: page
     property var games: []                     // every game (any order)
     signal launch(var game)
+    // 6.6e: the copy of games (MoveSheet): the covers of its games say how it goes, A shows it
+    property var copying: null
+    function copyOf(game) { return copying && GameInfo.onDisk(game) ? copying.badge(String(game.extra["disk.dir"])) : null; }
     signal details(var game)
     signal options(var game)
     signal chooseSort()
@@ -47,7 +50,8 @@ FocusScope {
             i = places.findIndex(p => !p.addGames && GameInfo.sameGame(p, selected));
             if (i >= 0) selected = places[i];
         }
-        if (i >= 0 && i !== grid.currentIndex) {
+        if (i < 0) i = 0;                           // as before the rows were kept: the first place
+        if (i !== grid.currentIndex && i < grid.count) {
             grid.currentIndex = i;
             grid.positionViewAtIndex(i, GridView.Contain);
         }
@@ -57,8 +61,17 @@ FocusScope {
     // [[step-6.5-automatic-disk-mounting]])
     property var volumes: []
     function refreshVolumes() { volumes = storage.volumes(); }
+    function diskName(key) {
+        if (key === "internal")
+            return Tr.tr("disk.internal");
+        const v = volumes.find(v => v.key === key);
+        return v && v.name ? v.name : key.split("/").pop();
+    }
     onVisibleChanged: if (visible) refreshVolumes()
-    Component.onCompleted: refreshVolumes()
+    Component.onCompleted: {
+        refreshVolumes();
+        syncGrid();
+    }
 
     readonly property var prompts: {
         const P = (b, l) => ({ buttons: b, label: Tr.tr(l) });
@@ -71,7 +84,7 @@ FocusScope {
         if (game) {
             const s = GameInfo.steamState(game);
             if (s === "installed")
-                return [P(["a"], "prompt.play"), P(["x"], "prompt.details"), P(["menu"], "prompt.options")].concat(page);
+                return [P(["a"], copyOf(game) ? "prompt.show_copy" : "prompt.play"), P(["x"], "prompt.details"), P(["menu"], "prompt.options")].concat(page);
             if (s === "none")
                 return [P(["a"], "prompt.install"), P(["x"], "prompt.details"), P(["menu"], "prompt.options")].concat(page);
             return [P(["a"], "prompt.details"), P(["menu"], "prompt.options")].concat(page);
@@ -80,11 +93,83 @@ FocusScope {
     }
     readonly property bool addGamesSelected: grid.currentItem !== null && grid.currentItem.addTile === true
     // Back from Steam after the games were read again: "Add games" stays selected while the games
-    // arrive (they come a moment after the interface)
+    // arrive (they come a moment after the interface), until the reading has ended (no time waited,
+    // [[waiting-for-events]])
     property bool startOnAddGames: false
-    onStartOnAddGamesChanged: if (startOnAddGames) addGamesHold.restart()
-    Timer { id: addGamesHold; interval: 4000; onTriggered: page.startOnAddGames = false }
-    onPlacesChanged: Qt.callLater(startOnAddGames ? selectAddGames : keepSelected)
+    onPlacesChanged: {
+        syncGrid();
+        Qt.callLater(startOnAddGames ? selectAddGames : keepSelected);
+        if (startOnAddGames && !Internal.scanner.running)
+            startOnAddGames = false;            // the games have all arrived
+    }
+    Connections {
+        target: Internal.scanner
+        function onRunningChanged() {
+            if (!Internal.scanner.running && page.startOnAddGames) {
+                page.selectAddGames();
+                page.startOnAddGames = false;
+            }
+        }
+    }
+    // The grid keeps its covers while the places change: one row per place, kept by its key, so a
+    // game that stays keeps its cover (a cover made again shows nothing for a moment: the list
+    // looked empty after an uninstall, owner's test, 2026-11-08)
+    ListModel { id: gridModel }
+    property var placeOf: ({})                  // a row's key → its place
+    property var rowKeys: []                    // the keys of gridModel's rows, in order
+    function placeKey(p) {
+        if (p.addGames) return "add";
+        const id = GameInfo.appid(p);
+        if (id !== "") return "steam:" + id;
+        return GameInfo.onDisk(p) ? "disk:" + p.extra["disk.dir"] : "title:" + p.title;
+    }
+    // A new filter or sort builds the grid again from nothing (open item 3ah, owner 2026-11-14: after
+    // RT, RT, LT, LT the selected cover sat cut off at the left of a row, one row below its place,
+    // and moving went wrong: GridView misplaced it after dozens of rows moved at once). Only the
+    // same list changing (a game installed, uninstalled, downloading) is followed row by row.
+    property string gridFilter: ""
+    property string gridSort: ""
+    function syncGrid() {
+        const keys = [], map = {}, seen = {};
+        places.forEach(p => {
+            let k = placeKey(p);
+            seen[k] = (seen[k] || 0) + 1;
+            if (seen[k] > 1) k += "#" + seen[k];
+            keys.push(k);
+            map[k] = p;
+        });
+        if (filter !== gridFilter || sort !== gridSort) {
+            gridFilter = filter;
+            gridSort = sort;
+            placeOf = map;
+            gridModel.clear();
+            for (const k of keys)
+                gridModel.append({ slot: k });
+            rowKeys = keys;
+            return;
+        }
+        placeOf = Object.assign({}, placeOf, map);  // rows going away keep their place meanwhile
+        const rows = rowKeys.slice();
+        for (let i = rows.length - 1; i >= 0; i--) {
+            if (!(rows[i] in map)) {
+                gridModel.remove(i);
+                rows.splice(i, 1);
+            }
+        }
+        for (let i = 0; i < keys.length; i++) {
+            if (rows[i] === keys[i]) continue;
+            const j = rows.indexOf(keys[i], i + 1);
+            if (j >= 0) {
+                gridModel.move(j, i, 1);
+                rows.splice(i, 0, rows.splice(j, 1)[0]);
+            } else {
+                gridModel.insert(i, { slot: keys[i] });
+                rows.splice(i, 0, keys[i]);
+            }
+        }
+        rowKeys = rows;
+        placeOf = map;
+    }
     function selectAddGames() {
         if (grid.count === 0 || filter === "favorites")
             return;
@@ -258,37 +343,47 @@ FocusScope {
         }
     }
 
-    // ---- The grid: it scrolls with the selection and keeps room for the focus ring at both ends
+    // ---- The grid: it scrolls with the selection and keeps room for the focus ring at both ends.
+    // It starts right under the filters, never above them: 2 px over them let the covers scrolled up
+    // cut the filters' bottom edge (owner's screenshots, 2026-11-12, 3w); the covers stay 16 px below.
     GridView {
         id: grid
         readonly property real ring: Theme.px(18)
+        readonly property real ringTop: Theme.px(16)
         anchors {
             left: parent.left; right: parent.right; top: filterBar.bottom; bottom: parent.bottom
-            leftMargin: -ring; rightMargin: -ring; topMargin: Theme.px(16) - ring
+            leftMargin: -ring; rightMargin: -ring
         }
         // GridView lays the cells out in the width without its margins: the right margin is one gap
         // smaller, so that seven covers and six gaps fill the page exactly
-        leftMargin: ring; rightMargin: ring - Theme.px(14); topMargin: ring; bottomMargin: ring
+        leftMargin: ring; rightMargin: ring - Theme.px(14); topMargin: ringTop; bottomMargin: ring
         clip: true
         focus: true
-        model: page.places
+        model: gridModel
         cellWidth: Math.floor((width - 2 * ring + Theme.px(14)) / page.columns)
         cellHeight: (cellWidth - Theme.px(14)) * 1.25 + Theme.px(16)
         keyNavigationEnabled: false             // Nav.listKeys moves the selection
         highlightRangeMode: GridView.ApplyRange
-        preferredHighlightBegin: ring
+        preferredHighlightBegin: ringTop
         preferredHighlightEnd: height - ring
         highlightMoveDuration: Theme.motionMs
         delegate: Loader {
-            readonly property bool addTile: modelData.addGames === true
-            readonly property var game: addTile ? null : modelData
+            readonly property var place: page.placeOf[slot]
+            readonly property bool addTile: !!place && place.addGames === true
+            readonly property var game: addTile || !place ? null : place
             width: grid.cellWidth - Theme.px(14)
             height: width * 1.25
             sourceComponent: addTile ? addTileComponent : coverComponent
         }
         Component {
             id: coverComponent
-            Cover { game: parent ? parent.game : null; focus: true }
+            Cover {
+                game: parent ? parent.game : null
+                focus: true
+                // with more than one disk, the disk a game on a disk is on (6.6); Steam keeps its own
+                disk: page.volumes.length > 1 && game && GameInfo.diskRoot(game) !== "" ? page.diskName(GameInfo.diskRoot(game)) : ""
+                copy: game ? page.copyOf(game) : null
+            }
         }
         Component {
             id: addTileComponent
@@ -336,7 +431,7 @@ FocusScope {
     }
     Column {                                    // nothing to show for this filter
         visible: grid.count === 0
-        anchors { horizontalCenter: grid.horizontalCenter; top: grid.top; topMargin: Theme.px(120) }
+        anchors { horizontalCenter: grid.horizontalCenter; top: grid.top; topMargin: Theme.px(118) }
         spacing: Theme.px(8)
         Text {
             anchors.horizontalCenter: parent.horizontalCenter

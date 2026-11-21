@@ -1,0 +1,277 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS - interactive demo: the home's big card when its content does not fit (open item 3ab, owner's idea,
+     2026-11-13). Text size XL and a running game: the buttons are clipped at the card's edge and slide so that the
+     selected one is always whole; the title goes on one line, ends with "…" and scrolls while one of the card's
+     buttons is selected (the rule of demo 3.3b). When everything fits, the card stays as it is. Fonts are loaded from
+     Google Fonts for the demo only: the console bundles the font files (SIL Open Font License). -->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS - Home card that fits (demo 3.6c)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1.4; --motion: 1;
+  --bg: #0E1424; --surface: #172036; --raised: #222D4A; --line: #2E3A5C; --fg: #EEF1F8; --muted: #8F9AB5; --accent: #FF8A5B; --on-accent: #1E0E06; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.frame { position: relative; flex: none; }
+.stage { width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px; display: grid; grid-template-rows: auto 1fr auto; gap: 20px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350; }
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-xl { font-size: calc(40px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 28px; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.clock { color: var(--fg); font-weight: 500; }
+
+.home { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 20px; min-height: 0; }
+.home-top { display: grid; grid-template-columns: 1.65fr 1fr; gap: 20px; min-height: 0; }
+.hero { position: relative; border-radius: 18px; overflow: hidden; color: #fff; min-height: 0;
+  background: radial-gradient(70% 90% at 85% 15%, hsl(200 85% 62% / .85), transparent 60%),
+              radial-gradient(60% 80% at 60% 110%, hsl(240 70% 42%), transparent 70%),
+              linear-gradient(135deg, hsl(200 45% 22%), hsl(230 55% 10%)); }
+.hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.55), rgba(0,0,0,0) 70%); }
+/* The card's rows, at its bottom: 12 px apart, down to 4 px when they do not fit (3w d) */
+.col { position: absolute; left: 34px; right: 34px; bottom: 30px; display: flex; flex-direction: column; gap: var(--gap, 12px); }
+.kicker { text-transform: uppercase; letter-spacing: .12em; opacity: .85; font-weight: 500; }
+.running-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #4ADE80; margin-right: 8px; }
+.title { margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+/* One line: "…", or scrolling while a button of the card is selected */
+.title.one { display: block; white-space: nowrap; text-overflow: ellipsis; }
+.title.one > span { display: inline; }
+.title.one.scrolling { text-overflow: clip; }
+.title.one.scrolling { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%); }
+.title.one.scrolling.at-start { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 14px), transparent 100%); mask-image: linear-gradient(90deg, #000 calc(100% - 14px), transparent 100%); }
+.title.one.scrolling.at-end { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px); mask-image: linear-gradient(90deg, transparent 0, #000 14px); }
+.title.one.scrolling > span { display: inline-block; }
+.meta { display: flex; gap: 18px; opacity: .9; white-space: nowrap; }
+.meta .src { padding: 2px 10px; border-radius: 999px; background: rgba(0,0,0,.35); }
+/* The buttons: clipped at the card's edge, sliding so that the selected one is whole */
+.actions-clip { overflow: hidden; margin: -10px; padding: 10px; }
+.actions { display: flex; gap: 20px; width: max-content; transition: transform calc(.16s * var(--motion)) ease; }
+.fade-r { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); }
+.fade-l { -webkit-mask-image: linear-gradient(90deg, transparent, #000 40px); mask-image: linear-gradient(90deg, transparent, #000 40px); }
+.fade-l.fade-r { -webkit-mask-image: linear-gradient(90deg, transparent, #000 40px, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, transparent, #000 40px, #000 calc(100% - 40px), transparent); }
+.btn { padding: 11px 26px; border-radius: 999px; font-weight: 500; white-space: nowrap; }
+.btn.light { background: #fff; color: #10131C; }
+.btn.glass { background: rgba(255,255,255,.16); color: #fff; }
+.btn.focus, .tile.focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent); }
+.side { display: grid; grid-template-rows: auto auto; gap: 12px; align-content: start; }
+.apps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.app { min-height: 78px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); padding: 10px 12px; display: flex; align-items: flex-end; }
+.label { text-transform: uppercase; letter-spacing: .09em; font-weight: 500; color: var(--muted); }
+.recent { display: grid; grid-template-columns: repeat(7, 1fr); gap: 14px; }
+.tile { aspect-ratio: 3 / 4; border-radius: 14px; background: linear-gradient(160deg, hsl(var(--h) 45% 32%), hsl(calc(var(--h) + 25) 50% 14%)); max-height: 190px; }
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 26px; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; }
+
+.demo-bar { display: flex; gap: 22px; align-items: center; color: #8a90a0; font: 12px/1.4 system-ui, sans-serif; flex-wrap: wrap; justify-content: center; }
+.demo-bar .grp { display: inline-flex; gap: 6px; align-items: center; }
+.demo-bar button { padding: 3px 10px; border-radius: 999px; border: 1px solid #333a4a; color: #c9cdd8; font: inherit; }
+.demo-bar button[aria-pressed="true"] { background: #c9cdd8; color: #05070C; }
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <header class="top">
+    <div class="top-left"><span class="mark">Owneet<i>OS</i></span>
+      <nav class="tabs t-s"><span class="tab" aria-current="page">Home</span><span class="tab" data-t="library"></span><span class="tab" data-t="settings"></span></nav></div>
+    <span class="clock t-s" id="clock">20:41</span>
+  </header>
+  <main class="home">
+    <div class="home-top">
+      <section class="hero" id="hero">
+        <div class="col" id="col">
+          <span class="kicker t-xs" id="kicker"></span>
+          <h1 class="title disp t-xl" id="title"><span id="title-text"></span></h1>
+          <div class="meta t-s" id="meta"></div>
+          <div class="actions-clip" id="clip"><div class="actions t-m" id="actions"></div></div>
+        </div>
+      </section>
+      <aside class="side"><span class="label t-xs">App</span>
+        <div class="apps t-s"><div class="app">Video</div><div class="app" data-t="music"></div><div class="app">Steam</div></div></aside>
+    </div>
+    <section style="display:grid; gap:10px"><span class="label t-xs" data-t="recent"></span>
+      <div class="recent" id="recent"></div></section>
+  </main>
+  <footer class="prompts t-s"><div class="set" id="pl"></div><div class="set" id="pr"></div></footer>
+</div></div>
+
+<div class="demo-bar" id="demo-bar">
+  <span class="grp"><span>Game:</span><button data-state="running" aria-pressed="true">Running</button><button data-state="ready">Not running</button></span>
+  <span class="grp"><span>Title:</span><button data-title="long" aria-pressed="true">Long</button><button data-title="short">Short</button></span>
+  <span class="grp"><span>Text size:</span><button data-ts="1">M</button><button data-ts="1.2">L</button><button data-ts="1.4" aria-pressed="true">XL</button></span>
+  <span class="grp"><span>Language:</span><button data-lang="it" aria-pressed="true">Italiano</button><button data-lang="en">English</button></span>
+</div>
+<p class="help"><b>Gamepad / keyboard:</b> left / right move between the card's buttons, down goes to the games below, up back to the card.
+The title scrolls only while a button of the card is selected.</p>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const EN = { library: 'Library', settings: 'Settings', music: 'Music', recent: 'Recently played', playing: 'Playing', cont: 'Continue playing',
+    resume: 'Resume', pointer: 'Resume with the pointer', close: 'Close game', play: 'Play', details: 'Details',
+    since: 'Playing for 3 min', total: '3 h 40 min in all', yesterday: 'Played yesterday',
+    pResume: 'Resume', pPlay: 'Play', pNotif: 'Notifications', pMenu: 'Menu', pSections: 'Sections' };
+  const IT = { library: 'Libreria', settings: 'Impostazioni', music: 'Musica', recent: 'Giocati di recente', playing: 'In gioco', cont: 'Continua a giocare',
+    resume: 'Riprendi', pointer: 'Riprendi col puntatore', close: 'Chiudi il gioco', play: 'Gioca', details: 'Dettagli',
+    since: 'In gioco da 3 min', total: '3 h 40 min in totale', yesterday: 'Giocato ieri',
+    pResume: 'Riprendi', pPlay: 'Gioca', pNotif: 'Notifiche', pMenu: 'Menu', pSections: 'Sezioni' };
+  const TITLES = { long: 'The Long Voyage of the Lantern Keeper: Tales of the Saltwind Isles', short: 'Copper Coast' };
+  let lang = 'it', state = 'running', titleKind = 'long';
+  const tr = k => (lang === 'it' ? IT : EN)[k];
+
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const G = { a: letter('A'), b: letter('B'), y: letter('Y'), lb: pill('LB', 34), rb: pill('RB', 34), guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`) };
+  const P = (b, l, word = true) => `<span class="prompt">${b.map(x => G[x]).join('')}${word ? `<span>${l}</span>` : ''}</span>`;
+
+  let focusAt = 0, inCard = true;
+  function draw() {
+    document.documentElement.lang = lang;
+    $$('[data-t]').forEach(el => { el.textContent = tr(el.dataset.t); });
+    const run = state === 'running';
+    $('#kicker').innerHTML = run ? `<span class="running-dot"></span>${tr('playing')}` : tr('cont');
+    $('#title-text').textContent = TITLES[titleKind];
+    $('#meta').innerHTML = `<span class="src">Steam</span><span>${run ? tr('since') : tr('yesterday')}</span><span>${tr('total')}</span>`;
+    const btns = run ? [['resume', 'light'], ['pointer', 'glass'], ['close', 'glass']] : [['play', 'light'], ['details', 'glass']];
+    $('#actions').innerHTML = btns.map(([k, c]) => `<button class="btn ${c}" data-b>${tr(k)}</button>`).join('');
+    $('#recent').innerHTML = [200, 330, 30, 160, 280, 95].map(h => `<div class="tile" style="--h:${h}"></div>`).join('');
+    focusAt = Math.min(focusAt, btns.length - 1);
+    $('#pl').innerHTML = P(['a'], run ? tr('pResume') : tr('pPlay')) + P(['y'], tr('pNotif')) + P(['b'], tr('pMenu'));
+    $('#pr').innerHTML = P(['lb', 'rb'], tr('pSections')) + P(['guide'], 'Home');
+    requestAnimationFrame(layout);
+  }
+
+  // 1. the rows closer (12 px down to 4 px); 2. if still too tall, the title on one line
+  function layout() {
+    const hero = $('#hero'), col = $('#col'), title = $('#title');
+    title.classList.remove('one'); col.style.setProperty('--gap', '12px');
+    const room = hero.clientHeight - 60;
+    const rows = () => Array.from(col.children).reduce((h, c) => h + c.offsetHeight, 0);
+    const gaps = col.children.length - 1;
+    let gap = Math.max(4, Math.min(12, (room - rows()) / gaps));
+    col.style.setProperty('--gap', gap + 'px');
+    if (rows() + gaps * gap > room) {
+      title.classList.add('one');
+      gap = Math.max(4, Math.min(12, (room - rows()) / gaps));
+      col.style.setProperty('--gap', gap + 'px');
+    }
+    focus();
+  }
+
+  // The selected button whole: the row slides; soft edges where buttons are cut
+  function focus() {
+    $$('.focus').forEach(e => e.classList.remove('focus'));
+    const clip = $('#clip'), row = $('#actions'), btns = $$('[data-b]');
+    let shift = 0;
+    if (inCard) {
+      const b = btns[focusAt]; b.classList.add('focus');
+      const view = clip.clientWidth - 20;                     // the clip's padding leaves room for the ring
+      const left = b.offsetLeft - row.offsetLeft, right = left + b.offsetWidth;
+      shift = Math.max(0, right - view + 8);                   // 8 px: room for the ring
+      if (left - shift < 8) shift = Math.max(0, left - 8);
+    } else {
+      $('.tile').classList.add('focus');
+    }
+    row.style.transform = `translateX(${-shift}px)`;
+    const total = row.scrollWidth, view = clip.clientWidth - 20;
+    clip.classList.toggle('fade-l', shift > 0);
+    clip.classList.toggle('fade-r', total - shift > view + 1);
+    scrollTitle(inCard);
+  }
+
+  // The title's scrolling (demo 3.3b): 1.5 s still, 45 px a second, 1.5 s still, a fade back, again
+  let run = null;
+  function scrollTitle(on) {
+    const t = $('#title'), inner = $('#title-text');
+    if (run) { cancelAnimationFrame(run); run = null; }
+    t.classList.remove('scrolling', 'at-start', 'at-end'); inner.style.transform = ''; inner.style.opacity = 1;
+    if (!on || !t.classList.contains('one')) return;
+    const over = t.scrollWidth - t.clientWidth;
+    if (over <= 1) return;
+    t.classList.add('scrolling');
+    const dist = over + 14, travel = dist / 45 * 1000, pause = 1500, t0 = performance.now();
+    inner.style.transition = 'opacity .2s';
+    const tick = now => {
+      const k = (now - t0) % (pause + travel + pause + 400), end = pause + travel + pause;
+      let x = k < pause ? 0 : k < pause + travel ? (k - pause) / travel * dist : k < end ? dist : (k < end + 200 ? dist : 0);
+      inner.style.opacity = k < end ? 1 : 0;
+      t.classList.toggle('at-start', x === 0);
+      t.classList.toggle('at-end', x === dist);
+      inner.style.transform = `translateX(${-x}px)`;
+      run = requestAnimationFrame(tick);
+    };
+    run = requestAnimationFrame(tick);
+  }
+
+  function move(dir) {
+    const n = $$('[data-b]').length;
+    if (inCard && dir === 'left' && focusAt > 0) focusAt--;
+    else if (inCard && dir === 'right' && focusAt < n - 1) focusAt++;
+    else if (inCard && dir === 'down') inCard = false;
+    else if (!inCard && dir === 'up') inCard = true;
+    else return;
+    focus();
+  }
+  document.addEventListener('keydown', e => {
+    const d = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' }[e.key];
+    if (d) { e.preventDefault(); move(d); }
+  });
+  let repeatAt = 0, lastDir = null;
+  (function poll(ts) {
+    const pad = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean)[0] : null;
+    if (pad) {
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed), ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { move(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+    }
+    requestAnimationFrame(poll);
+  })(0);
+
+  $('#demo-bar').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    $$('button', b.closest('.grp')).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    if (b.dataset.state) state = b.dataset.state;
+    if (b.dataset.title) titleKind = b.dataset.title;
+    if (b.dataset.ts) document.documentElement.style.setProperty('--ts', b.dataset.ts);
+    if (b.dataset.lang) lang = b.dataset.lang;
+    draw(); b.blur();
+  });
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 70) / 720);
+    $('#stage').style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+  const clock = () => { $('#clock').textContent = new Date().toTimeString().slice(0, 5); };
+  clock(); setInterval(clock, 10000);
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get('at')) focusAt = +q.get('at');
+  draw();
+  if (document.fonts) document.fonts.ready.then(layout);
+})();
+</script>
+</body>
+</html>

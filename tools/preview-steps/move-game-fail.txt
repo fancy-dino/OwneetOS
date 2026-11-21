@@ -1,0 +1,18 @@
+@nogames
+@owneetd
+@disk
+@movefail
+# A copy that does not pass its check ([[step-6.6-moving-games-and-media-between-disks]]): "The copy
+# of Tyrian 2000 did not work", the check crossed, Close selected and Try again.
+wait 2
+pad rb
+wait 1
+pad right right right right right right menu
+wait 1
+pad right right a
+wait 1
+pad a
+wait 1
+pad a
+wait 6
+shot 01-failed

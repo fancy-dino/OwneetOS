@@ -1,0 +1,16 @@
+@owneetd
+@sysupdate available
+# Pictures for the user guide ([[step-7.3-user-guide]]): the first steps on an installed console:
+# Home, the quick menu (B where there is nothing to go back to), Settings → System with an update.
+wait 3
+shot 01-home
+pad b
+wait 1
+shot 02-quick-menu
+pad b
+wait 1
+pad rb rb
+wait 1
+pad down down down down down down down right
+wait 1
+shot 03-system-update

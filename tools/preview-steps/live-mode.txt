@@ -1,0 +1,19 @@
+@owneetd
+@nogames
+@live
+# Started from the USB stick ([[step-6.2-live-vs-installed-mode]], approved demos 6.2-live-home and
+# 6.2-live-settings): Home with the strip above the hero, selected; Settings → System with the
+# version "from the USB stick", "Install OwneetOS on this PC" and the updates for later.
+wait 3
+shot 01-home-live
+pad up
+wait 1
+shot 02-strip-selected
+pad a
+wait 1
+shot 03-install-later
+pad rb rb
+wait 1
+pad down down down down down down down right
+wait 1
+shot 04-settings-system-live

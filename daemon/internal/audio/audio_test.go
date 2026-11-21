@@ -2,7 +2,11 @@
 
 package audio
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jfreymuth/pulse/proto"
+)
 
 func TestKind(t *testing.T) {
 	cases := []struct {
@@ -66,5 +70,30 @@ func TestBuild(t *testing.T) {
 	}
 	if st := Build(sinks[:1], "auto_null"); st.Output != "" || len(st.Outputs) != 0 {
 		t.Fatalf("dummy only: %+v", st)
+	}
+}
+
+func TestStreamPID(t *testing.T) {
+	props := proto.PropList{"application.process.id": proto.PropListString("7863")}
+	if got := streamPID(props); got != 7863 {
+		t.Fatalf("pid %d", got)
+	}
+	if got := streamPID(proto.PropList{}); got != 0 {
+		t.Fatalf("no pid: %d", got)
+	}
+	if got := streamPID(proto.PropList{"application.process.id": proto.PropListString("x")}); got != 0 {
+		t.Fatalf("bad pid: %d", got)
+	}
+}
+
+// A stream through PipeWire's ALSA plugin has no process id: its client's is used.
+func TestClientPIDs(t *testing.T) {
+	clients := proto.GetClientInfoListReply{
+		{ClientIndex: 3, Properties: proto.PropList{"application.process.id": proto.PropListString("29436")}},
+		{ClientIndex: 4, Properties: proto.PropList{"pipewire.sec.pid": proto.PropListString("775")}},
+	}
+	got := clientPIDs(clients)
+	if got[3] != 29436 || len(got) != 1 {
+		t.Fatalf("clientPIDs = %v", got)
 	}
 }

@@ -8,14 +8,22 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
-// errWindowsNotReady: owneet-windows-run's exit code 3, Proton is not ready yet.
+// errWindowsNotReady: Proton is not ready yet (owneet-windows-run's exit code 3, when owneetd's
+// own check agrees: an installer may end with 3 too, e.g. Inno Setup when it cannot use the
+// folder it is given).
 var errWindowsNotReady = errors.New("Windows games are not ready yet")
+
+// winRefused are the characters Windows refuses in a file name ("The Witcher 2: Assassins of
+// Kings", owner's test, 2026-11-08: Inno Setup ended with 3 and nothing was installed).
+const winRefused = `<>:"|?*\`
 
 // windowsNeed estimates the space a Windows installer needs: twice its files (GOG's setup_*.exe
 // with its setup_*-N.bin parts), as installers compress the game.
@@ -81,11 +89,14 @@ func windowsArgs(kind, installer, winDest string) []string {
 }
 
 // windowsInstall runs a Windows installer silently, in the game's prefix. NSIS and MSI cannot
-// take a folder with spaces: they install through a link without any, kept for the game (its
-// registry may point there).
+// take a folder with spaces, and no installer a folder with a character Windows refuses: they
+// install through a link without any, kept for the game (its registry may point there).
 func (m *Manager) windowsInstall(ctx context.Context, j *job) (string, error) {
+	if m.WindowsReady != nil && !m.WindowsReady() {
+		return "", errWindowsNotReady
+	}
 	dest, link := j.Dest, ""
-	if j.Kind != KindInno {
+	if j.Kind != KindInno || strings.ContainsAny(filepath.Base(j.Dest), winRefused) {
 		sum := sha1.Sum([]byte(j.Dest))
 		link = filepath.Join(m.linksDir(), hex.EncodeToString(sum[:])[:12])
 		if err := os.MkdirAll(m.linksDir(), 0o755); err != nil {
@@ -98,11 +109,15 @@ func (m *Manager) windowsInstall(ctx context.Context, j *job) (string, error) {
 		dest = link
 	}
 	argv := append([]string{m.WindowsRun, j.req.Prefix}, windowsArgs(j.Kind, j.req.Installer, winPath(dest))...)
+	// no percentage: what it has written so far, and whether it seems stuck (6.8)
+	watchCtx, stopWatch := context.WithCancel(ctx)
+	defer stopWatch()
+	go m.watchWritten(watchCtx, j)
 	sum := sha1.Sum([]byte(j.Dest))
 	unit := "owneet-install-" + hex.EncodeToString(sum[:])[:10] + ".service"
 	err := m.Runner.Run(ctx, unit, argv, m.Env())
 	var exit *exec.ExitError
-	if errors.As(err, &exit) && exit.ExitCode() == 3 {
+	if errors.As(err, &exit) && exit.ExitCode() == 3 && (m.WindowsReady == nil || !m.WindowsReady()) {
 		return link, errWindowsNotReady
 	}
 	if err != nil {
@@ -160,4 +175,57 @@ func (systemdRun) Run(ctx context.Context, unit string, argv, env []string) erro
 		<-done
 		return fmt.Errorf("stopped: %w", ctx.Err())
 	}
+}
+
+// writtenEvery: how often a Windows installer's folder is measured.
+var writtenEvery = 5 * time.Second
+
+// watchWritten measures what a Windows installer has written into the game's folder, and marks it
+// stalled when nothing grows for StallAfter (and not stalled again once it grows).
+func (m *Manager) watchWritten(ctx context.Context, j *job) {
+	stall := m.StallAfter
+	if stall == 0 {
+		stall = 10 * time.Minute
+	}
+	tick := time.NewTicker(writtenEvery)
+	defer tick.Stop()
+	last, grew := int64(-1), time.Now()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+		size := dirSize(j.Dest)
+		if size != last {
+			last, grew = size, time.Now()
+		}
+		stalled := time.Since(grew) >= stall
+		m.mu.Lock()
+		changed := j.Stalled != stalled
+		j.Stalled = stalled
+		m.mu.Unlock()
+		if changed && stalled {
+			m.Log.Warn("the Windows installer writes nothing", "dest", j.Dest, "for", stall)
+			m.event("install.stalled", map[string]string{"dest": j.Dest, "title": j.Title})
+		}
+		m.progress(j, size)
+		if changed {
+			m.publish()
+		}
+	}
+}
+
+// dirSize: the bytes of the files in a folder, sub-folders too.
+func dirSize(dir string) int64 {
+	var size int64
+	_ = filepath.WalkDir(dir, func(_ string, d fs.DirEntry, err error) error {
+		if err == nil && d.Type().IsRegular() {
+			if info, err := d.Info(); err == nil {
+				size += info.Size()
+			}
+		}
+		return nil
+	})
+	return size
 }

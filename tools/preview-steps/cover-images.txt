@@ -1,0 +1,49 @@
+@nogames
+@owneetd
+@pictures
+# A local game's cover from a disk ([[step-6.9-cover-images-from-a-disk]], approved demo
+# 6.9-cover-images): Options → "Add cover image" (no cover) with a disk of pictures plugged in, the
+# chooser (sub-folders' names in front, the preview as the cover), a picture used (the cover
+# changes at once, a notice), then "Change cover image"; the disk unplugged: no option.
+pad rb
+wait 1
+shot 01-library
+pad menu
+wait 1
+shot 02-options
+pad right right right right
+pad a
+wait 1
+shot 03-chooser
+pad down down down
+wait 1
+shot 04-chooser-sub-folder
+pad down down down down
+wait 1
+shot 05-chooser-last
+pad a
+wait 2
+shot 06-cover-changed
+pad menu
+wait 1
+shot 07-options-change
+pad b
+unplug USB-FOTO
+wait 2
+pad menu
+wait 1
+shot 08-options-unplugged
+pad b
+plug USB-FOTO
+wait 2
+pad right menu
+pad right right right right a
+wait 1
+pad up
+shot 09-quiet-orbit-chooser
+pad b
+pad left menu
+pad right right right right a
+wait 1
+pad a
+shot 10-same-name-replaced

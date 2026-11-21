@@ -1,0 +1,11 @@
+@owneetd
+# "Shutting down" at once (7.6b, approved demo design/demos/7.6b-shutting-down.html): Shut down from
+# the power options shows the splash's picture with "Shutting down" while owneetd closes the apps
+# (the pretend owneetd accepts and the session goes on, so the screen stays)
+pad b
+pad a
+wait 1
+pad left
+pad a
+wait 1.5
+shot 01-shutting-down

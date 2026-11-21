@@ -6,6 +6,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/fancy-dino/OwneetOS/daemon/internal/events"
+	"github.com/fancy-dino/OwneetOS/daemon/internal/gamedata"
 )
 
 // gogScript writes an installer shaped like GOG's Linux ones: a shell script followed by a ZIP
@@ -234,6 +236,118 @@ func TestInstallerInTheGamesFolder(t *testing.T) {
 	}
 }
 
+// Colons in a game's folder name (owner, 2026-11-11): the console installs into a folder without
+// them (the interface asks for that name); a folder on the console's disk is renamed first; the
+// title keeps them.
+func TestFolderNamesWithoutColons(t *testing.T) {
+	for in, want := range map[string]string{
+		"The Witcher 2: Assassin of kings": "The Witcher 2 - Assassin of kings",
+		"Re:Volt":                          "Re - Volt",
+		"A : B:":                           "A - B -",
+		"Stargunner":                       "Stargunner",
+	} {
+		if got := FolderName(in); got != want {
+			t.Errorf("FolderName(%q) = %q, want %q", in, got, want)
+		}
+	}
+
+	m, home, _, ch := newManager(t)
+	// a name with ":" is never installed into
+	in := filepath.Join(home, "Giochi", "W2 - AoK")
+	os.MkdirAll(in, 0o755)
+	installer := filepath.Join(in, "w2.sh")
+	gogScript(t, installer, 100)
+	if err := m.Install(Request{Installer: installer, Kind: KindSh, Dest: filepath.Join(home, "Giochi", "W2: AoK")}); err != ErrInvalid {
+		t.Fatalf("a name with colons: %v", err)
+	}
+	os.RemoveAll(in)
+
+	// the game's folder on the console's disk: renamed, then installed in it
+	orig := filepath.Join(home, "Giochi", "The Witcher 2: Assassin of kings")
+	os.MkdirAll(orig, 0o755)
+	installer = filepath.Join(orig, "w2.sh")
+	gogScript(t, installer, 100)
+	os.WriteFile(filepath.Join(orig, "cover.jpg"), []byte("jpg"), 0o644)
+	dest := filepath.Join(home, "Giochi", "The Witcher 2 - Assassin of kings")
+	// the new name taken by another folder: nothing is renamed
+	os.MkdirAll(dest, 0o755)
+	if err := m.Install(Request{Installer: installer, Kind: KindSh, Dest: dest}); err != ErrExists || !exists(installer) {
+		t.Fatalf("new name taken: %v", err)
+	}
+	os.Remove(dest)
+	run(t, m)
+	title := "The Witcher 2: Assassin of kings"
+	if err := m.Install(Request{Installer: installer, Kind: KindSh, Dest: dest, Title: title}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "install.done")
+	if exists(orig) || !exists(filepath.Join(dest, "w2.sh")) || !exists(filepath.Join(dest, "start.sh")) {
+		t.Fatal("not renamed and installed")
+	}
+	var mark struct {
+		Installer string   `json:"installer"`
+		Title     string   `json:"title"`
+		Keep      []string `json:"keep"`
+	}
+	data, _ := os.ReadFile(filepath.Join(dest, MarkInstalled))
+	if err := json.Unmarshal(data, &mark); err != nil || mark.Title != title || mark.Installer != filepath.Join(dest, "w2.sh") || len(mark.Keep) != 2 {
+		t.Fatalf("mark %s: %v", data, err)
+	}
+	// uninstalled: the installer and the cover stay in the renamed folder
+	if err := m.Uninstall(dest); err != nil {
+		t.Fatal(err)
+	}
+	if !exists(filepath.Join(dest, "w2.sh")) || !exists(filepath.Join(dest, "cover.jpg")) || exists(filepath.Join(dest, "start.sh")) {
+		t.Fatal("uninstall")
+	}
+
+}
+
+// A game is installed on its installer's disk, in place (owner, 2026-11-12): the free space is
+// that disk's; it can be uninstalled there; an install cut short on a disk not plugged in is kept
+// for a later start.
+func TestInstallOnTheInstallersDisk(t *testing.T) {
+	m, _, disk, ch := newManager(t)
+	m.Media = filepath.Dir(disk)
+	var asked []string
+	m.Free = func(p string) (int64, error) { asked = append(asked, p); return 1 << 40, nil }
+	orig := filepath.Join(disk, "Giochi", "The Witcher 2: Assassin of kings")
+	os.MkdirAll(orig, 0o755)
+	installer := filepath.Join(orig, "w2.sh")
+	gogScript(t, installer, 100)
+	if _, err := m.Inspect(installer, KindSh); err != nil {
+		t.Fatal(err)
+	}
+	if len(asked) != 1 || asked[0] != orig {
+		t.Fatalf("free space asked for %v, not the installer's disk", asked)
+	}
+	run(t, m)
+	dest := filepath.Join(disk, "Giochi", "The Witcher 2 - Assassin of kings")
+	if err := m.Install(Request{Installer: installer, Kind: KindSh, Dest: dest, Title: "The Witcher 2: Assassin of kings"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "install.done")
+	if exists(orig) || !exists(filepath.Join(dest, "start.sh")) || !exists(filepath.Join(dest, "w2.sh")) || !exists(filepath.Join(dest, MarkInstalled)) {
+		t.Fatal("not installed in place on the installer's disk")
+	}
+	if err := m.Uninstall(dest); err != nil || exists(filepath.Join(dest, "start.sh")) || !exists(filepath.Join(dest, "w2.sh")) {
+		t.Fatalf("uninstall on the disk: %v", err)
+	}
+	// a games folder that is not at the top of a disk: refused
+	if err := m.Install(Request{Installer: filepath.Join(dest, "w2.sh"), Kind: KindSh, Dest: filepath.Join(disk, "x", "Giochi", "W2")}); err != ErrInvalid {
+		t.Fatalf("deeper games folder: %v", err)
+	}
+	// cut short on a disk that is not plugged in at the next start: kept until it is
+	gone := filepath.Join(m.Media, "Other disk", "Giochi", "Game")
+	data, _ := json.Marshal([]string{gone})
+	os.WriteFile(filepath.Join(m.StateDir, "installs.json"), data, 0o644)
+	m.cleanCutShort()
+	kept, _ := os.ReadFile(filepath.Join(m.StateDir, "installs.json"))
+	if !strings.Contains(string(kept), "Other disk") {
+		t.Fatalf("the install cut short on an unplugged disk was forgotten: %s", kept)
+	}
+}
+
 func TestWindowsInstallers(t *testing.T) {
 	m, home, _, ch := newManager(t)
 	src := filepath.Join(home, "Giochi", "Shadow Harbor setup")
@@ -247,21 +361,31 @@ func TestWindowsInstallers(t *testing.T) {
 		t.Fatalf("info %+v %v", info, err)
 	}
 	runner := m.Runner.(*fakeRunner)
-	// the installer writes into the folder it is given (Z: is the whole file system)
+	// the installer writes into the folder it is given (Z: is the whole file system); meanwhile the
+	// folder's mark names the installer, its kind and the game's title
+	var marked map[string]any
 	runner.run = func(ctx context.Context, argv []string) error {
 		last := argv[len(argv)-1]
 		_, win, _ := strings.Cut(last, "=")
 		dir := strings.ReplaceAll(strings.TrimPrefix(win, "Z:"), `\`, "/")
+		if marked == nil {
+			raw, _ := os.ReadFile(filepath.Join(dir, MarkInstalling))
+			json.Unmarshal(raw, &marked)
+		}
 		return os.WriteFile(filepath.Join(dir, "game.exe"), []byte("MZ"), 0o644)
 	}
 	m.Env = func() []string { return []string{"DISPLAY=:1"} }
 	run(t, m)
 	prefixes := filepath.Join(home, ".local", "share", "owneet", "windows", "prefixes")
 	dest := filepath.Join(home, "Giochi", "Shadow Harbor")
-	if err := m.Install(Request{Installer: setup, Kind: KindInno, Dest: dest, Prefix: filepath.Join(prefixes, "shadow-harbor-1234")}); err != nil {
+	if err := m.Install(Request{Installer: setup, Kind: KindInno, Dest: dest, Title: "Shadow Harbor: Deluxe",
+		Prefix: filepath.Join(prefixes, "shadow-harbor-1234")}); err != nil {
 		t.Fatal(err)
 	}
 	next(t, ch, "install.done")
+	if marked["installer"] != setup || marked["kind"] != KindInno || marked["title"] != "Shadow Harbor: Deluxe" {
+		t.Fatalf("the installing mark %v", marked)
+	}
 	argv := runner.argv[0]
 	want := []string{"/usr/lib/owneet/owneet-windows-run", filepath.Join(prefixes, "shadow-harbor-1234"), setup,
 		"/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/NOICONS", `/DIR=Z:` + strings.ReplaceAll(dest, "/", `\`)}
@@ -294,6 +418,36 @@ func TestWindowsInstallers(t *testing.T) {
 	m.Install(Request{Installer: setup, Kind: KindMSI, Dest: dest3, Prefix: filepath.Join(prefixes, "third-1")})
 	if d := next(t, ch, "install.failed").Data.(map[string]string); d["reason"] != ReasonWindows || exists(dest3) {
 		t.Fatalf("not ready: %v, folder %v", d, exists(dest3))
+	}
+	// an installer's own exit code 3 while Proton is ready: the installer failed (Inno Setup)
+	m.WindowsReady = func() bool { return true }
+	m.Install(Request{Installer: setup, Kind: KindInno, Dest: dest3, Prefix: filepath.Join(prefixes, "third-1")})
+	if d := next(t, ch, "install.failed").Data.(map[string]string); d["reason"] != ReasonFailed || exists(dest3) {
+		t.Fatalf("installer's 3: %v, folder %v", d, exists(dest3))
+	}
+	// Proton not ready: the installer is not even started
+	m.WindowsReady = func() bool { return false }
+	started := len(runner.argv)
+	m.Install(Request{Installer: setup, Kind: KindInno, Dest: dest3, Prefix: filepath.Join(prefixes, "third-1")})
+	if d := next(t, ch, "install.failed").Data.(map[string]string); d["reason"] != ReasonWindows || len(runner.argv) != started {
+		t.Fatalf("not ready: %v, started %d", d, len(runner.argv)-started)
+	}
+	m.WindowsReady = nil
+	// Inno into a folder with a character Windows refuses: through a link without it
+	runner.run = func(ctx context.Context, argv []string) error {
+		_, win, _ := strings.Cut(argv[len(argv)-1], "=")
+		dir := strings.ReplaceAll(strings.TrimPrefix(win, "Z:"), `\`, "/")
+		return os.WriteFile(filepath.Join(dir, "game.exe"), []byte("MZ"), 0o644)
+	}
+	dest4 := filepath.Join(home, "Giochi", "Who? Me?")
+	if err := m.Install(Request{Installer: setup, Kind: KindInno, Dest: dest4, Prefix: filepath.Join(prefixes, "who-me")}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "install.done")
+	argv = runner.argv[len(runner.argv)-1]
+	if last := argv[len(argv)-1]; !strings.HasPrefix(last, "/DIR=Z:") || strings.Contains(last, "?") ||
+		!exists(filepath.Join(dest4, "game.exe")) {
+		t.Fatalf("Inno argv %q, installed %v", argv, exists(filepath.Join(dest4, "game.exe")))
 	}
 	// an installer that ends without writing anything failed
 	runner.run = nil
@@ -408,5 +562,78 @@ func TestProcInUse(t *testing.T) {
 	wd, _ := os.Getwd()
 	if !procInUse(wd) || procInUse(t.TempDir()) {
 		t.Fatal("procInUse")
+	}
+}
+
+// A game that leaves an internal disk for good takes its own folders on the console's disk with it
+// (owner, 2026-11-12): deleted with its folder, or uninstalled once its installer is gone; while its
+// installer stays, or on an external disk, they stay.
+func TestDataGoesWithTheGame(t *testing.T) {
+	m, home, _, _ := newManager(t)
+	external := false
+	m.External = func(string) bool { return external }
+	data := func(dest string) []string {
+		dirs := gamedata.All(home, dest)
+		for _, d := range dirs {
+			os.MkdirAll(d, 0o755)
+			os.WriteFile(filepath.Join(d, "save"), []byte("saved"), 0o644)
+		}
+		return dirs
+	}
+	gone := func(dirs []string) bool {
+		for _, d := range dirs {
+			if exists(d) {
+				return false
+			}
+		}
+		return true
+	}
+	game := func(name string) string {
+		dest := filepath.Join(home, "Giochi", name)
+		os.MkdirAll(dest, 0o755)
+		os.WriteFile(filepath.Join(dest, "game.exe"), []byte("MZ"), 0o644)
+		return dest
+	}
+	// a game deleted from an internal disk: its data go
+	a := game("Alpha")
+	dirs := data(a)
+	if err := m.Delete(a); err != nil || !gone(dirs) {
+		t.Fatalf("internal delete: %v, data gone %v", err, gone(dirs))
+	}
+	// on an external disk they stay
+	external = true
+	b := game("Beta")
+	dirs = data(b)
+	if err := m.Delete(b); err != nil || gone(dirs) || !exists(filepath.Join(dirs[0], "save")) {
+		t.Fatalf("external delete: %v, data kept %v", err, !gone(dirs))
+	}
+	external = false
+	// an installed game whose installer is still elsewhere: deleted, its data stay (it may come back)
+	other := filepath.Join(home, "Giochi", "Gamma setup")
+	os.MkdirAll(other, 0o755)
+	os.WriteFile(filepath.Join(other, "setup.exe"), []byte("MZ"), 0o644)
+	c := game("Gamma")
+	os.WriteFile(filepath.Join(c, MarkInstalled), []byte(`{"installer":"`+filepath.Join(other, "setup.exe")+`"}`), 0o644)
+	dirs = data(c)
+	if err := m.Delete(c); err != nil || gone(dirs) {
+		t.Fatalf("installer left: %v, data kept %v", err, !gone(dirs))
+	}
+	// uninstalled with its installer in its folder: the data stay; the folder deleted later: they go
+	d := game("Delta")
+	os.WriteFile(filepath.Join(d, "setup.exe"), []byte("MZ"), 0o644)
+	os.WriteFile(filepath.Join(d, MarkInstalled), []byte(`{"installer":"`+filepath.Join(d, "setup.exe")+`","keep":["setup.exe"]}`), 0o644)
+	dirs = data(d)
+	if err := m.Uninstall(d); err != nil || gone(dirs) || !exists(filepath.Join(d, "setup.exe")) {
+		t.Fatalf("uninstall keeping the installer: %v, data kept %v", err, !gone(dirs))
+	}
+	if err := m.Delete(d); err != nil || !gone(dirs) {
+		t.Fatalf("the installer deleted after: %v, data gone %v", err, gone(dirs))
+	}
+	// uninstalled after its installer was deleted apart: the data go
+	e := game("Epsilon")
+	os.WriteFile(filepath.Join(e, MarkInstalled), []byte(`{"installer":""}`), 0o644)
+	dirs = data(e)
+	if err := m.Uninstall(e); err != nil || !gone(dirs) {
+		t.Fatalf("uninstall without installer: %v, data gone %v", err, gone(dirs))
 	}
 }

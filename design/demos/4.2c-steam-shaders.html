@@ -1,0 +1,158 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS - interactive demo for [[open-items]] 13 ([[step-4.2c-steam-without-its-interface]], owner 2026-11-18):
+     the percentage while Steam prepares a game's graphics (its Vulkan shaders) before starting it. It can take minutes
+     (Cyberpunk 2077 on the FrankenPC: 7.5 minutes) and the console's "Starting {game}…" screen showed nothing more, so
+     it looked stuck. Steam's shader log tells how far it is ("Still replaying 1091500 (69%, 1022/11995)"): the screen
+     shows it as the download of demo 4.5 does (a line in the muted colour, a bar), with a second line saying it can
+     take a few minutes the first time or after an update. "Shaders" is never named ([[writing-for-users]]). B hides the screen, as today. Open in a
+     browser; drive it with a gamepad or the keyboard. Fonts are loaded from Google Fonts for the demo only: the console
+     bundles the font files (SIL Open Font License). -->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS - Preparing a game's graphics (demo 4.2c)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1;
+  --bg: #0E1424; --surface: #172036; --raised: #222D4A; --line: #2E3A5C; --fg: #EEF1F8; --muted: #8F9AB5; --accent: #FF8A5B; --on-accent: #1E0E06; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.frame { position: relative; flex: none; }
+.stage { width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350; }
+.t-s { font-size: calc(14.5px * var(--ts)); } .t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.muted { color: var(--muted); }
+.center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 640px; display: grid; gap: 18px; justify-items: center; text-align: center; }
+.spinner { width: 44px; height: 44px; border-radius: 50%; border: 3px solid var(--raised); border-top-color: var(--accent); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.bar { width: 420px; height: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .25s linear; }
+.prompts { position: absolute; left: 64px; right: 64px; bottom: 28px; display: flex; justify-content: space-between; color: var(--muted); }
+.prompt { display: inline-flex; align-items: center; gap: 8px; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); }
+.home { position: absolute; inset: 0; display: none; place-items: center; color: var(--muted); }
+.home.on { display: grid; }
+.launcher { position: absolute; inset: 0; display: none; place-items: center; background: #1b1b1b; color: #ddd; font: 600 28px/1.3 system-ui, sans-serif; }
+.launcher.on { display: grid; }
+.demo-bar { display: flex; gap: 22px; align-items: center; color: #8a90a0; font: 12px/1.4 system-ui, sans-serif; flex-wrap: wrap; justify-content: center; }
+.demo-bar .grp { display: inline-flex; gap: 6px; align-items: center; }
+.demo-bar button { padding: 3px 10px; border-radius: 999px; border: 1px solid #333a4a; color: #c9cdd8; }
+.demo-bar button[aria-pressed="true"] { background: #c9cdd8; color: #05070C; }
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <div id="starting">
+    <div class="center">
+      <div class="spinner"></div>
+      <div class="disp t-l" id="title"></div>
+      <div class="muted t-m" id="pct"></div>
+      <div class="bar" id="bar"><i id="fill"></i></div>
+      <div class="muted t-m" id="first"></div>
+    </div>
+    <div class="prompts t-s"><span class="prompt" id="hide"></span><span></span></div>
+  </div>
+  <div class="home t-m" id="home"></div>
+  <div class="launcher" id="launcher"></div>
+</div></div>
+
+<div class="demo-bar" id="demo-bar">
+  <span class="grp"><button data-run="1">Start Cyberpunk 2077 again</button></span>
+  <span class="grp"><span>Speed:</span><button data-speed="1" aria-pressed="true">demo (20 s)</button><button data-speed="0">hold at the percentage</button></span>
+  <span class="grp"><span>Text size:</span><button data-ts="1" aria-pressed="true">M</button><button data-ts="1.2">L</button><button data-ts="1.4">XL</button></span>
+  <span class="grp"><span>Language:</span><button data-lang="it" aria-pressed="true">Italiano</button><button data-lang="en">English</button></span>
+</div>
+<p class="help">The console's "Starting …" screen while Steam prepares the game's graphics before starting it (on the FrankenPC it took
+7.5 minutes for Cyberpunk 2077): first the screen as today (Steam getting the game ready), then the percentage as Steam's log gives it,
+then the game's own window (here the launcher). <b>B</b> or <b>Esc</b> hides the screen, as today; A or Enter here shows it again.</p>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const T = {
+    it: { title: 'Avvio di {g}…', pct: 'Steam sta preparando la grafica del gioco: {p}%', first: 'La prima volta, o dopo un aggiornamento, può richiedere qualche minuto.',
+          hide: 'Nascondi', home: 'Home (Steam continua dietro; A per tornare alla schermata di avvio)', launcher: 'Launcher del gioco' },
+    en: { title: 'Starting {g}…', pct: 'Steam is preparing the game’s graphics: {p}%', first: 'The first time, or after an update, it can take a few minutes.',
+          hide: 'Hide', home: 'Home (Steam goes on behind; A to go back to the starting screen)', launcher: 'The game’s launcher' } };
+  let lang = 'it', pct = -1, speed = 1, hidden = false, timer = 0, phase = 'start';
+  const tr = (k, a = {}) => T[lang][k].replace(/\{(\w+)\}/g, (_, x) => a[x]);
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const B = circle('<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">B</text>');
+
+  function draw() {
+    document.documentElement.lang = lang;
+    $('#title').textContent = tr('title', { g: 'Cyberpunk 2077' });
+    const on = pct >= 0;
+    $('#pct').style.display = $('#bar').style.display = $('#first').style.display = on ? '' : 'none';
+    $('#pct').textContent = tr('pct', { p: Math.max(0, pct) });
+    $('#fill').style.width = Math.max(0, pct) + '%';
+    $('#first').textContent = tr('first');
+    $('#hide').innerHTML = B + '<span>' + tr('hide') + '</span>';
+    $('#home').textContent = tr('home');
+    $('#launcher').textContent = tr('launcher');
+    $('#starting').style.display = phase !== 'launcher' && !hidden ? '' : 'none';
+    $('#home').classList.toggle('on', phase !== 'launcher' && hidden);
+    $('#launcher').classList.toggle('on', phase === 'launcher');
+  }
+  function run() {
+    clearInterval(timer); pct = -1; phase = 'start'; hidden = false; draw();
+    // Steam first gets the game ready (no percentage yet), then its log tells how far the graphics are
+    setTimeout(() => { pct = 0; phase = 'shaders'; draw();
+      timer = setInterval(() => {
+        if (!speed) return;
+        pct = Math.min(100, pct + 5); draw();
+        if (pct >= 100) { clearInterval(timer); setTimeout(() => { phase = 'launcher'; hidden = false; draw(); }, 800); }
+      }, 1000);
+    }, 2500);
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' || e.key === 'Backspace') { if (phase !== 'launcher') { hidden = true; draw(); } }
+    if (e.key === 'Enter') { if (hidden) { hidden = false; draw(); } }
+  });
+  let prev = {};
+  (function poll() {
+    const pad = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean)[0] : null;
+    if (pad) {
+      const b = !!(pad.buttons[1] && pad.buttons[1].pressed), a = !!(pad.buttons[0] && pad.buttons[0].pressed);
+      if (b && !prev.b && phase !== 'launcher') { hidden = true; draw(); }
+      if (a && !prev.a && hidden) { hidden = false; draw(); }
+      prev = { a, b };
+    }
+    requestAnimationFrame(poll);
+  })();
+  $('#demo-bar').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.run) run();
+    else {
+      b.closest('.grp').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      if (b.dataset.speed) speed = +b.dataset.speed;
+      if (b.dataset.ts) document.documentElement.style.setProperty('--ts', b.dataset.ts);
+      if (b.dataset.lang) lang = b.dataset.lang;
+      draw();
+    }
+    b.blur();
+  });
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 90) / 720);
+    $('#stage').style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+  /* Optional start state: #lang=en&pct=69 */
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get('lang') === 'en') { lang = 'en'; document.querySelectorAll('[data-lang]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.lang === 'en'))); }
+  if (q.get('pct')) { pct = +q.get('pct'); phase = 'shaders'; speed = 0; draw(); } else run();
+})();
+</script>
+</body>
+</html>

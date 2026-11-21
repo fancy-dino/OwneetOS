@@ -242,7 +242,7 @@ Address: <code>#lang=it&amp;game=1&amp;events=2,4,6</code></p>
 
   /* ---------- Sounds: "notify" for news, "notify-error" for what needs attention ---------- */
   let soundOn = true, ctx = null;
-  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', notify: 'notify', 'notify-error': 'notify-error' };
+  const SOUNDS = { move: 'nav-move', edge: 'nav-edge', confirm: 'nav-confirm', 'sheet-open': 'sheet-open', 'sheet-close': 'sheet-close', notify: 'notify', 'notify-error': 'notify' };
   const buffers = {};
   function startAudio() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }

@@ -20,7 +20,11 @@ QtObject {
     // ---- Preferences (saved by the theme root)
     property real textScale: 1.0                         // 0.9, 1.0, 1.2, 1.4
     property bool reduceMotion: false
-    property bool showSafeArea: false                    // dashed outline of the TV safe area
+    // Display area (Settings → Display, [[screens-and-display]]): the part of each side a TV cuts,
+    // left out (0 to 0.1); the theme is drawn inside the rest (DisplayArea.qml, frontend main.qml)
+    property real areaX: 0
+    property real areaY: 0
+    property real bleed: 0                               // px past the area to paint the background to
     property bool uiSounds: true                         // [[step-3.12-interface-sounds]]
     property int uiSoundsVolume: 70
     property string keyboardSetting: "same"              // "same" as the language, or a layout
@@ -29,10 +33,12 @@ QtObject {
     property string padKind: "xbox"                      // from the connected controller
     readonly property string glyphs: glyphSetting === "auto" ? padKind : glyphSetting
 
-    // ---- Before the start-up animation (boot splash, loading screen): white on black, the same
-    // for every palette (owner, 2026-10-15); the animation brings the palette's colours
+    // ---- Before the start-up animation: black, the same for every palette
     readonly property color splashBg: "#000000"
-    readonly property color splashFg: "#FFFFFF"
+    // the boot splash's own colours (owneet-branding), the same for every palette: its logo's grey and
+    // its spinner and message (the console's "Shutting down", 7.6b)
+    readonly property color splashLogo: "#A0A0A0"
+    readonly property color splashInk: "#FFFFFF"
 
     // ---- Fonts (bundled, SIL Open Font License)
     readonly property string displayFont: "Bricolage Grotesque"
@@ -84,6 +90,11 @@ QtObject {
     // "Running": a game or web app open behind the home screen (demo 3.6), the same in every palette
     readonly property color running: "#4ADE80"
     readonly property color runningInk: "#062010"
+    // Over a cover's art (6.6e: a game being copied), the same in every palette: white text on a
+    // dark shade, a light track for its bar
+    readonly property color onArt: "#FFFFFF"
+    readonly property color artShade: "#9E000000"
+    readonly property color artTrack: "#38FFFFFF"
 
     // ---- Shapes
     readonly property real radiusS: px(10)

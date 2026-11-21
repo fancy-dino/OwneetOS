@@ -1,0 +1,41 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Keeps the packages' cache small ([[step-6.11-simplified-file-manager]], owner 2026-11-13: the console
+# cleans its own leftovers): after every install or update, only the newest two versions of each
+# package stay in /var/cache/pacman/pkg (the one in use and the one before it, which going back to
+# the previous version needs), with their signatures. Run by pacman's hook owneet-clean-cache.hook.
+set -u
+shopt -s nullglob
+
+cache="${OWNEET_PKG_CACHE:-/var/cache/pacman/pkg}"
+declare -A versions=()          # "name arch" -> its versions, one per line
+declare -A files=()             # "name arch version" -> the file
+
+for f in "$cache"/*.pkg.tar.zst "$cache"/*.pkg.tar.xz; do
+    base="${f##*/}"
+    base="${base%.pkg.tar.*}"
+    # name-version-release-arch: the name may hold dashes, the other three never
+    arch="${base##*-}"; rest="${base%-*}"
+    rel="${rest##*-}"; rest="${rest%-*}"
+    ver="${rest##*-}"; name="${rest%-*}"
+    [[ -n "$name" && "$name" != "$rest" ]] || continue
+    versions["$name $arch"]+="$ver-$rel"$'\n'
+    files["$name $arch $ver-$rel"]="$f"
+done
+
+for key in "${!versions[@]}"; do
+    mapfile -t list < <(printf '%s' "${versions[$key]}")
+    # newest first, as pacman compares versions (vercmp: epochs, releases…)
+    for ((i = 1; i < ${#list[@]}; i++)); do
+        v="${list[i]}"; j=$((i - 1))
+        while ((j >= 0)) && (( $(vercmp "$v" "${list[j]}") > 0 )); do
+            list[j + 1]="${list[j]}"; j=$((j - 1))
+        done
+        list[j + 1]="$v"
+    done
+    for ((i = 2; i < ${#list[@]}; i++)); do
+        f="${files[$key ${list[i]}]}"
+        rm -f -- "$f" "$f.sig"
+    done
+done
+exit 0

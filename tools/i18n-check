@@ -6,7 +6,8 @@
 #   - every message is a string, or plural forms with at least "other";
 #   - every message the theme uses (Tr.tr / Tr.trn with a literal key, palette names) is in en.json;
 #   - translations use only the {placeholders} of the English message and no unknown keys;
-#   - the complete languages (English and Italian, [[languages]]) miss no message.
+#   - the complete languages (the five of Wave 1: English, Italian, German, French, Spanish,
+#     [[languages]]) miss no message.
 # Other languages may be partial (English is shown for missing messages): they are reported only.
 #
 #   tools/i18n-check            (also run by tools/lint)
@@ -19,7 +20,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 I18N = ROOT / "frontend/i18n"
 THEME = ROOT / "frontend/owneet-frontend/src/themes/owneet"
-COMPLETE = {"en", "it"}
+COMPLETE = {"en", "it", "de", "fr", "es"}
 PLURAL_RULES = {  # rule family -> categories it uses (keep in sync with I18n::pluralCategory)
     "one-other": {"one", "other"},
     "french": {"one", "other"},

@@ -1,0 +1,18 @@
+@owneetd
+# A prompt bar that does not fit (open item 3w b, approved demo design/demos/3.3c-prompt-bar-fit.html):
+# the library with text size XL; the prompts on the right keep their buttons only. Then the language
+# picker (3w c): the selected row's ring whole.
+pad lb down down down down right down
+pad right right right a
+wait 1
+pad b down
+pad right a
+wait 1
+shot 01-language-picker-xl
+pad down
+shot 02-language-picker-second
+pad b
+wait 1
+pad lb
+wait 1
+shot 03-library-xl

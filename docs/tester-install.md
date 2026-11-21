@@ -50,6 +50,9 @@ No new USB stick to write: the new OwneetOS packages travel on the **OWNEETLOG**
    - or from **Settings → System → Check for updates**: the list of newer packages, Install, then
      Restart.
 
+The test VM uses an image of the stick instead: `tools/make-update-stick --image out/owneetlog.img`
+in the builder VM, then `vm/test.sh boot --disk --stick out/owneetlog.img` (`vm/README.md`).
+
 Only OwneetOS's own packages come from the stick (unsigned, accepted only by systems installed
 with this installer); Arch Linux packages come from the pinned snapshot online, when the new
 packages need any. The result of the last check is in `/run/owneet/update.json`.

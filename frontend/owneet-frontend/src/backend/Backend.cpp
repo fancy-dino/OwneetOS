@@ -32,6 +32,7 @@
 #include "model/Api.h"
 #include "model/keys/Key.h"
 #include "model/gaming/Assets.h"
+#include "model/gaming/Game.h"
 #include "model/gaming/GameFile.h"
 #include "model/internal/Internal.h"
 #include "utils/FolderListModel.h"
@@ -40,6 +41,7 @@
 #include "SortFilterProxyModel/proxyroles/proxyrolesqmltypes.h"
 #include "SortFilterProxyModel/sorters/sortersqmltypes.h"
 
+#include <QDateTime>
 #include <QGuiApplication>
 #include <QQmlEngine>
 
@@ -223,6 +225,26 @@ Backend::Backend(const CliArgs& args)
             m_api_private->gamepad().start(m_args);
         else
             m_api_private->gamepad().stop();
+    });
+
+    // OwneetOS: a Steam game that ends is marked as played now, whoever started it (the console or
+    // Steam's own pages): Steam writes its own files only when it closes, so the home's recently
+    // played missed it until then (owner, 2026-11-19; the console's own launches are also marked by
+    // PlaytimeStats::onGameFinished). In memory only; nothing else is touched.
+    QObject::connect(m_frontend->daemon(), &owneet::Daemon::event, [this](const QString& type, const QVariant& data) {
+        if (type != QLatin1String("app.exited"))
+            return;
+        const QString id = data.toMap().value(QStringLiteral("id")).toString();
+        if (!id.startsWith(QLatin1String("steam:")))
+            return;
+        for (model::Game* const game : m_api_public->allGames()->entries()) {
+            for (model::GameFile* const file : game->filesModel()->entries()) {
+                if (file->uri() == id) {
+                    game->update_playstats(0, 0, QDateTime::currentDateTimeUtc());
+                    return;
+                }
+            }
+        }
     });
 
     // Setting changes

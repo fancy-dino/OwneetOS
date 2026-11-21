@@ -4,7 +4,7 @@
 // stick ([[step-4.2b-updates-from-a-usb-stick]]): owneetd starts the root units owneet-update@check
 // / @apply.service (a polkit rule allows only these to the console user), which write their result
 // to /run/owneet/update.json; owneetd reads it and sends "update.changed". The OwneetOS updates of
-// every user come later (7.1).
+// every installed console are package sysupdate ([[step-7.1-updates]]).
 package update
 
 import (

@@ -1,0 +1,27 @@
+@owneetd
+@nogames
+@sysupdate available
+# "Other versions" with the list already there ([[step-7.1b-going-back-to-any-version]]): the
+# spare copy's version goes to "Go back to the previous version"; B goes back to Settings.
+wait 3
+pad rb rb
+wait 1
+pad down down down down down down down right
+wait 1
+pad down down
+wait 0.5
+pad a
+wait 0.6
+shot 01-list
+pad a
+wait 0.6
+shot 02-previous-confirm
+pad b
+wait 0.6
+pad a
+wait 0.6
+pad down a
+wait 0.3
+pad b
+wait 0.6
+shot 03-back-to-system

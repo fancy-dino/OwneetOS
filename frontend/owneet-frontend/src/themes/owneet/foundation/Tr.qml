@@ -11,6 +11,8 @@ QtObject {
     readonly property string language: i18n.language
     readonly property var languages: i18n.languages
     function setLanguage(tag) { i18n.language = tag; }
+    // a message in another language (the first start's title, shown in each language in turn)
+    function trIn(tag, key) { return i18n.trIn(tag, key); }
 
     function tr(key, args) {
         const revision = i18n.revision; // makes the calling binding depend on the language

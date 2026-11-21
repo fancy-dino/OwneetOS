@@ -32,6 +32,13 @@ APPS = {
     2102: ("Paper Comets: Extra Levels", "dlc", False),
     2103: ("Iron Tundra Demo", "demo", False),
 }
+# @manygames (FAKE_STEAM_MANY=N): N more owned games, not installed, with invented names in the
+# alphabet's order, as a library of about ninety games (open item 3ah)
+_MANY = int(os.environ.get("FAKE_STEAM_MANY", "0") or 0)
+_WORDS = ["Alder", "Amber", "Basalt", "Cinder", "Dune", "Ember", "Fable", "Garnet", "Harbor", "Indigo", "Jade", "Kestrel",
+          "Lumen", "Moss", "Nimbus", "Onyx", "Pebble", "Quartz", "Raven", "Sable", "Thistle", "Umber", "Vale", "Willow"]
+for _i in range(_MANY):
+    APPS[2201 + _i] = ("%s %s %d" % (_WORDS[_i % len(_WORDS)], "Trail" if _i % 2 else "Reach", _i // len(_WORDS) + 1), "game", False)
 # games with a licence agreement Steam asks to accept at the first start (not accepted yet)
 AGREEMENTS = {2010}
 # packages: id → (status, app ids, extended); package 0 is everyone's and free weekends have
@@ -44,6 +51,8 @@ PACKAGES = {
     3004: (2, [2014], {}),
     3005: (0, [2013], {"freeweekend": 1, "expirytime": 1588870800}),
 }
+if _MANY:
+    PACKAGES[3006] = (0, [2201 + i for i in range(_MANY)], {})
 
 
 def kv_text(value, keys=None):

@@ -1,0 +1,51 @@
+@owneetd
+@steam
+@disk
+@files
+# The simplified file manager (6.11, approved demo design/demos/6.11-file-manager.html): Settings →
+# Advanced → File manager; the places; a games folder; Windows data with the saves question; a
+# deletion; Steam's leftovers.
+pad lb
+pad down down down down down down down down
+wait 0.5
+pad right
+wait 0.5
+shot 01-settings-advanced
+pad a
+wait 2
+shot 02-places
+pad right right
+pad a
+wait 2
+shot 03-games-folder
+pad b
+wait 1
+pad right
+pad a
+wait 2
+shot 04-windows-data
+pad menu
+wait 1
+shot 05-options
+pad a
+wait 1
+shot 06-saves-question
+pad left
+pad a
+wait 1
+shot 07-delete-question
+pad left
+pad a
+wait 2
+shot 08-deleted
+pad b
+wait 1
+pad right right
+pad a
+wait 2
+shot 09-steam-leftovers
+pad menu
+wait 1
+pad a
+wait 1
+shot 10-steam-delete-question

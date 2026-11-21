@@ -23,15 +23,32 @@
 #   @nogames         (first line) start with no games, as on a new system
 #   @owneetd         (first line) with a pretend owneetd: invented networks, controllers and
 #                    Bluetooth devices (tools/preview-steps/fake-owneetd.py)
+#   @files           (6.11) invented Windows games' data and logs, and (with @steam) Steam's leftovers
 #   @steam           (with @owneetd) an invented Steam folder with owned games, installed or not
+#   @manygames       (with @steam) 60 more owned Steam games, a library of about ninety, four of them
+#                    favourites (3ah)
 #                    (tools/preview-steps/fake-steam.py); the pretend owneetd installs and
 #                    uninstalls them, with downloads
 #   @disk            an invented USB disk "SSD-256GB-D" with a Giochi folder (games on a disk, 4.3;
 #                    installers, 4.6):
 #                    scripts, programs, covers (Starfall, Beneath a steel sky), Windows games, and
 #                    folders with only an installer (GOG .sh, Inno Setup, too big, Galaxy, unknown)
+#   @pictures        (6.9) an invented USB disk "USB-FOTO" with an Immagini folder: pictures at its
+#                    top and in sub-folders, a file that is not a picture, a hidden one; and two
+#                    games on the console's disk, Moss Garden (no cover) and Quiet Orbit (a cover)
 #   @gamescope       (with @owneetd) the pretend session is gamescope's (Resume, the pointer)
-#   unplug / plug    (with @disk) the invented disk is unplugged / plugged in again
+#   @firststart      the first start (6.1) is shown, as on a new console (otherwise it counts as done)
+#   @startup         the first shots come at once, during the start-up animation
+#   @longtitle       "Copper Coast" (the home's first game) gets a long invented title, on two lines
+#   @live            (with @owneetd) started from the USB stick (6.2: owneetd's mode is "live")
+#   @installfail     (with @owneetd) the installation (6.4) stops while copying (copy_failed)
+#   @movefail        (with @owneetd) moving a game (6.6): its copy does not pass the check
+#   @moveslow        (with @owneetd) moving games (6.6e): four times slower, to look at it running
+#   @steamprepare    (with @steam) Steam prepares each download for 60 s before it begins (open item 8)
+#   @sysupdate STATE (with @owneetd) an installed system's updates (7.1): uptodate, available,
+#                    ready, fellback, installfail, backfail (tools/preview-steps/fake-owneetd.py)
+#   unplug / plug [DISK]  (with @disk or @pictures) an invented disk is unplugged / plugged in
+#                    again (SSD-256GB-D unless named, e.g. unplug USB-FOTO)
 #   event TYPE JSON  (with @owneetd) the pretend owneetd sends an event, e.g.
 #                    event controller.battery {"id":"aa:bb:cc:dd:ee:01","name":"Xbox","battery":12}
 #   # …              comment
@@ -40,7 +57,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CHROOT="/var/tmp/owneet-chroot/root"
+CHROOT="/var/lib/owneet-chroot/root"
 BOX="/var/tmp/owneet-preview"
 OUT="$ROOT/out/frontend-preview"
 
@@ -143,14 +160,44 @@ printf 'collection: Test games\nshortname: test\n\n' > "$HOME/games/metadata.peg
 if ! grep -q '^@nogames' /steps.txt; then
     for g in "Nebula Drift" "Moss Garden" "Ember Run" "Tiny Tactics" "Harbor Lights" "Pixel Quest" \
              "Starfall" "Velvet Road" "Copper Coast" "Lantern Keep" "Quiet Orbit" "Saltwind"; do
+        if [ "$g" = "Copper Coast" ] && grep -q '^@longtitle' /steps.txt; then
+            g="Copper Coast: The Long Voyage of the Lantern Keeper"
+        fi
         f="$HOME/games/$(echo "$g" | tr ' ' _).sh"; touch "$f"
         printf 'game: %s\nfile: %s\nlaunch: /bin/true\n\n' "$g" "$f" >> "$HOME/games/metadata.pegasus.txt"
     done
 fi
 echo "$HOME/games" > "$HOME/.config/owneet-frontend/game_dirs.txt"
+# The first start (6.1) only with @firststart; otherwise it counts as done
+if ! grep -q '^@firststart' /steps.txt; then
+    mkdir -p "$HOME/.config/owneet-frontend/theme_settings"
+    echo '{"firstStartDone":true}' > "$HOME/.config/owneet-frontend/theme_settings/owneet.json"
+fi
 if grep -q '^@steam' /steps.txt; then
+    if grep -q '^@manygames' /steps.txt; then
+        # sorted by name, 6 games come before the first installed one (the last column of the
+        # first row); four favourites, none of them installed (open item 3ah)
+        export FAKE_STEAM_MANY=60
+        printf 'steam:%s\n' 2211 2222 2233 2244 > "$HOME/.config/owneet-frontend/favorites.txt"
+    fi
     python3 /fake-steam.py "$HOME/Steam"
     export OWNEET_STEAM_DIR="$HOME/Steam" FAKE_STEAM=1
+fi
+# @files: what the file manager shows (6.11): Windows games' data and logs (one of a game no longer
+# here), and Steam's leftovers of a game no longer installed (with @steam)
+if grep -q '^@files' /steps.txt; then
+    w="$HOME/.local/share/owneet/windows"
+    for d in the-witcher-2-win-b264e729e7 copper-coast-0123456789; do
+        mkdir -p "$w/prefixes/$d/pfx/drive_c" "$w/logs/$d"
+        head -c 3000000 /dev/zero > "$w/prefixes/$d/pfx/system.reg"
+        head -c 400000 /dev/zero > "$w/logs/$d/proton.log"
+    done
+    if [ -n "${OWNEET_STEAM_DIR:-}" ]; then
+        for k in shadercache compatdata downloading; do
+            mkdir -p "$OWNEET_STEAM_DIR/steamapps/$k/999001"
+            head -c 2000000 /dev/zero > "$OWNEET_STEAM_DIR/steamapps/$k/999001/data.bin"
+        done
+    fi
 fi
 
 if grep -q '^@disk' /steps.txt; then
@@ -192,9 +239,9 @@ with zipfile.ZipFile(buf, "w") as z:
                    f"{n}. A clause of the licence, long enough to need scrolling with the right stick on the console's screen." for n in range(1, 25)))
 open(sys.argv[1], "wb").write(b"#!/bin/sh\n# This script was generated using Makeself 2.4.0\n" + b"#" * 4000 + b"\nexit 0\n" + buf.getvalue())
 PY
-    printf 'MZ... Inno Setup Setup Data (6.2.0)' > "$g/Shadow Harbor/setup_shadow_harbor_1.4.2.exe"
-    head -c 3000000 /dev/zero >> "$g/Shadow Harbor/setup_shadow_harbor_1.4.2.exe"
-    : > "$g/Shadow Harbor/setup_shadow_harbor_1.4.2-1.bin"
+    printf 'MZ... Inno Setup Setup Data (6.2.0)' > "$g/Shadow Harbor/setup_shadow_harbor_the_complete_edition_with_every_expansion_1.4.2_(52714).exe"
+    head -c 3000000 /dev/zero >> "$g/Shadow Harbor/setup_shadow_harbor_the_complete_edition_with_every_expansion_1.4.2_(52714).exe"
+    : > "$g/Shadow Harbor/setup_shadow_harbor_the_complete_edition_with_every_expansion_1.4.2_(52714)-1.bin"
     printf 'MZ... Inno Setup Setup Data (6.2.0)' > "$g/Titan Fields/setup_titan_fields_2.0.exe"
     truncate -s 300G "$g/Titan Fields/setup_titan_fields_2.0.exe"
     : > "$g/Treasure Adventure Game/GOG_Galaxy_Treasure_Adventure_Game.exe"
@@ -206,9 +253,37 @@ PY
     export OWNEET_DISKS="$disk"
 fi
 
+# @pictures (6.9): a disk of pictures, and local games to give a cover to
+if grep -q '^@pictures' /steps.txt; then
+    p=/tmp/disks/USB-FOTO/Immagini
+    mkdir -p /tmp/unplugged "$p/Viaggio 2026" "$p/Sfondi"
+    pic() { magick -size "$2" "gradient:$3" "$1" 2>/dev/null || convert -size "$2" "gradient:$3" "$1"; }
+    pic "$p/castle-at-dawn.jpg" 1600x900 '#f4a261-#264653'
+    pic "$p/forest-path.png" 1200x1600 '#2a9d8f-#1b4332'
+    pic "$p/Viaggio 2026/lake 2.jpg" 1600x1200 '#48cae4-#023e8a'
+    pic "$p/Viaggio 2026/lake 10.jpg" 1600x1200 '#ffb703-#fb8500'
+    pic "$p/Viaggio 2026/old-bridge.jpg" 1200x1500 '#9d4edd-#240046'
+    pic "$p/Sfondi/wallpaper-blue.png" 1920x1080 '#4361ee-#03045e'
+    pic "$p/.hidden.jpg" 400x400 '#ffffff-#000000'
+    echo "not a picture" > "$p/notes.txt"
+    script() { mkdir -p "$(dirname "$1")"; printf '#!/bin/bash\nexec true\n' > "$1"; chmod +x "$1"; }
+    script "$HOME/Games/Moss Garden/start.sh"
+    script "$HOME/Games/Quiet Orbit/start.sh"
+    pic "$HOME/Games/Quiet Orbit/cover.png" 600x900 '#e63946-#1d3557'
+    export OWNEET_DISKS="${OWNEET_DISKS:+$OWNEET_DISKS:}/tmp/disks/USB-FOTO"
+fi
+
 if grep -q '^@owneetd' /steps.txt; then
     grep -q '^@gamescope' /steps.txt && export FAKE_SESSION=gamescope
     mkfifo /tmp/owneetd-events
+    if grep -q '^@firststart' /steps.txt; then export FAKE_FIRSTSTART=1; fi
+    if grep -q '^@live' /steps.txt; then export FAKE_MODE=live; fi
+    if grep -q '^@installfail' /steps.txt; then export FAKE_INSTALL_FAIL=copy_failed; fi
+    if grep -q '^@movefail' /steps.txt; then export FAKE_MOVE_FAIL=1; fi
+    if grep -q '^@moveslow' /steps.txt; then export FAKE_MOVE_SLOW=1; fi
+    if grep -q '^@steamprepare' /steps.txt; then export FAKE_STEAM_PREPARE=60; fi
+    FAKE_SYSUPDATE="$(sed -n 's/^@sysupdate \([a-z]*\).*/\1/p' /steps.txt | head -1)"
+    export FAKE_SYSUPDATE
     python3 /fake-owneetd.py "$OWNEETD_SOCKET" /tmp/owneetd-events >> /out/log.txt 2>&1 &
     sleep 0.5
 fi
@@ -217,7 +292,19 @@ mkfifo /tmp/vpad.in
 python3 /vpad.py /tmp/vpad.in > /tmp/vpad.out 2>&1 &
 exec 3>/tmp/vpad.in
 sleep 1
-start() { owneet-frontend >> /out/log.txt 2>&1 & FE=$!; sleep 7; }
+# The steps start once the start-up animation is over (every button is ignored while it plays; the
+# theme logs its end; after a restart there is none, at most 30 s); with @startup, the first picture
+# at once, to see the animation
+STARTUP=0
+if grep -q '^@startup' /steps.txt; then STARTUP=1; fi
+start() {
+    owneet-frontend >> /out/log.txt 2>&1 & FE=$!
+    sleep 1
+    [ "$STARTUP" = 1 ] && return
+    i=0
+    while [ "$i" -lt 300 ] && ! grep -q 'The start-up animation is over' /out/log.txt; do sleep 0.1; i=$((i + 1)); done
+    sleep 0.5
+}
 start
 while IFS= read -r line; do
     set -- $line
@@ -231,8 +318,8 @@ while IFS= read -r line; do
         shot) sleep 1; import -window root "/out/$2.png"; echo "$2.png" ;;
         wait) sleep "$2" ;;
         restart) kill "$FE"; wait "$FE" 2>/dev/null; start ;;
-        unplug) mv /tmp/disks/SSD-256GB-D /tmp/unplugged/; sleep 1 ;;
-        plug) mv /tmp/unplugged/SSD-256GB-D /tmp/disks/; sleep 1 ;;
+        unplug) mv "/tmp/disks/${2:-SSD-256GB-D}" /tmp/unplugged/; sleep 1 ;;
+        plug) mv "/tmp/unplugged/${2:-SSD-256GB-D}" /tmp/disks/; sleep 1 ;;
         *) echo "unknown step: $line" ;;
     esac
 done < /steps.txt

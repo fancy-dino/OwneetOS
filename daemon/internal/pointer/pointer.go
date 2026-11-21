@@ -35,7 +35,8 @@ var (
 // Mouse is the virtual mouse (vinput).
 type Mouse interface {
 	MovePointer(dx, dy, wheel int) error
-	Click(button string) error
+	// Button holds a button down (true) or lets it go (false)
+	Button(button string, down bool) error
 }
 
 // Apps gives a running app's gamescope app id (0: not running) and brings the home screen up.
@@ -50,6 +51,10 @@ type Screen interface {
 	Focused() (app, window uint32, err error)
 	// TextCursor: the pointer has the text "I" shape (over a text field)
 	TextCursor() (bool, error)
+	// CursorChanges: TextCursor each time the pointer's image changes (closed with the screen)
+	CursorChanges() <-chan bool
+	// InputFocusOn: the keyboard focus is on that window (or inside it)
+	InputFocusOn(window uint32) (bool, error)
 	Close()
 }
 
@@ -75,7 +80,6 @@ const (
 	firstRepeat = 360 * time.Millisecond
 	nextRepeat  = 40 * time.Millisecond
 	wheelEvery  = 160 * time.Millisecond
-	textDelay   = 120 * time.Millisecond // after a click, the app changes the pointer's shape
 )
 
 // speed is the pointer's speed in pixels per millisecond for a push of 0…1 (slow at first).
@@ -91,6 +95,12 @@ type Manager struct {
 	Screen func() (Screen, error)
 	// Pads starts reading the controllers into in until stop is closed
 	Pads func(in chan<- Input, stop <-chan struct{})
+	// Changed is told the status each time it changes (apps pauses Proton's Xalia meanwhile)
+	Changed func(Status)
+
+	// anyWindow: it holds for every window of the app (a game's install script: an installer and its
+	// own file windows, owner 2026-11-19), not for the first one only
+	anyWindow bool
 
 	mu      sync.Mutex
 	status  Status
@@ -106,8 +116,15 @@ type Manager struct {
 	restX   float64 // fractions of a pixel left from the last move
 	restY   float64
 	lastChk time.Time
-	now     func() time.Time
-	manual  bool // tests: no loop, step and input are called by hand
+	// the pointer's shape as the X server last told it, and a click that may still turn it into
+	// the text "I" (no move since; afterClick, followCursor)
+	textCursor bool
+	clickWaits bool
+	// the mouse buttons held down now (A: left, X: right), let go with the controller's button, or
+	// when the pointer goes off or leaves the app's window
+	down   map[string]bool
+	now    func() time.Time
+	manual bool // tests: no loop, step and input are called by hand
 }
 
 // Status tells whether the pointer is on, and for which app.
@@ -118,7 +135,21 @@ func (m *Manager) Status() Status {
 }
 
 // On turns the pointer on for a running app: it holds for the window the app shows next.
-func (m *Manager) On(app string) error {
+func (m *Manager) On(app string) error { return m.on(app, false) }
+
+// OnAnyWindow turns the pointer on for every window of a running app, until it is turned off (the
+// end of a game's install script: apps) or another app takes the screen; already on so: nothing.
+func (m *Manager) OnAnyWindow(app string) error {
+	m.mu.Lock()
+	already := m.stop != nil && m.anyWindow && m.status.App == app
+	m.mu.Unlock()
+	if already {
+		return nil
+	}
+	return m.on(app, true)
+}
+
+func (m *Manager) on(app string, anyWindow bool) error {
 	if m.Mouse == nil || m.Screen == nil {
 		return ErrUnavailable
 	}
@@ -137,8 +168,13 @@ func (m *Manager) On(app string) error {
 		m.screen.Close()
 	}
 	m.status = Status{On: true, App: app}
-	m.appID, m.window, m.active = id, 0, false
+	m.appID, m.window, m.active, m.anyWindow = id, 0, false, anyWindow
 	m.screen = screen
+	m.textCursor, m.clickWaits = false, false
+	if text, err := screen.TextCursor(); err == nil {
+		m.textCursor = text
+	}
+	go m.followCursor(screen)
 	m.state, m.held, m.repeat = map[string]float64{}, map[string]time.Time{}, map[string]time.Time{}
 	m.stop = make(chan struct{})
 	stop := m.stop
@@ -156,6 +192,33 @@ func (m *Manager) On(app string) error {
 	return nil
 }
 
+// keyboardCheck: how often the keyboard focus is read while text waits for it (an interval, not a
+// time standing for the event, [[waiting-for-events]])
+const keyboardCheck = 10 * time.Millisecond
+
+// WaitKeyboard: text typed with the console's keyboard goes to the app's window as soon as the window
+// on screen has the keyboard focus, not merely once it is shown again (Red Dead Redemption 2's Rockstar
+// launcher took only the last 3 digits of a 6-digit code, FrankenPC, 2026-11-19): it waits for that,
+// at most limit; false when the pointer is off or the limit passed.
+func (m *Manager) WaitKeyboard(limit time.Duration) bool {
+	m.mu.Lock()
+	screen, on := m.screen, m.stop != nil
+	m.mu.Unlock()
+	if !on || screen == nil {
+		return false
+	}
+	for deadline := time.Now().Add(limit); ; time.Sleep(keyboardCheck) {
+		if _, win, err := screen.Focused(); err == nil && win != 0 {
+			if ok, err := screen.InputFocusOn(win); err == nil && ok {
+				return true
+			}
+		}
+		if !time.Now().Before(deadline) {
+			return false
+		}
+	}
+}
+
 // Off turns the pointer off (reason: user, window, closed).
 func (m *Manager) Off(reason string) {
 	m.mu.Lock()
@@ -169,13 +232,18 @@ func (m *Manager) Off(reason string) {
 	app := m.status.App
 	m.status = Status{Reason: reason}
 	m.mu.Unlock()
+	m.letGo()
 	m.Log.Info("pointer off", "app", app, "reason", reason)
 	m.publish()
 }
 
 func (m *Manager) publish() {
+	st := m.Status()
 	if m.Broker != nil {
-		m.Broker.Publish("pointer.changed", m.Status())
+		m.Broker.Publish("pointer.changed", st)
+	}
+	if m.Changed != nil {
+		m.Changed(st)
 	}
 }
 
@@ -208,7 +276,7 @@ func (m *Manager) loop(in <-chan Input, stop <-chan struct{}) {
 // another window of the app or another app (off), the app gone (off).
 func (m *Manager) check() {
 	m.mu.Lock()
-	screen, appID, window, app := m.screen, m.appID, m.window, m.status.App
+	screen, appID, window, app, anyWindow := m.screen, m.appID, m.window, m.status.App, m.anyWindow
 	m.mu.Unlock()
 	if m.Apps.AppIDOf(app) == 0 {
 		m.Off("closed")
@@ -221,9 +289,9 @@ func (m *Manager) check() {
 	switch {
 	case focused == HomeAppID || focused == 0:
 		m.setActive(false)
-	case focused == appID && (window == 0 || win == window):
+	case focused == appID && (window == 0 || win == window || anyWindow):
 		m.mu.Lock()
-		if m.window == 0 {
+		if m.window == 0 && !m.anyWindow {
 			m.window = win
 		}
 		m.mu.Unlock()
@@ -235,10 +303,46 @@ func (m *Manager) check() {
 
 func (m *Manager) setActive(active bool) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.active = active
 	if !active { // nothing held carries over a visit to the home screen
 		m.state, m.held, m.repeat = map[string]float64{}, map[string]time.Time{}, map[string]time.Time{}
+	}
+	m.mu.Unlock()
+	if !active {
+		m.letGo()
+	}
+}
+
+// press holds a mouse button down, once.
+func (m *Manager) press(button string) {
+	m.mu.Lock()
+	if m.down == nil {
+		m.down = map[string]bool{}
+	}
+	held := m.down[button]
+	m.down[button] = true
+	m.mu.Unlock()
+	if !held {
+		m.Mouse.Button(button, true)
+	}
+}
+
+// release lets a mouse button go; false if it was not held.
+func (m *Manager) release(button string) bool {
+	m.mu.Lock()
+	held := m.down[button]
+	delete(m.down, button)
+	m.mu.Unlock()
+	if held {
+		m.Mouse.Button(button, false)
+	}
+	return held
+}
+
+// letGo lets every mouse button held go (the pointer off, or its window no longer on screen).
+func (m *Manager) letGo() {
+	for _, b := range []string{"left", "right"} {
+		m.release(b)
 	}
 }
 
@@ -253,6 +357,7 @@ func (m *Manager) input(ev Input) {
 	m.state[ev.Control] = ev.Value
 	active := m.active
 	pressed := before < 0.5 && ev.Value >= 0.5
+	released := before >= 0.5 && ev.Value < 0.5
 	now := m.clock()
 	if len(ev.Control) > 2 && ev.Control[:2] == "dp" {
 		if pressed {
@@ -263,15 +368,30 @@ func (m *Manager) input(ev Input) {
 		}
 	}
 	m.mu.Unlock()
-	if !active || !pressed {
+	if !active {
+		return
+	}
+	// A and X are the mouse's left and right buttons, held as long as they are (owner, 2026-11-19,
+	// [[controller-input-map]]); the click is over when A is let go
+	if released {
+		switch ev.Control {
+		case "a":
+			if m.release("left") {
+				m.afterClick()
+			}
+		case "x":
+			m.release("right")
+		}
+		return
+	}
+	if !pressed {
 		return
 	}
 	switch ev.Control {
 	case "a":
-		m.Mouse.Click("left")
-		go m.afterClick()
+		m.press("left")
 	case "x":
-		m.Mouse.Click("right")
+		m.press("right")
 	case "y":
 		m.askKeyboard("button")
 	case "dpup", "dpdown", "dpleft", "dpright":
@@ -279,17 +399,36 @@ func (m *Manager) input(ev Input) {
 	}
 }
 
-// afterClick: a click on a text field (the pointer has the text "I" shape) asks the keyboard.
+// afterClick: a click on a text field (the pointer has the text "I" shape) asks the keyboard: at
+// once when the pointer has that shape already (over the field), or as soon as the app gives it
+// that shape for the click (followCursor), unless the pointer moves first. No time is waited.
 func (m *Manager) afterClick() {
-	time.Sleep(textDelay)
 	m.mu.Lock()
-	screen, active := m.screen, m.active
+	ask := m.active && m.textCursor
+	m.clickWaits = m.active && !m.textCursor
 	m.mu.Unlock()
-	if !active || screen == nil {
-		return
-	}
-	if text, err := screen.TextCursor(); err == nil && text {
+	if ask {
 		m.askKeyboard("field")
+	}
+}
+
+// followCursor keeps the pointer's shape as the X server tells it, for this screen.
+func (m *Manager) followCursor(screen Screen) {
+	for text := range screen.CursorChanges() {
+		m.mu.Lock()
+		if m.screen != screen {
+			m.mu.Unlock()
+			return
+		}
+		m.textCursor = text
+		ask := text && m.clickWaits && m.active
+		if ask {
+			m.clickWaits = false
+		}
+		m.mu.Unlock()
+		if ask {
+			m.askKeyboard("field")
+		}
 	}
 }
 
@@ -318,6 +457,9 @@ func (m *Manager) nudge(dir string) {
 	case "dpright":
 		dx = step
 	}
+	m.mu.Lock()
+	m.clickWaits = false // moved: a later shape is not the click's
+	m.mu.Unlock()
 	m.Mouse.MovePointer(dx, dy, 0)
 }
 
@@ -369,6 +511,9 @@ func (m *Manager) step(dt time.Duration) {
 		m.wheelAt = now.Add(wheelEvery)
 	} else if math.Abs(ry) <= 0.5 {
 		m.wheelAt = time.Time{}
+	}
+	if dx != 0 || dy != 0 {
+		m.clickWaits = false // moved: a later shape is not the click's
 	}
 	m.mu.Unlock()
 	if dx != 0 || dy != 0 || wheel != 0 {

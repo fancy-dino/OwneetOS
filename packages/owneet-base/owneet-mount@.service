@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Mounts a disk's file system (owneet-mount, [[step-6.5-automatic-disk-mounting]]): %i is its
+# kernel name (e.g. sdb1). Pulled in by 90-owneet-disks.rules; stops (unmounts) when the disk goes.
+[Unit]
+Description=OwneetOS mount of disk %i
+BindsTo=dev-%i.device
+After=dev-%i.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/owneet/owneet-mount start %i
+ExecStop=/usr/lib/owneet/owneet-mount stop %i
+TimeoutSec=60

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# "Starting" under the spinner of the boot splash: as soon as the disk with the chosen language is there.
+[Unit]
+Description=The start-up message on the boot splash
+DefaultDependencies=no
+After=plymouth-start.service local-fs.target
+Before=sysinit.target
+ConditionKernelCommandLine=splash
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/owneet/owneet-splash-message splash.starting

@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFileSystemWatcher>
+#include <QHash>
 #include <QSocketNotifier>
 #include <QStorageInfo>
 #include <QVariantMap>
@@ -14,6 +15,23 @@ namespace {
 QStringList pretend_disks()
 {
     return qEnvironmentVariable("OWNEET_DISKS").split(QChar(':'), Qt::SkipEmptyParts);
+}
+
+// Why owneet-mount mounted a disk read only, by its folder (/run/owneet-mount/<kernel name>: the
+// folder, rw or ro, the reason)
+QHash<QString, QString> mount_reasons()
+{
+    QHash<QString, QString> out;
+    const QDir dir(QStringLiteral("/run/owneet-mount"));
+    for (const QString& name : dir.entryList(QDir::Files)) {
+        QFile file(dir.filePath(name));
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+            continue;
+        const QStringList lines = QString::fromUtf8(file.readAll()).split(QChar('\n'));
+        if (lines.size() >= 3 && lines.at(1) == QLatin1String("ro"))
+            out.insert(lines.at(0), lines.at(2));
+    }
+    return out;
 }
 } // namespace
 
@@ -43,9 +61,21 @@ Storage::Storage(QObject* parent)
     }
 }
 
+// A disk plugged in from outside: its device hangs from a USB bus in /sys (owneetd's
+// gamedata.External, the same rule)
+static bool usb_device(const QByteArray& device)
+{
+    if (!device.startsWith("/dev/"))
+        return false;
+    const QString real = QFileInfo(QString::fromLocal8Bit(device)).canonicalFilePath();
+    const QString name = QFileInfo(real.isEmpty() ? QString::fromLocal8Bit(device) : real).fileName();
+    return QFileInfo(QStringLiteral("/sys/class/block/") + name).canonicalFilePath().contains(QLatin1String("/usb"));
+}
+
 QVariantList Storage::volumes() const
 {
     QVariantList out;
+    const QHash<QString, QString> reasons = mount_reasons();
     for (const QStorageInfo& info : QStorageInfo::mountedVolumes()) {
         if (!info.isValid() || !info.isReady() || info.bytesTotal() <= 0)
             continue;
@@ -61,6 +91,9 @@ QVariantList Storage::volumes() const
         volume.insert(QStringLiteral("free"), static_cast<double>(info.bytesAvailable()));
         volume.insert(QStringLiteral("total"), static_cast<double>(info.bytesTotal()));
         volume.insert(QStringLiteral("readOnly"), info.isReadOnly());
+        volume.insert(QStringLiteral("why"), info.isReadOnly() ? reasons.value(path) : QString());
+        volume.insert(QStringLiteral("ntfs"), info.fileSystemType().startsWith("ntfs"));
+        volume.insert(QStringLiteral("usb"), !system && usb_device(info.device()));
         if (system)
             out.prepend(volume);
         else
@@ -77,6 +110,9 @@ QVariantList Storage::volumes() const
         volume.insert(QStringLiteral("free"), static_cast<double>(info.bytesAvailable()));
         volume.insert(QStringLiteral("total"), static_cast<double>(info.bytesTotal()));
         volume.insert(QStringLiteral("readOnly"), true);
+        volume.insert(QStringLiteral("why"), QString());
+        volume.insert(QStringLiteral("ntfs"), false);
+        volume.insert(QStringLiteral("usb"), true);
         out.append(volume);
     }
     return out;

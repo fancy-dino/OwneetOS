@@ -71,3 +71,68 @@ func TestHex4AndBrand(t *testing.T) {
 		t.Fatal("helpers wrong")
 	}
 }
+
+// Devices made by programs through uinput are left out; Bluetooth (uhid) and USB controllers and
+// the project's test devices stay
+func TestFromProgram(t *testing.T) {
+	root := t.TempDir()
+	m := &Manager{SysInputDir: filepath.Join(root, "class", "input")}
+	link := func(event, target string) *evdev.Device {
+		dir := filepath.Join(root, target)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Join(m.SysInputDir, event), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(dir, filepath.Join(m.SysInputDir, event, "device")); err != nil {
+			t.Fatal(err)
+		}
+		return &evdev.Device{Path: "/dev/input/" + event}
+	}
+	steam := link("event16", "devices/virtual/input/input20")
+	steam.Name = "Microsoft X-Box 360 pad 0"
+	bt := link("event17", "devices/virtual/misc/uhid/0005:045E:0B13.0001/input/input17")
+	bt.Name = "Xbox Wireless Controller"
+	usb := link("event18", "devices/pci0000:00/0000:00:14.0/usb1/1-4/1-4:1.0/input/input18")
+	usb.Name = "Microsoft X-Box 360 pad"
+	test := link("event19", "devices/virtual/input/input21")
+	test.Name = "OwneetOS Test Pad"
+	own := link("event20", "devices/virtual/input/input22")
+	own.Name = "OwneetOS Virtual Keyboard"
+	if !m.fromProgram(steam) || !m.fromProgram(own) {
+		t.Fatal("a device made by a program kept")
+	}
+	if m.fromProgram(bt) || m.fromProgram(usb) || m.fromProgram(test) {
+		t.Fatal("a real or test controller left out")
+	}
+}
+
+// WhenReleased waits until no button or key is held on any device.
+func TestWhenReleased(t *testing.T) {
+	m := &Manager{devs: map[string]*tracked{}}
+	pad, kbd := &tracked{}, &tracked{keyboard: true}
+	m.devs["/dev/input/event1"], m.devs["/dev/input/event2"] = pad, kbd
+	closed := func(ch <-chan struct{}) bool {
+		select {
+		case <-ch:
+			return true
+		default:
+			return false
+		}
+	}
+	if !closed(m.WhenReleased()) {
+		t.Fatal("nothing held, yet waiting")
+	}
+	m.hold(pad, evdev.BtnSouth, true) // A down
+	m.hold(kbd, evdev.KeyA, true)
+	ch := m.WhenReleased()
+	m.hold(pad, evdev.BtnSouth, false)
+	if closed(ch) {
+		t.Fatal("released while a key is still held")
+	}
+	m.hold(kbd, evdev.KeyA, false)
+	if !closed(ch) {
+		t.Fatal("not released when nothing is held")
+	}
+}
