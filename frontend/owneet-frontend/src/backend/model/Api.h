@@ -27,6 +27,7 @@
 #include "utils/QmlHelpers.h"
 
 #include <QObject>
+#include <functional>
 
 
 /// Provides data access for QML
@@ -48,6 +49,10 @@ class ApiObject : public QObject {
 
 public:
     explicit ApiObject(const backend::CliArgs& args, QObject* parent = nullptr);
+
+    // OwneetOS: asked when a game is started while another one is still being started: true when
+    // that one has let go (a Steam game that never started, ProcessLauncher::abandonUnstarted)
+    void setReplaceLaunch(std::function<bool()> replace) { m_replace_launch = std::move(replace); }
 
     // scanning
     void clearGameData();
@@ -94,6 +99,7 @@ private slots:
 private:
     // game launching
     model::GameFile* m_launch_game_file;
+    std::function<bool()> m_replace_launch;
 
     // used to trigger re-rendering of texts on locale change
     QString emptyString() const { return QString(); }

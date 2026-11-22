@@ -336,6 +336,7 @@ void ProcessLauncher::runSteamGame()
     m_daemon->request(QStringLiteral("POST"), QStringLiteral("/v1/steam"), body, [this, id](int status, const QVariant& data) {
         if (status == 202) {
             m_daemon_app = id;
+            m_daemon_started = false;
             emit processLaunchOk();
             return;
         }
@@ -351,6 +352,11 @@ void ProcessLauncher::runSteamGame()
 
 void ProcessLauncher::onDaemonEvent(const QString& type, const QVariant& data)
 {
+    if (type == QLatin1String("app.started") && !m_daemon_app.isEmpty()
+            && data.toMap().value(QStringLiteral("id")).toString() == m_daemon_app) {
+        m_daemon_started = true;
+        return;
+    }
     if (type != QLatin1String("app.exited") || m_daemon_app.isEmpty())
         return;
     const QVariantMap ev = data.toMap();
@@ -361,6 +367,20 @@ void ProcessLauncher::onDaemonEvent(const QString& type, const QVariant& data)
     ScriptRunner::run(ScriptEvent::PROCESS_FINISHED);
     TerminalKbd::disable();
     emit processFinished();     // play time is counted up to here
+}
+
+// OwneetOS: only a Steam game is waited for before it starts (owneetd lists it once Steam has
+// launched it): one that never started (Steam stopped there, e.g. a game whose anti-cheat refuses
+// Linux, FrankenPC 2026-11-22) kept every later game from starting, without a word
+bool ProcessLauncher::abandonUnstarted()
+{
+    if (m_daemon_app.isEmpty() || m_daemon_started || !m_daemon_app.startsWith(QLatin1String("steam:")))
+        return false;
+    Log::info(LOGMSG("The game `%1` never started: another game takes its place").arg(m_daemon_app));
+    m_daemon_app.clear();
+    ScriptRunner::run(ScriptEvent::PROCESS_FINISHED);
+    TerminalKbd::disable();
+    return true;
 }
 
 void ProcessLauncher::onTeardownComplete()

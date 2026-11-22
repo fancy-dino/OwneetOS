@@ -41,6 +41,9 @@ public:
 
     /// OwneetOS: start games through owneetd, each in its own systemd service, when it runs
     void setDaemon(owneet::Daemon* daemon);
+    /// OwneetOS: a Steam game asked for that has not started (Steam stopped before it, e.g. a game
+    /// that refuses Linux) is let go, so that another game can start; false when there is none
+    bool abandonUnstarted();
 
 signals:
     void processLaunchOk();
@@ -63,6 +66,7 @@ private:
     // OwneetOS: the game started through owneetd, until its app.exited event
     owneet::Daemon* m_daemon = nullptr;
     QString m_daemon_app;
+    bool m_daemon_started = false; // OwneetOS: owneetd said app.started for m_daemon_app
     QString m_title;
     QString m_game_path;
     QString m_steam_appid;  // OwneetOS: a Steam game, started by Steam through owneetd

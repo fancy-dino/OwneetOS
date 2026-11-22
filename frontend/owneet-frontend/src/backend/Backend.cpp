@@ -173,6 +173,7 @@ Backend::Backend(const CliArgs& args)
     m_frontend = new FrontendLayer(m_api_public, m_api_private);
     m_launcher = new ProcessLauncher();
     m_launcher->setDaemon(m_frontend->daemon()); // OwneetOS: games start through owneetd
+    m_api_public->setReplaceLaunch([this]() { return m_launcher->abandonUnstarted(); });
     m_providerman = new ProviderManager();
 
     // the following communication is required because process handling

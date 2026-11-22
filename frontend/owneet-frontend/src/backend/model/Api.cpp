@@ -81,7 +81,9 @@ void ApiObject::onGameFileSelectorRequested()
 
 void ApiObject::onGameFileLaunchRequested()
 {
-    if (m_launch_game_file)
+    // one game at a time; OwneetOS: unless the one being started never started (Steam stopped
+    // there): the new one takes its place instead of being ignored without a word
+    if (m_launch_game_file && !(m_replace_launch && m_replace_launch()))
         return;
 
     m_launch_game_file = static_cast<model::GameFile*>(QObject::sender());
