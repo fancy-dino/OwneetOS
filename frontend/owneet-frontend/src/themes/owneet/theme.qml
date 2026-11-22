@@ -326,7 +326,9 @@ FocusScope {
     // the Home prompt only while Guide does something: nothing runs (with a game, a media app or
     // Steam, Guide goes back to it), and not on the home screen itself with no window over it
     // (owner, 2026-11-17)
-    Binding { target: Nav; property: "homePrompt"; value: root.apps.length === 0 && (root.section !== "home" || root.windowOpen) }
+    // the Home prompt where Guide does something while nothing runs: another section, a window over
+    // the pages, or the Videos, Music or Apps page (owner, 2026-11-21: Guide back to the home page)
+    Binding { target: Nav; property: "homePrompt"; value: root.apps.length === 0 && (root.section !== "home" || root.windowOpen || root.mediaKind !== "" || root.appsOpen) }
     property string focusedApp: ""        // "home", an app id, or "" (cage)
     property string sessionMode: ""       // "gamescope" or "cage"
     // live (from the USB stick), tester or installed (owneetd's /v1/status, 6.2)
