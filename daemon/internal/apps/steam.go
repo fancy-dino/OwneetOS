@@ -1058,6 +1058,7 @@ func (m *Manager) scanSteam() {
 	for appid, reaper := range found {
 		m.steamGame(appid, reaper, unit)
 	}
+	m.leftOverLaunchers(found)
 	m.mu.Lock()
 	var gone []*App
 	for _, a := range m.apps {

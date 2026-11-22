@@ -73,6 +73,10 @@ type App struct {
 	// what gamescope may show (Silksong, FrankenPC 2026-10-16: Steam's window was on screen for
 	// 10 s before the game's), the home screen's "Starting …" covers the wait (steam.go)
 	steamBehind bool
+	// a Steam game's own programs have run with a window; its publisher's launcher, left alone
+	// after it, has been closed (launchers.go)
+	ownWindowSeen  bool
+	launcherClosed bool
 }
 
 // settleChecks is how many once-a-second checks a settling app's window must stay before it is shown.
