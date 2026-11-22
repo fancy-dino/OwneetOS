@@ -22,6 +22,12 @@ set -u
 # runtime's libraries and the console's fixes are loaded, then the program starts.
 if [[ "${1:-}" == "--in-runtime" ]]; then
     shift
+    # the runtime's own folders, kept for the game's bash scripts: one that sets LD_LIBRARY_PATH
+    # to its own folder alone gets them back at the end (owneet-runtime-bashenv, read by bash)
+    if [[ -n "${LD_LIBRARY_PATH:-}" ]]; then
+        export OWNEET_RUNTIME_LIBS="$LD_LIBRARY_PATH"
+        export BASH_ENV="/run/host/usr/lib/owneet/owneet-runtime-bashenv"
+    fi
     if [[ -n "${OWNEET_NATIVE_LIBS:-}" ]]; then
         export LD_LIBRARY_PATH="$OWNEET_NATIVE_LIBS${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     fi

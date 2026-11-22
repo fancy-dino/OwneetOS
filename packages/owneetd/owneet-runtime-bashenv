@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Read by every bash script of a native game that runs in Valve's Steam Runtime (BASH_ENV, set by
+# owneet-native-run): there the runtime's libraries are found through LD_LIBRARY_PATH only, and a
+# game's own script that sets LD_LIBRARY_PATH to its folder alone made them vanish (Beneath a Steel
+# Sky's ScummVM could not find libjpeg.so.8, FrankenPC 2026-11-22). After every export, the
+# runtime's folders (OWNEET_RUNTIME_LIBS) go back at the end of LD_LIBRARY_PATH when they are gone:
+# the game's own libraries still come first.
+
+export() {
+    builtin export "$@"
+    local status=$?
+    if [[ -n "${OWNEET_RUNTIME_LIBS:-}" && ":${LD_LIBRARY_PATH:-}:" != *":$OWNEET_RUNTIME_LIBS:"* ]]; then
+        builtin export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$OWNEET_RUNTIME_LIBS"
+    fi
+    return $status
+}
