@@ -77,3 +77,36 @@ for name in "${ours[@]}"; do cp "$REPO/$name"-[0-9]*.pkg.tar.zst "$OUT/"; done
 # --include-sigs: the Arch packages' signatures in the database, checked by the test PC
 repo-add --quiet --include-sigs "$OUT/owneet.db.tar.gz" "$OUT"/*.pkg.tar.zst
 info "out/update-repo/x86_64: $(find "$OUT" -name '*.pkg.tar.zst' | wc -l) packages ($(du -sh "$OUT" | cut -f1))"
+
+# The bundled optional apps ([[step-5.0.0-optional-web-apps]]): the ISO carries them in
+# /usr/share/owneet/bundled/, but a test PC installed from an older ISO has none (FrankenPC,
+# 2026-11-22: no web app could be installed). The same bundle, as the ISO build makes it (BUNDLED
+# with what the test PC lacks and the update does not install), goes into out/update-repo/bundled;
+# owneet-update copies it into place on the test PC.
+BUNDLED=(brave-bin)
+BUNDLE_OUT="$ROOT/out/update-repo/bundled"
+sudo rm -rf "$BUNDLE_OUT"
+mkdir -p "$BUNDLE_OUT" "$WORK/bundle-cache"
+p -Sp --print-format '%n' "${BUNDLED[@]}" | sort -u > "$WORK/bundle-all.txt"
+# brave-bin is one of packages/ too (in the update's repository, never installed by it): what the
+# test PC has is the baseline; a dependency the update also brings is skipped by pacman (--needed)
+comm -23 "$WORK/bundle-all.txt" "$WORK/has.txt" > "$WORK/bundle.txt"
+[[ -s "$WORK/bundle.txt" ]] || die "nothing to bundle: are ${BUNDLED[*]} already on the test PC?"
+mapfile -t bundle < "$WORK/bundle.txt"
+p -Swdd --cachedir "$WORK/bundle-cache" "${bundle[@]}" >/dev/null
+sudo chown -R "$(id -u):$(id -g)" "$WORK/bundle-cache"
+while read -r url; do
+    name="${url##*/}"
+    f="$WORK/bundle-cache/$name"
+    [[ -f "$f" ]] || die "pacman did not download $name"
+    # Arch's packages with their signatures; OwneetOS's own (brave-bin) are unsigned in development
+    if [[ "$url" == http* && ! -f "$f.sig" ]]; then
+        curl -fsSL --retry 3 -o "$f.sig" "$url.sig"
+    fi
+    cp "$f" "$BUNDLE_OUT/${name//:/_}"
+    if [[ -f "$f.sig" ]]; then
+        cp "$f.sig" "$BUNDLE_OUT/${name//:/_}.sig"
+    fi
+done < <(p -Spdd --print-format '%l' "${bundle[@]}")
+repo-add --quiet --include-sigs "$BUNDLE_OUT/bundled.db.tar.gz" "$BUNDLE_OUT"/*.pkg.tar.zst
+info "out/update-repo/bundled: ${bundle[*]} ($(du -sh "$BUNDLE_OUT" | cut -f1))"

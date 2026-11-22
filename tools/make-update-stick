@@ -21,6 +21,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO="$ROOT/out/repo/x86_64"
 # With the Arch Linux packages the update needs (tools/update-extras), when made after the packages
 EXTRAS="$ROOT/out/update-repo/x86_64"
+BUNDLE="$ROOT/out/update-repo/bundled"
 if [[ -f "$EXTRAS/owneet.db.tar.gz" && ! "$EXTRAS/owneet.db.tar.gz" -ot "$REPO/owneet.db.tar.gz" ]]; then
     REPO="$EXTRAS"
 fi
@@ -37,6 +38,13 @@ fill() {
     cp "$REPO"/*.pkg.tar.zst "$1/"
     cp "$REPO/owneet.db.tar.gz" "$1/owneet.db.tar.gz"
     cp "$REPO/owneet.db.tar.gz" "$1/owneet.db"
+    # The bundled optional apps (tools/update-extras), for a test PC whose ISO had none
+    rm -rf "$1/bundled"
+    if [[ "$REPO" == "$EXTRAS" && -f "$BUNDLE/bundled.db.tar.gz" ]]; then
+        mkdir -p "$1/bundled"
+        cp "$BUNDLE"/*.pkg.tar.zst* "$BUNDLE/bundled.db.tar.gz" "$1/bundled/"
+        cp "$BUNDLE/bundled.db.tar.gz" "$1/bundled/bundled.db"
+    fi
 }
 
 list() { find "$1" -maxdepth 1 -name '*.pkg.tar.zst' -printf '    %f\n' | sort; }
