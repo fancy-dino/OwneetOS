@@ -4,8 +4,11 @@
 // knows about windows and focus, to see how Steam and owneetd share the screen
 // ([[step-4.2-steam-integration]]).
 //
-//	owneet-xprobe                 the root window's GAMESCOPE* / STEAM* properties and every mapped
-//	                              window (size, position, the properties gamescope reads)
+//	owneet-xprobe                 the root window's GAMESCOPE* / STEAM* properties and the active window
+//	                              (_NET_ACTIVE_WINDOW, which Proton's Wine reads under gamescope to know
+//	                              whether its window is in front again), every mapped window (size,
+//	                              position, the properties gamescope reads, WM_STATE) and the unmapped
+//	                              windows of an app (STEAM_GAME set: a game's window it hid or iconified)
 //	owneet-xprobe -watch 30s      also print the root properties each time they change
 //
 // It reads DISPLAY from the environment (the console session's, e.g. DISPLAY=:0).
@@ -63,7 +66,7 @@ func rootProps(conn *xgb.Conn, root xproto.Window) map[string]string {
 	}
 	for _, a := range reply.Atoms {
 		name := atomName(conn, a)
-		if strings.HasPrefix(name, "GAMESCOPE") || strings.HasPrefix(name, "STEAM") {
+		if strings.HasPrefix(name, "GAMESCOPE") || strings.HasPrefix(name, "STEAM") || name == "_NET_ACTIVE_WINDOW" {
 			out[name] = value(conn, root, a)
 		}
 	}
@@ -85,16 +88,22 @@ func printProps(props map[string]string) {
 	}
 }
 
-func windows(conn *xgb.Conn, root xproto.Window) {
+// windows prints the top-level windows: the mapped ones (mapped true), or the unmapped ones that
+// belong to an app (STEAM_GAME set)
+func windows(conn *xgb.Conn, root xproto.Window, mapped bool) {
 	tree, err := xproto.QueryTree(conn, root).Reply()
 	if err != nil {
 		return
 	}
 	pid, name, class := atom(conn, "_NET_WM_PID"), atom(conn, "WM_NAME"), atom(conn, "WM_CLASS")
+	steamGame := atom(conn, "STEAM_GAME")
 	// bottom to top, as they are stacked
 	for _, w := range tree.Children {
 		attrs, err := xproto.GetWindowAttributes(conn, w).Reply()
-		if err != nil || attrs.MapState != xproto.MapStateViewable {
+		if err != nil || (attrs.MapState == xproto.MapStateViewable) != mapped {
+			continue
+		}
+		if !mapped && (steamGame == 0 || value(conn, w, steamGame) == "") {
 			continue
 		}
 		geo := ""
@@ -108,7 +117,7 @@ func windows(conn *xgb.Conn, root xproto.Window) {
 			for _, a := range props.Atoms {
 				n := atomName(conn, a)
 				if strings.HasPrefix(n, "STEAM") || strings.HasPrefix(n, "GAMESCOPE") ||
-					strings.HasPrefix(n, "_NET_WM_WINDOW") || n == "_NET_WM_STATE" {
+					strings.HasPrefix(n, "_NET_WM_WINDOW") || n == "_NET_WM_STATE" || n == "WM_STATE" {
 					fmt.Printf("      %s = %s\n", n, value(conn, w, a))
 				}
 			}
@@ -130,7 +139,9 @@ func main() {
 	before := rootProps(conn, root)
 	printProps(before)
 	fmt.Println("mapped windows:")
-	windows(conn, root)
+	windows(conn, root, true)
+	fmt.Println("unmapped windows of apps:")
+	windows(conn, root, false)
 	if *watch <= 0 {
 		return
 	}
@@ -144,7 +155,7 @@ func main() {
 		}
 		if p, ok := ev.(xproto.PropertyNotifyEvent); ok {
 			name := atomName(conn, p.Atom)
-			if strings.HasPrefix(name, "GAMESCOPE") || strings.HasPrefix(name, "STEAM") {
+			if strings.HasPrefix(name, "GAMESCOPE") || strings.HasPrefix(name, "STEAM") || name == "_NET_ACTIVE_WINDOW" {
 				fmt.Printf("%s %s = %s\n", time.Now().Format("15:04:05.000"), name, value(conn, root, p.Atom))
 			}
 		}
