@@ -66,8 +66,18 @@ func rootProps(conn *xgb.Conn, root xproto.Window) map[string]string {
 	}
 	for _, a := range reply.Atoms {
 		name := atomName(conn, a)
-		if strings.HasPrefix(name, "GAMESCOPE") || strings.HasPrefix(name, "STEAM") || name == "_NET_ACTIVE_WINDOW" {
-			out[name] = value(conn, root, a)
+		if strings.HasPrefix(name, "GAMESCOPE") || strings.HasPrefix(name, "STEAM") || name == "_NET_ACTIVE_WINDOW" || name == "_NET_SUPPORTED" {
+			v := value(conn, root, a)
+			if name == "_NET_SUPPORTED" { // atoms: their names
+				var names []string
+				for _, n := range strings.Split(v, ",") {
+					var id uint32
+					fmt.Sscan(n, &id)
+					names = append(names, atomName(conn, xproto.Atom(id)))
+				}
+				v = strings.Join(names, " ")
+			}
+			out[name] = v
 		}
 	}
 	return out
@@ -81,7 +91,7 @@ func printProps(props map[string]string) {
 	sort.Strings(names)
 	for _, n := range names {
 		v := props[n]
-		if len(v) > 120 {
+		if len(v) > 120 && n != "_NET_SUPPORTED" {
 			v = v[:120] + "…"
 		}
 		fmt.Printf("  %s = %s\n", n, v)

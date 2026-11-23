@@ -438,6 +438,14 @@ func (m *Manager) Steam(req SteamRequest) error {
 			argv = append(append(append([]string{}, argv[:3]...), "PROTON_USE_XALIA=0"), argv[3:]...)
 			m.Log.Info("test: Proton's Xalia off for Steam's games")
 		}
+		// testers only: owneet.debug.wine_focus_hack=off starts Steam's games with Wine's gamescope focus
+		// handling off (WINE_IGNORE_FOCUS_HACK=0: no desktop made the foreground when the game's window
+		// loses the focus), to see whether a game in exclusive full screen still draws black when the
+		// console comes back to it (Paladins, FrankenPC 2026-11-23, [[open-items]] 20)
+		if DebugOption("wine_focus_hack") == "off" {
+			argv = append(append(append([]string{}, argv[:3]...), "WINE_IGNORE_FOCUS_HACK=0"), argv[3:]...)
+			m.Log.Info("test: Wine's gamescope focus handling off for Steam's games")
+		}
 		if logEnv := steamProtonLog(); logEnv != nil {
 			// env's own assignments, before the program: argv is env -u NAME PROGRAM ARGS…
 			argv = append(append(append([]string{}, argv[:3]...), logEnv...), argv[3:]...)
