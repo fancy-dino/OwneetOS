@@ -399,3 +399,75 @@ func TestSteamShownForAnInstallScriptWindow(t *testing.T) {
 		t.Fatal("the pointer stayed on after the install script's end")
 	}
 }
+
+// The script's window goes while its programs still run: the pointer goes off at once, so Proton's
+// Xalia, paused while it is on, goes on (Steam's install script did not end with Xalia paused: The
+// Fractured But Whole started again right after the game, FrankenPC, 2026-11-23); a new window of
+// the script turns it on again.
+func TestInstallScriptPointerOffWhenItsWindowGoes(t *testing.T) {
+	m, _, focus, procs, _, ch := newSteamManager(t)
+	pointerFor := make(chan string, 4)
+	m.PointerOn = func(app string) error { pointerFor <- app; return nil }
+	pointerOff := make(chan string, 4)
+	m.PointerOff = func(reason string) { pointerOff <- reason }
+	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {
+		t.Fatal(err)
+	}
+	next(t, ch, "app.started")
+	m.mu.Lock()
+	unit := m.apps[SteamID].unit
+	m.mu.Unlock()
+	focus.openWindow(1001)
+	settle(m)
+	procs.add(2001, 1001, unit, "/s/steamrt64/reaper", "SteamLaunch", "AppId=488790", "Install=1", "--", "proton", "run", "iscriptevaluator.exe")
+	procs.add(2002, 2001, unit, `C:\Program Files (x86)\Steam\legacycompat\iscriptevaluator.exe`)
+	procs.add(2003, 2001, unit, `Z:\proton\files\share\xalia\xalia.exe`)
+	focus.openWindow(2002)
+	select {
+	case <-pointerFor:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the pointer was not turned on for the install script's window")
+	}
+	for deadline := time.Now().Add(2 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+		m.mu.Lock()
+		on := m.installPointer
+		m.mu.Unlock()
+		if on {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the install script's pointer not noted")
+		}
+	}
+	// Xalia's own window does not count; the script's window is shown: the pointer stays
+	focus.mu.Lock()
+	focus.windows[2003] = focus.windows[2002]
+	focus.mu.Unlock()
+	m.watchSteam()
+	select {
+	case r := <-pointerOff:
+		t.Fatalf("pointer off with the script's window shown: %q", r)
+	default:
+	}
+	// the script's window goes (its programs still run): the pointer off
+	focus.mu.Lock()
+	delete(focus.windows, 2002)
+	focus.mu.Unlock()
+	m.watchSteam()
+	select {
+	case r := <-pointerOff:
+		if r != "install script's windows gone" {
+			t.Fatalf("pointer off for %q", r)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the pointer stayed on with no window of the script shown")
+	}
+	// a new window of the script: on again
+	procs.add(2004, 2001, unit, `C:\Program Files (x86)\Ubisoft\UplayInstaller.exe`)
+	focus.openWindow(2004)
+	select {
+	case <-pointerFor:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the pointer was not turned on again for the script's new window")
+	}
+}

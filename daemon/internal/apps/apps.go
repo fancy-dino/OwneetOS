@@ -170,6 +170,8 @@ type Focus interface {
 	Focused() (uint32, error)
 	// Visible returns the app ids that have a window.
 	Visible() ([]uint32, error)
+	// WindowPIDs returns the processes of the windows shown (mapped).
+	WindowPIDs() ([]int, error)
 }
 
 // Session is the running console session (from owneet-session-app).

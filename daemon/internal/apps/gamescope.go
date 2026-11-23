@@ -211,6 +211,38 @@ func (g *Gamescope) Visible() ([]uint32, error) {
 	return g.rootCardinals("GAMESCOPE_FOCUSABLE_APPS")
 }
 
+// WindowPIDs returns the processes of the windows shown (the mapped top-level windows): their
+// _NET_WM_PID and the process the X server knows (X-Resource), as tagWindow reads them.
+func (g *Gamescope) WindowPIDs() ([]int, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if err := g.connect(); err != nil {
+		return nil, err
+	}
+	tree, err := xproto.QueryTree(g.conn, g.root).Reply()
+	if err != nil {
+		g.reset()
+		return nil, err
+	}
+	xres := res.Init(g.conn) == nil
+	var pids []int
+	for _, w := range tree.Children {
+		attrs, err := xproto.GetWindowAttributes(g.conn, w).Reply()
+		if err != nil || attrs.MapState != xproto.MapStateViewable {
+			continue
+		}
+		if v, err := cardinals(g.conn, w, g.atoms["_NET_WM_PID"]); err == nil && len(v) > 0 && v[0] > 0 {
+			pids = append(pids, int(v[0]))
+		}
+		if xres {
+			if p := clientPID(g.conn, w); p > 0 {
+				pids = append(pids, p)
+			}
+		}
+	}
+	return pids, nil
+}
+
 // Show asks gamescope to show the first of these apps that has a window.
 func (g *Gamescope) Show(appIDs []uint32) error {
 	g.mu.Lock()

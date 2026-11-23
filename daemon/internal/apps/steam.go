@@ -894,7 +894,13 @@ func (m *Manager) pauseXalia() {
 
 // installScriptEnded: the pointer turned on for a game's install script goes off once none of the
 // script's programs is left (its windows all belong to it: an installer and its own file windows,
-// owner 2026-11-19), whether Steam ran it for the console's launch or for its own.
+// owner 2026-11-19), whether Steam ran it for the console's launch or for its own; and as soon as
+// none of its windows is shown, even while its programs run. The pointer pauses Proton's Xalia
+// (PointerChanged), and Steam's install script did not end while Xalia was paused: The Fractured
+// But Whole's started again right after the game stayed at "Starting…" with nothing of the script
+// on screen, its window having shown for a few seconds, until Xalia went on (16 minutes at 09:20,
+// ended 11 s after Xalia went on; again at 10:18 and 10:50; FrankenPC, 2026-11-23). A new window of
+// the script turns the pointer on again (installScriptWindow).
 func (m *Manager) installScriptEnded(unit string) {
 	m.mu.Lock()
 	on, off := m.installPointer, m.PointerOff
@@ -902,18 +908,52 @@ func (m *Manager) installScriptEnded(unit string) {
 	if !on || unit == "" {
 		return
 	}
+	running := false
 	for _, pid := range m.Procs.InUnit(unit) {
 		if m.inInstallScript(pid) {
-			return
+			running = true
+			break
 		}
+	}
+	if running && m.installScriptShown() {
+		return
 	}
 	m.mu.Lock()
 	m.installPointer = false
 	m.mu.Unlock()
-	m.Log.Info("the game's install script has ended: the pointer off")
-	if off != nil {
-		off("install script ended")
+	reason := "install script ended"
+	if running {
+		reason = "install script's windows gone"
+		m.Log.Info("no window of the game's install script on screen: the pointer off")
+	} else {
+		m.Log.Info("the game's install script has ended: the pointer off")
 	}
+	if off != nil {
+		off(reason)
+	}
+}
+
+// installScriptShown: a window of a game's install script is shown (not Xalia's own: it is what
+// the pointer pauses). True when it cannot be known.
+func (m *Manager) installScriptShown() bool {
+	sess, err := m.Session()
+	if err != nil {
+		return true
+	}
+	f := m.focus(sess)
+	if f == nil {
+		return true
+	}
+	pids, err := f.WindowPIDs()
+	if err != nil {
+		return true
+	}
+	for _, pid := range pids {
+		if m.inInstallScript(pid) && !xaliaProgram(m.Procs.Cmdline(pid)) {
+			return true
+		}
+	}
+	return false
 }
 
 // reaperOf returns the Steam game a process belongs to: its app id and launcher, if any.

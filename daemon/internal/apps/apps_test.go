@@ -69,6 +69,7 @@ type fakeFocus struct {
 	visible []uint32
 	shown   []uint32
 	focused uint32
+	windows map[int]uint32 // the processes with a window shown, and its app id
 }
 
 func (f *fakeFocus) Watch(tag func(pid int) uint32, request func([]uint32), changed func()) {
@@ -90,6 +91,11 @@ func (f *fakeFocus) closeWindow(id uint32) {
 		}
 	}
 	f.visible = left
+	for pid, app := range f.windows {
+		if app == id {
+			delete(f.windows, pid)
+		}
+	}
 	f.recompute()
 	changed := f.changed
 	f.mu.Unlock()
@@ -133,6 +139,15 @@ func (f *fakeFocus) Visible() ([]uint32, error) {
 	defer f.mu.Unlock()
 	return append([]uint32(nil), f.visible...), nil
 }
+func (f *fakeFocus) WindowPIDs() ([]int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var pids []int
+	for pid := range f.windows {
+		pids = append(pids, pid)
+	}
+	return pids, nil
+}
 
 // openWindow simulates a window of process pid appearing: owneetd tags it, gamescope lists it.
 func (f *fakeFocus) openWindow(pid int) {
@@ -143,6 +158,10 @@ func (f *fakeFocus) openWindow(pid int) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.visible = append(f.visible, id)
+	if f.windows == nil {
+		f.windows = map[int]uint32{}
+	}
+	f.windows[pid] = id
 	f.recompute()
 }
 
