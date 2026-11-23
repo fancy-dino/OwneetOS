@@ -77,6 +77,10 @@ type App struct {
 	// after it, has been closed (launchers.go)
 	ownWindowSeen  bool
 	launcherClosed bool
+	// the game's own programs have ended, its launcher left (when first seen so), and the launcher
+	// has shown a window since (launchers.go)
+	gameEndedAt         time.Time
+	launcherWindowAfter bool
 }
 
 // settleChecks is how many once-a-second checks a settling app's window must stay before it is shown.

@@ -4,6 +4,7 @@ package apps
 
 import (
 	"strings"
+	"time"
 )
 
 // A Steam game started through its publisher's launcher: the launcher stays after the game, so Steam
@@ -14,6 +15,14 @@ import (
 // launcher shows no window (a window may be a question about cloud saves). owneetd does the same:
 // when every program of the game that is left is the launcher's, the game's own programs having run
 // and shown a window, and nothing of it is on screen, the game is closed as from the console.
+// The launcher's own window comes a moment after the game's end (Ubisoft Connect's, 1 s later, with
+// its cloud sync: FrankenPC, 2026-11-23; closed in that second, the cloud save had failed at 09:41):
+// owneetd waits for that window to come and go, or, when none comes, for launcherWindowLimit
+// (owner, 2026-11-23, [[steam-integration]]).
+
+// launcherWindowLimit: how long owneetd waits, after the game's end, for its launcher's window
+// before closing a launcher that shows none (a limit: the window is the event waited for).
+var launcherWindowLimit = 10 * time.Second
 
 // publisherLauncher: the programs of the publishers' launchers that stay after the game, by file
 // name (lower case). Ubisoft Connect only, as seen; others are added when a test shows them.
@@ -52,7 +61,16 @@ func (m *Manager) launcherLeftOver(a *App, visible map[uint32]bool) {
 	if own && shown {
 		a.ownWindowSeen = true // the game itself ran, with a window (not a launcher before its game)
 	}
-	leftOver := !own && launcher && a.ownWindowSeen && !shown && !a.launcherClosed
+	ended := !own && launcher && a.ownWindowSeen && !a.launcherClosed
+	if !ended {
+		a.gameEndedAt, a.launcherWindowAfter = time.Time{}, false // the game runs (again)
+	} else if a.gameEndedAt.IsZero() {
+		a.gameEndedAt = time.Now()
+	}
+	if ended && shown {
+		a.launcherWindowAfter = true // the launcher's window after the game: wait until it goes
+	}
+	leftOver := ended && !shown && (a.launcherWindowAfter || time.Since(a.gameEndedAt) >= launcherWindowLimit)
 	if leftOver {
 		a.launcherClosed = true
 	}
