@@ -100,6 +100,16 @@ PY
         /home/owneet/.steam/registry.vdf 2>/dev/null | sed 's|^/home/owneet/||' | sort | uniq -c | head -80
 }
 
+# copy_new SOURCE DEST: copies SOURCE when it is newer than its copy (DEST a file, or a folder ending in
+# "/"), whole or not at all: written under another name first, then renamed. A power-off during a copy
+# used to leave it cut (Steam's content_log.txt at 900 KB, FrankenPC 2026-11-23, [[open-items]] 25).
+copy_new() {
+    local src="$1" dst="$2"
+    [[ "$dst" == */ || -d "$dst" ]] && dst="${dst%/}/${src##*/}"
+    [[ -f "$dst" && ! "$src" -nt "$dst" ]] && return 0
+    cp "$src" "$dst.part" 2>/dev/null && mv -f "$dst.part" "$dst" 2>/dev/null
+}
+
 # Steam's logs (launches, Proton, downloads; its interface's pages: cef_log, webhelper; its
 # controller handling: controller), copied as they grow
 steam_logs() {
@@ -108,12 +118,12 @@ steam_logs() {
     mkdir -p "$base.steam"
     for f in console_log.txt compat_log.txt content_log.txt bootstrap_log.txt shader_log.txt \
              cef_log.txt webhelper.txt controller.txt controller_ui.txt; do
-        [[ -f "$logs/$f" ]] && cp -u "$logs/$f" "$base.steam/" 2>/dev/null
+        [[ -f "$logs/$f" ]] && copy_new "$logs/$f" "$base.steam/" 2>/dev/null
     done
     # the install scripts Steam runs before a game's first start (a publisher's launcher installed or
     # updated: open item 21, owner 2026-11-23)
     for f in "$logs"/installscript*_log*.txt; do
-        [[ -f "$f" ]] && cp -u "$f" "$base.steam/" 2>/dev/null
+        [[ -f "$f" ]] && copy_new "$f" "$base.steam/" 2>/dev/null
     done
 }
 
@@ -126,7 +136,7 @@ game_logs() {
         mkdir -p "$base.games"
         name="$(basename "$(dirname "$f")")"
         name="${name//[^A-Za-z0-9._-]/_}"
-        cp -u "$f" "$base.games/unity-$name.log" 2>/dev/null
+        copy_new "$f" "$base.games/unity-$name.log" 2>/dev/null
     done
     # Steam's games with the same switch (open item 13): Proton's log of each one, written in /tmp by
     # owneetd's Steam (gone at power-off, nothing stays on the disk)
@@ -145,7 +155,7 @@ game_logs() {
         done
         dst="$base.games/proton-$(basename "$f" .log)-$n.log"
         echo "$key" > "${dst%.log}.key"
-        cp -u "$f" "$dst" 2>/dev/null
+        copy_new "$f" "$dst" 2>/dev/null
     done
     # Steam's Windows games: their own settings files (.ini, small ones) in their Windows folders, to
     # read how a game binds its controls (BioShock, 2026-11-19: every button opened its quit menu);
@@ -156,7 +166,7 @@ game_logs() {
         while IFS= read -r -d '' ini; do
             rel="${ini#"$lib"/steamapps/compatdata/}"
             mkdir -p "$base.games/ini/$(dirname "$rel")"
-            cp -u "$ini" "$base.games/ini/$rel" 2>/dev/null
+            copy_new "$ini" "$base.games/ini/$rel" 2>/dev/null
         done < <(find "$lib"/steamapps/compatdata/*/pfx/drive_c/users/steamuser -name '*.ini' -size -256k -print0 2>/dev/null \
                  | head -z -n 400)
     done
@@ -168,7 +178,7 @@ game_logs() {
         while IFS= read -r -d '' log; do
             rel="${log#"$lib"/steamapps/compatdata/}"
             mkdir -p "$base.games/ubisoft/${rel%%/*}"
-            cp -u "$log" "$base.games/ubisoft/${rel%%/*}/" 2>/dev/null
+            copy_new "$log" "$base.games/ubisoft/${rel%%/*}/" 2>/dev/null
         done < <(find "$lib"/steamapps/compatdata/*/pfx/drive_c/"Program Files (x86)/Ubisoft/Ubisoft Game Launcher/logs" \
                  -type f -size -4M -newer /proc/1 -print0 2>/dev/null | head -z -n 50)
     done
@@ -177,7 +187,7 @@ game_logs() {
         [[ -f "$f" && "$f" -nt /proc/1 ]] || continue
         mkdir -p "$base.games"
         name="$(basename "$(dirname "$f")")-$(basename "$f")"
-        cp -u "$f" "$base.games/windows-${name//[^A-Za-z0-9._-]/_}" 2>/dev/null
+        copy_new "$f" "$base.games/windows-${name//[^A-Za-z0-9._-]/_}" 2>/dev/null
     done
 }
 

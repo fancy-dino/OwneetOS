@@ -52,6 +52,9 @@ type steamSample struct {
 	measured time.Time
 	base     int64 // the room used on Steam's disks when the measures began
 	baseDone int64 // the bytes Steam had done then
+	// what Steam has written of the game's shader pre-cache download (steamprogress.go)
+	shaderWritten  int64
+	shaderMeasured time.Time
 }
 
 // kvText reads Steam's text KeyValues ("key" "value", "key" { … }) into nested maps; keys are
@@ -226,7 +229,8 @@ func steamLicences(dir string) int64 {
 // present, in the order Steam works on them as far as the files tell (the one moving first, then
 // the oldest request). samples keeps the bytes seen at the last check (updated here); phases is
 // what Steam's content log says of each app while Steam runs (nil otherwise, steamprogress.go).
-func steamDownloads(dir string, samples map[string]*steamSample, phases map[string]string, now time.Time) []SteamDownload {
+// started: the sizes of the last update Steam started, by app id (its content log).
+func steamDownloads(dir string, samples map[string]*steamSample, phases map[string]string, started map[string][2]int64, now time.Time) []SteamDownload {
 	type entry struct {
 		d     SteamDownload
 		since time.Time
@@ -283,6 +287,16 @@ func steamDownloads(dir string, samples map[string]*steamSample, phases map[stri
 					done = total
 				}
 			}
+			// a new game's shader pre-cache, downloaded before the game: its own bytes, written into its
+			// download folder, against the size Steam started it with (without that size: preparing)
+			shaders := false
+			if size, ok := started[id]; ok && phase == steamShaders && !installed && size[1] > 0 {
+				shaders = true
+				done, total = size[0]+steamShaderWritten(libs, id, s, now), size[1]
+				if done > total {
+					done = total
+				}
+			}
 			// the speed between two growths (the files are measured every few seconds)
 			switch {
 			case fresh:
@@ -304,7 +318,7 @@ func steamDownloads(dir string, samples map[string]*steamSample, phases map[stri
 			switch {
 			case phases == nil:
 			case logged:
-				moving = phase == steamDownloading
+				moving = phase == steamDownloading || shaders
 			default:
 				moving = busy
 			}
@@ -316,7 +330,7 @@ func steamDownloads(dir string, samples map[string]*steamSample, phases map[stri
 				continue
 			case moving:
 				state = "downloading"
-			case logged && phase == steamPreparing:
+			case logged && (phase == steamPreparing || phase == steamShaders):
 				state = "preparing"
 			case pending:
 				state = "queued"

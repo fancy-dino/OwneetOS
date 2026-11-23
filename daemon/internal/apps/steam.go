@@ -501,13 +501,14 @@ func (m *Manager) SteamStatus() SteamStatus {
 		m.steamSamples = map[string]*steamSample{}
 	}
 	var phases map[string]string
+	var started map[string][2]int64
 	if running {
 		m.steamContent.read(dir)
-		phases = m.steamContent.phase
+		phases, started = m.steamContent.phase, m.steamContent.started
 	} else {
 		m.steamContent = steamContent{} // read again from the start when Steam runs again
 	}
-	downloads := steamDownloads(dir, m.steamSamples, phases, time.Now())
+	downloads := steamDownloads(dir, m.steamSamples, phases, started, time.Now())
 	m.steamMu.Unlock()
 	return SteamStatus{Installed: err == nil, Allowed: allowed(), Prepared: prepared == nil, Running: running,
 		Games: installedSteamGames(dir), Downloads: downloads, Away: steamAway(dir), Account: steamAccount(dir),
