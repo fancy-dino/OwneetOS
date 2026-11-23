@@ -110,6 +110,11 @@ steam_logs() {
              cef_log.txt webhelper.txt controller.txt controller_ui.txt; do
         [[ -f "$logs/$f" ]] && cp -u "$logs/$f" "$base.steam/" 2>/dev/null
     done
+    # the install scripts Steam runs before a game's first start (a publisher's launcher installed or
+    # updated: open item 21, owner 2026-11-23)
+    for f in "$logs"/installscript*_log*.txt; do
+        [[ -f "$f" ]] && cp -u "$f" "$base.steam/" 2>/dev/null
+    done
 }
 
 # The logs games on a disk write about themselves (4.3): Unity's Player.log (engine, graphics,
@@ -154,6 +159,18 @@ game_logs() {
             cp -u "$ini" "$base.games/ini/$rel" 2>/dev/null
         done < <(find "$lib"/steamapps/compatdata/*/pfx/drive_c/users/steamuser -name '*.ini' -size -256k -print0 2>/dev/null \
                  | head -z -n 400)
+    done
+    # Ubisoft Connect's own logs in Steam's Windows prefixes (open item 21, owner 2026-11-23: when it
+    # syncs the cloud saves after the game), written during this boot, only read
+    local log
+    for lib in /home/owneet/.local/share/Steam /run/media/owneet/*/SteamLibrary; do
+        [[ -d "$lib/steamapps/compatdata" ]] || continue
+        while IFS= read -r -d '' log; do
+            rel="${log#"$lib"/steamapps/compatdata/}"
+            mkdir -p "$base.games/ubisoft/${rel%%/*}"
+            cp -u "$log" "$base.games/ubisoft/${rel%%/*}/" 2>/dev/null
+        done < <(find "$lib"/steamapps/compatdata/*/pfx/drive_c/"Program Files (x86)/Ubisoft/Ubisoft Game Launcher/logs" \
+                 -type f -size -4M -newer /proc/1 -print0 2>/dev/null | head -z -n 50)
     done
     # Windows games with owneet.debug.windows_log=on (4.5): Proton's logs, one folder per game
     for f in /home/owneet/.local/share/owneet/windows/logs/*/*.log; do

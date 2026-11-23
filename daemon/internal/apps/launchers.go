@@ -60,6 +60,12 @@ func (m *Manager) launcherLeftOver(a *App, visible map[uint32]bool) {
 	if !leftOver {
 		return
 	}
+	// testers: owneet.debug.launcher_close=off leaves the launcher alone, to see what it does after
+	// the game (its cloud sync, open item 21)
+	if DebugOption("launcher_close") == "off" {
+		m.Log.Info("the game has ended, its publisher's launcher stays: left alone (testers' switch)", "id", a.ID)
+		return
+	}
 	m.Log.Info("the game has ended, its publisher's launcher stays: closed", "id", a.ID)
 	m.closeSteamGame(a, false)
 }
