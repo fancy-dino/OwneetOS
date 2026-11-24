@@ -1,0 +1,347 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS - interactive demo for [[step-4.8-games-that-cannot-run]] (owner, 2026-11-24): the console says honestly, before
+     the install or the first start, that a Steam game may not work on OwneetOS. Where it comes from: Steam's own data, already
+     on the console (the app info the library reads): its "SteamOS" rating, the reason and the date of Steam's check. Never a
+     block: a rating can be old or wrong (a game Steam calls unsupported ran on the test PC), so the user may go on.
+     - A on a game not installed: today's question "Install {title}?" becomes the warning, one window as today, Cancel
+       selected; "Install anyway" goes on as today.
+     - A on an installed one never asked about (installed from Steam's pages): the same before its first start.
+     - Asked once per game; Details always says it.
+     - To choose: a small sign on the cover (off here at first).
+     Nothing changes for every other game, for a game Steam has not checked and for games on a disk (no data on them).
+     No new button. Games, covers and dates are invented. Open in a browser; drive it with a gamepad or the keyboard.
+     Fonts are loaded from Google Fonts for the demo only: the console bundles the font files (SIL Open Font License). -->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS - Games that may not work (demo 4.8)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1;
+  --bg: #0E1424; --surface: #172036; --raised: #222D4A; --line: #2E3A5C; --fg: #EEF1F8; --muted: #8F9AB5; --accent: #FF8A5B; --on-accent: #1E0E06; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+.frame { position: relative; flex: none; }
+.stage {
+  width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px;
+  display: grid; grid-template-rows: auto auto auto 1fr auto; gap: 18px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350;
+}
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); } .t-xl { font-size: calc(40px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 36px; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.status .clock { color: var(--fg); font-weight: 500; font-variant-numeric: tabular-nums; }
+.head { display: flex; align-items: baseline; gap: 14px; }
+.head h1 { margin: 0; }
+.filters { display: flex; gap: 8px; }
+.chip { padding: 4px 14px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.chip[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 500; }
+
+.grid { display: grid; grid-template-columns: repeat(7, 152px); gap: 16px 14px; align-content: start; }
+.cover { position: relative; height: 190px; border-radius: 14px; color: #fff; }
+.cover .art, .cover .shade { position: absolute; inset: 0; border-radius: 14px; }
+.cover.off .art { opacity: .55; }
+.cover.off.focus .art { opacity: .8; }
+.cover .shade { background: linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,.72) 100%); }
+.cover .badge { position: absolute; left: 8px; top: 8px; padding: 2px 9px; border-radius: 999px; background: rgba(0,0,0,.45); }
+.cover .dl { position: absolute; right: 8px; top: 8px; width: 24px; height: 24px; border-radius: 999px; background: rgba(0,0,0,.45); display: grid; place-items: center; }
+.cover .body { position: absolute; left: 10px; right: 10px; bottom: 10px; display: grid; gap: 4px; }
+.cover .title { font-size: calc(17px * var(--ts)); display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cover .state { display: flex; align-items: center; gap: 5px; white-space: nowrap; overflow: hidden; }
+.cover .state svg { flex: none; }
+.cover.focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); transform: scale(1.02); z-index: 2; }
+.prog { display: block; height: 4px; border-radius: 999px; background: rgba(255,255,255,.25); overflow: hidden; position: relative; }
+.prog i { position: absolute; top: 0; bottom: 0; width: 35%; border-radius: 999px; background: #fff; animation: busy 1.6s ease-in-out infinite alternate; }
+@keyframes busy { from { left: 0; } to { left: 65%; } }
+
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 24px; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+
+/* windows over the page, as the console's Dialog */
+.dim { position: absolute; inset: 0; z-index: 5; background: rgba(8, 11, 20, .72); display: none; }
+.dim.on { display: block; }
+.sheet { position: absolute; z-index: 6; left: 50%; top: 50%; transform: translate(-50%, -58%); min-width: 520px; max-width: 1060px;
+  padding: 26px 28px 28px; border-radius: 18px; background: var(--bg); border: 1px solid var(--line); display: none; text-align: center; }
+.sheet.on { display: grid; gap: 18px; justify-items: center; }
+.sheet .icon { color: var(--accent); width: 40px; height: 40px; }
+.sheet .list { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px 20px; }
+.sheet .item { padding: 11px 26px; border-radius: 999px; font-weight: 500; background: var(--raised); color: var(--fg); white-space: nowrap; }
+.sheet .item.primary { background: var(--accent); color: var(--on-accent); }
+.sheet .item.focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent); }
+.sheet .text { max-width: 640px; color: var(--muted); }
+.facts { display: grid; grid-template-columns: auto auto; gap: 6px 18px; text-align: left; }
+.facts .k { color: var(--muted); }
+.sheet-prompts { position: absolute; z-index: 6; left: 64px; right: 64px; bottom: 28px; display: none; }
+.sheet-prompts.on { display: flex; }
+
+.game { position: absolute; inset: 0; z-index: 8; display: none; place-items: center; background: var(--bg); text-align: center; }
+.game.on { display: grid; }
+.game .in { display: grid; gap: 18px; justify-items: center; }
+.spinner { width: 44px; height: 44px; border-radius: 50%; border: 3px solid var(--raised); border-top-color: var(--accent); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.toast { position: absolute; z-index: 9; right: 64px; top: 88px; padding: 14px 20px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); opacity: 0; transition: opacity .2s; }
+.toast.on { opacity: 1; }
+
+.demo-bar { display: flex; gap: 22px; align-items: center; color: #8a90a0; font: 12px/1.4 system-ui, sans-serif; flex-wrap: wrap; justify-content: center; }
+.demo-bar .grp { display: inline-flex; gap: 6px; align-items: center; }
+.demo-bar button { padding: 3px 10px; border-radius: 999px; border: 1px solid #333a4a; color: #c9cdd8; font: inherit; }
+.demo-bar button[aria-pressed="true"] { background: #c9cdd8; color: #05070C; }
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; max-width: 1200px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <header class="top">
+    <div class="top-left">
+      <span class="mark">Owneet<i>OS</i></span>
+      <nav class="tabs t-s"><span class="tab" data-t="tab.home"></span><span class="tab" aria-current="page" data-t="tab.library"></span><span class="tab" data-t="tab.settings"></span></nav>
+    </div>
+    <div class="status t-s"><span class="clock" id="clock">13:50</span></div>
+  </header>
+  <div class="head"><h1 class="disp t-xl" data-t="tab.library"></h1><span class="muted t-m" id="count"></span></div>
+  <div class="filters t-s"><span class="chip" aria-current="true" data-t="f.all"></span><span class="chip" data-t="f.installed"></span><span class="chip" data-t="f.steam"></span></div>
+  <main class="grid" id="grid"></main>
+  <footer class="prompts t-s" id="pagePrompts"><div class="set" id="pl"></div><div class="set" id="pr"></div></footer>
+
+  <div class="dim" id="dim"></div>
+  <div class="sheet" id="sheet"></div>
+  <footer class="prompts sheet-prompts t-s" id="sheetPrompts"><div class="set" id="spl"></div><div class="set" id="spr"></div></footer>
+  <div class="game" id="game"><div class="in"><div class="spinner"></div><span class="disp t-l" id="gameTitle"></span></div></div>
+  <div class="toast t-s" id="toast"></div>
+</div></div>
+
+<div class="demo-bar" id="demo-bar">
+  <span class="grp"><span>Sign on the cover:</span><button data-mark="0" aria-pressed="true">no</button><button data-mark="1">yes</button></span>
+  <span class="grp"><span>Text size:</span><button data-ts="1" aria-pressed="true">M</button><button data-ts="1.2">L</button><button data-ts="1.4">XL</button></span>
+  <span class="grp"><span>Language:</span><button data-lang="it" aria-pressed="true">Italiano</button><button data-lang="en">English</button></span>
+  <span class="grp"><button data-reset="1">Start again</button></span>
+</div>
+<p class="help"><b>Iron Circuit</b> (its anti-cheat) and <b>Harbor Lights</b> (no reason given) are not installed; <b>Night Convoy</b> was installed from
+Steam's own pages. Every other game behaves as today. <b>Gamepad:</b> D-pad / left stick, A, B, X Details. <b>Keyboard:</b> arrows, Enter = A, Esc = B, X, H = Guide.</p>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+
+  const EN = { 'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings', 'f.all': 'All', 'f.installed': 'Installed', 'f.steam': 'Steam',
+    'games': '{n} games', 'st.none': 'Not installed', 'st.preparing': 'Preparing…', 'st.installed': 'Installed',
+    'p.play': 'Play', 'p.install': 'Install', 'p.details': 'Details', 'p.options': 'Options', 'p.sort': 'Sort', 'p.filter': 'Filter', 'p.menu': 'Menu',
+    'p.select': 'Select', 'p.back': 'Back', 'p.sections': 'Sections', 'p.home': 'Home',
+    'i.title': 'Install {title}?', 'i.text': 'Steam downloads it. You can keep using the console: the download shows here, on the game.', 'i.go': 'Install', 'cancel': 'Cancel',
+    'w.title': '{title} may not work', 'w.anticheat': 'According to Steam, its protection against cheating (anti-cheat) does not accept systems like OwneetOS.',
+    'w.other': 'According to Steam, it does not work on systems like OwneetOS.', 'w.date': 'Steam checked it in {date}: it may have changed since.',
+    'w.install': 'Install anyway', 'w.play': 'Start anyway',
+    'd.source': 'Source', 'd.state': 'State', 'd.on': 'On OwneetOS', 'd.on.v': 'It may not work', 'd.why': 'Reason, from Steam', 'd.why.anticheat': 'Its anti-cheat',
+    'd.why.other': 'Not given', 'd.date': 'Checked by Steam', 'd.last': 'Last played', 'd.never': 'Never played', 'close': 'Close',
+    't.queued': 'Steam is installing {title}', 'start': 'Starting {title}…', 'other': 'Not in this demo' };
+  const IT = { 'tab.home': 'Home', 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni', 'f.all': 'Tutti', 'f.installed': 'Installati', 'f.steam': 'Steam',
+    'games': '{n} giochi', 'st.none': 'Non installato', 'st.preparing': 'Preparazione…', 'st.installed': 'Installato',
+    'p.play': 'Gioca', 'p.install': 'Installa', 'p.details': 'Dettagli', 'p.options': 'Opzioni', 'p.sort': 'Ordina', 'p.filter': 'Filtro', 'p.menu': 'Menu',
+    'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.sections': 'Sezioni', 'p.home': 'Home',
+    'i.title': 'Installare {title}?', 'i.text': 'Lo scarica Steam. Intanto puoi continuare a usare la console: il download si vede qui, sul gioco.', 'i.go': 'Installa', 'cancel': 'Annulla',
+    'w.title': '{title} potrebbe non funzionare', 'w.anticheat': 'Secondo Steam, la sua protezione contro chi bara (anti-cheat) non accetta sistemi come OwneetOS.',
+    'w.other': 'Secondo Steam, non funziona su sistemi come OwneetOS.', 'w.date': 'Steam lo ha controllato a {date}: nel frattempo potrebbe essere cambiato.',
+    'w.install': 'Installa comunque', 'w.play': 'Avvia comunque',
+    'd.source': 'Origine', 'd.state': 'Stato', 'd.on': 'Su OwneetOS', 'd.on.v': 'Potrebbe non funzionare', 'd.why': 'Motivo, secondo Steam', 'd.why.anticheat': 'Il suo anti-cheat',
+    'd.why.other': 'Non indicato', 'd.date': 'Controllato da Steam', 'd.last': 'Ultima partita', 'd.never': 'Mai giocato', 'close': 'Chiudi',
+    't.queued': 'Steam sta installando {title}', 'start': 'Avvio di {title}…', 'other': 'Non in questa demo' };
+  let lang = 'it', mark = false;
+  const tr = (k, a = {}) => ((lang === 'it' ? IT : EN)[k] || EN[k] || k).replace(/\{(\w+)\}/g, (_, x) => a[x]);
+  const month = d => new Date(d + '-15').toLocaleDateString(lang === 'it' ? 'it-IT' : 'en-GB', { month: 'long', year: 'numeric' });
+
+  // warn: what Steam's data say of it (reason, date of its check); asked: the player has been told once
+  const START = () => [
+    { t: 'Copper Coast', c: ['#8e4ce0', '#2a1240'], s: 'installed' },
+    { t: 'Night Convoy', c: ['#e04a5a', '#3a1016'], s: 'installed', warn: { why: 'anticheat', date: '2022-10' } },
+    { t: 'Ember Run', c: ['#3fd8a0', '#0c3024'], s: 'installed' },
+    { t: 'Iron Circuit', c: ['#e08a40', '#3a2010'], s: 'none', warn: { why: 'anticheat', date: '2024-11' } },
+    { t: 'Harbor Lights', c: ['#d84fc0', '#3a1030'], s: 'none', warn: { why: 'other', date: '2022-02' } },
+    { t: 'Lantern Keep', c: ['#e0c040', '#3a3010'], s: 'none' }, { t: 'Moss Garden', c: ['#40d860', '#10301a'], s: 'none' },
+    { t: 'Pixel Quest', c: ['#b04fe0', '#2a1036'], s: 'none' }, { t: 'Quiet Orbit', c: ['#7a4fd0', '#1c1238'], s: 'none' },
+    { t: 'Saltwind', c: ['#40d8d8', '#0c2c30'], s: 'none' }];
+  let GAMES = START();
+
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const G = { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), menu: circle(`<path d="M8.5 9.5h9M8.5 13h9M8.5 16.5h9" ${S}/>`),
+    lb: pill('LB', 34), rb: pill('RB', 34), lt: pill('LT', 34), rt: pill('RT', 34), guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`) };
+  const P = (b, l) => `<span class="prompt">${b.map(x => G[x]).join('')}<span>${tr(l)}</span></span>`;
+  const WARN = (px, cls = '') => `<svg class="${cls}" width="${px}" height="${px}" viewBox="0 0 24 24"><path d="M12 4 2.8 20h18.4z M12 10v4.6 M12 17.3v.1" ${S}/></svg>`;
+  const DL = `<svg width="14" height="14" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14" ${S}/></svg>`;
+
+  /* ---------- The library ---------- */
+  let focusIndex = 3;
+  function drawLibrary() {
+    document.documentElement.lang = lang;
+    $$('[data-t]').forEach(el => { el.textContent = tr(el.dataset.t); });
+    $('#count').textContent = tr('games', { n: GAMES.length });
+    $('#grid').innerHTML = GAMES.map((g, i) => {
+      const state = g.s === 'installed' ? '' : tr('st.' + g.s);
+      const sign = mark && g.warn ? WARN(15) : '';
+      return `<div class="cover${g.s === 'installed' ? '' : ' off'}${i === focusIndex ? ' focus' : ''}">
+        <div class="art" style="background: radial-gradient(120% 90% at 70% 10%, ${g.c[0]}, ${g.c[1]} 80%)"></div><div class="shade"></div>
+        <span class="badge t-xs">Steam</span>${g.s === 'none' ? `<span class="dl">${DL}</span>` : ''}
+        <div class="body"><span class="disp title">${g.t}</span>${state || sign ? `<span class="state t-xs">${sign}<span>${state}</span></span>` : ''}
+        ${g.s === 'preparing' ? '<span class="prog"><i></i></span>' : ''}</div></div>`;
+    }).join('');
+    const g = GAMES[focusIndex];
+    const a = g.s === 'installed' ? P(['a'], 'p.play') + P(['x'], 'p.details') : g.s === 'none' ? P(['a'], 'p.install') + P(['x'], 'p.details') : P(['a'], 'p.details');
+    $('#pl').innerHTML = a + P(['menu'], 'p.options') + P(['y'], 'p.sort') + P(['lt', 'rt'], 'p.filter') + P(['b'], 'p.menu');
+    $('#pr').innerHTML = P(['lb', 'rb'], 'p.sections');
+  }
+
+  /* ---------- Windows ---------- */
+  let sheet = null;
+  function openSheet(html, onPick, defaultIndex = 0) {
+    $('#sheet').innerHTML = html;
+    $('#dim').classList.add('on'); $('#sheet').classList.add('on');
+    $('#pagePrompts').style.visibility = 'hidden';
+    $('#sheetPrompts').classList.add('on');
+    $('#spl').innerHTML = P(['a'], 'p.select') + P(['b'], 'p.back');
+    $('#spr').innerHTML = '';
+    sheet = { items: $$('#sheet [data-k]'), index: defaultIndex, onPick };
+    focusSheet();
+  }
+  function closeSheet() {
+    sheet = null;
+    $('#dim').classList.remove('on'); $('#sheet').classList.remove('on');
+    $('#sheetPrompts').classList.remove('on');
+    $('#pagePrompts').style.visibility = '';
+  }
+  function focusSheet() { sheet.items.forEach((el, i) => el.classList.toggle('focus', i === sheet.index)); }
+
+  // the warning: one window, in place of today's question; Cancel selected (as for "Close {title}?")
+  function warn(g, goText, go) {
+    openSheet(`${WARN(40, 'icon')}<span class="disp t-l">${tr('w.title', { title: g.t })}</span>
+      <span class="text t-m">${tr('w.' + g.warn.why)}</span><span class="text t-s">${tr('w.date', { date: month(g.warn.date) })}</span>
+      <div class="list t-m"><button class="item" data-k="go">${tr(goText)}</button><button class="item primary" data-k="no">${tr('cancel')}</button></div>`,
+      k => { closeSheet(); if (k === 'go') { g.asked = true; go(); } }, 1);
+  }
+  function install(g) {
+    const go = () => { g.s = 'preparing'; toast(tr('t.queued', { title: g.t })); drawLibrary(); };
+    if (g.warn) { warn(g, 'w.install', go); return; }
+    openSheet(`<span class="disp t-l">${tr('i.title', { title: g.t })}</span><span class="text t-m">${tr('i.text')}</span>
+      <div class="list t-m"><button class="item primary" data-k="go">${tr('i.go')}</button><button class="item" data-k="no">${tr('cancel')}</button></div>`,
+      k => { closeSheet(); if (k === 'go') go(); });
+  }
+  function play(g) {
+    const go = () => { inGame = true; $('#gameTitle').textContent = tr('start', { title: g.t }); $('#game').classList.add('on'); };
+    if (g.warn && !g.asked) warn(g, 'w.play', go); else go();
+  }
+  function details(g) {
+    const rows = [['d.source', 'Steam'], ['d.state', tr('st.' + g.s)]];
+    if (g.warn) rows.push(['d.on', tr('d.on.v')], ['d.why', tr('d.why.' + g.warn.why)], ['d.date', month(g.warn.date)]);
+    rows.push(['d.last', tr('d.never')]);
+    const main = g.s === 'installed' ? 'p.play' : g.s === 'none' ? 'p.install' : null;
+    openSheet(`<span class="disp t-l">${g.t}</span>
+      <div class="facts t-m">${rows.map(([k, v]) => `<span class="k">${tr(k)}</span><span>${v}</span>`).join('')}</div>
+      <div class="list t-m">${main ? `<button class="item primary" data-k="main">${tr(main)}</button>` : ''}<button class="item${main ? '' : ' primary'}" data-k="no">${tr('close')}</button></div>`,
+      k => { closeSheet(); if (k === 'main') (g.s === 'installed' ? play : install)(g); });
+  }
+
+  let inGame = false;
+  function leaveGame() { inGame = false; $('#game').classList.remove('on'); drawLibrary(); }
+  let toastTimer = 0;
+  function toast(t) { $('#toast').textContent = t; $('#toast').classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').classList.remove('on'), 2200); }
+
+  /* ---------- Input ---------- */
+  function act(a) {
+    if (inGame) { if (a === 'guide' || a === 'b') leaveGame(); return; }
+    if (sheet) {
+      if (a === 'left' || a === 'up') { sheet.index = Math.max(0, sheet.index - 1); focusSheet(); }
+      else if (a === 'right' || a === 'down') { sheet.index = Math.min(sheet.items.length - 1, sheet.index + 1); focusSheet(); }
+      else if (a === 'a') sheet.onPick(sheet.items[sheet.index].dataset.k);
+      else if (a === 'b') closeSheet();
+      return;
+    }
+    const cols = 7, g = GAMES[focusIndex];
+    if (a === 'left') focusIndex = Math.max(0, focusIndex - 1);
+    else if (a === 'right') focusIndex = Math.min(GAMES.length - 1, focusIndex + 1);
+    else if (a === 'up') focusIndex = Math.max(0, focusIndex - cols);
+    else if (a === 'down') focusIndex = Math.min(GAMES.length - 1, focusIndex + cols);
+    else if (a === 'a') { (g.s === 'installed' ? play : g.s === 'none' ? install : details)(g); return; }
+    else if (a === 'x') { details(g); return; }
+    else { toast(tr('other')); return; }
+    drawLibrary();
+  }
+  document.addEventListener('keydown', e => {
+    const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', m: 'menu', M: 'menu', h: 'guide', H: 'guide', x: 'x', X: 'x' };
+    if (map[e.key]) { e.preventDefault(); act(map[e.key]); }
+  });
+  const BTN = { 0: 'a', 1: 'b', 2: 'x', 9: 'menu', 16: 'guide' };
+  let prev = {}, repeatAt = 0, lastDir = null;
+  function poll(ts) {
+    const pad = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean)[0] : null;
+    if (pad) {
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      for (const [i, a] of Object.entries(BTN)) { if (on(i) && !prev[i]) act(a); prev[i] = on(i); }
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { act(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+
+  $('#demo-bar').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.reset) { GAMES = START(); focusIndex = 3; leaveGame(); }
+    else {
+      $$('button', b.closest('.grp')).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      if (b.dataset.ts) document.documentElement.style.setProperty('--ts', b.dataset.ts);
+      if (b.dataset.lang) lang = b.dataset.lang;
+      if (b.dataset.mark) mark = b.dataset.mark === '1';
+    }
+    if (sheet) closeSheet();
+    drawLibrary(); b.blur();
+  });
+
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 100) / 720);
+    stage.style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+  const clock = () => { $('#clock').textContent = new Date().toTimeString().slice(0, 5); };
+  clock(); setInterval(clock, 10000);
+
+  /* Optional start state: #lang=en&ts=1.4&mark=1&at=3&open=install|play|details */
+  const q = new URLSearchParams(location.hash.slice(1));
+  const press = (k, v) => $$(`[data-${k}]`).forEach(x => x.setAttribute('aria-pressed', String(x.dataset[k] === v)));
+  if (q.get('lang') === 'en') { lang = 'en'; press('lang', 'en'); }
+  if (q.get('ts')) { document.documentElement.style.setProperty('--ts', q.get('ts')); press('ts', q.get('ts')); }
+  if (q.get('mark') === '1') { mark = true; press('mark', '1'); }
+  if (q.get('at')) focusIndex = +q.get('at');
+  drawLibrary();
+  const open = { install, play, details }[q.get('open')];
+  if (open) open(GAMES[focusIndex]);
+})();
+</script>
+</body>
+</html>
