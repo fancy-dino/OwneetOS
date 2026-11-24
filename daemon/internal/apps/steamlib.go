@@ -52,8 +52,9 @@ type steamSample struct {
 	measured time.Time
 	base     int64 // the room used on Steam's disks when the measures began
 	baseDone int64 // the bytes Steam had done then
-	// what Steam has written of the game's shader pre-cache download (steamprogress.go)
-	shaderWritten  int64
+	// the shader pre-cache update measured, and what Steam has written of it (steamprogress.go)
+	shaderUpdate   int
+	shaderDone     int64
 	shaderMeasured time.Time
 }
 
@@ -230,7 +231,7 @@ func steamLicences(dir string) int64 {
 // the oldest request). samples keeps the bytes seen at the last check (updated here); phases is
 // what Steam's content log says of each app while Steam runs (nil otherwise, steamprogress.go).
 // started: the sizes of the last update Steam started, by app id (its content log).
-func steamDownloads(dir string, samples map[string]*steamSample, phases map[string]string, started map[string][2]int64, now time.Time) []SteamDownload {
+func steamDownloads(dir string, samples map[string]*steamSample, phases map[string]string, started map[string]steamUpdate, now time.Time) []SteamDownload {
 	type entry struct {
 		d     SteamDownload
 		since time.Time
@@ -290,12 +291,9 @@ func steamDownloads(dir string, samples map[string]*steamSample, phases map[stri
 			// a new game's shader pre-cache, downloaded before the game: its own bytes, written into its
 			// download folder, against the size Steam started it with (without that size: preparing)
 			shaders := false
-			if size, ok := started[id]; ok && phase == steamShaders && !installed && size[1] > 0 {
+			if u, ok := started[id]; ok && phase == steamShaders && !installed && u.total > 0 {
 				shaders = true
-				done, total = size[0]+steamShaderWritten(libs, id, s, now), size[1]
-				if done > total {
-					done = total
-				}
+				done, total = steamShaderDone(libs, id, u, s, now), u.total
 			}
 			// the speed between two growths (the files are measured every few seconds)
 			switch {

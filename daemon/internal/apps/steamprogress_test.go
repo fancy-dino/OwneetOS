@@ -3,8 +3,10 @@
 package apps
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -123,9 +125,11 @@ func TestSteamDownloadFromItsLogAndFiles(t *testing.T) {
 	}
 }
 
-// A new game's shader pre-cache downloaded before the game (THE FINALS: 1.1 GB, FrankenPC 2026-11-23): shown as
-// a download, its bytes from its download folder against the size Steam started it with; once over, "preparing"
-// until the game's own download; an installed game's shader update is not listed, as before.
+// A new game's shader pre-cache downloaded before the game (THE FINALS, FrankenPC 2026-11-23, [[open-items]] 25):
+// shown as a download, its bytes from its download folder against the size Steam started it with. Steam does it
+// in several updates (three for THE FINALS), each counted on its own; a resumed one is not counted twice; a file
+// longer than what is written counts for what is written. Then "preparing" until the game's own download. An
+// installed game's shader update is not listed, as before.
 func TestSteamShaderPreCacheDownload(t *testing.T) {
 	m, _, focus, _, _, _ := newSteamManager(t)
 	if err := m.Steam(SteamRequest{Open: "library"}); err != nil {
@@ -134,41 +138,92 @@ func TestSteamShaderPreCacheDownload(t *testing.T) {
 	focus.openWindow(1001)
 	settle(m)
 	dir := m.SteamDir
-	writeFile(t, filepath.Join(dir, "steamapps", "appmanifest_2073850.acf"), "\"AppState\"\n{\n\t\"appid\"\t\t\"2073850\"\n"+
-		"\t\"installdir\"\t\t\"THE FINALS\"\n\t\"StateFlags\"\t\t\"1026\"\n\t\"BytesToDownload\"\t\t\"5000\"\n"+
-		"\t\"BytesDownloaded\"\t\t\"0\"\n\t\"BytesToStage\"\t\t\"8000\"\n\t\"BytesStaged\"\t\t\"0\"\n}\n")
+	const kib = 1024
+	manifest := func(id, name, flags string) {
+		writeFile(t, filepath.Join(dir, "steamapps", "appmanifest_"+id+".acf"), "\"AppState\"\n{\n\t\"appid\"\t\t\""+id+"\"\n"+
+			"\t\"installdir\"\t\t\""+name+"\"\n\t\"StateFlags\"\t\t\""+flags+"\"\n\t\"BytesToDownload\"\t\t\"5000\"\n"+
+			"\t\"BytesDownloaded\"\t\t\"0\"\n\t\"BytesToStage\"\t\t\"8000\"\n\t\"BytesStaged\"\t\t\"0\"\n}\n")
+	}
+	manifest("2073850", "THE FINALS", "1026")
 	logFile := steamContentLog(dir)
-	// before the size is known: preparing, as before
-	appendFile(t, logFile, "[2026-11-23 20:44:20] AppID 2073850 Shader update changed : Running Update,Downloading,Staging,\n")
-	if d := download(t, m, "2073850"); d.State != "preparing" {
-		t.Fatalf("shader download without its size: %+v", d)
+	line := func(text string) { appendFile(t, logFile, "[2026-11-23 20:44:20] AppID 2073850 "+text+"\n") }
+	update := func(done, total int) {
+		line(fmt.Sprintf("update started : download 0/9, store 0/0, reuse 0/0, delta 0/0, stage %d/%d ", done, total))
+		line("Shader update changed : Running Update,Downloading,Staging,")
 	}
-	appendFile(t, logFile, "[2026-11-23 20:44:21] AppID 2073850 update started : download 0/1100, store 0/0, reuse 0/0, delta 0/0, stage 100/1200 \n"+
-		"[2026-11-23 20:44:21] AppID 2073850 Shader update changed : Running Update,Downloading,Staging,\n")
-	if d := download(t, m, "2073850"); d.State != "downloading" || d.Done != 100 || d.Total != 1200 {
-		t.Fatalf("shader download started: %+v", d)
+	downloads := filepath.Join(dir, "steamapps", "shadercache", "2073850", "downloads")
+	later := func() { // the folder is measured again
+		m.steamMu.Lock()
+		m.steamSamples["2073850"].shaderMeasured = time.Now().Add(-steamWrittenEvery)
+		m.steamSamples["2073850"].at = time.Now().Add(-steamWrittenEvery)
+		m.steamMu.Unlock()
 	}
-	writeFile(t, filepath.Join(dir, "steamapps", "shadercache", "2073850", "downloads", "chunk1"), string(make([]byte, 500)))
-	m.steamMu.Lock()
-	m.steamSamples["2073850"].shaderMeasured = time.Now().Add(-steamWrittenEvery)
-	m.steamSamples["2073850"].at = time.Now().Add(-steamWrittenEvery)
-	m.steamMu.Unlock()
-	if d := download(t, m, "2073850"); d.State != "downloading" || d.Done != 600 || d.Total != 1200 || d.Rate <= 0 {
-		t.Fatalf("shader download on: %+v", d)
+	want := func(what, state string, done, total int64) SteamDownload {
+		t.Helper()
+		d := download(t, m, "2073850")
+		if d.State != state || (state == "downloading" && (d.Done != done || d.Total != total)) {
+			t.Fatalf("%s: %+v, want %s %d/%d", what, d, state, done, total)
+		}
+		return d
 	}
-	// over: Steam prepares the game, then downloads it
-	appendFile(t, logFile, "[2026-11-23 20:51:00] AppID 2073850 Shader update changed : Running Update,Stopping,\n"+
-		"[2026-11-23 20:51:00] AppID 2073850 Shader update changed : None\n")
-	if d := download(t, m, "2073850"); d.State != "preparing" {
-		t.Fatalf("after the shader download: %+v", d)
+
+	line("Shader update changed : Running Update,Downloading,Staging,")
+	want("its size not known", "preparing", 0, 0)
+	// the first update
+	update(0, 1200*kib)
+	want("started", "downloading", 0, 1200*kib)
+	writeFile(t, filepath.Join(downloads, "a.foz"), strings.Repeat("x", 600*kib))
+	want("measured too soon", "downloading", 0, 1200*kib)
+	later()
+	if d := want("half way", "downloading", 600*kib, 1200*kib); d.Rate <= 0 {
+		t.Fatalf("no speed: %+v", d)
 	}
-	appendFile(t, logFile, "[2026-11-23 20:51:05] AppID 2073850 App update changed : Running Update,Downloading,Staging,\n")
+	// its files leave the folder at its end: no step back
+	line("Shader update changed : Running Update,Committing,")
+	if err := os.RemoveAll(downloads); err != nil {
+		t.Fatal(err)
+	}
+	later()
+	want("its files moved", "downloading", 600*kib, 1200*kib)
+	line("Shader update changed : Running Update,")
+	line("Shader update changed : None")
+	want("over", "preparing", 0, 0)
+	// the next update starts again from nothing, also without a check in between
+	update(0, 1000*kib)
+	later()
+	want("the next update", "downloading", 0, 1000*kib)
+	// a file longer than what is written of it
+	if err := os.MkdirAll(downloads, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Create(filepath.Join(downloads, "b.foz"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Write([]byte(strings.Repeat("x", 100*kib))); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Truncate(900 * kib); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	later()
+	if d := download(t, m, "2073850"); d.State != "downloading" || d.Done < 100*kib || d.Done > 200*kib {
+		t.Fatalf("a file longer than what is written: %+v", d)
+	}
+	// stopped and resumed: what Steam had done is already in the folder
+	line("Shader update changed : Running Update,Stopping,")
+	writeFile(t, filepath.Join(downloads, "b.foz"), strings.Repeat("x", 400*kib))
+	update(390*kib, 1000*kib)
+	want("resumed", "downloading", 400*kib, 1000*kib)
+	// the game's own download
+	line("Shader update changed : None")
+	line("App update changed : Running Update,Downloading,Staging,")
 	if d := download(t, m, "2073850"); d.State != "downloading" || d.Total != 13000 {
 		t.Fatalf("the game's own download: %+v", d)
 	}
 	// an installed game's shader update: not a download of the console
-	writeFile(t, filepath.Join(dir, "steamapps", "appmanifest_570.acf"), "\"AppState\"\n{\n\t\"appid\"\t\t\"570\"\n"+
-		"\t\"installdir\"\t\t\"dota 2 beta\"\n\t\"StateFlags\"\t\t\"4\"\n}\n")
+	manifest("570", "dota 2 beta", "4")
 	appendFile(t, logFile, "[2026-11-23 20:52:00] AppID 570 update started : download 0/900, store 0/0, reuse 0/0, delta 0/0, stage 0/900 \n"+
 		"[2026-11-23 20:52:00] AppID 570 Shader update changed : Running Update,Downloading,Staging,\n")
 	for _, d := range m.SteamStatus().Downloads {

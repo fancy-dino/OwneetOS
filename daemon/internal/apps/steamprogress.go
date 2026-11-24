@@ -45,8 +45,15 @@ var (
 // steamContent follows Steam's content log from where it was read last.
 type steamContent struct {
 	offset  int64
-	phase   map[string]string   // by app id
-	started map[string][2]int64 // the last update Steam started, by app id: bytes written then, bytes to write
+	phase   map[string]string      // by app id
+	started map[string]steamUpdate // the last update Steam started, by app id
+	updates int                    // how many it has started
+}
+
+// steamUpdate is an update as Steam starts it ("update started : … stage DONE/TOTAL").
+type steamUpdate struct {
+	n           int   // tells it from the app's other updates
+	done, total int64 // bytes written by then, bytes to write
 }
 
 func steamContentLog(dir string) string { return filepath.Join(dir, "logs", "content_log.txt") }
@@ -78,7 +85,7 @@ func (c *steamContent) read(dir string) {
 		c.phase = map[string]string{}
 	}
 	if c.started == nil {
-		c.started = map[string][2]int64{}
+		c.started = map[string]steamUpdate{}
 	}
 	f, err := os.Open(steamContentLog(dir))
 	if err != nil {
@@ -88,7 +95,7 @@ func (c *steamContent) read(dir string) {
 	if st, err := f.Stat(); err != nil || st.Size() < c.offset {
 		c.offset = 0
 		c.phase = map[string]string{}
-		c.started = map[string][2]int64{}
+		c.started = map[string]steamUpdate{}
 	}
 	if _, err := f.Seek(c.offset, io.SeekStart); err != nil {
 		return
@@ -104,14 +111,15 @@ func (c *steamContent) read(dir string) {
 		switch {
 		case steamContentStart.MatchString(line):
 			c.phase = map[string]string{}
-			c.started = map[string][2]int64{}
+			c.started = map[string]steamUpdate{}
 		case steamCanceled.MatchString(line):
 			c.phase[steamCanceled.FindStringSubmatch(line)[1]] = steamIdle
 		case steamStarted.MatchString(line):
 			m := steamStarted.FindStringSubmatch(line)
 			done, _ := strconv.ParseInt(m[2], 10, 64)
 			total, _ := strconv.ParseInt(m[3], 10, 64)
-			c.started[m[1]] = [2]int64{done, total}
+			c.updates++
+			c.started[m[1]] = steamUpdate{n: c.updates, done: done, total: total}
 		default:
 			if m := steamContentLine.FindStringSubmatch(line); m != nil {
 				p := steamPhaseOf(m[2], m[3])
@@ -170,28 +178,50 @@ func steamWritten(libs []string, s *steamSample, now time.Time) int64 {
 	return written
 }
 
-// steamShaderWritten: what Steam has written of a game's shader pre-cache download so far: the files
-// in its download folder (steamapps/shadercache/APPID/downloads, on the library disks), measured
-// every steamWrittenEvery; never less than the last measure.
-func steamShaderWritten(libs []string, appid string, s *steamSample, now time.Time) int64 {
-	if !s.shaderMeasured.IsZero() && now.Sub(s.shaderMeasured) < steamWrittenEvery {
-		return s.shaderWritten
+// steamShaderDone: how much of its shader pre-cache update u Steam has written: what is on the disks in
+// its download folder (steamapps/shadercache/APPID/downloads), measured every steamWrittenEvery. The
+// folder already holds what a resumed update had done (u.done), so the two are never added. Steam
+// downloads it in several updates one after the other (THE FINALS: three), each counted on its own;
+// within one, never a step back (the files leave the folder at its end).
+func steamShaderDone(libs []string, appid string, u steamUpdate, s *steamSample, now time.Time) int64 {
+	if s.shaderUpdate != u.n {
+		s.shaderUpdate, s.shaderDone, s.shaderMeasured = u.n, u.done, time.Time{}
 	}
+	if s.shaderMeasured.IsZero() || now.Sub(s.shaderMeasured) >= steamWrittenEvery {
+		s.shaderMeasured = now
+		var written int64
+		for _, lib := range libs {
+			written += writtenIn(filepath.Join(lib, "steamapps", "shadercache", appid, "downloads"))
+		}
+		if written > s.shaderDone {
+			s.shaderDone = written
+		}
+	}
+	if s.shaderDone > u.total {
+		return u.total
+	}
+	return s.shaderDone
+}
+
+// writtenIn: the bytes really written in a folder's files. Steam writes a file's pieces out of order, so
+// its length runs ahead (Dota 2's: 53% of it when Steam had written 28%): the room it takes on the
+// disk is counted, at most its length.
+func writtenIn(dir string) int64 {
 	var written int64
-	for _, lib := range libs {
-		root := filepath.Join(lib, "steamapps", "shadercache", appid, "downloads")
-		filepath.WalkDir(root, func(_ string, d fs.DirEntry, err error) error {
-			if err == nil && d.Type().IsRegular() {
-				if info, err := d.Info(); err == nil {
-					written += info.Size()
-				}
-			}
+	filepath.WalkDir(dir, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil || !d.Type().IsRegular() {
 			return nil
-		})
-	}
-	if written > s.shaderWritten {
-		s.shaderWritten = written
-	}
-	s.shaderMeasured = now
-	return s.shaderWritten
+		}
+		info, err := d.Info()
+		if err != nil {
+			return nil
+		}
+		size := info.Size()
+		if st, ok := info.Sys().(*syscall.Stat_t); ok && st.Blocks*512 < size {
+			size = st.Blocks * 512
+		}
+		written += size
+		return nil
+	})
+	return written
 }

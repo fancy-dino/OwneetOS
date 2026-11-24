@@ -501,7 +501,7 @@ func (m *Manager) SteamStatus() SteamStatus {
 		m.steamSamples = map[string]*steamSample{}
 	}
 	var phases map[string]string
-	var started map[string][2]int64
+	var started map[string]steamUpdate
 	if running {
 		m.steamContent.read(dir)
 		phases, started = m.steamContent.phase, m.steamContent.started
