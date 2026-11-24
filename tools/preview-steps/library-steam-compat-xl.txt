@@ -1,0 +1,34 @@
+@owneetd
+@steam
+@steamcompat
+# The warning and the details of a game that may not work (4.8) at text size XL, in German
+pad lb down down down down right down
+pad right right right a
+wait 1
+pad b down
+shot 01-language-section
+pad right a
+wait 1
+shot 01b-languages
+pad down a
+wait 1
+shot 02-german
+pad b lb
+wait 1
+pad rt rt rt
+pad right x
+wait 1
+shot 03-compat-details-xl
+pad b a
+wait 1
+shot 04-compat-warning-xl
+pad left a
+wait 2
+pad b
+restart
+wait 8
+pad rb
+pad rt rt rt
+pad right a
+wait 1
+shot 05-compat-after-restart-not-asked

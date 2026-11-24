@@ -4,6 +4,7 @@
 
 #include "Log.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -162,6 +163,27 @@ QSet<QString> licensed_apps(const QString& path, QSet<QString>& everyone)
         Log::warning(LOG_TAG, LOGMSG("`%1` could not be read to the end").arg(path));
     return apps;
 }
+
+// Steam's rating of the game on SteamOS, not the Steam Deck's (which also counts the Deck's power):
+// a warning, never a block ([[step-4.8-games-that-cannot-run]])
+void read_compatibility(const QVariantMap& common, providers::steam::OwnedApp& owned)
+{
+    const QVariantMap compat = common.value(QStringLiteral("steam_deck_compatibility")).toMap();
+    if (compat.value(QStringLiteral("steamos_compatibility")).toInt() != 1)
+        return;
+    owned.unsupported = QStringLiteral("other");
+    const QVariantMap tests = compat.value(QStringLiteral("steamos_tests")).toMap();
+    for (const QVariant& t : tests) {
+        // "#SteamOS_TestResult_UnsupportedAntiCheat_Other", "…_UnsupportedAntiCheatConfiguration"
+        if (t.toMap().value(QStringLiteral("token")).toString().contains(QLatin1String("UnsupportedAntiCheat"), Qt::CaseInsensitive)) {
+            owned.unsupported = QStringLiteral("anticheat");
+            break;
+        }
+    }
+    const qint64 checked = compat.value(QStringLiteral("test_timestamp")).toLongLong();
+    if (checked > 0)
+        owned.unsupported_month = QDateTime::fromSecsSinceEpoch(checked, Qt::UTC).toString(QStringLiteral("yyyy-MM"));
+}
 } // namespace
 
 
@@ -227,7 +249,10 @@ std::vector<OwnedApp> read_owned_games(const QString& steam_datadir, const std::
             const QString name = common.value(QStringLiteral("name")).toString();
             if (r.ok() && common.value(QStringLiteral("type")).toString().compare(QLatin1String("game"), Qt::CaseInsensitive) == 0
                     && !name.isEmpty()) {
-                OwnedApp owned {id, name, {}, {}, {}};
+                OwnedApp owned;
+                owned.appid = id;
+                owned.name = name;
+                read_compatibility(common, owned);
                 const QVariantMap eulas = common.value(QStringLiteral("eulas")).toMap();
                 for (const QVariant& e : eulas) {
                     const QVariantMap eula = e.toMap();

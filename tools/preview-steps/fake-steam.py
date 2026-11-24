@@ -41,6 +41,16 @@ for _i in range(_MANY):
     APPS[2201 + _i] = ("%s %s %d" % (_WORDS[_i % len(_WORDS)], "Trail" if _i % 2 else "Reach", _i // len(_WORDS) + 1), "game", False)
 # games with a licence agreement Steam asks to accept at the first start (not accepted yet)
 AGREEMENTS = {2010}
+# @steamcompat (FAKE_STEAM_COMPAT): games Steam calls unsupported on SteamOS ([[step-4.8-games-that-cannot-run]]):
+# app id → (the token of the reason, when Steam checked it); 2002 is installed. 2006 is unsupported
+# on the Deck only, and 2007 has no date: no warning, and a warning without its date.
+COMPAT = {
+    2002: (1, "#SteamOS_TestResult_UnsupportedAntiCheat_Other", 1665878400),
+    2004: (1, "#SteamOS_TestResult_UnsupportedAntiCheatConfiguration", 1731672000),
+    2005: (1, "#SteamOS_TestResult_SteamOSDoesNotSupport", 1644926400),
+    2006: (2, "#SteamOS_TestResult_GameStartupFunctional", 1644926400),
+    2007: (1, "", 0),
+} if os.environ.get("FAKE_STEAM_COMPAT") else {}
 # packages: id → (status, app ids, extended); package 0 is everyone's and free weekends have
 # ended: both left out by the console. "status" is whether the store still offers the package.
 PACKAGES = {
@@ -93,6 +103,10 @@ def appinfo():
         if appid in AGREEMENTS:     # as Steam writes them: http and a double slash
             common["eulas"] = {"0": {"id": "%d_eula_0" % appid, "name": name + " EULA",
                                      "url": "http://store.steampowered.com//eula/%d_eula_0" % appid}}
+        if appid in COMPAT:
+            rating, token, checked = COMPAT[appid]
+            common["steam_deck_compatibility"] = {"category": 1, "steamos_compatibility": rating, "test_timestamp": checked,
+                                                  "steamos_tests": {"0": {"display": 1, "token": token}} if token else {}}
         body = kv_text({"appinfo": {"appid": appid, "common": common}}, keys) + b"\x08"
         head = struct.pack("<IIQ", 2, 0, 0) + b"\0" * 20 + struct.pack("<I", 1) + b"\0" * 20
         entries += struct.pack("<II", appid, len(head) + len(body)) + head + body

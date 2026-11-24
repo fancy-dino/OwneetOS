@@ -6,7 +6,8 @@
 // nothing, demo 6.6b), `defaultIndex` is the
 // button selected first (e.g. Cancel in a confirmation), unless `initialItem` (an item of the
 // window's own content, e.g. a text field) is set. `icon` (optional) is drawn above the title,
-// on the accent colour when `iconAttention` (e.g. no internet, demo 4.2c).
+// on the accent colour when `iconAttention` (e.g. no internet, demo 4.2c), or alone, in the accent
+// colour, when `iconPlain` (demo 4.8).
 import QtQuick 2.15
 
 NavArea {
@@ -16,6 +17,7 @@ NavArea {
     property string icon: ""
     property bool iconAttention: false
     property bool iconCrossed: false
+    property bool iconPlain: false
     property var buttons: []
     property int defaultIndex: 0
     property Item initialItem: null
@@ -74,6 +76,7 @@ NavArea {
         icon = "";
         iconAttention = false;
         iconCrossed = false;
+        iconPlain = false;
         prompts = Qt.binding(() => defaultPrompts);
     }
     onCancelled: {
@@ -121,15 +124,15 @@ NavArea {
             Rectangle {
                 visible: root.icon !== ""
                 anchors.horizontalCenter: parent.horizontalCenter
-                width: Theme.px(52); height: width
+                width: Theme.px(root.iconPlain ? 40 : 52); height: width
                 radius: Theme.radiusM
-                color: root.iconAttention ? Theme.accent : Theme.raised
+                color: root.iconPlain ? "transparent" : root.iconAttention ? Theme.accent : Theme.raised
                 Icon {
                     anchors.centerIn: parent
-                    width: Theme.px(28); height: width
+                    width: Theme.px(root.iconPlain ? 40 : 28); height: width
                     name: root.icon
                     crossed: root.iconCrossed
-                    color: root.iconAttention ? Theme.onAccent : Theme.fg
+                    color: root.iconPlain ? Theme.accent : root.iconAttention ? Theme.onAccent : Theme.fg
                 }
             }
             Text {

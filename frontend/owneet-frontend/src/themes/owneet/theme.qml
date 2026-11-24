@@ -775,6 +775,11 @@ FocusScope {
             if (s === "none") { askInstall(game); return; }
             if (s !== "installed" && s !== "updating") { showDetails(game); return; }
             if (!(runningGame && runningGame.name === game.title) && steamOffline("play")) return;
+            // a game Steam calls unsupported, never asked about (installed from Steam's pages, 4.8)
+            if (!runningGame && !runningWebApp && !runningPlayer && warningPending(game)) {
+                showWarning(game, "compat.play", () => root.launch(game, agreementShown));
+                return;
+            }
             if (!agreementShown && !runningGame && agreementPending(game)) { showAgreement(game); return; }
         }
         // a Windows game before what it needs is ready: its progress, or "connect" (4.5)
@@ -852,6 +857,13 @@ FocusScope {
         const s = GameInfo.steamState(game), d = GameInfo.download(game);
         if (GameInfo.isSteam(game))
             facts.push([Tr.tr("details.state"), s === "installed" ? Tr.tr("steam.state.installed") : GameInfo.stateText(game)]);
+        if (mayNotWork(game)) {                   // 4.8: what Steam says of it
+            facts.push([Tr.tr("details.compat"), Tr.tr("details.compat.value")],
+                       [Tr.tr("details.compat.why"), Tr.tr(game.extra["steam.unsupported"] === "anticheat"
+                           ? "details.compat.why.anticheat" : "details.compat.why.other")]);
+            const month = warningMonth(game);
+            if (month !== "") facts.push([Tr.tr("details.compat.date"), month]);
+        }
         if (GameInfo.hasInstaller(game)) {        // 4.6: its state, its installer, the space it needs
             facts.push([Tr.tr("details.state"), GameInfo.stateText(game)],
                        [Tr.tr("details.installer"), String(game.extra["disk.installer"]).split("/").pop()]);
@@ -2593,9 +2605,46 @@ FocusScope {
         dialog.defaultIndex = 0;
         dialog.open();
     }
+    // A Steam game Steam calls unsupported on SteamOS (4.8, approved demo): said before the install,
+    // in place of its question, or before the first start, once per game; never a block: Steam's
+    // rating can be old or wrong. Steam's reason, and the month of its check when known.
+    function mayNotWork(game) { return GameInfo.isSteam(game) && !!game.extra["steam.unsupported"]; }
+    function warningPending(game) { return mayNotWork(game) && !api.memory.has("compatWarned." + GameInfo.appid(game)); }
+    function warningMonth(game) {               // "november 2024", "" when not known
+        const m = String(game.extra["steam.unsupported.month"] || "").split("-");
+        return m.length === 2 ? new Date(+m[0], +m[1] - 1, 1).toLocaleDateString(Qt.locale(Tr.language), Tr.tr("compat.month")) : "";
+    }
+    function showWarning(game, goText, go) {
+        const month = warningMonth(game);
+        dialog.game = null;
+        dialog.mode = "compat";
+        dialog.contentWidth = Theme.px(624);
+        dialog.icon = "warning";
+        dialog.iconPlain = true;
+        dialog.title = Tr.tr("compat.title", { title: game.title });
+        dialog.text = Tr.tr(game.extra["steam.unsupported"] === "anticheat" ? "compat.anticheat" : "compat.other");
+        dialog.compatDate = month !== "" ? Tr.tr("compat.date", { date: month }) : "";
+        dialog.buttons = [
+            { text: Tr.tr(goText), action: () => {
+                api.memory.set("compatWarned." + GameInfo.appid(game), true);
+                dialog.close(true);
+                go();
+            } },
+            { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 1;             // Cancel: nothing installed or started by accident
+        dialog.open();
+    }
+    function installSteam(game) {
+        const id = GameInfo.appid(game);
+        root.withSteamNotice(() => root.steamRequest({ install: id }, () => {
+            const asked = Object.assign({}, root.steamAsked);
+            asked[id] = { title: game.title, kind: "install" };
+            root.steamAsked = asked;
+        }));
+    }
     function askInstall(game) {
         if (steamOffline("install")) return;
-        const id = GameInfo.appid(game);
+        if (mayNotWork(game)) { showWarning(game, "compat.install", () => root.installSteam(game)); return; }
         dialog.game = null;
         dialog.mode = "install";
         dialog.contentWidth = 0;
@@ -2605,11 +2654,7 @@ FocusScope {
         dialog.buttons = [
             { text: Tr.tr("install.go"), style: "primary", action: () => {
                 dialog.close(true);
-                root.withSteamNotice(() => root.steamRequest({ install: id }, () => {
-                    const asked = Object.assign({}, root.steamAsked);
-                    asked[id] = { title: game.title, kind: "install" };
-                    root.steamAsked = asked;
-                }));
+                root.installSteam(game);
             } },
             { text: Tr.tr("prompt.cancel"), action: () => dialog.close() }];
         dialog.defaultIndex = 0;
@@ -3498,6 +3543,7 @@ FocusScope {
         property var facts: []              // app: [label, value] lines
         property string note: ""            // app: Google's terms for Widevine come at the first opening
         property string agreementUrl: ""    // agreement: the licence agreement's address (4.2c)
+        property string compatDate: ""      // compat: when Steam checked the game (4.8)
         property string licence: ""         // licence: an installer's licence text (4.6)
         scrollTarget: mode === "licence" && licence !== "" ? licenceFlick
                       : mode === "sysUpdate" && sysPackages.length > 0 ? updateFlick : null
@@ -3856,6 +3902,16 @@ FocusScope {
             spacing: Theme.px(8)
             Text { text: Tr.tr("widevine.terms"); color: Theme.muted; font.family: Theme.textFont; font.pixelSize: Theme.fs(14.5) }
             Text { text: root.termsAddress; color: Theme.fg; font.family: Theme.displayFont; font.weight: Font.Bold; font.pixelSize: Theme.fs(14.5) }
+        }
+        Text {                            // compat: when Steam checked the game (4.8)
+            visible: dialog.mode === "compat" && dialog.compatDate !== ""
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            text: dialog.compatDate
+            color: Theme.muted
+            font.family: Theme.textFont
+            font.pixelSize: Theme.fs(14.5)
+            wrapMode: Text.Wrap
         }
         Column {                          // details: facts about the game (Steam: its download, 4.2c)
             id: factsBox

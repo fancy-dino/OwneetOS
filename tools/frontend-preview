@@ -50,6 +50,7 @@
 #   @installfail     (with @owneetd) the installation (6.4) stops while copying (copy_failed)
 #   @movefail        (with @owneetd) moving a game (6.6): its copy does not pass the check
 #   @moveslow        (with @owneetd) moving games (6.6e): four times slower, to look at it running
+#   @steamcompat     (with @steam) some of its games are unsupported, as Steam says (4.8)
 #   @steamprepare    (with @steam) Steam prepares each download for 60 s before it begins (open item 8)
 #   @sysupdate STATE (with @owneetd) an installed system's updates (7.1): uptodate, available,
 #                    ready, fellback, installfail, backfail (tools/preview-steps/fake-owneetd.py)
@@ -186,6 +187,7 @@ if grep -q '^@steam' /steps.txt; then
         export FAKE_STEAM_MANY=60
         printf 'steam:%s\n' 2211 2222 2233 2244 > "$HOME/.config/owneet-frontend/favorites.txt"
     fi
+    if grep -q '^@steamcompat' /steps.txt; then export FAKE_STEAM_COMPAT=1; fi
     python3 /fake-steam.py "$HOME/Steam"
     export OWNEET_STEAM_DIR="$HOME/Steam" FAKE_STEAM=1
 fi

@@ -19,6 +19,12 @@ struct OwnedApp {
     QString eula_id;
     QString eula_name;
     QString eula_url;
+    // What Steam says of the game on SteamOS ([[step-4.8-games-that-cannot-run]]; appinfo → common →
+    // steam_deck_compatibility → steamos_compatibility, 1 = unsupported): empty when Steam does not
+    // call it unsupported, otherwise why ("anticheat", or "other" when Steam gives no such reason),
+    // and the month of Steam's check ("2024-11"), empty when not known
+    QString unsupported;
+    QString unsupported_month;
 };
 
 // The games of the account's licences: appcache/packageinfo.vdf (binary, versions 27 and 28)

@@ -9,6 +9,37 @@
 #include "providers/steam/SteamProvider.h"
 
 #include <QTemporaryDir>
+#include <QtEndian>
+
+
+namespace {
+// Steam's binary KeyValues (versions without a table of keys)
+QByteArray le32(quint32 v)
+{
+    QByteArray out(4, '\0');
+    qToLittleEndian(v, out.data());
+    return out;
+}
+QByteArray key(char type, const char* name) { return QByteArray(1, type) + QByteArray(name) + '\0'; }
+QByteArray text(const char* name, const char* value) { return key(1, name) + QByteArray(value) + '\0'; }
+QByteArray number(const char* name, quint32 value) { return key(2, name) + le32(value); }
+QByteArray block(const char* name, const QByteArray& body) { return key(0, name) + body + char(8); }
+
+// What Steam says of a game: rating on SteamOS, the token of one reason, when it was checked
+QByteArray compat(quint32 rating, const char* token, quint32 checked)
+{
+    return block("steam_deck_compatibility", number("category", 1) + number("steamos_compatibility", rating)
+        + number("test_timestamp", checked)
+        + block("steamos_tests", block("0", number("display", 1) + text("token", token))));
+}
+// an entry of appinfo.vdf, version 28
+QByteArray app(quint32 id, const char* name, const QByteArray& more)
+{
+    const QByteArray body = block("appinfo", block("common", text("name", name) + text("type", "Game") + more)) + char(8);
+    const QByteArray head = QByteArray(4 + 4 + 8 + 20 + 4 + 20, '\0');
+    return le32(id) + le32(quint32(head.size() + body.size())) + head + body;
+}
+} // namespace
 
 
 class test_Steam : public QObject {
@@ -108,6 +139,48 @@ private slots:
         QCOMPARE(game->lastPlayed(), QDateTime::fromSecsSinceEpoch(1700000500));
         QVERIFY(by_title("Needs An Update"));
         QCOMPARE(by_title("Needs An Update")->playTime(), 0);
+    }
+
+    // 4.8: the rating on SteamOS, its reason and the month of Steam's check
+    void unsupported_games()
+    {
+        QTemporaryDir steam;
+        manifest(steam.path(), "51", "Installed Anti Cheat", "4");
+        const auto write_binary = [&steam](const char* name, const QByteArray& data) {
+            QVERIFY(QDir().mkpath(steam.path() + QStringLiteral("/appcache")));
+            QFile file(steam.path() + QStringLiteral("/appcache/") + QLatin1String(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write(data);
+        };
+        QByteArray ids;
+        for (quint32 id = 51; id <= 55; id++)
+            ids += number(QByteArray::number(id - 51).constData(), id);
+        write_binary("packageinfo.vdf", le32(0x06565528) + le32(1) + le32(3001) + QByteArray(20 + 4 + 8, '\0')
+            + block("3001", block("appids", ids)) + char(8) + le32(0xFFFFFFFF));
+        write_binary("appinfo.vdf", le32(0x07564428) + le32(1)
+            + app(51, "Installed Anti Cheat", compat(1, "#SteamOS_TestResult_UnsupportedAntiCheat_Other", 1665878400))
+            + app(52, "No Reason", compat(1, "#SteamOS_TestResult_SteamOSDoesNotSupport", 0))
+            + app(53, "Deck Only", compat(2, "#SteamOS_TestResult_UnsupportedAntiCheat_Other", 1665878400))
+            + app(54, "Not Known", compat(0, "", 1665878400))
+            + app(55, "No Data", QByteArray())
+            + le32(0));
+        qputenv("OWNEET_STEAM_DIR", steam.path().toUtf8());
+        providers::SearchContext sctx;
+        providers::steam::SteamProvider provider;
+        provider.run(sctx);
+        qputenv("OWNEET_STEAM_DIR", m_steam.path().toUtf8());
+
+        const auto extra = [&sctx](const char* uri, const char* name) {
+            const model::Game* game = sctx.game_by_uri(QLatin1String(uri));
+            return game ? game->extraMap().value(QLatin1String(name)).toString() : QStringLiteral("no game");
+        };
+        QCOMPARE(extra("steam:51", "steam.unsupported"), QStringLiteral("anticheat"));
+        QCOMPARE(extra("steam:51", "steam.unsupported.month"), QStringLiteral("2022-10"));
+        QCOMPARE(extra("steam:52", "steam.unsupported"), QStringLiteral("other"));
+        QCOMPARE(extra("steam:52", "steam.unsupported.month"), QString());
+        QCOMPARE(extra("steam:53", "steam.unsupported"), QString());
+        QCOMPARE(extra("steam:54", "steam.unsupported"), QString());
+        QCOMPARE(extra("steam:55", "steam.unsupported"), QString());
     }
 
     void no_steam()

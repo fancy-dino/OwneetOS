@@ -335,6 +335,19 @@ Provider& SteamProvider::run(SearchContext& sctx)
         with_eula++;
     }
     Log::info(display_name(), LOGMSG("%1 games with a licence agreement not accepted yet").arg(QString::number(with_eula)));
+
+    // OwneetOS: a game Steam calls unsupported on SteamOS, installed or not: the interface warns
+    // before the install or the first start ([[step-4.8-games-that-cannot-run]])
+    int unsupported = 0;
+    for (const OwnedApp& owned : owned_games) {
+        const auto game = appid_game_map.find(owned.appid);
+        if (owned.unsupported.isEmpty() || game == appid_game_map.cend())
+            continue;
+        game->second->extraMapMut().insert(QStringLiteral("steam.unsupported"), owned.unsupported);
+        game->second->extraMapMut().insert(QStringLiteral("steam.unsupported.month"), owned.unsupported_month);
+        unsupported++;
+    }
+    Log::info(display_name(), LOGMSG("%1 games that may not work, as Steam says").arg(QString::number(unsupported)));
     int with_playtime = 0;
     for (const auto& entry : appid_game_map) {
         const auto it = playtime.find(entry.first);
