@@ -109,9 +109,11 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .tree svg { flex: none; align-self: center; color: var(--accent); }
 .field { width: 620px; text-align: left; padding: 12px 18px; border-radius: 12px; background: var(--surface); border: 1px solid var(--accent); min-height: calc(46px * var(--ts)); }
 .field .caret { display: inline-block; width: 2px; height: 1em; background: var(--accent); vertical-align: -2px; margin-left: 2px; }
-.keys { display: grid; grid-template-columns: repeat(10, 1fr); gap: 8px; width: 720px; }
-.keys .item { padding: 8px 0 !important; border-radius: 10px !important; text-align: center; }
-.keys .item.w { grid-column: span 5; }
+.kb { display: grid; gap: 7px; width: 780px; }
+.kr { display: flex; gap: 7px; }
+.key { flex: 1; padding: 6px 0; border-radius: 10px; background: var(--raised); text-align: center; }
+.key.space { flex: 5; } .key.ok { flex: 2; background: var(--accent); color: var(--on-accent); }
+.key.focus { box-shadow: 0 0 0 2px var(--bg), 0 0 0 5px var(--accent); }
 
 .emu { position: absolute; inset: 0; z-index: 8; display: none; background: #2b2b2b; color: #ddd; font: 14px/1.4 system-ui, sans-serif; }
 .emu.on { display: block; }
@@ -163,7 +165,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   <span class="grp"><span>Language:</span><button data-lang="it" aria-pressed="true">Italiano</button><button data-lang="en">English</button></span>
   <span class="grp"><button data-reset="1">Start again</button></span>
 </div>
-<p class="help"><b>FunContainer</b> has two emulators; <b>Lumen Drift</b>'s start fails until "How it starts" is changed (its console, <b>OldBox</b>, wants an option before the game);
+<p class="help"><b>FunContainer</b> has two emulators; <b>Lumen Drift</b>'s start fails until "How it starts" is changed (its console, <b>OldBox</b>, wants the option -g before the game);
 <b>TinyPad</b> has games but no emulator yet. <b>Add games</b> is the last place. <b>Gamepad:</b> D-pad / left stick, A, B, X Details, Menu Options. <b>Keyboard:</b> arrows, Enter = A, Esc = B, X, M = Menu, H = Guide.</p>
 
 <script>
@@ -174,7 +176,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 
   const EN = { 'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings', 'f.all': 'All', 'f.installed': 'Installed', 'f.fav': 'Favorites', 'f.steam': 'Steam', 'f.local': 'Local',
     'games': '{n} games', 'p.play': 'Play', 'p.details': 'Details', 'p.options': 'Options', 'p.sort': 'Sort', 'p.filter': 'Filter', 'p.menu': 'Menu',
-    'p.select': 'Select', 'p.back': 'Back', 'p.sections': 'Sections', 'p.add': 'Add games', 'cancel': 'Cancel', 'close': 'Close', 'done': 'Done', 'space': 'Space', 'back': 'Back',
+    'p.select': 'Select', 'p.back': 'Back', 'p.sections': 'Sections', 'p.add': 'Add games', 'cancel': 'Cancel', 'close': 'Close', 'done': 'Done', 'space': 'Space', 'p.type': 'Type', 'p.del': 'Delete', 'p.sym': 'Symbols', 'p.caps': 'Capitals',
     'F.games': 'Games', 'F.emus': 'Emulators',
     'add.title': 'Add games', 'add.steam': 'Steam', 'add.steam.d': 'Buy new games in Steam’s store: the games you own are already in your library',
     'add.disk': 'From a USB stick or disk', 'add.disk.d': 'Games copied into a “Games” folder', 'add.emu': 'With an emulator of yours', 'add.emu.d': 'Your own emulator and the games of one console, in a folder',
@@ -185,16 +187,16 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'w.title': '{emu} is not part of OwneetOS', 'w.text': 'You added it yourself: OwneetOS has not checked it. Use only programs you trust and games you have the right to play.', 'w.go': 'Start',
     'c.title': 'Which emulator starts the {con} games?', 'c.text': 'The console found several. It remembers your choice; Options can change it.', 'c.one': 'Which emulator starts {title}?',
     'm.title': 'No emulator for {con} yet', 'm.text': 'Copy one into its “{f}” folder, then start the game again.',
-    'x.title': '{emu} closed straight away', 'x.text': 'It may want an option before the game, or its own settings first.', 'x.how': 'How it starts', 'x.open': 'Open the emulator',
+    'x.title': '{emu} closed straight away', 'x.text': 'It may want one or more options before the game, or its own settings first.', 'x.how': 'How it starts', 'x.open': 'Open the emulator',
     'h.title': 'How does {emu} start a game?', 'h.text': 'It is the same for every {con} game. The emulator’s own help says which one it wants.',
-    'h.alone': 'With the game alone', 'h.alone.d': 'Most emulators', 'h.opt': 'With an option before the game', 'h.opt.d': 'You type the option, e.g. -g', 'h.opt.now': 'Now: {o}',
-    'o.title': 'The option before the game', 'o.saved': '{emu} starts the games this way now', 'o.emu': 'Choose the emulator', 'o.open': 'Open the emulator', 'o.how': 'How it starts', 'o.fav': 'Add to favorites', 'o.cover': 'Add cover image',
+    'h.alone': 'With the game alone', 'h.alone.d': 'Most emulators', 'h.opt': 'With one or more options before the game', 'h.opt.d': 'You type them, e.g. -g', 'h.opt.now': 'Now: {o}',
+    'o.title': 'The options before the game', 'o.text': 'One or more, with a space between them. A name with spaces in it goes between double quotes.', 'o.saved': '{emu} starts the games this way now', 'o.emu': 'Choose the emulator', 'o.open': 'Open the emulator', 'o.how': 'How it starts', 'o.fav': 'Add to favorites', 'o.cover': 'Add cover image',
     'c.saved': '{title} starts with {emu}',
     'd.con': 'Console', 'd.emu': 'Emulator', 'd.none': 'None yet', 'd.how': 'How it starts', 'd.disk': 'Where', 'd.last': 'Last played', 'd.never': 'Never played',
     'start': 'Starting {title}…', 'other': 'Not in this demo (as today)', 'tip': '(demo) The controller pointer is on: stick = pointer, A = click, Y = type. Guide = Home' };
   const IT = { 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni', 'f.all': 'Tutti', 'f.installed': 'Installati', 'f.fav': 'Preferiti', 'f.local': 'Locali',
     'games': '{n} giochi', 'p.play': 'Gioca', 'p.details': 'Dettagli', 'p.options': 'Opzioni', 'p.sort': 'Ordina', 'p.filter': 'Filtro',
-    'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.sections': 'Sezioni', 'p.add': 'Aggiungi giochi', 'cancel': 'Annulla', 'close': 'Chiudi', 'done': 'Fatto', 'space': 'Spazio', 'back': 'Indietro',
+    'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.sections': 'Sezioni', 'p.add': 'Aggiungi giochi', 'cancel': 'Annulla', 'close': 'Chiudi', 'done': 'Fatto', 'space': 'Spazio', 'p.type': 'Scrivi', 'p.del': 'Cancella', 'p.sym': 'Simboli', 'p.caps': 'Maiuscole',
     'F.games': 'Giochi', 'F.emus': 'Emulatori',
     'add.title': 'Aggiungi giochi', 'add.steam.d': 'Compra nuovi giochi nello store di Steam: quelli che hai sono già nella libreria',
     'add.disk': 'Da una chiavetta USB o un disco', 'add.disk.d': 'Giochi copiati in una cartella “Giochi”', 'add.emu': 'Con un tuo emulatore', 'add.emu.d': 'Il tuo emulatore e i giochi di una console, in una cartella',
@@ -205,10 +207,10 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     'w.title': '{emu} non fa parte di OwneetOS', 'w.text': 'L’hai aggiunto tu: OwneetOS non l’ha controllato. Usa solo programmi di cui ti fidi e giochi che hai il diritto di usare.', 'w.go': 'Avvia',
     'c.title': 'Quale emulatore avvia i giochi {con}?', 'c.text': 'La console ne ha trovati più di uno. Ricorda la tua scelta; si cambia dalle Opzioni.', 'c.one': 'Quale emulatore avvia {title}?',
     'm.title': 'Nessun emulatore per {con}', 'm.text': 'Copiane uno nella sua cartella “{f}”, poi avvia di nuovo il gioco.',
-    'x.title': '{emu} si è chiuso subito', 'x.text': 'Forse vuole un’opzione prima del gioco, oppure va prima configurato.', 'x.how': 'Come si avvia', 'x.open': 'Apri l’emulatore',
+    'x.title': '{emu} si è chiuso subito', 'x.text': 'Forse vuole una o più opzioni prima del gioco, oppure va prima configurato.', 'x.how': 'Come si avvia', 'x.open': 'Apri l’emulatore',
     'h.title': 'Come avvia un gioco {emu}?', 'h.text': 'Vale per tutti i giochi {con}. Lo dice la guida dell’emulatore.',
-    'h.alone': 'Solo con il gioco', 'h.alone.d': 'La maggior parte degli emulatori', 'h.opt': 'Con un’opzione prima del gioco', 'h.opt.d': 'La scrivi tu, per esempio -g', 'h.opt.now': 'Ora: {o}',
-    'o.title': 'L’opzione prima del gioco', 'o.saved': 'Ora {emu} avvia i giochi così', 'o.emu': 'Scegli l’emulatore', 'o.open': 'Apri l’emulatore', 'o.how': 'Come si avvia', 'o.fav': 'Aggiungi ai preferiti', 'o.cover': 'Aggiungi copertina',
+    'h.alone': 'Solo con il gioco', 'h.alone.d': 'La maggior parte degli emulatori', 'h.opt': 'Con una o più opzioni prima del gioco', 'h.opt.d': 'Le scrivi tu, per esempio -g', 'h.opt.now': 'Ora: {o}',
+    'o.title': 'Le opzioni prima del gioco', 'o.text': 'Una o più, separate da uno spazio. Un nome che contiene spazi va tra virgolette.', 'o.saved': 'Ora {emu} avvia i giochi così', 'o.emu': 'Scegli l’emulatore', 'o.open': 'Apri l’emulatore', 'o.how': 'Come si avvia', 'o.fav': 'Aggiungi ai preferiti', 'o.cover': 'Aggiungi copertina',
     'c.saved': '{title} si avvia con {emu}',
     'd.con': 'Console', 'd.emu': 'Emulatore', 'd.none': 'Ancora nessuno', 'd.how': 'Come si avvia', 'd.disk': 'Dove', 'd.last': 'Ultima partita', 'd.never': 'Mai giocato',
     'start': 'Avvio di {title}…', 'other': 'Non in questa demo (come oggi)', 'tip': '(demo) Il puntatore da controller è attivo: levetta = puntatore, A = clic, Y = scrivi. Guide = Home' };
@@ -266,7 +268,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     $('#sheetPrompts').classList.add('on');
     $('#spl').innerHTML = P(['a'], 'p.select') + P(['b'], 'p.back');
     $('#spr').innerHTML = '';
-    sheet = { items: $$('#sheet [data-k]'), index: o.index || 0, onPick, cols: o.cols || 0, back: o.back, typing: o.typing };
+    sheet = { items: $$('#sheet [data-k]'), index: o.index || 0, onPick, back: o.back, typing: o.typing };
     focusSheet();
   }
   function closeSheet() {
@@ -279,19 +281,43 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   const ROWS = rows => `<div class="col">${rows.map(([k, a, b]) => `<button class="row" data-k="${esc(k)}"><span class="t-m">${esc(a)}</span>${b ? `<span class="muted t-s">${esc(b)}</span>` : ''}</button>`).join('')}</div>`;
   const BTNS = list => `<div class="list t-m">${list.map(([k, t, p]) => `<button class="item${p ? ' primary' : ''}" data-k="${k}">${esc(t)}</button>`).join('')}</div>`;
 
-  // the console's on-screen keyboard, simplified
-  function keyboard(title, text, value, keys, done, back) {
-    const show = () => { $('#typed').innerHTML = esc(value) + '<span class="caret"></span>'; };
-    openSheet(`${H(title, text)}<div class="field t-m" id="typed"></div><div class="keys t-s">${keys.map(k => `<button class="item" data-k="k:${esc(k)}">${k === ' ' ? '␣' : esc(k)}</button>`).join('')}
-      <button class="item w" data-k="del">⌫</button><button class="item w primary" data-k="ok">${tr('done')}</button></div>`,
-      k => {
-        if (k === 'del') value = value.slice(0, -1);
-        else if (k === 'ok') { if (value.trim()) done(value.trim()); return; }
-        else if (!value && k.length === 3) value = k.slice(2).toUpperCase();
-        else value += k.slice(2);
-        show();
-      }, { cols: 10, back, index: keys.length + 1, typing: c => { if (c === 'del') value = value.slice(0, -1); else value += c; show(); } });
-    show();
+  // the console's on-screen keyboard (demo 3.10): its pages and keys, its buttons; drawn smaller here
+  const PAGES = { abc: ['1234567890', 'qwertyuiop', "asdfghjkl'", 'zxcvbnm,.-'], sym: ['1234567890', '@#€$%&*()_', '+=/\\:;"!?\'', '<>[]{}~^|`'], acc: ['àáâäãåæ', 'èéêëìíîï', 'òóôöõøùúûü', 'çñßÿ'] };
+  const NEXT = { abc: 'sym', sym: 'acc', acc: 'abc' }, PNAME = { abc: 'abc', sym: '#+=', acc: 'àèé' };
+  function keyboard(title, text, value, done, back, capital) {
+    let page = 'abc', up = !!capital && !value, row = 1, col = 0, rows = [];
+    const draw = () => {
+      rows = PAGES[page].map(r => Array.from(r).map(c => ({ k: 'c', c: up && page !== 'sym' ? c.toLocaleUpperCase() : c })));
+      rows[0].push({ k: 'del', c: '⌫' });
+      rows[3].unshift({ k: 'up', c: '⇧' });
+      rows.push([{ k: 'page', c: PNAME[NEXT[page]] }, { k: 'space', c: tr('space') }, { k: 'ok', c: tr('done') }]);
+      row = Math.min(row, rows.length - 1); col = Math.min(col, rows[row].length - 1);
+      $('#typed').innerHTML = esc(value).replace(/ /g, '&nbsp;') + '<span class="caret"></span>';
+      $('#keys').innerHTML = rows.map((r, y) => `<div class="kr">${r.map((x, z) => `<span class="key ${x.k}${y === row && z === col ? ' focus' : ''}">${esc(x.c)}</span>`).join('')}</div>`).join('');
+    };
+    const put = c => { value += c; up = false; draw(); };
+    openSheet(`${H(title, text)}<div class="field t-m" id="typed"></div><div class="kb t-s" id="keys"></div>`, () => {}, { back });
+    sheet.kbd = a => {
+      const n = rows[row].length;
+      if (a === 'left') col = (col + n - 1) % n; else if (a === 'right') col = (col + 1) % n;
+      else if (a === 'up' || a === 'down') { const x = (col + .5) / n; row = (row + (a === 'down' ? 1 : rows.length - 1)) % rows.length; col = Math.min(rows[row].length - 1, Math.floor(x * rows[row].length)); }
+      else if (a === 'x') value = value.slice(0, -1); else if (a === 'y') { put(' '); return; }
+      else if (a === 'lb' || a === 'rb') page = a === 'rb' ? NEXT[page] : NEXT[NEXT[page]];
+      else if (a === 'lt') up = !up;
+      else if (a === 'menu') { if (value.trim()) done(value.trim()); return; }
+      else if (a === 'b') { if (back) back(); else closeSheet(); return; }
+      else if (a === 'a') {
+        const x = rows[row][col];
+        if (x.k === 'c') { put(x.c); return; }
+        if (x.k === 'del') value = value.slice(0, -1); else if (x.k === 'up') up = !up; else if (x.k === 'page') page = NEXT[page];
+        else if (x.k === 'space') { put(' '); return; }
+        else if (x.k === 'ok') { if (value.trim()) done(value.trim()); return; }
+      }
+      draw();
+    };
+    sheet.typing = c => { if (c === 'del') { value = value.slice(0, -1); draw(); } else put(c); };
+    $('#spl').innerHTML = P(['a'], 'p.type') + P(['x'], 'p.del') + P(['y'], 'space') + P(['lb', 'rb'], 'p.sym') + P(['lt'], 'p.caps') + P(['menu'], 'done') + P(['b'], 'p.back');
+    draw();
   }
 
   function addGames(at = 0) {
@@ -299,7 +325,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       k => { if (k === 'emu') newName(); else toast(tr('other')); }, { index: at });
   }
   function newName(v = '') {
-    keyboard(tr('n.title'), tr('n.text'), v, [...'qwertyuiopasdfghjklzxcvbnm 012'], name => newDisk(name), () => addGames(2));
+    keyboard(tr('n.title'), tr('n.text'), v, name => newDisk(name), () => addGames(2), true);
   }
   function newDisk(name) {
     openSheet(H(tr('k.title'), tr('k.text')) + ROWS([['k.int', tr('k.int'), tr('k.free', { n: 71 })], ['k.usb', tr('k.usb'), tr('k.free', { n: 188 })]]),
@@ -344,7 +370,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     openSheet(H(tr('h.title', { emu: e }), tr('h.text', { con: g.con })) + ROWS([['alone', tr('h.alone'), tr('h.alone.d')], ['opt', tr('h.opt'), o ? tr('h.opt.now', { o }) : tr('h.opt.d')]]),
       k => {
         if (k === 'alone') { c.opt[e] = ''; closeSheet(); toast(tr('o.saved', { emu: e })); }
-        else keyboard(tr('o.title'), '', o || '-', [...'-_=abcdefghijklmnopqrstuvwxyz/'], v => { c.opt[e] = v; closeSheet(); toast(tr('o.saved', { emu: e })); }, () => how(g, back));
+        else keyboard(tr('o.title'), tr('o.text'), o, v => { c.opt[e] = v; closeSheet(); toast(tr('o.saved', { emu: e })); }, () => how(g, back));
       }, { index: o ? 1 : 0, back });
   }
   function options(g) {
@@ -383,20 +409,15 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       return;
     }
     if (inGame) { if (a === 'guide') leaveGame(); return; }
+    if (sheet && sheet.kbd) { sheet.kbd(a); return; }
     if (sheet) {
       const n = sheet.items.length;
       if (d) {
         let i = sheet.index;
-        if (sheet.cols && d[1]) {                          // the keyboard: rows of keys, then the two wide ones
-          const keys = n - 2, c = sheet.cols;
-          if (i >= keys) i = d[1] < 0 ? Math.min(keys - 1, keys - (keys % c || c) + (i === keys ? 0 : 5)) : i;
-          else if (d[1] > 0) i = i + c < keys ? i + c : keys + (i % c < 5 ? 0 : 1);
-          else i = Math.max(0, i - c >= 0 ? i - c : i);
-        } else i = Math.min(n - 1, Math.max(0, i + d[0] + d[1]));
+        i = Math.min(n - 1, Math.max(0, i + d[0] + d[1]));
         sheet.index = i; focusSheet();
       } else if (a === 'a') sheet.onPick(sheet.items[sheet.index].dataset.k);
       else if (a === 'b') { if (sheet.back) sheet.back(); else closeSheet(); }
-      else if (a === 'x' && sheet.typing) sheet.typing('del');
       return;
     }
     const cols = 7, g = GAMES[focusIndex];
@@ -410,13 +431,14 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
     else { toast(tr('other')); return; }
     drawLibrary();
   }
+  window.__act = act;                                      // for the automatic check of the demo
   document.addEventListener('keydown', e => {
     if (sheet && sheet.typing && e.key.length === 1 && !e.ctrlKey) { e.preventDefault(); sheet.typing(e.key); return; }
     if (sheet && sheet.typing && e.key === 'Backspace') { e.preventDefault(); sheet.typing('del'); return; }
     const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', m: 'menu', M: 'menu', h: 'guide', H: 'guide', x: 'x', X: 'x' };
     if (map[e.key]) { e.preventDefault(); act(map[e.key]); }
   });
-  const BTN = { 0: 'a', 1: 'b', 2: 'x', 9: 'menu', 16: 'guide' };
+  const BTN = { 0: 'a', 1: 'b', 2: 'x', 3: 'y', 4: 'lb', 5: 'rb', 6: 'lt', 9: 'menu', 16: 'guide' };
   let prev = {}, repeatAt = 0, lastDir = null;
   function poll(ts) {
     const pad = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean)[0] : null;
