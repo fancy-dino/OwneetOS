@@ -198,8 +198,7 @@ func TestSkipStopsOnlyThisGamesCopy(t *testing.T) {
 	m.running, m.paused = true, true
 	m.resume, m.stop, m.skip = make(chan struct{}), make(chan struct{}), make(chan struct{})
 	m.st = Status{Count: 2, Failed: []string{}, Skipped: []string{}, Moved: []string{}}
-	dest, _ := m.gamesFolder(Internal)
-	go m.run(Request{Games: []Game{{Dir: game, Title: "Tyrian", Remove: true}, {Dir: other, Title: "Cayne"}}, To: Internal}, dest)
+	go m.run(Request{Games: []Game{{Dir: game, Title: "Tyrian", Remove: true}, {Dir: other, Title: "Cayne"}}, To: Internal}, m.Home)
 	for i := 0; m.Status().State != "copy"; i++ {
 		if i > 500 {
 			t.Fatal("the copy never started")
@@ -278,8 +277,7 @@ func TestAbortStopsTheCopyAndWaits(t *testing.T) {
 	m.resume, m.stop, m.skip = make(chan struct{}), make(chan struct{}), make(chan struct{})
 	m.done = make(chan struct{})
 	m.st = Status{Count: 1, Failed: []string{}, Skipped: []string{}, Moved: []string{}}
-	dest, _ := m.gamesFolder(Internal)
-	go m.run(Request{Games: []Game{{Dir: game, Title: "Tyrian", Remove: true}}, To: Internal}, dest)
+	go m.run(Request{Games: []Game{{Dir: game, Title: "Tyrian", Remove: true}}, To: Internal}, m.Home)
 	for i := 0; m.Status().State != "copy"; i++ {
 		if i > 500 {
 			t.Fatal("the copy never started")

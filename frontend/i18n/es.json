@@ -1238,5 +1238,39 @@
   "details.emu.none": "Ninguno todavía",
   "details.emu.how": "Cómo se inicia",
   "emu.pointer": "Sigue activo hasta que cierres el emulador.",
-  "files.emulation": "Emulación · {disk}"
+  "files.emulation": "Emulación · {disk}",
+  "emu.move": "Mover {console} a otro disco",
+  "emu.move.where": "{size}: {emulators} y {games} · ahora en {disk}",
+  "emu.move.taken": "Ya hay una consola con este nombre",
+  "emu.move.taken.one": "Ya hay una consola llamada {title}",
+  "emu.move.confirm.text": "{size}. Sus juegos se pueden volver a jugar cuando termine.",
+  "emu.move.remove.on": "La consola estará solo en {to}.",
+  "emu.move.remove.off": "Una copia: la consola sigue también en {from}.",
+  "emu.move.error": "No se ha podido mover la consola.",
+  "emu.move.cancel.many": "Se borra la copia a medias de {title} y todo sigue en {disk}, como estaba. Con «Detener todo» tampoco se copia lo siguiente; lo ya copiado se queda.",
+  "emu.move.cancel.one": "Detener esta copia",
+  "emu.move.fail.some": "{ok} de {n} copiados a {to}",
+  "emu.move.fail.many": "{n} copias no han funcionado",
+  "emu.move.fail.text": "Los originales están intactos: selecciona uno de sus juegos para ver los detalles.",
+  "emu.plug.title": "Disco USB conectado: {what}",
+  "emu.plug.and": "{a} y {b}",
+  "emu.plug.choose": "¿Qué copiar?",
+  "emu.plug.choose.text": "Elige qué copiar. «Borrar el original» lo quita del disco USB cuando su copia está comprobada.",
+  "emu.plug.choose.console": "Una consola va con sus emuladores y todos sus juegos.",
+  "emu.plug.all": "Todo",
+  "emu.plug.console": "Consola · {games}",
+  "emu.plug.go": "Copiar {n} ({size})",
+  "emu.plug.go.none": "Elige al menos un elemento",
+  "emu.plug.where": "¿A qué disco copiar {n} elementos ({size})?",
+  "emu.plug.remove.many": "Tras la comprobación, {n} originales se borran del disco USB.",
+  "emu.plug.removed.many": "Copias comprobadas, {count} originales borrados del disco USB.",
+  "emu.plug.done": "Copia en {disk} terminada",
+  "emu.consoles": {
+    "one": "{n} consola",
+    "other": "{n} consolas"
+  },
+  "emu.emulators": {
+    "one": "{n} emulador",
+    "other": "{n} emuladores"
+  }
 }

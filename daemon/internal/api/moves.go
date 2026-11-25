@@ -47,6 +47,8 @@ func (s *Server) movesReply(w http.ResponseWriter, err error) {
 		WriteError(w, http.StatusBadRequest, "moves.invalid", err.Error())
 	case errors.Is(err, moves.ErrNoSpace):
 		WriteError(w, http.StatusConflict, "moves.no_space", err.Error())
+	case errors.Is(err, moves.ErrTaken):
+		WriteError(w, http.StatusConflict, "moves.name_taken", err.Error())
 	case errors.Is(err, moves.ErrBusy):
 		WriteError(w, http.StatusConflict, "moves.busy", err.Error())
 	case errors.Is(err, moves.ErrIdle):

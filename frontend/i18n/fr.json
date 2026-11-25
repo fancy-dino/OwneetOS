@@ -1238,5 +1238,39 @@
   "details.emu.none": "Aucun pour l’instant",
   "details.emu.how": "Mode de lancement",
   "emu.pointer": "Il reste actif jusqu’à ce que tu fermes l’émulateur.",
-  "files.emulation": "Émulation · {disk}"
+  "files.emulation": "Émulation · {disk}",
+  "emu.move": "Déplacer {console} vers un autre disque",
+  "emu.move.where": "{size} : {emulators} et {games} · actuellement sur {disk}",
+  "emu.move.taken": "Une console porte déjà ce nom sur ce disque",
+  "emu.move.taken.one": "Une console appelée {title} est déjà sur ce disque",
+  "emu.move.confirm.text": "{size}. Ses jeux redeviennent jouables une fois terminé.",
+  "emu.move.remove.on": "La console sera uniquement sur {to}.",
+  "emu.move.remove.off": "Une copie : la console reste aussi sur {from}.",
+  "emu.move.error": "La console n’a pas pu être déplacée.",
+  "emu.move.cancel.many": "La copie partielle de {title} est supprimée et tout reste sur {disk}, comme avant. Avec « Tout arrêter », la suite n’est pas copiée non plus ; ce qui est déjà copié reste.",
+  "emu.move.cancel.one": "Arrêter cette copie",
+  "emu.move.fail.some": "{ok} sur {n} copiés sur {to}",
+  "emu.move.fail.many": "{n} copies n’ont pas fonctionné",
+  "emu.move.fail.text": "Les originaux sont intacts : sélectionne un de ses jeux pour les détails.",
+  "emu.plug.title": "Disque USB connecté : {what}",
+  "emu.plug.and": "{a} et {b}",
+  "emu.plug.choose": "Que copier ?",
+  "emu.plug.choose.text": "Choisissez quoi copier. « Supprimer l’original » le retire du disque USB une fois sa copie vérifiée.",
+  "emu.plug.choose.console": "Une console va avec ses émulateurs et tous ses jeux.",
+  "emu.plug.all": "Tout",
+  "emu.plug.console": "Console · {games}",
+  "emu.plug.go": "Copier {n} ({size})",
+  "emu.plug.go.none": "Choisissez au moins un élément",
+  "emu.plug.where": "Copier {n} éléments ({size}) sur quel disque ?",
+  "emu.plug.remove.many": "Après la vérification, {n} originaux sont supprimés du disque USB.",
+  "emu.plug.removed.many": "Copies vérifiées, {count} originaux supprimés du disque USB.",
+  "emu.plug.done": "Copie sur {disk} terminée",
+  "emu.consoles": {
+    "one": "{n} console",
+    "other": "{n} consoles"
+  },
+  "emu.emulators": {
+    "one": "{n} émulateur",
+    "other": "{n} émulateurs"
+  }
 }

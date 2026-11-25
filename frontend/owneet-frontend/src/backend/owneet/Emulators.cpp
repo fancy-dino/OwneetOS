@@ -506,6 +506,20 @@ QVariantMap Emulators::openCommand(QObject* game, const QString& id) const
              { QStringLiteral("workdir"), QFileInfo(emulator).absolutePath() } };
 }
 
+bool Emulators::nameTaken(const QString& name, const QString& root) const
+{
+    const QDir top(root == QLatin1String("internal") ? paths::homePath() : root);
+    for (const QString& base : top.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+        if (!isBase(base))
+            continue;
+        for (const QString& other : QDir(top.filePath(base)).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot)) {
+            if (plain(other) == plain(name))
+                return true;
+        }
+    }
+    return false;
+}
+
 QVariantMap Emulators::create(const QString& name, const QString& root, const QString& language) const
 {
     // a name every disk takes, also one written by Windows

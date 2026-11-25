@@ -1238,5 +1238,39 @@
   "details.emu.none": "None yet",
   "details.emu.how": "How it starts",
   "emu.pointer": "It stays on until you close the emulator.",
-  "files.emulation": "Emulation · {disk}"
+  "files.emulation": "Emulation · {disk}",
+  "emu.move": "Move {console} to another disk",
+  "emu.move.where": "{size}: {emulators} and {games} · now on {disk}",
+  "emu.move.taken": "A console with this name is already there",
+  "emu.move.taken.one": "A console called {title} is already there",
+  "emu.move.confirm.text": "{size}. Its games can be played again when it is done.",
+  "emu.move.remove.on": "The console will be on {to} only.",
+  "emu.move.remove.off": "A copy: the console stays on {from} too.",
+  "emu.move.error": "The console could not be moved.",
+  "emu.move.cancel.many": "The partial copy of {title} is removed and it stays on {disk}, as it was. “Stop all” does not copy what comes after it either; what is already copied stays.",
+  "emu.move.cancel.one": "Stop this copy",
+  "emu.move.fail.some": "{ok} of {n} copied to {to}",
+  "emu.move.fail.many": "{n} copies did not work",
+  "emu.move.fail.text": "What was there is untouched: select one of its games for the details.",
+  "emu.plug.title": "USB disk connected: {what}",
+  "emu.plug.and": "{a} and {b}",
+  "emu.plug.choose": "What to copy?",
+  "emu.plug.choose.text": "Choose what to copy. “Remove the original” takes it off the USB disk once its copy is checked.",
+  "emu.plug.choose.console": "A console goes with its emulators and all its games.",
+  "emu.plug.all": "Everything",
+  "emu.plug.console": "Console · {games}",
+  "emu.plug.go": "Copy {n} ({size})",
+  "emu.plug.go.none": "Choose at least one",
+  "emu.plug.where": "Copy {n} ({size}) to which disk?",
+  "emu.plug.remove.many": "After the check, {n} originals are removed from the USB disk.",
+  "emu.plug.removed.many": "Copies checked, {count} originals removed from the USB disk.",
+  "emu.plug.done": "Copied to {disk}",
+  "emu.consoles": {
+    "one": "{n} console",
+    "other": "{n} consoles"
+  },
+  "emu.emulators": {
+    "one": "{n} emulator",
+    "other": "{n} emulators"
+  }
 }

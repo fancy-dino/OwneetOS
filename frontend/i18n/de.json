@@ -1238,5 +1238,39 @@
   "details.emu.none": "Noch keiner",
   "details.emu.how": "Startart",
   "emu.pointer": "Er bleibt an, bis du den Emulator schließt.",
-  "files.emulation": "Emulation · {disk}"
+  "files.emulation": "Emulation · {disk}",
+  "emu.move": "{console} auf ein anderes Laufwerk verschieben",
+  "emu.move.where": "{size}: {emulators} und {games} · jetzt auf {disk}",
+  "emu.move.taken": "Dort gibt es schon eine Konsole mit diesem Namen",
+  "emu.move.taken.one": "Dort gibt es schon eine Konsole namens {title}",
+  "emu.move.confirm.text": "{size}. Die Spiele sind wieder spielbar, wenn es fertig ist.",
+  "emu.move.remove.on": "Die Konsole ist dann nur auf {to}.",
+  "emu.move.remove.off": "Eine Kopie: Die Konsole bleibt auch auf {from}.",
+  "emu.move.error": "Die Konsole konnte nicht verschoben werden.",
+  "emu.move.cancel.many": "Die angefangene Kopie von {title} wird gelöscht und alles bleibt auf {disk}, wie es war. Mit „Alle abbrechen“ wird auch der Rest nicht kopiert; schon Kopiertes bleibt.",
+  "emu.move.cancel.one": "Diese Kopie abbrechen",
+  "emu.move.fail.some": "{ok} von {n} auf {to} kopiert",
+  "emu.move.fail.many": "{n} Kopien haben nicht funktioniert",
+  "emu.move.fail.text": "Die Originale sind unverändert: wähle eines der Spiele für die Einzelheiten.",
+  "emu.plug.title": "USB-Laufwerk verbunden: {what}",
+  "emu.plug.and": "{a} und {b}",
+  "emu.plug.choose": "Was kopieren?",
+  "emu.plug.choose.text": "Wähle aus, was kopiert wird. „Original löschen“ entfernt es vom USB-Laufwerk, sobald die Kopie geprüft ist.",
+  "emu.plug.choose.console": "Eine Konsole wird mit ihren Emulatoren und allen ihren Spielen kopiert.",
+  "emu.plug.all": "Alles",
+  "emu.plug.console": "Konsole · {games}",
+  "emu.plug.go": "{n} kopieren ({size})",
+  "emu.plug.go.none": "Wähle mindestens einen Eintrag",
+  "emu.plug.where": "{n} Einträge ({size}) auf welches Laufwerk kopieren?",
+  "emu.plug.remove.many": "Nach der Prüfung werden {n} Originale vom USB-Laufwerk gelöscht.",
+  "emu.plug.removed.many": "Kopien geprüft, {count} Originale vom USB-Laufwerk gelöscht.",
+  "emu.plug.done": "Auf {disk} kopiert",
+  "emu.consoles": {
+    "one": "{n} Konsole",
+    "other": "{n} Konsolen"
+  },
+  "emu.emulators": {
+    "one": "{n} Emulator",
+    "other": "{n} Emulatoren"
+  }
 }

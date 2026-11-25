@@ -775,7 +775,7 @@ FocusScope {
     // ---- Games: launch, details, options
     function launch(game, agreementShown) {
         // 6.6e: a game being copied is never started: A shows the copy's window
-        if (GameInfo.onDisk(game) && moveSheet.badge(String(game.extra["disk.dir"])) !== null) { moveSheet.reopen(); return; }
+        if (GameInfo.placeDir(game) !== "" && moveSheet.badge(GameInfo.placeDir(game)) !== null) { moveSheet.reopen(); return; }
         // a game with only an installer (4.6): installed first, after the console's question
         if (GameInfo.hasInstaller(game)) { installStart(game); return; }
         // Steam (4.2c): a game not installed is installed first; one being downloaded or on a disk
@@ -2167,6 +2167,12 @@ FocusScope {
             out.push({ text: Tr.tr("emu.how"), action: () => { dialog.close(true); root.emuHow(game, null); } });
         if (emulators.files(game).length > 1)
             out.push({ text: Tr.tr("options.choose_file"), action: () => { dialog.close(true); root.emuChooseFile(game); } });
+        // 4.9b: the whole console moves, emulators and games
+        out.push({ text: Tr.tr("emu.move", { console: GameInfo.source(game) }), action: () => {
+            dialog.close(true);
+            if (moveSheet.running) { toast.show(Tr.tr("move.busy")); return; }   // 6.6e: one copy at a time
+            moveSheet.openConsole(game);
+        } });
         return out;
     }
     function emuChooseFile(game) {
@@ -2294,7 +2300,7 @@ FocusScope {
     function checkDisks() {
         const now = volumeKeys();
         const plugged = now.filter(k => knownVolumes.indexOf(k) < 0 && diskGames.hasGames(k));
-        const unplugged = knownVolumes.filter(k => now.indexOf(k) < 0 && games.some(g => GameInfo.diskRoot(g) === k));
+        const unplugged = knownVolumes.filter(k => now.indexOf(k) < 0 && games.some(g => GameInfo.placeRoot(g) === k));
         knownVolumes = now;
         if (plugged.length > 0 || unplugged.length > 0) {
             const prev = api.memory.has("diskNotice") ? JSON.parse(api.memory.get("diskNotice")) : { plugged: [], unplugged: [] };
@@ -2307,7 +2313,7 @@ FocusScope {
         disksPending = false;
         console.log("Disks changed: reading the games again, quietly");
         // a window about a game of the disk that is gone closes
-        if (dialog.visible && dialog.game && unplugged.indexOf(GameInfo.diskRoot(dialog.game)) >= 0)
+        if (dialog.visible && dialog.game && unplugged.indexOf(GameInfo.placeRoot(dialog.game)) >= 0)
             dialog.close(true);
         diskGames.quietReading = true;
         Internal.settings.reloadProviders();
@@ -2320,7 +2326,7 @@ FocusScope {
         if (Date.now() - d.time > 600000)
             return;
         d.plugged.forEach(k => {
-            const list = games.filter(g => GameInfo.diskRoot(g) === k);
+            const list = games.filter(g => GameInfo.placeRoot(g) === k);
             if (list.length === 0)
                 return;
             // 6.6, approved demo 6.6: "Play from here / Copy to the console" (the notice when the

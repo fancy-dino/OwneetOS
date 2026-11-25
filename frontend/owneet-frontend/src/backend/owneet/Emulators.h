@@ -82,6 +82,8 @@ public:
     Q_INVOKABLE bool prepare(QObject* game) const;
     /// The command and the folder that open an emulator without a game: { command, workdir }
     Q_INVOKABLE QVariantMap openCommand(QObject* game, const QString& id) const;
+    /// Whether a disk ("internal", or its folder) has a console of that name (in any case)
+    Q_INVOKABLE bool nameTaken(const QString& name, const QString& root) const;
     /// Makes a console's folders in a disk's "Emulation" folder (made in the console's language when
     /// there is none): { ok, base, name, emulators, titles } (folder names), or { ok: false }
     Q_INVOKABLE QVariantMap create(const QString& name, const QString& root, const QString& language) const;

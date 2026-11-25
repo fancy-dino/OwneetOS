@@ -274,6 +274,8 @@ if grep -q '^@emulators' /steps.txt; then
     echo x > "$r/Emulazione/OldBox/Emulators/OldBoxEmu.AppImage"
     head -c 100000 /dev/zero > "$r/Emulazione/OldBox/Games/Lumen Drift.img"
     head -c 100000 /dev/zero > "$r/Emulazione/TinyPad/Giochi/Saltwind.img"
+    # a console of the same name on the console's own disk: OldBox cannot go there (4.9b)
+    mkdir -p "$HOME/Emulazione/oldbox/Emulators" "$HOME/Emulazione/oldbox/Games"
     # a games folder with its German name (open item 27): a game as any other
     mkdir -p "$r/Spiele/Night Convoy"; printf '#!/bin/bash\nexec true\n' > "$r/Spiele/Night Convoy/start.sh"
     export OWNEET_DISKS="${OWNEET_DISKS:+$OWNEET_DISKS:}$r"

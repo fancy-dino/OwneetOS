@@ -19,6 +19,10 @@ QtObject {
     // ---- Games for the user's own emulators ([[step-4.9-the-users-own-emulators]], `emulators`): no game
     // on a disk of the ones below (nothing is installed, moved or uninstalled by the console)
     function emulated(game) { return !!game && !!game.extra && !!game.extra["emu.console"]; }
+    // The disk a game is on, of either kind ("" for Steam's), and the folder that is copied and moved with
+    // it: the game's, or its whole console's (4.9b)
+    function placeRoot(game) { return emulated(game) ? String(game.extra["emu.root"]) : diskRoot(game); }
+    function placeDir(game) { return emulated(game) ? String(game.extra["emu.console"]) : onDisk(game) ? String(game.extra["disk.dir"]) : ""; }
 
     // ---- Games on a disk ([[step-4.3-local-drm-free-games]]): the provider gives each one its
     // folder ("disk.dir"), its disk ("disk.root": the mount folder, "internal" for the console's own

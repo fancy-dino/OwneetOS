@@ -1238,5 +1238,39 @@
   "details.emu.none": "Ancora nessuno",
   "details.emu.how": "Come si avvia",
   "emu.pointer": "Resta attivo finché chiudi l’emulatore.",
-  "files.emulation": "Emulazione · {disk}"
+  "files.emulation": "Emulazione · {disk}",
+  "emu.move": "Sposta {console} su un altro disco",
+  "emu.move.where": "{size}: {emulators} e {games} · ora su {disk}",
+  "emu.move.taken": "C’è già una console con questo nome",
+  "emu.move.taken.one": "C’è già una console chiamata {title}",
+  "emu.move.confirm.text": "{size}. I suoi giochi tornano giocabili quando ha finito.",
+  "emu.move.remove.on": "La console sarà solo su {to}.",
+  "emu.move.remove.off": "Una copia: la console resta anche su {from}.",
+  "emu.move.error": "Non è stato possibile spostare la console.",
+  "emu.move.cancel.many": "La copia parziale di {title} viene eliminata e resta tutto su {disk}, com’era. Con «Interrompi tutto» non viene copiato nemmeno il resto; ciò che è già copiato rimane.",
+  "emu.move.cancel.one": "Interrompi questa copia",
+  "emu.move.fail.some": "{ok} su {n} copiati su {to}",
+  "emu.move.fail.many": "{n} copie non sono riuscite",
+  "emu.move.fail.text": "Ciò che c’era è intatto: seleziona uno dei suoi giochi per i dettagli.",
+  "emu.plug.title": "Disco USB collegato: {what}",
+  "emu.plug.and": "{a} e {b}",
+  "emu.plug.choose": "Che cosa copiare?",
+  "emu.plug.choose.text": "Scegli che cosa copiare. «Elimina l’originale» lo toglie dal disco USB dopo il controllo della copia.",
+  "emu.plug.choose.console": "Una console va insieme ai suoi emulatori e a tutti i suoi giochi.",
+  "emu.plug.all": "Tutto",
+  "emu.plug.console": "Console · {games}",
+  "emu.plug.go": "Copia {n} ({size})",
+  "emu.plug.go.none": "Scegli almeno una voce",
+  "emu.plug.where": "Su quale disco copiare {n} voci ({size})?",
+  "emu.plug.remove.many": "Dopo il controllo, {n} originali vengono eliminati dal disco USB.",
+  "emu.plug.removed.many": "Copie controllate, {count} originali eliminati dal disco USB.",
+  "emu.plug.done": "Copia su {disk} completata",
+  "emu.consoles": {
+    "one": "{n} console",
+    "other": "{n} console"
+  },
+  "emu.emulators": {
+    "one": "{n} emulatore",
+    "other": "{n} emulatori"
+  }
 }

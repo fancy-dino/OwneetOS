@@ -1,0 +1,54 @@
+@nogames
+@owneetd
+@emulators
+# Moving a console of the user's between disks ([[step-4.9-the-users-own-emulators]], approved demo
+# 4.9b): the option, the disks, the confirmation, the copy (its games say so, A shows it again, Home
+# leaves it going on), a name that is taken, a USB disk plugged in with consoles and a game.
+wait 3
+pad rb
+pad menu
+pad down
+shot emum-01-options
+pad a
+wait 0.5
+shot emum-02-disks
+pad a
+wait 0.5
+shot emum-03-confirm
+pad up a
+wait 0.3
+shot emum-04-a-copy
+pad a down a
+wait 1
+shot emum-05-copying
+event home.requested {}
+wait 0.5
+pad rb
+shot emum-06-behind
+pad a
+wait 0.5
+shot emum-07-window-again
+wait 14
+shot emum-08-done
+pad down
+pad menu
+pad right right right right
+shot emum-09-options-oldbox
+pad a
+wait 0.5
+shot emum-10-name-taken
+pad b
+wait 1
+unplug RETRO-STICK
+wait 3
+shot emum-11-unplugged
+wait 5
+plug RETRO-STICK
+wait 4
+shot emum-12-plugged
+pad right a
+wait 1
+shot emum-13-what-to-copy
+pad a
+wait 0.5
+shot emum-14-which-disk

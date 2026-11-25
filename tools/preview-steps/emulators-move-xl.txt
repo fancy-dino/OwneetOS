@@ -1,0 +1,33 @@
+@nogames
+@owneetd
+@emulators
+# Moving a console (4.9b) at text size XL, in German
+pad lb down down down down right down
+pad right right right a
+wait 1
+pad b down
+pad right a
+wait 1
+pad down a
+wait 1
+pad b lb
+wait 1
+pad menu
+shot emumx-01-options
+pad down
+pad a
+wait 0.5
+shot emumx-02-disks
+pad b
+wait 0.5
+unplug RETRO-STICK
+wait 8
+plug RETRO-STICK
+wait 4
+shot emumx-03-plugged
+pad right a
+wait 1
+shot emumx-04-what-to-copy
+pad a
+wait 0.5
+shot emumx-05-which-disk

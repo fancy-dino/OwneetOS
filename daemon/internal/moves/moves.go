@@ -137,14 +137,15 @@ func isGamesFolder(name string) bool {
 	return false
 }
 
-// gameDir checks that dir is a game's folder in a games folder, on a mounted disk or in the home.
+// gameDir checks that dir is a game's folder in a games folder, or a console's in a folder "Emulation"
+// (consoles.go), on a mounted disk or in the home.
 func (m *Manager) gameDir(dir string) (string, error) {
 	dir = filepath.Clean(dir)
 	if !filepath.IsAbs(dir) || !(within(dir, m.Media) || within(dir, m.Home)) {
 		return "", ErrInvalid
 	}
 	parent := filepath.Dir(dir)
-	if !isGamesFolder(filepath.Base(parent)) || strings.HasPrefix(filepath.Base(dir), ".") {
+	if !(isGamesFolder(filepath.Base(parent)) || isEmulationFolder(filepath.Base(parent))) || strings.HasPrefix(filepath.Base(dir), ".") {
 		return "", ErrInvalid
 	}
 	if st, err := os.Lstat(dir); err != nil || !st.IsDir() {
@@ -153,8 +154,8 @@ func (m *Manager) gameDir(dir string) (string, error) {
 	return dir, nil
 }
 
-// gamesFolder is the games folder of a destination: the one it has (any case), or a new "Games".
-func (m *Manager) gamesFolder(to string) (string, error) {
+// destination is the folder of a destination that games folders are in: a disk's, or the home.
+func (m *Manager) destination(to string) (string, error) {
 	root := m.Home
 	if to != Internal {
 		root = filepath.Clean(to)
@@ -165,13 +166,7 @@ func (m *Manager) gamesFolder(to string) (string, error) {
 	if st, err := os.Stat(root); err != nil || !st.IsDir() {
 		return "", ErrInvalid
 	}
-	entries, _ := os.ReadDir(root)
-	for _, e := range entries {
-		if e.IsDir() && isGamesFolder(e.Name()) {
-			return filepath.Join(root, e.Name()), nil
-		}
-	}
-	return filepath.Join(root, "Games"), nil
+	return root, nil
 }
 
 func size(dir string) int64 {
@@ -192,31 +187,41 @@ func (m *Manager) Start(req Request) error {
 	if len(req.Games) == 0 {
 		return ErrInvalid
 	}
-	dest, err := m.gamesFolder(req.To)
+	root, err := m.destination(req.To)
 	if err != nil {
 		return err
 	}
 	var need, own int64
 	for i, g := range req.Games {
 		dir, err := m.gameDir(g.Dir)
-		if err != nil || within(dest, dir) || filepath.Dir(dir) == dest {
+		if err != nil {
 			return ErrInvalid
+		}
+		dest := folder(root, dir)
+		if within(dest, dir) || filepath.Dir(dir) == dest {
+			return ErrInvalid
+		}
+		if isConsole(dir) && taken(dest, filepath.Base(dir)) {
+			return ErrTaken
 		}
 		req.Games[i].Dir = dir
 		need += size(dir)
 		if !req.Remove && !g.Remove {
 			own += m.ownSize(dir)
+			if isConsole(dir) {
+				own += m.consoleOwnSize(dir)
+			}
 		}
 	}
 	// the copies' own folders go on the console's disk: counted when the games go there too
-	if sameDisk(filepath.Dir(dest), m.Home) {
+	if sameDisk(root, m.Home) {
 		need += own
 	}
 	freeAt := m.Free
 	if freeAt == nil {
 		freeAt = free
 	}
-	room, err := freeAt(filepath.Dir(dest))
+	room, err := freeAt(root)
 	if err != nil {
 		return ErrInvalid
 	}
@@ -234,9 +239,9 @@ func (m *Manager) Start(req Request) error {
 	m.st = Status{State: "copy", Count: len(req.Games), Title: req.Games[0].Title, Remove: req.Remove || req.Games[0].Remove,
 		Failed: []string{}, Skipped: []string{}, Moved: []string{}}
 	m.mu.Unlock()
-	m.Log.Info("moving games", "count", len(req.Games), "to", dest, "remove", req.Remove)
+	m.Log.Info("moving games", "count", len(req.Games), "to", root, "remove", req.Remove)
 	m.publish(true)
-	go m.run(req, dest)
+	go m.run(req, root)
 	return nil
 }
 
@@ -371,7 +376,7 @@ func (m *Manager) publish(force bool) {
 	m.Broker.Publish("moves.changed", m.Status())
 }
 
-func (m *Manager) run(req Request, dest string) {
+func (m *Manager) run(req Request, root string) {
 	defer func() {
 		m.mu.Lock()
 		m.running = false
@@ -391,7 +396,7 @@ func (m *Manager) run(req Request, dest string) {
 		}
 		m.mu.Unlock()
 		m.set(func(s *Status) { s.State, s.Index, s.Title, s.Percent, s.Remove = "copy", i, g.Title, 0, remove }, true)
-		target := freeName(filepath.Join(dest, filepath.Base(g.Dir)))
+		target := freeName(filepath.Join(folder(root, g.Dir), filepath.Base(g.Dir)))
 		err := m.copyTree(g.Dir, target)
 		if errors.Is(err, errStopped) {
 			os.RemoveAll(target)
@@ -432,7 +437,11 @@ func (m *Manager) run(req Request, dest string) {
 		if !remove {
 			// a copy: it gets a copy of the original's own folders (without its prefix a Windows
 			// game may not start, 3j); like the check, only a shutdown stops it
-			if err := m.copyOwn(g.Title, g.Dir, target); err != nil {
+			err := m.copyOwn(g.Title, g.Dir, target)
+			if err == nil && isConsole(g.Dir) {
+				err = m.carryConsole(g.Title, g.Dir, target, false)
+			}
+			if err != nil {
 				os.RemoveAll(target)
 				if errors.Is(err, errStopped) {
 					m.Log.Info("the copy of the game's own folders stopped, the console shuts down: the copy removed, the original untouched", "game", g.Title)
@@ -458,9 +467,15 @@ func (m *Manager) run(req Request, dest string) {
 			} else {
 				removed = true
 				m.carry(g.Title, g.Dir, target)
+				if isConsole(g.Dir) {
+					_ = m.carryConsole(g.Title, g.Dir, target, true)
+				}
 			}
 		}
 		m.keepChoice(g.Title, g.Dir, target, removed)
+		if isConsole(g.Dir) {
+			m.keepConsoleChoices(g.Title, g.Dir, target, removed)
+		}
 		m.set(func(s *Status) { s.Moved = append(s.Moved, target) }, true)
 	}
 	m.set(func(s *Status) { s.State = "done" }, true)

@@ -15,7 +15,7 @@ FocusScope {
     signal launch(var game)
     // 6.6e: the copy of games (MoveSheet): the covers of its games say how it goes, A shows it
     property var copying: null
-    function copyOf(game) { return copying && GameInfo.onDisk(game) ? copying.badge(String(game.extra["disk.dir"])) : null; }
+    function copyOf(game) { return copying && GameInfo.placeDir(game) !== "" ? copying.badge(GameInfo.placeDir(game)) : null; }
     signal details(var game)
     signal options(var game)
     signal chooseSort()

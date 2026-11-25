@@ -21,6 +21,9 @@
 // goes on behind it; the top bar shows it (jobText), the covers of its games their state (badge),
 // and A on one of them shows the window again (reopen); one copy at a time; its end, or a copy
 // that did not work, with the window closed: a notice.
+// Approved demo 4.9b ([[step-4.9-the-users-own-emulators]]): a console of the user's (its emulators and
+// its games) moves as a game does, always whole; a disk with a console of that name is off; a USB
+// disk's consoles are counted and listed with its games.
 import QtQuick 2.15
 import "foundation"
 
@@ -29,7 +32,7 @@ Dialog {
     property Item theme: null            // diskName(), notify(), openSteam(), readGamesQuietly()
     property var toast: null
     property string mode: ""             // disks, confirm, run, ask, failed, steam, plug, choose
-    property var games: []               // [{ dir, title, size }]
+    property var games: []               // [{ dir, title, size }]; a console also { console: true, games }
     property string from: ""             // the disk they are on ("internal" or its folder)
     property string to: ""
     property bool remove: true
@@ -42,6 +45,7 @@ Dialog {
     property var volumes: []
     property var st: ({ state: "" })     // owneetd's GET /v1/moves
     property bool running: false         // a copy started and not ended, its window shown or not (6.6e)
+    readonly property bool consoles: games.some(g => g.console === true)    // 4.9b: other words
     readonly property real need: games.reduce((a, g) => a + g.size, 0)
     readonly property string fromName: theme ? theme.diskName(from) : ""
     readonly property string toName: theme ? theme.diskName(to) : ""
@@ -66,6 +70,9 @@ Dialog {
             return Tr.tr(v.why === "windows" ? "move.readonly" : "disk.note.readonly");
         if (v.free < need)
             return Tr.tr("move.nospace", { size: GameInfo.sizeAuto(need) });
+        const taken = games.filter(g => g.console === true && emulators.nameTaken(g.title, v.key));
+        if (taken.length > 0)
+            return games.length === 1 ? Tr.tr("emu.move.taken") : Tr.tr("emu.move.taken.one", { title: taken[0].title });
         return "";
     }
     function targets() { return volumes.filter(v => v.key !== from); }
@@ -79,12 +86,29 @@ Dialog {
         remove = true;
         showDisks();
     }
+    // 4.9b: Menu → Move {console} to another disk
+    function consoleOf(game) {
+        const dir = String(game.extra["emu.console"]);
+        const list = theme ? theme.games.filter(g => GameInfo.emulated(g) && g.extra["emu.console"] === dir) : [];
+        return { dir: dir, title: GameInfo.source(game), size: diskGames.folderSize(dir), console: true, games: list.length,
+                 emulators: emulators.list(game).length };
+    }
+    function openConsole(game) {
+        games = [consoleOf(game)];
+        from = GameInfo.placeRoot(game);
+        plugged = false;
+        remove = true;
+        showDisks();
+    }
     // a USB disk with games plugged in (key: its folder)
     function openPlug(key, list) {
         from = key;
         plugged = true;
         remove = false;
-        plugGames = list.map(g => ({ dir: String(g.extra["disk.dir"]), title: g.title, size: diskGames.folderSize(String(g.extra["disk.dir"])) }));
+        const seen = {};
+        plugGames = list.filter(g => GameInfo.emulated(g) && !seen[g.extra["emu.console"]] && (seen[g.extra["emu.console"]] = true)).map(g => consoleOf(g))
+            .concat(list.filter(g => !GameInfo.emulated(g))
+                    .map(g => ({ dir: String(g.extra["disk.dir"]), title: g.title, size: diskGames.folderSize(String(g.extra["disk.dir"])) })));
         games = plugGames;
         const all = {};
         plugGames.forEach(g => all[g.dir] = true);
@@ -97,7 +121,12 @@ Dialog {
     }
     function showPlug() {
         mode = "plug";
-        title = Tr.tr("move.plug.title", { n: plugGames.length });
+        const cons = plugGames.filter(g => g.console === true).length, n = plugGames.length - cons;
+        const words = [];
+        if (n > 0) words.push(Tr.trn("games.count", n));
+        if (cons > 0) words.push(Tr.trn("emu.consoles", cons));
+        title = cons === 0 ? Tr.tr("move.plug.title", { n: n })
+              : Tr.tr("emu.plug.title", { what: words.length > 1 ? Tr.tr("emu.plug.and", { a: words[0], b: words[1] }) : words[0] });
         text = Tr.tr("move.plug.text");
         buttons = [{ text: Tr.tr("move.plug.here"), style: "primary", action: () => root.close() },
                    { text: Tr.tr("move.plug.copy"), action: () => plugGames.length > 1 ? root.showChoose() : root.showDisks() }];
@@ -118,20 +147,22 @@ Dialog {
         const r = list.filter(g => removing[g.dir]);
         return r.length === 0 ? Tr.tr("move.plug.where.text")
              : r.length === 1 ? Tr.tr("move.plug.remove.one", { title: r[0].title })
-             : Tr.tr("move.plug.remove.many", { n: r.length });
+             : Tr.tr(list.some(g => g.console) ? "emu.plug.remove.many" : "move.plug.remove.many", { n: r.length });
     }
     function goButton() {
         const c = chosenGames;
-        const text = c.length === 0 ? Tr.tr("move.plug.go.none")
+        const any = plugGames.some(g => g.console === true);
+        const text = c.length === 0 ? Tr.tr(any ? "emu.plug.go.none" : "move.plug.go.none")
                    : c.length === 1 ? Tr.tr("move.plug.go.one", { title: c[0].title, size: GameInfo.sizeAuto(c[0].size) })
-                   : Tr.tr("move.plug.go", { n: c.length, size: GameInfo.sizeAuto(c.reduce((a, g) => a + g.size, 0)) });
+                   : Tr.tr(c.some(g => g.console) ? "emu.plug.go" : "move.plug.go", { n: c.length, size: GameInfo.sizeAuto(c.reduce((a, g) => a + g.size, 0)) });
         return [{ text: text, style: "primary", dim: c.length === 0, action: () => root.chooseDone() }];
     }
     function showChoose() {
         chooseFlick.contentY = 0;
         mode = "choose";
-        title = Tr.tr("move.plug.choose");
-        text = Tr.tr("move.plug.choose.text");
+        const any = plugGames.some(g => g.console === true);
+        title = Tr.tr(any ? "emu.plug.choose" : "move.plug.choose");
+        text = any ? Tr.tr("emu.plug.choose.text") + " " + Tr.tr("emu.plug.choose.console") : Tr.tr("move.plug.choose.text");
         if (fromReadOnly) removing = ({});
         buttons = goButton();
         prompts = defaultPrompts;
@@ -191,9 +222,11 @@ Dialog {
         volumes = storage.volumes();
         mode = "disks";
         title = plugged ? (games.length === 1 ? Tr.tr("move.plug.where.one", { title: games[0].title, size: GameInfo.sizeAuto(need) })
-                                              : Tr.tr("move.plug.where", { n: games.length, size: GameInfo.sizeAuto(need) }))
+                                              : Tr.tr(consoles ? "emu.plug.where" : "move.plug.where", { n: games.length, size: GameInfo.sizeAuto(need) }))
                         : Tr.tr("move.title", { title: games[0].title });
         text = plugged ? originalsNote(games)
+                       : consoles ? Tr.tr("emu.move.where", { size: GameInfo.sizeAuto(need), emulators: Tr.trn("emu.emulators", games[0].emulators),
+                                                             games: Tr.trn("games.count", games[0].games), disk: fromName })
                        : Tr.tr("move.where", { size: GameInfo.sizeAuto(need), disk: fromName });
         buttons = [];
         prompts = defaultPrompts;
@@ -213,7 +246,7 @@ Dialog {
         to = key;
         mode = "confirm";
         title = Tr.tr("move.confirm", { title: games[0].title, disk: toName });
-        text = Tr.tr("move.confirm.text", { size: GameInfo.sizeAuto(need) });
+        text = Tr.tr(consoles ? "emu.move.confirm.text" : "move.confirm.text", { size: GameInfo.sizeAuto(need) });
         buttons = [{ text: Tr.tr("move.start"), style: "primary", action: () => root.start() },
                    { text: Tr.tr("move.back"), action: () => root.showDisks() }];
         backAction = () => root.showDisks();
@@ -233,7 +266,7 @@ Dialog {
             Nav.feedback("error");
             root.close(true);
             const code = data && data.error ? data.error.code : "";
-            if (root.toast) root.toast.show(Tr.tr(code === "moves.no_space" ? "move.error.space" : "move.error"));
+            if (root.toast) root.toast.show(Tr.tr(code === "moves.no_space" ? "move.error.space" : code === "moves.name_taken" ? "emu.move.taken" : root.consoles ? "emu.move.error" : "move.error"));
         });
     }
 
@@ -259,10 +292,10 @@ Dialog {
         title = Tr.tr("move.cancel.ask");
         // 6.6d: games left after this one: stop only this game, or all
         const more = (st.index || 0) + 1 < games.length;
-        text = Tr.tr(more ? "move.cancel.text.many" : "move.cancel.text", { title: current.title, disk: fromName });
+        text = Tr.tr(more ? (consoles ? "emu.move.cancel.many" : "move.cancel.text.many") : "move.cancel.text", { title: current.title, disk: fromName });
         const stopAll = () => owneetd.post("/v1/moves/stop", {}, () => {});
         buttons = [{ text: Tr.tr("move.cancel.keep"), style: "primary", action: () => root.keepGoing() }].concat(more
-            ? [{ text: Tr.tr("move.cancel.one"), action: () => root.stopOne() },
+            ? [{ text: Tr.tr(consoles ? "emu.move.cancel.one" : "move.cancel.one"), action: () => root.stopOne() },
                { text: Tr.tr("move.cancel.all"), action: stopAll }]
             : [{ text: Tr.tr("move.cancel.stop"), action: stopAll }]);
         prompts = [{ buttons: ["a"], label: Tr.tr("prompt.select") }, { buttons: ["b"], label: Tr.tr("move.cancel.keep") }];
@@ -327,7 +360,7 @@ Dialog {
         mode = "failed";
         if (!quiet) Nav.feedback("error");
         const several = games.length > 1;
-        title = several ? Tr.tr("move.fail.some", { ok: games.length - failedTitles.length - skippedTitles.length, n: games.length, to: toName })
+        title = several ? Tr.tr(consoles ? "emu.move.fail.some" : "move.fail.some", { ok: games.length - failedTitles.length - skippedTitles.length, n: games.length, to: toName })
                         : Tr.tr("move.fail.title", { title: failedTitles[0] });
         text = "";                        // under the steps, as in the demo
         failText = (several ? Tr.tr("move.fail.some.text", { titles: failedTitles.join(", ") }) + " " : "")
@@ -356,9 +389,9 @@ Dialog {
                 const gone = copied.filter(g => removing[g.dir]);
                 const detail = !plugged ? "" : gone.length === 0 ? { key: "move.plug.where.text", args: {} }
                              : gone.length === 1 ? { key: "move.plug.removed.one", args: { title: gone[0].title } }
-                             : { key: "move.plug.removed.many", args: { count: gone.length } };
+                             : { key: copied.some(g => g.console) ? "emu.plug.removed.many" : "move.plug.removed.many", args: { count: gone.length } };
                 if (plugged && copied.length > 1)
-                    root.theme.notify({ key: "move.plug.done", args: Object.assign({ n: copied.length, disk: toName }, detail.args), detailKey: detail.key, icon: "check", kind: "info" });
+                    root.theme.notify({ key: copied.some(g => g.console) ? "emu.plug.done" : "move.plug.done", args: Object.assign({ n: copied.length, disk: toName }, detail.args), detailKey: detail.key, icon: "check", kind: "info" });
                 else if (plugged)
                     root.theme.notify({ key: "copy.done", args: Object.assign({ title: copied[0].title, disk: toName }, detail.args), detailKey: detail.key, icon: "check", kind: "info" });
                 else
@@ -387,8 +420,8 @@ Dialog {
                     root.mode = "failed";
                     const f = data.failed;
                     if (root.theme)
-                        root.theme.notify({ key: f.length > 1 ? "move.fail.banner.many" : "move.fail.banner", args: { title: f[0], n: f.length },
-                                            detailKey: f.length > 1 ? "move.fail.banner.text.many" : "move.fail.banner.text", icon: "alert", kind: "attention" });
+                        root.theme.notify({ key: f.length > 1 ? (root.consoles ? "emu.move.fail.many" : "move.fail.banner.many") : "move.fail.banner", args: { title: f[0], n: f.length },
+                                            detailKey: root.consoles ? "emu.move.fail.text" : f.length > 1 ? "move.fail.banner.text.many" : "move.fail.banner.text", icon: "alert", kind: "attention" });
                 } else if (root.visible) {
                     root.mode = "run"; doneTimer.start();
                 } else {
@@ -474,7 +507,8 @@ Dialog {
         id: chooseFlick
         visible: root.mode === "choose"
         width: Theme.px(720) + 2 * pad   // the rows 720 wide; the margin keeps the selection's frame whole
-        height: Math.min(contentHeight, Theme.px(360))
+        // a console among them: one more line above (4.9b), so the window stays whole at text size XL
+        height: Math.min(contentHeight, Theme.px(root.plugGames.some(g => g.console === true) ? 300 : 360))
         anchors.horizontalCenter: parent.horizontalCenter
         clip: true
         readonly property real pad: Theme.px(10)
@@ -513,7 +547,7 @@ Dialog {
                 }
             }
             Repeater {
-                model: root.mode === "choose" ? [{ dir: "", title: Tr.tr("move.plug.all"), size: root.plugGames.reduce((a, g) => a + g.size, 0) }].concat(root.plugGames) : []
+                model: root.mode === "choose" ? [{ dir: "", title: Tr.tr(root.plugGames.some(g => g.console === true) ? "emu.plug.all" : "move.plug.all"), size: root.plugGames.reduce((a, g) => a + g.size, 0) }].concat(root.plugGames) : []
                 Rectangle {
                     readonly property bool all: modelData.dir === ""
                     readonly property bool copied: all ? root.chosenGames.length === root.plugGames.length : root.chosen[modelData.dir] === true
@@ -538,7 +572,7 @@ Dialog {
                         Text {
                             id: sizeText
                             anchors.baseline: label.baseline
-                            text: "· " + GameInfo.sizeAuto(modelData.size)
+                            text: "· " + (modelData.console === true ? Tr.tr("emu.plug.console", { games: Tr.trn("games.count", modelData.games) }) + " · " : "") + GameInfo.sizeAuto(modelData.size)
                             color: Theme.muted
                             font.family: Theme.textFont
                             font.pixelSize: Theme.fs(12.5)
@@ -586,7 +620,7 @@ Dialog {
         }
         Text {
             width: parent.width
-            text: root.remove ? Tr.tr("move.remove.on", { to: root.toName }) : Tr.tr("move.remove.off", { from: root.fromName })
+            text: root.remove ? Tr.tr(root.consoles ? "emu.move.remove.on" : "move.remove.on", { to: root.toName }) : Tr.tr(root.consoles ? "emu.move.remove.off" : "move.remove.off", { from: root.fromName })
             color: Theme.muted
             font.family: Theme.textFont
             font.pixelSize: Theme.fs(14.5)
