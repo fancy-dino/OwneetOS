@@ -1,0 +1,21 @@
+@nogames
+@owneetd
+@gamescope
+@emulators
+# The file manager with the folder of the user's own emulators (4.9) and a games folder with its
+# German name (open item 27): Settings > Advanced.
+wait 3
+pad rb
+shot emuf-01-library
+pad rb
+pad up
+wait 0.5
+shot emuf-02-settings
+pad right
+pad a
+wait 1
+shot emuf-03-places
+pad right
+pad a
+wait 0.5
+shot emuf-04-emulation

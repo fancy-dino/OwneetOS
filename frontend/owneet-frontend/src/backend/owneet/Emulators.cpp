@@ -190,8 +190,19 @@ QFileInfoList game_files(const QString& dir)
     return list;
 }
 
+// A name as it is compared: lower case, an accent written in one way only (a disk may have it in two)
+QString plain(const QString& name)
+{
+    return name.normalized(QString::NormalizationForm_C).toLower();
+}
+
 QString folder_name(const QString& kind, const QString& language)
 {
+    if (kind == QLatin1String("base")) {
+        const QString lang = language.left(2);
+        return lang == QLatin1String("it") ? QStringLiteral("Emulazione") : lang == QLatin1String("fr") ? QStringLiteral("Émulation")
+             : lang == QLatin1String("es") ? QStringLiteral("Emulación") : QStringLiteral("Emulation");
+    }
     static const QHash<QString, QPair<QString, QString>> names {
         { QStringLiteral("en"), { QStringLiteral("Emulators"), QStringLiteral("Games") } },
         { QStringLiteral("it"), { QStringLiteral("Emulatori"), QStringLiteral("Giochi") } },
@@ -210,6 +221,20 @@ namespace owneet {
 Emulators::Emulators(QObject* parent)
     : QObject(parent)
 {}
+
+const QStringList& Emulators::baseNames()
+{
+    static const QStringList names {
+        QStringLiteral("emulation"), QStringLiteral("emulazione"), QStringLiteral("émulation"), QStringLiteral("emulación"),
+        QStringLiteral("emulacion"),
+    };
+    return names;
+}
+
+bool Emulators::isBase(const QString& name)
+{
+    return baseNames().contains(plain(name));
+}
 
 const QStringList& Emulators::emulatorsNames()
 {
@@ -233,7 +258,7 @@ Emulators::ConsoleDir Emulators::consoleDir(const QString& path)
     ConsoleDir out;
     const QDir dir(path);
     for (const QString& name : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-        const QString lower = name.normalized(QString::NormalizationForm_C).toLower();
+        const QString lower = plain(name);
         if (out.emulators.isEmpty() && emulatorsNames().contains(lower))
             out.emulators = dir.filePath(name);
         else if (out.games.isEmpty() && gamesNames().contains(lower))
@@ -241,27 +266,26 @@ Emulators::ConsoleDir Emulators::consoleDir(const QString& path)
     }
     if (out.emulators.isEmpty() || out.games.isEmpty())
         return {};
-    // a game of its own: installed by the console, GOG's, or with something to start at its top
-    for (const QFileInfo& info : dir.entryInfoList(QDir::Files | QDir::Hidden | QDir::NoDotAndDotDot)) {
-        const QString name = info.fileName().toLower();
-        if (name.startsWith(QLatin1String(".owneet-install")) || name == QLatin1String("game.txt") || name == QLatin1String("gameinfo")
-                || name.startsWith(QLatin1String("goggame-")) || info.suffix().toLower() == QLatin1String("exe")
-                || info.suffix().toLower() == QLatin1String("msi") || program_rank(info) > 0)
-            return {};
-    }
     out.path = QDir::cleanPath(path);
     out.name = dir.dirName();
     return out;
 }
 
-bool Emulators::atTop(const QString& root)
+QVector<Emulators::ConsoleDir> Emulators::consolesOf(const QString& root)
 {
-    const QDir dir(root);
-    for (const QString& name : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-        if (consoleDir(dir.filePath(name)).valid())
-            return true;
+    QVector<ConsoleDir> out;
+    const QDir top(root);
+    for (const QString& base : top.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name)) {
+        if (!isBase(base))
+            continue;
+        const QDir dir(top.filePath(base));
+        for (const QString& name : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name)) {
+            const ConsoleDir console = consoleDir(dir.filePath(name));
+            if (console.valid())
+                out.append(console);
+        }
     }
-    return false;
+    return out;
 }
 
 QVector<Emulators::Emulator> Emulators::emulatorsOf(const ConsoleDir& console)
@@ -496,16 +520,16 @@ QVariantMap Emulators::create(const QString& name, const QString& root, const QS
     if (folder.isEmpty() || !QFileInfo(top).isDir() || (root != QLatin1String("internal") && QStorageInfo(top).isReadOnly()))
         return failed;
     const QDir disk(top);
-    QString games;
-    for (const QString& dir : disk.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-        if (DiskGames::folderNames().contains(dir.toLower())) {
-            games = dir;
+    QString base;
+    for (const QString& dir : disk.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name)) {
+        if (isBase(dir)) {
+            base = dir;
             break;
         }
     }
-    if (games.isEmpty())
-        games = language.startsWith(QLatin1String("it")) ? QStringLiteral("Giochi") : QStringLiteral("Games");
-    const QString path = disk.filePath(games) + QChar('/') + folder;
+    if (base.isEmpty())
+        base = folder_name(QStringLiteral("base"), language);
+    const QString path = disk.filePath(base) + QChar('/') + folder;
     ConsoleDir console = consoleDir(path);          // there already: nothing is made twice
     if (!console.valid()) {
         const QString emus = folder_name(QStringLiteral("emulators"), language), titles = folder_name(QStringLiteral("games"), language);
@@ -514,10 +538,10 @@ QVariantMap Emulators::create(const QString& name, const QString& root, const QS
             return failed;
         }
         console = consoleDir(path);
-        if (!console.valid())                       // a game of its own has that name
+        if (!console.valid())
             return failed;
     }
-    return { { QStringLiteral("ok"), true }, { QStringLiteral("name"), console.name }, { QStringLiteral("games"), games },
+    return { { QStringLiteral("ok"), true }, { QStringLiteral("name"), console.name }, { QStringLiteral("base"), base },
              { QStringLiteral("emulators"), QFileInfo(console.emulators).fileName() },
              { QStringLiteral("titles"), QFileInfo(console.games).fileName() } };
 }

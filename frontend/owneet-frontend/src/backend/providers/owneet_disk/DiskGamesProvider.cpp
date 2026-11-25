@@ -41,8 +41,7 @@
 // DOSBox (its play task starts dosbox.exe), started with Linux's own DOSBox instead (no Proton).
 //
 // A folder with the user's own emulators and games ([[step-4.9-the-users-own-emulators]],
-// owneet::Emulators), at the top of a disk or in a games folder, is no game: each of its games is
-// listed, with the extras "emu.console" (the folder), "emu.name" (the user's name for it), "emu.root"
+// owneet::Emulators), in the folder "Emulation" at the top of a disk: each of its games is listed, with the extras "emu.console" (the folder), "emu.name" (the user's name for it), "emu.root"
 // (as "disk.root"), "emu.path" (the game's file or folder) and "emu.files" (what can be started).
 
 #include "DiskGamesProvider.h"
@@ -531,24 +530,17 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
         }
     }
     for (const auto& root : disk_roots()) {
+        for (const auto& console : owneet::Emulators::consolesOf(root.first))
+            add_console(sctx, display_name(), console, root.second);
         const QStringList top = QDir(root.first).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
         for (const QString& folder : top) {
-            if (!owneet::DiskGames::folderNames().contains(folder.toLower())) {
-                const auto console = owneet::Emulators::consoleDir(root.first + QChar('/') + folder);
-                if (console.valid())
-                    add_console(sctx, display_name(), console, root.second);
+            if (!owneet::DiskGames::folderNames().contains(folder.toLower()))
                 continue;
-            }
             const QString games_dir = root.first + QChar('/') + folder;
             Log::info(display_name(), LOGMSG("Looking for games in `%1`").arg(games_dir));
             const QStringList game_folders = QDir(games_dir).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
             for (const QString& game_folder : game_folders) {
                 const QString game_dir = games_dir + QChar('/') + game_folder;
-                const auto console = owneet::Emulators::consoleDir(game_dir);
-                if (console.valid()) {
-                    add_console(sctx, display_name(), console, root.second);
-                    continue;
-                }
                 Found found;
                 // being installed (step 4.6): an installer in the folder itself (installed in place,
                 // 3ad) keeps the game listed "not installed", so its cover shows the progress; one

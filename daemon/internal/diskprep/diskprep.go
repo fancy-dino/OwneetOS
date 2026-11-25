@@ -33,7 +33,7 @@ const Unit = "owneet-prepare-disk.service"
 const MaxNameBytes = 16
 
 // Folders are the names the Games folder may get, by the console's language ([[games-on-disk]]).
-var Folders = []string{"Games", "Giochi"}
+var Folders = []string{"Games", "Giochi", "Spiele", "Jeux", "Juegos"}
 
 // Partition is a partition of a disk, as owneet-prepare-disk lists it.
 type Partition struct {

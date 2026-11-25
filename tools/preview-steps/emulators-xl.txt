@@ -30,7 +30,7 @@ shot emux-06-options-typed
 key minus g
 pad menu
 shot emux-07-saved-toast
-pad right right right right
+pad right right right right right
 pad a
 shot emux-08-add-games
 pad right right

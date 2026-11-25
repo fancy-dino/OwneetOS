@@ -34,7 +34,7 @@ const Internal = "internal"
 
 // GamesFolders are the names of a games folder ([[games-on-disk]]), in any case; a new one is
 // "Games".
-var GamesFolders = []string{"games", "giochi"}
+var GamesFolders = []string{"games", "giochi", "spiele", "jeux", "juegos"}
 
 // Game is a game's folder and its title (for the screens).
 type Game struct {

@@ -30,7 +30,7 @@
 #
 # The other internal disks the player chose to prepare for games ([[step-6.7-preparing-other-disks]]):
 # OWNEET_INSTALL_GAMES_<n>_DISK, _SIZE, _SERIAL, _ERASE (the same path: confirmed), _ERASE_WINDOWS and
-# _NAME (the disk's name), n from 1 to 8, and OWNEET_INSTALL_GAMES_FOLDER (Games or Giochi). They are
+# _NAME (the disk's name), n from 1 to 8, and OWNEET_INSTALL_GAMES_FOLDER (Games, Giochi…). They are
 # checked with the system's disk, before anything is touched, and prepared at the end (state "games")
 # by owneet-prepare-disk: one ext4 file system with the Games folder; error games_failed.
 #
@@ -195,7 +195,7 @@ for n in 1 2 3 4 5 6 7 8; do
     games_disks+=("$g"); games_names+=("$gname")
 done
 if (( ${#games_disks[@]} > 0 )); then
-    [[ "$OWNEET_INSTALL_GAMES_FOLDER" == Games || "$OWNEET_INSTALL_GAMES_FOLDER" == Giochi ]] || fail bad_name "Unknown games folder."
+    [[ "$OWNEET_INSTALL_GAMES_FOLDER" =~ ^(Games|Giochi|Spiele|Jeux|Juegos)$ ]] || fail bad_name "Unknown games folder."
     for i in "${!games_disks[@]}"; do
         code="$("$PREPARE" check-name "${games_names[$i]}" "$disk" "${games_disks[@]}")" \
             || fail "${code:-bad_name}" "The name ${games_names[$i]} cannot be given ($code)."

@@ -27,6 +27,8 @@ public:
     /// The names of the games folder at the top of a disk and in the home folder, lower case:
     /// "games" and its translations ([[games-on-disk]])
     static const QStringList& folderNames();
+    /// The name a new games folder gets, in the console's language
+    Q_INVOKABLE QString gamesFolderName(const QString& language) const;
     /// The file the user chose for a game folder (relative to it), or "" when none was chosen
     static QString savedChoice(const QString& game_dir);
     /// Makes `game` start `file` (relative to its folder `game_dir`): its command and working

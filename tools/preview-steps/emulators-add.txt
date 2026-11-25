@@ -6,11 +6,11 @@
 # a game of two files, none yet, opening an emulator with the pointer explained.
 wait 3
 pad rb
-pad right right right
+pad right right right right
 pad a
 shot emu-21-none
 pad b
-pad left
+pad left left
 pad a
 shot emu-22-choose
 pad down a
@@ -25,7 +25,7 @@ pad a
 wait 0.5
 shot emu-24-pointer-explained
 pad b
-pad right right
+pad right right right
 pad a
 shot emu-25-add-games
 pad right right

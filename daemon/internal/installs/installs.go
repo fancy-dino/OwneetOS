@@ -64,7 +64,7 @@ const (
 
 // GamesFolders are the names of a games folder (as the interface's DiskGames::folderNames,
 // compared without case).
-var GamesFolders = []string{"games", "giochi"}
+var GamesFolders = []string{"games", "giochi", "spiele", "jeux", "juegos"}
 
 var (
 	ErrInvalid  = errors.New("not an installer or a games folder the console can use")

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // The user's own emulators ([[step-4.9-the-users-own-emulators]], approved demo
-// design/demos/4.9-users-own-emulators.html, [[users-own-emulators]]): a folder named by the user as
-// they like (the console's name) with two folders in it, the emulators and the games. The user brings
-// both; OwneetOS ships, downloads, links and names no emulator, and configures none: it starts a
+// design/demos/4.9-users-own-emulators.html, [[users-own-emulators]]): at the top of a disk, beside the
+// games folder, a folder "Emulation" (owner, 2026-11-25: no game's folder is looked into); in it, a
+// folder named by the user as they like (the console's name) with two folders in it, the emulators and
+// the games. The user brings both; OwneetOS ships, downloads, links and names no emulator, and configures none: it starts a
 // program of the user's with a file of the user's (owneet-emulator-run, packages/owneetd).
 // The disk-games provider lists the games; the theme asks, through `emulators`, which emulator and
 // which file, and how it starts; the answers are kept in the console's settings (emulators.json).
@@ -43,11 +44,12 @@ public:
 
     explicit Emulators(QObject* parent = nullptr);
 
-    /// The names of the two folders, lower case, in the console's languages
+    /// The names of the folder at the top of a disk, and of the two, lower case, in the console's languages
+    static const QStringList& baseNames();
+    static bool isBase(const QString& name);
     static const QStringList& emulatorsNames();
     static const QStringList& gamesNames();
-    /// A folder with the two in it and nothing to start of its own (a game for the PC that happens to
-    /// have folders with these names stays a game); not valid otherwise
+    /// A folder with the two in it; not valid otherwise
     static ConsoleDir consoleDir(const QString& path);
     static QVector<Emulator> emulatorsOf(const ConsoleDir& console);
     static QVector<Title> titlesOf(const ConsoleDir& console);
@@ -55,8 +57,8 @@ public:
     static QStringList splitOptions(const QString& line);
     /// The command that starts an emulator (with a game, unless `file` is empty)
     static QStringList command(const QString& emulator, const QStringList& options, const QString& file);
-    /// Whether a disk has such a folder at its top (the games folder apart)
-    static bool atTop(const QString& root);
+    /// The consoles in a disk's "Emulation" folders
+    static QVector<ConsoleDir> consolesOf(const QString& root);
 
     // ---- For the theme. `game`: a game whose extra "emu.console" is its console's folder
     /// [{ id, name }]: read from the disk now
@@ -80,8 +82,8 @@ public:
     Q_INVOKABLE bool prepare(QObject* game) const;
     /// The command and the folder that open an emulator without a game: { command, workdir }
     Q_INVOKABLE QVariantMap openCommand(QObject* game, const QString& id) const;
-    /// Makes a console's folders in a disk's games folder (made in the console's language when there
-    /// is none): { ok, games, emulators, titles } (folder names), or { ok: false }
+    /// Makes a console's folders in a disk's "Emulation" folder (made in the console's language when
+    /// there is none): { ok, base, name, emulators, titles } (folder names), or { ok: false }
     Q_INVOKABLE QVariantMap create(const QString& name, const QString& root, const QString& language) const;
 };
 } // namespace owneet

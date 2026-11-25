@@ -25,8 +25,8 @@
 # OWNEET_PREPARE_ERASE set to the same disk path (the player held A to confirm erasing this very disk:
 # nothing is formatted without it, [[user-data]]), OWNEET_PREPARE_ERASE_WINDOWS=yes when Windows or
 # BitLocker is on it (the specific warning was confirmed too), OWNEET_PREPARE_NAME (the disk's name:
-# 1 to 16 bytes, ext4's label, never another disk's name) and OWNEET_PREPARE_FOLDER (Games or Giochi,
-# the console's language). Never from the USB stick: there only the installer prepares disks. Its
+# 1 to 16 bytes, ext4's label, never another disk's name) and OWNEET_PREPARE_FOLDER (the Games
+# folder's name in the console's language). Never from the USB stick: there only the installer prepares disks. Its
 # progress goes to /run/owneet/prepare.json: {"state", "disk", "error", "time"}; states: preparing,
 # erasing, formatting, done, failed. Error codes: installed_only, no_disk, disk_changed, not_allowed,
 # erase_not_confirmed, windows_not_confirmed, bad_name, name_taken, in_use, partition_failed,
@@ -189,7 +189,7 @@ case "$MODE" in
     format)
         [[ $# -eq 4 ]] || { echo "usage: owneet-prepare-disk format DISK NAME FOLDER" >&2; exit 2; }
         name_ok "$3" || { echo bad_name; exit 1; }
-        [[ "$4" == Games || "$4" == Giochi ]] || { echo bad_name; exit 1; }
+        [[ "$4" =~ ^(Games|Giochi|Spiele|Jeux|Juegos)$ ]] || { echo bad_name; exit 1; }
         format_disk "$2" "$3" "$4"
         exit $?
         ;;
@@ -240,7 +240,7 @@ if [[ "$windows" == true || "$bitlocker" == true ]] && [[ "$OWNEET_PREPARE_ERASE
 fi
 name="$OWNEET_PREPARE_NAME"
 name_ok "$name" || fail bad_name "The name is empty, too long or has a \"/\"."
-[[ "$OWNEET_PREPARE_FOLDER" == Games || "$OWNEET_PREPARE_FOLDER" == Giochi ]] || fail bad_name "Unknown games folder."
+[[ "$OWNEET_PREPARE_FOLDER" =~ ^(Games|Giochi|Spiele|Jeux|Juegos)$ ]] || fail bad_name "Unknown games folder."
 name_taken "$name" "$disk" && fail name_taken "Another disk is already called $name."
 
 echo "Preparing $disk ($size bytes, ${model:-unknown model}, serial ${serial:-none}) for games as \"$name\""

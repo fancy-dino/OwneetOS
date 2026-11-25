@@ -1236,5 +1236,7 @@
   "details.emu.console": "Konsole",
   "details.emu": "Emulator",
   "details.emu.none": "Noch keiner",
-  "details.emu.how": "Startart"
+  "details.emu.how": "Startart",
+  "emu.pointer": "Er bleibt an, bis du den Emulator schließt.",
+  "files.emulation": "Emulation · {disk}"
 }

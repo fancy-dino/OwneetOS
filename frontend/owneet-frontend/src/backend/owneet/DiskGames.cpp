@@ -59,8 +59,19 @@ const QStringList& DiskGames::folderNames()
     static const QStringList names {
         QStringLiteral("games"),
         QStringLiteral("giochi"),
+        QStringLiteral("spiele"),
+        QStringLiteral("jeux"),
+        QStringLiteral("juegos"),
     };
     return names;
+}
+
+QString DiskGames::gamesFolderName(const QString& language) const
+{
+    const QString lang = language.left(2);
+    return lang == QLatin1String("it") ? QStringLiteral("Giochi") : lang == QLatin1String("de") ? QStringLiteral("Spiele")
+         : lang == QLatin1String("fr") ? QStringLiteral("Jeux") : lang == QLatin1String("es") ? QStringLiteral("Juegos")
+         : QStringLiteral("Games");
 }
 
 QString DiskGames::savedChoice(const QString& game_dir)
@@ -212,7 +223,7 @@ QVariantMap DiskGames::installRequest(QObject* game_obj, const QString& language
             }
         }
         if (games_dir.isEmpty())
-            games_dir = home.filePath(language.startsWith(QLatin1String("it")) ? QStringLiteral("Giochi") : QStringLiteral("Games"));
+            games_dir = home.filePath(gamesFolderName(language));
         dest = games_dir + QChar('/') + folder;
     }
     QVariantMap out {
@@ -267,7 +278,7 @@ bool DiskGames::hasGames(const QString& root) const
         if (folderNames().contains(name.toLower()))
             return true;
     }
-    return Emulators::atTop(root);
+    return !Emulators::consolesOf(root).isEmpty();
 }
 
 QString DiskGames::chosen(QObject* game_obj) const

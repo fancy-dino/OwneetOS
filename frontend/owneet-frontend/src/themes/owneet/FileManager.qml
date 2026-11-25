@@ -74,11 +74,11 @@ FocusScope {
         return map;
     }
     function placeName(p) {
-        if (p.kind !== "games")
+        if (p.kind !== "games" && p.kind !== "emulation")
             return Tr.tr("files." + p.kind);
-        const name = Tr.tr("files.games", { disk: diskName(p.root) });
+        const name = Tr.tr("files." + p.kind, { disk: diskName(p.root) });
         // two games folders on one disk ("Games" and "Giochi"): which one
-        const twins = files.places().filter(q => q.kind === "games" && q.root === p.root).length > 1;
+        const twins = files.places().filter(q => q.kind === p.kind && q.root === p.root).length > 1;
         return twins ? name + " (" + p.path.split("/").pop() + ")" : name;
     }
     function itemName(x) {
@@ -97,7 +97,7 @@ FocusScope {
         if (x.place || (place !== "windows" && place !== "logs")) return "";
         return windowsGames[x.name] ? "installed" : "gone";
     }
-    function opens(x) { return !!x && (x.place || (path.length && path[0].kind === "games" && x.folder)); }
+    function opens(x) { return !!x && (x.place || (path.length && (path[0].kind === "games" || path[0].kind === "emulation") && x.folder)); }
     function deletable(x) { return !!x && !x.place; }
     function isWindowsData(x) { return !!x && ((path.length && path[0].kind === "windows") || x.steam === "data"); }
 
@@ -144,7 +144,7 @@ FocusScope {
             }
             Nav.feedback("confirm");
             if (root.toast) root.toast.show(Tr.tr("files.deleted", { name: root.removingName, size: root.size(freed) }));
-            if (root.path.length && root.path[0].kind === "games") root.deletedInGames();
+            if (root.path.length && (root.path[0].kind === "games" || root.path[0].kind === "emulation")) root.deletedInGames();
             root.load();
         }
     }
@@ -289,7 +289,7 @@ FocusScope {
             readonly property bool selected: GridView.isCurrentItem && root.activeFocus
             readonly property var x0: modelData
             readonly property string state0: root.itemState(modelData)
-            readonly property string emblem: modelData.place ? ({ games: "controller", windows: "windows", logs: "logs", steam: "steam" })[modelData.kind]
+            readonly property string emblem: modelData.place ? ({ games: "controller", emulation: "controller", windows: "windows", logs: "logs", steam: "steam" })[modelData.kind]
                                              : root.path.length && root.path[0].kind === "windows" ? "windows"
                                              : modelData.steam ? "steam" : ""
             Rectangle {                 // the selected tile
@@ -304,7 +304,7 @@ FocusScope {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: Theme.px(16)
                 width: Theme.px(96); height: Theme.px(80)
-                readonly property bool folder: modelData.place || modelData.folder || root.path.length && root.path[0].kind !== "games" && root.path[0].kind !== "logs"
+                readonly property bool folder: modelData.place || modelData.folder || root.path.length && root.path[0].kind !== "games" && root.path[0].kind !== "emulation" && root.path[0].kind !== "logs"
                 Rectangle {             // the folder's tab
                     visible: icon.folder
                     x: Theme.px(6); y: Theme.px(8)
@@ -425,7 +425,7 @@ FocusScope {
             anchors { right: parent.right; rightMargin: Theme.px(16); verticalCenter: parent.verticalCenter }
             spacing: Theme.px(20)
             Text {
-                text: !status.sel ? "" : status.sel.place ? (status.sel.kind === "games" ? "" : Tr.tr("files." + status.sel.kind + ".detail"))
+                text: !status.sel ? "" : status.sel.place ? (status.sel.kind === "games" || status.sel.kind === "emulation" ? "" : Tr.tr("files." + status.sel.kind + ".detail"))
                       : root.itemState(status.sel) ? Tr.tr("files." + root.itemState(status.sel))
                       : Tr.tr(status.sel.folder ? "files.folder" : "files.file")
                 color: Theme.muted

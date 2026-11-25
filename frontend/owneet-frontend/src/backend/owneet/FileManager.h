@@ -21,7 +21,8 @@ public:
     explicit FileManager(QObject* parent = nullptr);
 
     /// The places: [{ kind, path, root }], kind "games" (a games folder: root is the disk's key,
-    /// "internal" for the home folder, else its mount folder), "windows" (the Windows games'
+    /// "internal" for the home folder, else its mount folder), "emulation" (the same, the folder of the
+    /// user's own emulators, 4.9), "windows" (the Windows games'
     /// prefixes), "logs" (their logs), "steam" (Steam's leftovers; path is Steam's folder). Only
     /// the places that exist.
     Q_INVOKABLE QVariantList places() const;

@@ -3,7 +3,8 @@
 <!-- OwneetOS - interactive demo for [[step-4.9-the-users-own-emulators]] (owner, 2026-11-25): the user brings everything (emulators and
      games); the console ships, downloads, links and names none, and makes the user's work as small as it can.
      - "Add games" has a third source, "With an emulator of yours": the user types a name, picks a disk, and the console makes the
-       folders; what is left is copying the files. Folders made by hand work the same.
+       folders, in the folder "Emulation" beside the games folder (owner, 2026-11-25); what is left is copying the files. Folders made
+       by hand work the same.
      - The folder's name is the console's name, shown on the covers; the games are in the library with the others.
      - A starts a game. Asked once per emulator: it is somebody else's program. Asked once per console: which emulator, when there
        are several. No emulator yet: said, with where to put it.
@@ -177,7 +178,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   const EN = { 'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings', 'f.all': 'All', 'f.installed': 'Installed', 'f.fav': 'Favorites', 'f.steam': 'Steam', 'f.local': 'Local',
     'games': '{n} games', 'p.play': 'Play', 'p.details': 'Details', 'p.options': 'Options', 'p.sort': 'Sort', 'p.filter': 'Filter', 'p.menu': 'Menu',
     'p.select': 'Select', 'p.back': 'Back', 'p.sections': 'Sections', 'p.add': 'Add games', 'cancel': 'Cancel', 'close': 'Close', 'done': 'Done', 'space': 'Space', 'p.type': 'Type', 'p.del': 'Delete', 'p.sym': 'Symbols', 'p.caps': 'Capitals',
-    'F.games': 'Games', 'F.emus': 'Emulators',
+    'F.games': 'Games', 'F.emus': 'Emulators', 'F.base': 'Emulation',
     'add.title': 'Add games', 'add.steam': 'Steam', 'add.steam.d': 'Buy new games in Steam’s store: the games you own are already in your library',
     'add.disk': 'From a USB stick or disk', 'add.disk.d': 'Games copied into a “Games” folder', 'add.emu': 'With an emulator of yours', 'add.emu.d': 'Your own emulator and the games of one console, in a folder',
     'n.title': 'What is the console called?', 'n.text': 'Choose the name you like: it is shown on its games.',
@@ -197,7 +198,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
   const IT = { 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni', 'f.all': 'Tutti', 'f.installed': 'Installati', 'f.fav': 'Preferiti', 'f.local': 'Locali',
     'games': '{n} giochi', 'p.play': 'Gioca', 'p.details': 'Dettagli', 'p.options': 'Opzioni', 'p.sort': 'Ordina', 'p.filter': 'Filtro',
     'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.sections': 'Sezioni', 'p.add': 'Aggiungi giochi', 'cancel': 'Annulla', 'close': 'Chiudi', 'done': 'Fatto', 'space': 'Spazio', 'p.type': 'Scrivi', 'p.del': 'Cancella', 'p.sym': 'Simboli', 'p.caps': 'Maiuscole',
-    'F.games': 'Giochi', 'F.emus': 'Emulatori',
+    'F.games': 'Giochi', 'F.emus': 'Emulatori', 'F.base': 'Emulazione',
     'add.title': 'Aggiungi giochi', 'add.steam.d': 'Compra nuovi giochi nello store di Steam: quelli che hai sono già nella libreria',
     'add.disk': 'Da una chiavetta USB o un disco', 'add.disk.d': 'Giochi copiati in una cartella “Giochi”', 'add.emu': 'Con un tuo emulatore', 'add.emu.d': 'Il tuo emulatore e i giochi di una console, in una cartella',
     'n.title': 'Come si chiama la console?', 'n.text': 'Scegli il nome che vuoi: si vede sui suoi giochi.',
@@ -332,7 +333,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
       k => newReady(name, k), { back: () => newName(name) });
   }
   function newReady(name, disk) {
-    openSheet(`${H(tr('r.title'), tr('r.text'))}<div class="tree t-m"><div>${FOLDER}<span>${tr(disk)} › ${tr('F.games')} › <b>${esc(name)}</b></span></div>
+    openSheet(`${H(tr('r.title'), tr('r.text'))}<div class="tree t-m"><div>${FOLDER}<span>${tr(disk)} › ${tr('F.base')} › <b>${esc(name)}</b></span></div>
       <div class="i1">${FOLDER}<b>${tr('F.emus')}</b><span class="muted t-s">${tr('r.emu')}</span></div><div class="i1">${FOLDER}<b>${tr('F.games')}</b><span class="muted t-s">${tr('r.games')}</span></div></div>${BTNS([['ok', tr('close'), 1]])}`,
       () => closeSheet(), {});
   }

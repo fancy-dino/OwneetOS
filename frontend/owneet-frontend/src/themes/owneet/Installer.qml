@@ -167,7 +167,7 @@ Rectangle {
                                              erase_windows: (d.windows || d.bitlocker) && understood }));
         owneetd.post("/v1/installer/start", { disk: disk.path, size: disk.size, serial: disk.serial, name: consoleName,
                                                erase_windows: (disk.windows || disk.bitlocker) && understood,
-                                               games: games, folder: Tr.language.indexOf("it") === 0 ? "Giochi" : "Games" }, (code, data) => {
+                                               games: games, folder: diskGames.gamesFolderName(Tr.language) }, (code, data) => {
             if (code === 202 || code === 200)
                 return;
             // owneetd refused before anything was touched

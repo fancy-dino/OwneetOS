@@ -566,14 +566,14 @@ FocusScope {
     property string pointerText: ""            // typed for the window, sent once it is back on screen
     function resumeWithPointer(app) { pointerHelp(() => root.startPointer(app)); }
     // What the pointer's buttons do, until "Don't show again"; then `go`
-    function pointerHelp(go) {
+    function pointerHelp(go, text) {
         if (api.memory.has("pointerHelpHidden")) { go(); return; }
         dialog.game = null;
         dialog.mode = "pointerHelp";
         dialog.contentWidth = Theme.px(1000);
         dialog.icon = "";
         dialog.title = Tr.tr("pointer.help.title");
-        dialog.text = Tr.tr("pointer.help.text");
+        dialog.text = text || Tr.tr("pointer.help.text");
         noticeNever.checked = false;
         dialog.buttons = [{ text: Tr.tr("pointer.help.ok"), style: "primary", action: () => {
             if (noticeNever.checked) api.memory.set("pointerHelpHidden", true);
@@ -1215,7 +1215,7 @@ FocusScope {
         Nav.feedback("confirm");
         dialog.focusDefault();
         owneetd.post("/v1/disks/prepare", { disk: d.path, size: d.size, serial: d.serial, name: prepName,
-                                            folder: Tr.language.indexOf("it") === 0 ? "Giochi" : "Games",
+                                            folder: diskGames.gamesFolderName(Tr.language),
                                             erase_windows: prepWindows && prepUnderstood }, (code, data) => {
             if (code === 202 || code === 200)
                 return;
@@ -2249,7 +2249,7 @@ FocusScope {
                 toast.show(Tr.tr("error.apps.failed"));
                 Nav.feedback("error");
             });
-            });
+            }, Tr.tr("emu.pointer"));
         });
     }
     // "With an emulator of yours": the console's name, the disk, the folders made
@@ -4323,7 +4323,7 @@ FocusScope {
                 spacing: Theme.px(6)
                 Repeater {
                     model: dialog.mode === "emuReady" && dialog.made
-                        ? [[0, dialog.made.disk + " \u203a " + dialog.made.games + " \u203a " + dialog.made.name, ""],
+                        ? [[0, dialog.made.disk + " \u203a " + dialog.made.base + " \u203a " + dialog.made.name, ""],
                            [1, dialog.made.emulators, "emu.ready.emulators"], [1, dialog.made.titles, "emu.ready.games"]] : []
                     Row {
                         x: modelData[0] * Theme.px(28)

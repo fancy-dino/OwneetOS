@@ -1236,5 +1236,7 @@
   "details.emu.console": "Console",
   "details.emu": "Émulateur",
   "details.emu.none": "Aucun pour l’instant",
-  "details.emu.how": "Mode de lancement"
+  "details.emu.how": "Mode de lancement",
+  "emu.pointer": "Il reste actif jusqu’à ce que tu fermes l’émulateur.",
+  "files.emulation": "Émulation · {disk}"
 }

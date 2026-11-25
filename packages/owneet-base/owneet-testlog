@@ -378,7 +378,7 @@ sleep 60
 # installed on it). Once per start: measuring the folders takes a while.
 { echo "--- the console's disk: room, and the biggest folders"
   df -h / /home 2>&1
-  du -xsh /home/owneet/Giochi /home/owneet/Games /home/owneet/.local/share/Steam /home/owneet/.local/share/owneet/windows \
+  du -xsh /home/owneet/{Giochi,Games,Spiele,Jeux,Juegos,Emul*,Émul*} /home/owneet/.local/share/Steam /home/owneet/.local/share/owneet/windows \
       /home/owneet/.local/share/umu /home/owneet/.cache /var/cache/pacman/pkg /var/log 2>/dev/null
   echo "- the biggest folders in the console user's home"
   du -xh -d3 /home/owneet 2>/dev/null | sort -h | tail -20

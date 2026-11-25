@@ -2,6 +2,7 @@
 #include "FileManager.h"
 
 #include "DiskGames.h"
+#include "Emulators.h"
 #include "Paths.h"
 
 #include <QDateTime>
@@ -155,10 +156,11 @@ QVariantList FileManager::places() const
     QVariantList out;
     for (const auto& root : diskRoots()) {
         for (const QString& folder : QDir(root.first).entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-            if (!DiskGames::folderNames().contains(folder.toLower()))
+            const bool games = DiskGames::folderNames().contains(folder.toLower());
+            if (!games && !Emulators::isBase(folder))
                 continue;
             out.append(QVariantMap {
-                { QStringLiteral("kind"), QStringLiteral("games") },
+                { QStringLiteral("kind"), games ? QStringLiteral("games") : QStringLiteral("emulation") },
                 { QStringLiteral("path"), root.first + QChar('/') + folder },
                 { QStringLiteral("root"), root.second },
             });
