@@ -1,0 +1,45 @@
+@nogames
+@owneetd
+@gamescope
+@emulators
+# The user's own emulators ([[step-4.9-the-users-own-emulators]], approved demo 4.9), on an invented
+# disk: the covers with the console's name, the details, the options; closed straight away, how it
+# starts, the options typed, started; no emulator yet; a game of two files; opening an emulator (the
+# pointer explained); choosing (two emulators) and the notice; "With an emulator of yours".
+wait 3
+pad rb
+shot emu-01-library
+pad x
+shot emu-02-details
+pad b
+pad menu
+shot emu-03-options
+pad b
+pad right
+pad a
+shot emu-04-notice
+pad left a
+wait 3
+shot emu-05-closed
+pad a
+shot emu-06-how
+pad down a
+wait 0.5
+shot emu-07-options-typed
+key minus g
+wait 0.5
+shot emu-08-typed
+pad menu
+wait 0.5
+shot emu-09-saved
+pad x
+shot emu-10-details-how
+pad b
+pad a
+wait 1
+shot emu-11-starting
+wait 4
+event app.exited {"id":"x","name":"x"}
+pad b
+wait 1
+shot emu-12-after

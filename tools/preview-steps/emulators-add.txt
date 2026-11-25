@@ -1,0 +1,44 @@
+@nogames
+@owneetd
+@gamescope
+@emulators
+# "With an emulator of yours" ([[step-4.9-the-users-own-emulators]], approved demo 4.9) and the rest:
+# a game of two files, none yet, opening an emulator with the pointer explained.
+wait 3
+pad rb
+pad right right right
+pad a
+shot emu-21-none
+pad b
+pad left
+pad a
+shot emu-22-choose
+pad down a
+wait 0.5
+pad left a
+wait 0.5
+shot emu-23-two-files
+pad b
+pad menu
+pad right right
+pad a
+wait 0.5
+shot emu-24-pointer-explained
+pad b
+pad right right
+pad a
+shot emu-25-add-games
+pad right right
+pad a
+wait 0.5
+shot emu-26-name
+key F u n
+wait 0.3
+pad menu
+wait 0.5
+shot emu-27-disk
+pad a
+wait 0.5
+shot emu-28-ready
+pad b
+shot emu-29-closed

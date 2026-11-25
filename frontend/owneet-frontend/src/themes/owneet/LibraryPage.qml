@@ -121,6 +121,7 @@ FocusScope {
         if (p.addGames) return "add";
         const id = GameInfo.appid(p);
         if (id !== "") return "steam:" + id;
+        if (GameInfo.emulated(p)) return "emu:" + p.extra["emu.path"];
         return GameInfo.onDisk(p) ? "disk:" + p.extra["disk.dir"] : "title:" + p.title;
     }
     // A new filter or sort builds the grid again from nothing (open item 3ah, owner 2026-11-14: after

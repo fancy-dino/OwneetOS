@@ -1,0 +1,146 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Starts an emulator of the user's, with a game of the user's or by itself
+# ([[step-4.9-the-users-own-emulators]], [[users-own-emulators]]). OwneetOS ships, downloads, names
+# and configures none: whatever the user put in the folder is started as it is.
+#
+#   owneet-emulator-run WORD
+#
+# WORD: base64 of DATA, EMULATOR, GAME, OPTIONS… with a NUL between two, so that no quote or brace of
+# the user's is read by anyone on the way. DATA: the emulator's folder on the console's disk; GAME:
+# empty to open the emulator by itself. Started by the interface through owneetd, in its own service.
+#
+# - An AppImage is unpacked once into DATA (the system has no FUSE, and unpacking it at every start
+#   is slow): also when it has no exec bit, as on a disk where it was copied without.
+# - An archive is opened once into DATA; what it holds is started. Opened again over the same files
+#   when the archive changes, so what the emulator wrote there stays.
+# - A program or a script is started where it is.
+
+set -u
+
+if [[ $# -ne 1 ]]; then
+    echo "usage: owneet-emulator-run WORD" >&2
+    exit 2
+fi
+mapfile -t -d '' words < <(base64 -d <<< "$1" 2>/dev/null; printf '\0')
+if [[ ${#words[@]} -lt 3 || -z "${words[0]}" || -z "${words[1]}" ]]; then
+    echo "owneet-emulator-run: not a valid request" >&2
+    exit 2
+fi
+data="${words[0]}" emulator="${words[1]}" game="${words[2]}"
+options=("${words[@]:3}")
+
+say() { echo "owneet-emulator-run: $*"; }
+die() { echo "owneet-emulator-run: $*" >&2; exit 3; }
+
+[[ "$data" == "$HOME/.local/share/owneet/emulators/"* ]] || die "not the console's own folder: $data"
+[[ -e "$emulator" ]] || die "not there: $emulator"
+[[ -z "$game" || -e "$game" ]] || die "not there: $game"
+
+# Unpacks an AppImage ($1) into DATA/app; false when it cannot be (a very old kind)
+unpack_appimage() {
+    local new="$data/app.new"
+    rm -rf "$new"
+    mkdir -p "$new" || return 1
+    cp -- "$1" "$new/image" && chmod 700 "$new/image" || return 1
+    (cd "$new" && ./image --appimage-extract > /dev/null 2>&1)
+    rm -f "$new/image"
+    if [[ ! -e "$new/squashfs-root/AppRun" ]]; then
+        rm -rf "$new"
+        return 1
+    fi
+    rm -rf "$data/app"
+    mv "$new" "$data/app"
+}
+
+# The program of an opened archive: the AppImage nearest to its top, else the biggest program, else a script
+find_program() {
+    local f
+    f="$(find "$1" -maxdepth 4 -type f -iname '*.appimage' -printf '%d\t%p\n' 2>/dev/null | sort -n | head -1 | cut -f2-)"
+    if [[ -z "$f" ]]; then
+        f="$(find "$1" -maxdepth 4 -type f -size +16k ! -name '*.so' ! -name '*.so.*' -printf '%s\t%p\n' 2>/dev/null | sort -rn \
+            | cut -f2- | while IFS= read -r p; do
+                # an ELF program (2) or a position independent one (3) for x86
+                head -c 20 -- "$p" 2>/dev/null | od -An -v -tx1 | tr -d ' \n' \
+                    | grep -qE '^7f454c46.{24}0[23]00(3e|03)00' && { printf '%s\n' "$p"; break; }
+            done)"
+    fi
+    [[ -n "$f" ]] || f="$(find "$1" -maxdepth 4 -type f -name '*.sh' -printf '%d\t%p\n' 2>/dev/null | sort -n | head -1 | cut -f2-)"
+    printf '%s' "$f"
+}
+
+stamp="$(stat -c '%s-%Y' -- "$emulator")"
+program="$emulator"
+workdir="$(dirname -- "$emulator")"
+shopt -s nocasematch
+case "$emulator" in
+    *.zip|*.7z|*.tar|*.tar.gz|*.tgz|*.tar.xz|*.txz|*.tar.zst|*.tar.bz2)
+        if [[ "$(cat "$data/stamp" 2>/dev/null)" != "$stamp" ]]; then
+            say "opening $(basename -- "$emulator")"
+            rm -f "$data/stamp"
+            mkdir -p "$data/open" || die "cannot write in $data"
+            bsdtar -x --no-same-owner -f "$emulator" -C "$data/open" || die "cannot open $emulator"
+            program="$(find_program "$data/open")"
+            if [[ -z "$program" ]]; then
+                [[ -f "$data/program" ]] || rm -rf "$data/open"     # nothing of the user's in it yet
+                die "nothing to start in $emulator"
+            fi
+            printf '%s' "$program" > "$data/program"
+            if [[ "$program" == *.appimage ]]; then
+                unpack_appimage "$program" || rm -rf "$data/app"
+            fi
+            printf '%s' "$stamp" > "$data/stamp"
+        fi
+        program="$(cat "$data/program")"
+        [[ -f "$program" ]] || { rm -f "$data/stamp"; die "opened before, not there any more: $program"; }
+        workdir="$(dirname -- "$program")"
+        chmod u+x -- "$program" 2>/dev/null
+        ;;
+    *.appimage)
+        if [[ "$(cat "$data/stamp" 2>/dev/null)" != "$stamp" ]]; then
+            say "unpacking $(basename -- "$emulator")"
+            rm -f "$data/stamp"
+            mkdir -p "$data" || die "cannot write in $data"
+            unpack_appimage "$emulator" || rm -rf "$data/app"
+            printf '%s' "$stamp" > "$data/stamp"
+        fi
+        ;;
+esac
+printf '%s' "$emulator" 2>/dev/null > "$data/source" || true
+
+# What was unpacked for an AppImage that is gone from a disk that is there: nothing of the user's is in
+# it. What an archive left stays: an emulator may keep its saves in it.
+for other in "$HOME/.local/share/owneet/emulators/"*/; do
+    other="${other%/}"
+    [[ "$other" != "$data" && -f "$other/source" && ! -d "$other/open" ]] || continue
+    source="$(cat "$other/source")"
+    top="$(dirname -- "$source")"
+    if [[ -n "$source" && ! -e "$source" && -d "$top" ]]; then
+        say "$(basename -- "$source") is gone: what was unpacked for it is removed"
+        rm -rf -- "$other"
+    fi
+done
+
+command=()
+case "$program" in
+    *.appimage)
+        if [[ -e "$data/app/squashfs-root/AppRun" ]]; then
+            export APPDIR="$data/app/squashfs-root" APPIMAGE="$program"
+            command=("$data/app/squashfs-root/AppRun")
+        else
+            export APPIMAGE_EXTRACT_AND_RUN=1
+            command=("$program")
+        fi
+        ;;
+    *.sh) command=(/usr/bin/bash "$program") ;;
+    *) command=("$program") ;;
+esac
+shopt -u nocasematch
+
+cd -- "$workdir" || cd /
+say "starting $(basename -- "$program")${game:+ with $(basename -- "$game")}, ${#options[@]} option(s)"
+if [[ -n "$game" ]]; then
+    exec "${command[@]}" "${options[@]}" "$game"
+fi
+exec "${command[@]}"

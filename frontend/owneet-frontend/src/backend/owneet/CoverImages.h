@@ -34,11 +34,14 @@ public:
     /// then by folder and name as people read them (2 before 10). It also updates `available`.
     Q_INVOKABLE int find();
 
+    Q_INVOKABLE bool isFolder(const QString& path) const;
+
     /// Copies a picture into a game's folder as cover.<ext> (its own extension, lower case) and
     /// removes an earlier cover.*: answered by used(token, ok, cover). A picture longer than 1200 px
     /// on a side, or turned by its camera, is saved smaller and upright. Refused (ok false) for a
     /// file that is not a PNG or JPEG picture, or a folder on a disk mounted read only.
-    Q_INVOKABLE int use(const QString& picture, const QString& game_dir);
+    /// `name`: another name than "cover", for a game that is one file among others ([[step-4.9-the-users-own-emulators]])
+    Q_INVOKABLE int use(const QString& picture, const QString& game_dir, const QString& name = QStringLiteral("cover"));
 
 signals:
     void availableChanged();

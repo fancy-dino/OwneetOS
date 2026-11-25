@@ -1,0 +1,44 @@
+@nogames
+@owneetd
+@gamescope
+@emulators
+# The windows of the user's own emulators (4.9) at text size XL, in German
+pad lb down down down down right down
+pad right right right a
+wait 1
+pad b down
+pad right a
+wait 1
+pad down a
+wait 1
+pad b lb
+wait 1
+shot emux-01-library
+pad menu
+shot emux-02-options
+pad b
+pad right a
+shot emux-03-notice
+pad left a
+wait 3
+shot emux-04-closed
+pad a
+shot emux-05-how
+pad down a
+wait 0.5
+shot emux-06-options-typed
+key minus g
+pad menu
+shot emux-07-saved-toast
+pad right right right right
+pad a
+shot emux-08-add-games
+pad right right
+pad a
+key F u n
+pad menu
+wait 0.5
+shot emux-09-disk
+pad a
+wait 0.5
+shot emux-10-ready

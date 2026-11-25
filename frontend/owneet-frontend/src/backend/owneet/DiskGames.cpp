@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "DiskGames.h"
 
+#include "Emulators.h"
 #include "Log.h"
 #include "Paths.h"
 #include "model/gaming/Game.h"
@@ -266,7 +267,7 @@ bool DiskGames::hasGames(const QString& root) const
         if (folderNames().contains(name.toLower()))
             return true;
     }
-    return false;
+    return Emulators::atTop(root);
 }
 
 QString DiskGames::chosen(QObject* game_obj) const

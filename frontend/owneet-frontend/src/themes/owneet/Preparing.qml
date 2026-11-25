@@ -27,6 +27,7 @@ NavArea {
     property string gameTitle: ""           // started for this game: Steam stays hidden
     property bool windows: false            // a Windows game (not Steam)
     property bool diskGame: false           // a game on a disk (Linux, DOS): until its window, or its end
+    property var emuGame: null              // a game of an emulator of the user's: closed straight away, it is said (4.9)
     property bool steamRestart: false       // Steam closes and starts again for the game (4.5)
     // Given by the shell, they replace Steam's texts (a web app's first opening, 5.4)
     property string title: ""
@@ -47,6 +48,7 @@ NavArea {
         windows = !!windowsGame;
         diskGame = !!diskGameStart;
         steamRestart = false;
+        emuGame = null;
         if (!visible)
             Nav.feedback("sheet-open");
         visible = true;

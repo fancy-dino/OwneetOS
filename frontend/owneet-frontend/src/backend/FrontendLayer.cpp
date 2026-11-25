@@ -21,6 +21,7 @@
 #include "Paths.h"
 #include "owneet/Daemon.h"
 #include "owneet/DiskGames.h"
+#include "owneet/Emulators.h"
 #include "owneet/CoverImages.h"
 #include "owneet/FileManager.h"
 #include "owneet/I18n.h"
@@ -66,6 +67,7 @@ FrontendLayer::FrontendLayer(QObject* const api_public, QObject* const api_priva
     , m_daemon(new owneet::Daemon(this))
     , m_system_info(new owneet::SystemInfo(this))
     , m_overlay(new owneet::Overlay(this))
+    , m_emulators(new owneet::Emulators(this))
     , m_disk_games(new owneet::DiskGames(this))
     , m_files(new owneet::FileManager(this))
     , m_cover_images(new owneet::CoverImages(this))
@@ -106,6 +108,7 @@ void FrontendLayer::rebuild()
     m_engine->rootContext()->setContextProperty(QStringLiteral("systemInfo"), m_system_info); // OwneetOS
     m_engine->rootContext()->setContextProperty(QStringLiteral("overlay"), m_overlay); // OwneetOS
     m_engine->rootContext()->setContextProperty(QStringLiteral("diskGames"), m_disk_games); // OwneetOS
+    m_engine->rootContext()->setContextProperty(QStringLiteral("emulators"), m_emulators); // OwneetOS
     m_engine->rootContext()->setContextProperty(QStringLiteral("files"), m_files); // OwneetOS
     m_engine->rootContext()->setContextProperty(QStringLiteral("coverImages"), m_cover_images); // OwneetOS
     m_engine->rootContext()->setContextProperty(QStringLiteral("media"), m_media); // OwneetOS

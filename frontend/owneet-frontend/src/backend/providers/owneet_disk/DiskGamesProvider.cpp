@@ -39,6 +39,11 @@
 // with, "" until chosen), "disk.windows" (a Windows game) with "disk.gog.start", "disk.gog.args"
 // and "disk.gog.workdir" (GOG's play task) and "disk.gog.id" (GOG's product id), or "disk.dos": a DOS game GOG ships with its Windows
 // DOSBox (its play task starts dosbox.exe), started with Linux's own DOSBox instead (no Proton).
+//
+// A folder with the user's own emulators and games ([[step-4.9-the-users-own-emulators]],
+// owneet::Emulators), at the top of a disk or in a games folder, is no game: each of its games is
+// listed, with the extras "emu.console" (the folder), "emu.name" (the user's name for it), "emu.root"
+// (as "disk.root"), "emu.path" (the game's file or folder) and "emu.files" (what can be started).
 
 #include "DiskGamesProvider.h"
 
@@ -48,6 +53,7 @@
 #include "model/gaming/Collection.h"
 #include "model/gaming/Game.h"
 #include "owneet/DiskGames.h"
+#include "owneet/Emulators.h"
 #include "providers/SearchContext.h"
 #include "types/AssetType.h"
 
@@ -459,6 +465,46 @@ QString cover_url(const QString& path)
     url.setQuery(QStringLiteral("v=") + QString::number(QFileInfo(path).lastModified().toMSecsSinceEpoch()));
     return url.toString();
 }
+
+// The cover of a game of the user's emulators: in its folder, or a picture with its name beside it
+QString title_cover(const owneet::Emulators::Title& title)
+{
+    const QFileInfo info(title.path);
+    if (info.isDir())
+        return find_cover(title.path);
+    for (const QString& name : info.dir().entryList(QDir::Files)) {
+        const QFileInfo picture(info.dir(), name);
+        static const QStringList formats { QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("png"), QStringLiteral("webp") };
+        if (picture.completeBaseName() == title.name && formats.contains(picture.suffix().toLower()))
+            return picture.filePath();
+    }
+    return {};
+}
+
+void add_console(providers::SearchContext& sctx, const QString& log, const owneet::Emulators::ConsoleDir& console, const QString& root)
+{
+    const auto titles = owneet::Emulators::titlesOf(console);
+    Log::info(log, LOGMSG("`%1`: the user's own emulators: %2 emulator(s), %3 game(s)")
+        .arg(console.name).arg(owneet::Emulators::emulatorsOf(console).size()).arg(titles.size()));
+    if (titles.isEmpty())
+        return;
+    model::Collection* collection = sctx.get_or_create_collection(QStringLiteral("Games on disks"));
+    for (const auto& title : titles) {
+        model::Game* game = sctx.create_game_for(*collection);
+        sctx.game_add_filepath(*game, title.path);
+        sctx.game_add_to(*game, *collection);
+        game->setTitle(title.name).setSortBy(title.name);
+        const QString cover = title_cover(title);
+        if (!cover.isEmpty())
+            game->assetsMut().add_uri(AssetType::BOX_FRONT, cover_url(cover));
+        QVariantMap& extra = game->extraMapMut();
+        extra.insert(QStringLiteral("emu.console"), console.path);
+        extra.insert(QStringLiteral("emu.name"), console.name);
+        extra.insert(QStringLiteral("emu.root"), root);
+        extra.insert(QStringLiteral("emu.path"), title.path);
+        extra.insert(QStringLiteral("emu.files"), title.files);
+    }
+}
 } // namespace
 
 
@@ -487,13 +533,22 @@ Provider& DiskGamesProvider::run(SearchContext& sctx)
     for (const auto& root : disk_roots()) {
         const QStringList top = QDir(root.first).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
         for (const QString& folder : top) {
-            if (!owneet::DiskGames::folderNames().contains(folder.toLower()))
+            if (!owneet::DiskGames::folderNames().contains(folder.toLower())) {
+                const auto console = owneet::Emulators::consoleDir(root.first + QChar('/') + folder);
+                if (console.valid())
+                    add_console(sctx, display_name(), console, root.second);
                 continue;
+            }
             const QString games_dir = root.first + QChar('/') + folder;
             Log::info(display_name(), LOGMSG("Looking for games in `%1`").arg(games_dir));
             const QStringList game_folders = QDir(games_dir).entryList(QDir::Dirs | QDir::NoDotAndDotDot);
             for (const QString& game_folder : game_folders) {
                 const QString game_dir = games_dir + QChar('/') + game_folder;
+                const auto console = owneet::Emulators::consoleDir(game_dir);
+                if (console.valid()) {
+                    add_console(sctx, display_name(), console, root.second);
+                    continue;
+                }
                 Found found;
                 // being installed (step 4.6): an installer in the folder itself (installed in place,
                 // 3ad) keeps the game listed "not installed", so its cover shows the progress; one

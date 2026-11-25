@@ -36,6 +36,7 @@
 #
 #   fake-owneetd.py SOCKET [EVENTS_FIFO]
 
+import base64
 import datetime
 import json
 import os
@@ -742,6 +743,17 @@ class Handler(BaseHTTPRequestHandler):
             with lock:
                 state["apps"].append(app)
             publish("app.started", app)
+            # 4.9: an emulator of the user's; OldBoxEmu, with a game and no option -g, closes straight away
+            words = base64.b64decode(body["command"][1]).split(b"\0") if body.get("command", [""])[0].endswith("owneet-emulator-run") else []
+            if words:
+                print("emulator:", [w.decode() for w in words[1:]], flush=True)
+            if len(words) > 2 and b"OldBoxEmu" in words[1] and words[2] and b"-g" not in words[3:]:
+                def ended():
+                    with lock:
+                        state["apps"].remove(app)
+                    publish("app.exited", {"id": app["id"], "name": app["name"], "result": "exit-code"})
+                later(1.5, ended)
+                return self.reply(201, {"id": app["id"]})
             later(4, lambda: publish("focus.changed", {"focus": app["id"]}))
             return self.reply(201, {"id": app["id"]})
         if path == "/v1/legend":    # 5.6a: the interface closes it (View in the app opens it: a step's event)

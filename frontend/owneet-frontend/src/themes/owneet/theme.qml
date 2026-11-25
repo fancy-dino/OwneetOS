@@ -468,6 +468,7 @@ FocusScope {
                 if (data && data.reason === "linux_version") root.askWindowsVersion(String(data.appid));
             } else if (type === "focus.changed") {
                 if (root.pointerTextApp !== "" && data.focus === root.pointerTextApp) root.sendPointerTextNow();
+                if (data.focus !== "home") steamPrep.emuGame = null;    // it showed something (4.9)
                 if (data.focus === "home") root.refreshSteam(true);
                 // Back on the home screen from a game or an app (Guide, or it closed): the "launch" sound,
                 // the other way (owner's test with Steam, 2026-11-05)
@@ -563,8 +564,10 @@ FocusScope {
     // "pointer.changed"; "pointer.type": the keyboard here, its text then goes to the window.
     property var pointerStatus: ({ on: false })
     property string pointerText: ""            // typed for the window, sent once it is back on screen
-    function resumeWithPointer(app) {
-        if (api.memory.has("pointerHelpHidden")) { startPointer(app); return; }
+    function resumeWithPointer(app) { pointerHelp(() => root.startPointer(app)); }
+    // What the pointer's buttons do, until "Don't show again"; then `go`
+    function pointerHelp(go) {
+        if (api.memory.has("pointerHelpHidden")) { go(); return; }
         dialog.game = null;
         dialog.mode = "pointerHelp";
         dialog.contentWidth = Theme.px(1000);
@@ -575,7 +578,7 @@ FocusScope {
         dialog.buttons = [{ text: Tr.tr("pointer.help.ok"), style: "primary", action: () => {
             if (noticeNever.checked) api.memory.set("pointerHelpHidden", true);
             dialog.close(true);
-            root.startPointer(app);
+            go();
         } }];
         dialog.defaultIndex = 0;
         dialog.open();
@@ -744,6 +747,14 @@ FocusScope {
             if (asked) dialog.close(true);
             const wanted = closingApps[data.id] || asked;
             delete closingApps[data.id];
+            // an emulator of the user's closed before it showed anything: a window says so (4.9)
+            const emuGame = steamPrep.emuGame;
+            if (emuGame && emuGame.title === (data.name || (app ? app.name : ""))) {
+                steamPrep.emuGame = null;
+                steamPrep.close(true);
+                if (!wanted) root.emuClosed(emuGame);
+                return;
+            }
             if (wanted || !app || app.kind !== "game" || ["exit-code", "signal", "core-dump"].indexOf(data.result) < 0)
                 return;
             notify({ key: "notices.game.crash", args: { name: data.name || app.name }, icon: "alert", kind: "attention",
@@ -782,6 +793,8 @@ FocusScope {
             }
             if (!agreementShown && !runningGame && agreementPending(game)) { showAgreement(game); return; }
         }
+        // a game for an emulator of the user's: which one, which file, told once (4.9)
+        if (GameInfo.emulated(game) && !(runningGame && runningGame.name === game.title) && !emuReady(game)) return;
         // a Windows game before what it needs is ready: its progress, or "connect" (4.5)
         if (GameInfo.isWindows(game) && !windowsReady && !(runningGame && runningGame.name === game.title)) {
             showWindowsNotReady(game);
@@ -811,7 +824,10 @@ FocusScope {
         Nav.feedback("launch");
         if (GameInfo.isWindows(game))               // "Preparing {game}…" until its first picture (4.5)
             steamPrep.start(diskGames.firstStart(game), game.title, true);
-        else if (GameInfo.onDisk(game))             // "Starting {game}…" until its first picture (owner, 2026-11-11)
+        else if (GameInfo.emulated(game)) {
+            steamPrep.start(false, game.title, false, true);
+            steamPrep.emuGame = game;
+        } else if (GameInfo.onDisk(game))           // "Starting {game}…" until its first picture (owner, 2026-11-11)
             steamPrep.start(false, game.title, false, true);
         else
             toast.show(Tr.tr("toast.launch", { title: game.title }));
@@ -887,6 +903,16 @@ FocusScope {
                    [Tr.tr("details.time"), GameInfo.played(game) ? GameInfo.playTime(game) : "\u2014"]);
         if (GameInfo.onDisk(game))
             facts.push([Tr.tr("details.disk"), diskName(GameInfo.diskRoot(game))]);
+        if (GameInfo.emulated(game)) {            // 4.9: the console's name, the emulator, how it starts, where
+            const list = emulators.list(game), id = emulators.chosen(game);
+            facts[0] = [Tr.tr("details.emu.console"), GameInfo.source(game)];
+            facts.splice(1, 0, [Tr.tr("details.emu"), list.length === 0 ? Tr.tr("details.emu.none") : id !== "" ? emuName(game, id) : list.map(e => e.name).join(", ")]);
+            if (id !== "") {
+                const line = emulators.options(game, id);
+                facts.splice(2, 0, [Tr.tr("details.emu.how"), line === "" ? Tr.tr("emu.how.alone") : line]);
+            }
+            facts.push([Tr.tr("details.disk"), diskName(String(game.extra["emu.root"]))]);
+        }
         // a GOG DOS game on a disk left read only keeps its saves on the console (6.5, approved demo
         // 6.5-saves-read-only); on a writable disk they go with it, and nothing is said
         if (GameInfo.onDisk(game) && game.extra["disk.dos"] === true) {
@@ -922,12 +948,14 @@ FocusScope {
                 } }]
             : []).concat([
             { text: Tr.tr("home.details"), action: () => { dialog.close(true); root.showDetails(game); } },
+        ], GameInfo.emulated(game) ? root.emuOptions(game) : [
             // 6.6: a game on a disk moves with the console; a Steam game is moved by Steam
             { text: Tr.tr("move.option"), action: () => {
                 dialog.close(true);
                 if (!steam && moveSheet.running) { toast.show(Tr.tr("move.busy")); return; }   // 6.6e: one copy at a time
                 if (steam) moveSheet.openSteam(game); else moveSheet.openMove(game);
-            } },
+            } }
+        ], [
             { text: Tr.tr(game.favorite ? "options.unfavorite" : "options.favorite"), action: () => {
                 game.favorite = !game.favorite;
                 library.favoritesRevision++;
@@ -937,7 +965,7 @@ FocusScope {
         ]);
         // 6.9 (approved demo 6.9): a local game's cover from a picture on a disk plugged in; not
         // for a game on a disk mounted read only
-        if (!steam && GameInfo.onDisk(game) && coverImages.available && !root.diskReadOnly(game))
+        if (!steam && (GameInfo.onDisk(game) || GameInfo.emulated(game)) && coverImages.available && !root.diskReadOnly(game))
             dialog.buttons = dialog.buttons.concat([{ text: Tr.tr(game.assets.boxFront ? "options.cover.change" : "options.cover.add"), action: () => {
                 dialog.close(true);
                 if (root.coverPictures.length > 0)
@@ -1013,6 +1041,12 @@ FocusScope {
     }
     function keepConsoleName() {
         const name = consoleNameInput.text.trim();
+        if (dialog.mode === "emuText") {        // 4.9: a console's name, an emulator's options
+            if (name === "") return;
+            osk.close(true);
+            emuTextDone(name);
+            return;
+        }
         if (consoleNameDone) consoleNameDone(name !== "" ? name : "OwneetOS");
         osk.close(true);
         dialog.close();
@@ -1880,7 +1914,7 @@ FocusScope {
     }
     // ---- Games on disk (6.8, approved demo 6.8-games-on-disk): their folder or their installer deleted
     function diskReadOnly(game) {
-        const root = GameInfo.diskRoot(game);
+        const root = GameInfo.emulated(game) ? String(game.extra["emu.root"]) : GameInfo.diskRoot(game);
         if (root === "" || root === "internal")
             return false;
         const v = storage.volumes().find(v => v.key === root);
@@ -2045,6 +2079,201 @@ FocusScope {
             root.launch(game);
         else
             toast.show(Tr.tr("toast.chosen", { title: game.title, file: file.split("/").pop() }));
+    }
+    // ---- The user's own emulators (4.9, approved demo design/demos/4.9-users-own-emulators.html): the
+    // console asks which emulator, says once that it is not part of OwneetOS, and how it starts
+    property var emuTextDone: null
+    property bool emuTextLong: false
+    function emuName(game, id) {
+        const e = emulators.list(game).find(e => e.id === id);
+        return e ? e.name : "";
+    }
+    function emuWindow(mode, title, text, width) {
+        dialog.game = null;
+        dialog.mode = mode;
+        dialog.contentWidth = Theme.px(width || 624);
+        dialog.icon = "";
+        dialog.title = title;
+        dialog.text = text;
+        dialog.buttons = [];
+        dialog.initialItem = null;
+        dialog.backAction = null;
+        dialog.prompts = Qt.binding(() => dialog.defaultPrompts);
+    }
+    function emuRows(title, text, rows, action, back) {
+        emuWindow("emuRows", title, text);
+        dialog.rows = rows;
+        dialog.rowAction = action;
+        dialog.backAction = back || null;
+        dialog.initialItem = emuRepeater.itemAt(Math.max(0, rows.findIndex(r => r.current)));
+        dialog.open(dialog.visible);
+    }
+    // true: the game can start now; otherwise what is missing is asked, and it starts then
+    function emuReady(game) {
+        const list = emulators.list(game);
+        if (list.length === 0) {
+            emuWindow("emuNone", Tr.tr("emu.none.title", { console: GameInfo.source(game) }),
+                      Tr.tr("emu.none.text", { folder: emulators.folder(game) }));
+            dialog.icon = "controller";
+            dialog.buttons = [{ text: Tr.tr("prompt.close"), style: "primary", action: () => dialog.close() }];
+            dialog.defaultIndex = 0;
+            dialog.open();
+            return false;
+        }
+        const id = emulators.chosen(game);
+        if (id === "") { emuChoose(game, true); return false; }
+        if (!emulators.told(game, id)) {
+            emuWindow("emuNotice", Tr.tr("emu.notice.title", { emulator: emuName(game, id) }), Tr.tr("emu.notice.text"));
+            dialog.icon = "controller";
+            dialog.buttons = [
+                { text: Tr.tr("emu.notice.go"), action: () => {
+                    emulators.setTold(game, id);
+                    dialog.close(true);
+                    root.launch(game);
+                } },
+                { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
+            dialog.defaultIndex = 1;             // Cancel: nothing started by accident
+            dialog.open();
+            return false;
+        }
+        if (emulators.file(game) === "") {
+            emuRows(Tr.tr("choose.title", { title: game.title }), Tr.tr("choose.text"),
+                    emulators.files(game).map(f => ({ key: f, title: f.split("/").pop(), detail: "", current: false })),
+                    key => { emulators.chooseFile(game, key); dialog.close(true); root.launch(game); });
+            return false;
+        }
+        return emulators.prepare(game);
+    }
+    function emuChoose(game, thenStart) {
+        const id = emulators.chosen(game);
+        emuRows(Tr.tr("emu.choose.title", { console: GameInfo.source(game) }), Tr.tr("choose.text"),
+                emulators.list(game).map(e => ({ key: e.id, title: e.name, detail: "", current: e.id === id })),
+                key => {
+                    emulators.choose(game, key);
+                    dialog.close(true);
+                    if (thenStart) root.launch(game);
+                    else toast.show(Tr.tr("emu.chosen", { console: GameInfo.source(game), emulator: emuName(game, key) }));
+                });
+    }
+    // The options of such a game, when there is an emulator
+    function emuOptions(game) {
+        const list = emulators.list(game), out = [];
+        const id = emulators.chosen(game);
+        if (list.length > 0)
+            out.push({ text: Tr.tr("emu.open"), action: () => { dialog.close(true); root.emuOpen(game); } });
+        if (list.length > 1)
+            out.push({ text: Tr.tr("emu.choose"), action: () => { dialog.close(true); root.emuChoose(game, false); } });
+        if (list.length > 0)
+            out.push({ text: Tr.tr("emu.how"), action: () => { dialog.close(true); root.emuHow(game, null); } });
+        if (emulators.files(game).length > 1)
+            out.push({ text: Tr.tr("options.choose_file"), action: () => { dialog.close(true); root.emuChooseFile(game); } });
+        return out;
+    }
+    function emuChooseFile(game) {
+        const now = emulators.file(game);
+        emuRows(Tr.tr("choose.title", { title: game.title }), Tr.tr("choose.text"),
+                emulators.files(game).map(f => ({ key: f, title: f.split("/").pop(), detail: "", current: f === now })),
+                key => {
+                    emulators.chooseFile(game, key);
+                    dialog.close();
+                    toast.show(Tr.tr("toast.chosen", { title: game.title, file: key.split("/").pop() }));
+                });
+    }
+    // Which emulator the questions are about: the chosen one, asked first when there are several
+    function emuWith(game, then) {
+        const id = emulators.chosen(game);
+        if (id !== "") { then(id); return; }
+        emuRows(Tr.tr("emu.choose.title", { console: GameInfo.source(game) }), Tr.tr("choose.text"),
+                emulators.list(game).map(e => ({ key: e.id, title: e.name, detail: "", current: false })),
+                key => { emulators.choose(game, key); dialog.close(true); then(key); });
+    }
+    function emuHow(game, back) { emuWith(game, id => root.emuHowFor(game, id, back)); }
+    function emuHowFor(game, id, back) {
+        const name = emuName(game, id), line = emulators.options(game, id);
+        emuRows(Tr.tr("emu.how.title", { emulator: name }), Tr.tr("emu.how.text", { console: GameInfo.source(game) }),
+                [{ key: "alone", title: Tr.tr("emu.how.alone"), detail: Tr.tr("emu.how.alone.detail"), current: line === "" },
+                 { key: "options", title: Tr.tr("emu.how.options"), detail: line === "" ? Tr.tr("emu.how.options.detail") : Tr.tr("emu.how.now", { options: line }), current: line !== "" }],
+                key => {
+                    if (key === "alone") { root.emuHowSaved(game, id, "", name); return; }
+                    root.emuText(Tr.tr("emu.options.title"), Tr.tr("emu.options.text"), line, true,
+                                 text => root.emuHowSaved(game, id, text, name), () => root.emuHowFor(game, id, back));
+                }, back);
+    }
+    function emuHowSaved(game, id, line, name) {
+        emulators.setOptions(game, id, line);
+        dialog.close();
+        toast.show(Tr.tr("emu.how.saved", { emulator: name }));
+    }
+    function emuText(title, text, value, longText, done, back) {
+        emuWindow("emuText", title, text, 660);
+        emuTextLong = longText;
+        consoleNameInput.text = value;
+        emuTextDone = done;
+        dialog.initialItem = consoleNameField;
+        dialog.open(dialog.visible);
+        dialog.backAction = () => { osk.close(true); back(); };
+        Qt.callLater(() => { if (dialog.visible && dialog.mode === "emuText") osk.open(consoleNameInput, false); });
+    }
+    // An emulator closed before it showed anything: what to change is offered
+    function emuClosed(game) {
+        const id = emulators.chosen(game);
+        if (id === "") return;
+        emuWindow("emuClosed", Tr.tr("emu.closed.title", { emulator: emuName(game, id) }), Tr.tr("emu.closed.text"));
+        dialog.icon = "controller";
+        dialog.buttons = [
+            { text: Tr.tr("emu.how"), style: "primary", action: () => { dialog.close(true); root.emuHowFor(game, id, () => root.emuClosed(game)); } },
+            { text: Tr.tr("emu.open"), action: () => { dialog.close(true); root.emuOpen(game); } },
+            { text: Tr.tr("prompt.close"), action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        Nav.feedback("error");
+        dialog.open(true);
+    }
+    // "Open the emulator": by itself, for its own settings, with the controller pointer on by itself for
+    // all its windows until it ends (owner, 2026-11-25)
+    function emuOpen(game) {
+        emuWith(game, id => {
+            if (runningGame || runningWebApp || runningPlayer) {
+                toast.show(runningGame ? Tr.tr("error.apps.game_running") : Tr.tr("toast.app.busy", { name: openName() }));
+                Nav.feedback("edge");
+                return;
+            }
+            const name = emuName(game, id), cmd = emulators.openCommand(game, id);
+            if (!owneetd.connected || !cmd.command) { Nav.feedback("error"); return; }
+            pointerHelp(() => {
+            Nav.feedback("launch");
+            steamPrep.start(false, name, false, true);
+            const app = "game-emulator-" + String(Qt.md5(String(game.extra["emu.console"]) + "/" + id)).slice(0, 8);
+            owneetd.post("/v1/apps/launch", { id: app, name: name, kind: "game", command: cmd.command, workdir: cmd.workdir }, (status, data) => {
+                if (status === 201) { owneetd.post("/v1/pointer", { on: true, app: app, windows: "all" }); return; }
+                steamPrep.close(true);
+                toast.show(Tr.tr("error.apps.failed"));
+                Nav.feedback("error");
+            });
+            });
+        });
+    }
+    // "With an emulator of yours": the console's name, the disk, the folders made
+    function emuNewName(name) {
+        emuText(Tr.tr("emu.name.title"), Tr.tr("emu.name.text"), name, false, text => root.emuNewDisk(text), () => root.showAddGames("emu", true));
+    }
+    function emuNewDisk(name) {
+        const disks = storage.volumes().filter(v => !v.readOnly);
+        emuRows(Tr.tr("emu.disk.title"), Tr.tr("emu.disk.text"),
+                disks.map(v => ({ key: v.key, title: root.diskName(v.key), detail: Tr.tr("emu.disk.free", { size: GameInfo.sizeAuto(v.free) }), current: false })),
+                key => {
+                    const made = emulators.create(name, key, Tr.language);
+                    if (!made.ok) {
+                        Nav.feedback("error");
+                        toast.show(Tr.tr("emu.failed"));
+                        return;
+                    }
+                    made.disk = root.diskName(key);
+                    emuWindow("emuReady", Tr.tr("emu.ready.title"), Tr.tr("emu.ready.text"), 660);
+                    dialog.made = made;
+                    dialog.buttons = [{ text: Tr.tr("prompt.close"), style: "primary", action: () => dialog.close() }];
+                    dialog.defaultIndex = 0;
+                    dialog.open(true);
+                }, () => root.emuNewName(name));
     }
     // A disk's name for people: its label, or "Internal disk" for the console's own
     function diskName(root) {
@@ -2728,7 +2957,7 @@ FocusScope {
         dialog.text = "";
         dialog.buttons = [];
         dialog.backAction = null;
-        dialog.initialItem = addRepeater.itemAt(selectDisk ? 1 : 0);
+        dialog.initialItem = addRepeater.itemAt(selectDisk === "emu" ? 2 : selectDisk ? 1 : 0);
         dialog.prompts = Qt.binding(() => dialog.defaultPrompts);
         dialog.open(quiet);
     }
@@ -2736,6 +2965,8 @@ FocusScope {
         if (source === "steam") {
             dialog.close(true);
             root.openSteam("store");            // owned games are in the library already (4.2c)
+        } else if (source === "emu") {
+            emuNewName("");
         } else {
             showDiskGuide();
         }
@@ -3550,6 +3781,9 @@ FocusScope {
         property string appId: ""           // close: the app it asks about
         property var files: []              // chooseFile: what the game on a disk can start (4.3)
         property bool thenStart: false      // chooseFile: the game starts once chosen
+        property var rows: []               // emuRows: [{ key, title, detail, current }] (4.9)
+        property var rowAction: null        // emuRows: what A on one does, with its key
+        property var made: null             // emuReady: the folders made
         property int seconds: 0             // displayConfirm: until it goes back
         property real deadline: 0
         onSecondsChanged: if (mode === "displayConfirm") text = Tr.tr("display.keep.text", { n: seconds })
@@ -3713,7 +3947,7 @@ FocusScope {
             spacing: Theme.px(16)
             Repeater {
                 id: addRepeater
-                model: [["steam", "store", "add.steam"], ["disk", "usb", "add.disk"]]
+                model: [["steam", "store", "add.steam"], ["disk", "usb", "add.disk"], ["emu", "controller", "add.emu"]]
                 Rectangle {
                     readonly property bool navigable: true
                     signal activated()
@@ -4029,6 +4263,104 @@ FocusScope {
                 }
             }
         }
+        Column {                          // emuRows: a choice, one under the other (demo 4.9)
+            visible: dialog.mode === "emuRows"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(620)
+            spacing: Theme.px(10)
+            Repeater {
+                id: emuRepeater
+                model: dialog.mode === "emuRows" ? dialog.rows : []
+                Rectangle {
+                    readonly property bool navigable: true
+                    signal activated()
+                    onActivated: dialog.rowAction(modelData.key)
+                    width: parent.width
+                    height: emuColumn.height + Theme.px(24)
+                    radius: Theme.radiusM
+                    color: Theme.surface
+                    border.color: modelData.current ? Theme.accent : Theme.line
+                    border.width: Math.max(1, Theme.px(1))
+                    Column {
+                        id: emuColumn
+                        anchors { left: parent.left; leftMargin: Theme.px(18); right: parent.right; rightMargin: Theme.px(18)
+                                  verticalCenter: parent.verticalCenter }
+                        spacing: Theme.px(2)
+                        Text {
+                            width: parent.width
+                            text: modelData.title
+                            color: Theme.fg
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(17)
+                            elide: Text.ElideMiddle
+                        }
+                        Text {
+                            visible: text !== ""
+                            width: parent.width
+                            text: modelData.detail || ""
+                            color: Theme.muted
+                            font.family: Theme.textFont
+                            font.pixelSize: Theme.fs(14.5)
+                            wrapMode: Text.Wrap
+                        }
+                    }
+                    FocusFrame {}
+                }
+            }
+        }
+        Rectangle {                       // emuReady: the folders made (demo 4.9)
+            visible: dialog.mode === "emuReady"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: Theme.px(620)
+            height: emuTree.height + Theme.px(32)
+            radius: Theme.radiusM
+            color: Theme.surface
+            border.color: Theme.line
+            border.width: Math.max(1, Theme.px(1))
+            Column {
+                id: emuTree
+                anchors { left: parent.left; leftMargin: Theme.px(24); right: parent.right; rightMargin: Theme.px(24); verticalCenter: parent.verticalCenter }
+                spacing: Theme.px(6)
+                Repeater {
+                    model: dialog.mode === "emuReady" && dialog.made
+                        ? [[0, dialog.made.disk + " \u203a " + dialog.made.games + " \u203a " + dialog.made.name, ""],
+                           [1, dialog.made.emulators, "emu.ready.emulators"], [1, dialog.made.titles, "emu.ready.games"]] : []
+                    Row {
+                        x: modelData[0] * Theme.px(28)
+                        width: emuTree.width - x
+                        spacing: Theme.px(10)
+                        Icon {
+                            id: emuFolder
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Theme.fs(18); height: width
+                            name: "folder"
+                            color: Theme.accent
+                        }
+                        Column {
+                            width: parent.width - emuFolder.width - parent.spacing
+                            Text {
+                                width: parent.width
+                                text: modelData[1]
+                                color: Theme.fg
+                                font.family: Theme.textFont
+                                font.weight: Font.Medium
+                                font.pixelSize: Theme.fs(17)
+                                elide: Text.ElideMiddle
+                            }
+                            Text {
+                                visible: modelData[2] !== ""
+                                width: parent.width
+                                text: modelData[2] !== "" ? Tr.tr(modelData[2]) : ""
+                                color: Theme.muted
+                                font.family: Theme.textFont
+                                font.pixelSize: Theme.fs(14.5)
+                                wrapMode: Text.Wrap
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Rectangle {                       // licence: an installer's licence, scrolled (4.6)
             visible: dialog.mode === "licence" && dialog.licence !== ""
             anchors.horizontalCenter: parent.horizontalCenter
@@ -4100,9 +4432,9 @@ FocusScope {
             }
         }
         Column {                          // consoleName: the installer's console name (6.4)
-            visible: dialog.mode === "consoleName"
+            visible: dialog.mode === "consoleName" || dialog.mode === "emuText"
             anchors.horizontalCenter: parent.horizontalCenter
-            width: Theme.px(480)
+            width: Theme.px(dialog.mode === "emuText" ? 620 : 480)
             FocusScope {
                 id: consoleNameField
                 // A opens the on-screen keyboard; a keyboard plugged in types here, Enter keeps it
@@ -4127,7 +4459,7 @@ FocusScope {
                     selectedTextColor: Theme.onAccent
                     font.family: Theme.textFont
                     font.pixelSize: Theme.fs(20)
-                    maximumLength: 40
+                    maximumLength: dialog.mode === "emuText" && root.emuTextLong ? 300 : 40
                     clip: true
                     cursorVisible: consoleNameField.activeFocus || (osk.visible && osk.target === consoleNameInput)
                     Keys.onReturnPressed: root.keepConsoleName()
@@ -4675,7 +5007,7 @@ FocusScope {
         showPassword: showPassword.checked
         onTogglePassword: showPassword.checked = !showPassword.checked
         onDone: {
-            if (dialog.visible && dialog.mode === "consoleName")
+            if (dialog.visible && (dialog.mode === "consoleName" || dialog.mode === "emuText"))
                 root.keepConsoleName();      // Done = keep the name
             else if (dialog.visible && dialog.mode === "diskName")
                 root.keepDiskName();
@@ -4686,7 +5018,9 @@ FocusScope {
         }
         onClosed: {
             close();
-            if (dialog.visible && (dialog.mode === "consoleName" || (dialog.mode === "diskName" && !root.diskNameInline)))
+            if (dialog.visible && dialog.mode === "emuText" && dialog.backAction)
+                dialog.backAction();         // B: a step back (4.9)
+            else if (dialog.visible && (dialog.mode === "consoleName" || (dialog.mode === "diskName" && !root.diskNameInline)))
                 dialog.close();              // B: the name as it was
             else if (dialog.visible)
                 Qt.callLater(() => dialog.focusButton(0));
@@ -4750,7 +5084,11 @@ FocusScope {
     property var coverCopies: ({})          // token → the game's title, for the notice
     function findCoverPictures() { coverFinding = coverImages.find(); }
     function useCover(game, picture) {
-        const token = coverImages.use(picture, String(game.extra["disk.dir"]));
+        // a game of the user's emulators may be one file: its cover is beside it, with its name (4.9)
+        const path = GameInfo.emulated(game) ? String(game.extra["emu.path"]) : "";
+        const token = path === "" ? coverImages.use(picture, String(game.extra["disk.dir"]))
+                    : coverImages.isFolder(path) ? coverImages.use(picture, path)
+                    : coverImages.use(picture, path.slice(0, path.lastIndexOf("/")), game.title);
         const copies = coverCopies;
         copies[token] = game.title;
         coverCopies = copies;

@@ -36,6 +36,8 @@
 #   @pictures        (6.9) an invented USB disk "USB-FOTO" with an Immagini folder: pictures at its
 #                    top and in sub-folders, a file that is not a picture, a hidden one; and two
 #                    games on the console's disk, Moss Garden (no cover) and Quiet Orbit (a cover)
+#   @emulators       an invented USB disk "RETRO-STICK" with the user's own emulators (4.9): FunContainer
+#                    (two emulators), OldBox (one that wants the option -g) and TinyPad (none)
 #   @media           an invented USB disk "MEDIA-STICK" with Videos and Music folders (5.6), made
 #                    with FFmpeg: episodes with two audio languages and subtitles, films with a
 #                    subtitle file beside them, songs with tags and pictures (cover.jpg, or their
@@ -259,6 +261,20 @@ PY
     printf '{"installer": "%s/Old Lighthouse/gog_old_lighthouse.sh", "kind": "sh"}' "$g" > "$HOME/Games/Old Lighthouse/.owneet-installed"
     ls -l "$g/Starfall" >> /out/log.txt
     export OWNEET_DISKS="$disk"
+fi
+
+# @emulators (4.9): folders with the user's own emulators and games, everything invented
+if grep -q '^@emulators' /steps.txt; then
+    r=/tmp/disks/RETRO-STICK
+    mkdir -p /tmp/unplugged "$r/FunContainer/Emulatori/BoxEmu" "$r/FunContainer/Giochi/Moss Garden" \
+        "$r/Giochi/OldBox/Emulators" "$r/Giochi/OldBox/Games" "$r/TinyPad/Emulatori" "$r/TinyPad/Giochi"
+    echo x > "$r/FunContainer/Emulatori/FunPlayer.AppImage"; echo x > "$r/FunContainer/Emulatori/BoxEmu/BoxEmu-2.1.zip"
+    head -c 100000 /dev/zero > "$r/FunContainer/Giochi/Copper Coast.img"
+    head -c 100000 /dev/zero > "$r/FunContainer/Giochi/Moss Garden/disc.one"; head -c 100000 /dev/zero > "$r/FunContainer/Giochi/Moss Garden/disc.two"
+    echo x > "$r/Giochi/OldBox/Emulators/OldBoxEmu.AppImage"
+    head -c 100000 /dev/zero > "$r/Giochi/OldBox/Games/Lumen Drift.img"
+    head -c 100000 /dev/zero > "$r/TinyPad/Giochi/Saltwind.img"
+    export OWNEET_DISKS="${OWNEET_DISKS:+$OWNEET_DISKS:}$r"
 fi
 
 # @pictures (6.9): a disk of pictures, and local games to give a cover to

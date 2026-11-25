@@ -14,7 +14,11 @@ QtObject {
                 return true;
         return false;
     }
-    function source(game) { return game ? (isSteam(game) ? "Steam" : Tr.tr("game.source.local")) : ""; }
+    function source(game) { return game ? (isSteam(game) ? "Steam" : emulated(game) ? String(game.extra["emu.name"]) : Tr.tr("game.source.local")) : ""; }
+
+    // ---- Games for the user's own emulators ([[step-4.9-the-users-own-emulators]], `emulators`): no game
+    // on a disk of the ones below (nothing is installed, moved or uninstalled by the console)
+    function emulated(game) { return !!game && !!game.extra && !!game.extra["emu.console"]; }
 
     // ---- Games on a disk ([[step-4.3-local-drm-free-games]]): the provider gives each one its
     // folder ("disk.dir"), its disk ("disk.root": the mount folder, "internal" for the console's own
@@ -50,6 +54,8 @@ QtObject {
             return false;
         if (appid(a) !== "" || appid(b) !== "")
             return appid(a) === appid(b);
+        if (emulated(a) || emulated(b))
+            return emulated(a) && emulated(b) && a.extra["emu.path"] === b.extra["emu.path"];
         if (onDisk(a) || onDisk(b))
             return onDisk(a) && onDisk(b) && a.extra["disk.dir"] === b.extra["disk.dir"];
         return a.title === b.title;

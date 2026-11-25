@@ -15,6 +15,9 @@ import (
 type Pointer interface {
 	Status() pointer.Status
 	On(app string) error
+	// OnAnyWindow: for every window of the app until it ends (the user's own emulator opened by itself,
+	// [[step-4.9-the-users-own-emulators]], owner 2026-11-25)
+	OnAnyWindow(app string) error
 	Off(reason string)
 	// WaitKeyboard: the window on screen has the keyboard focus (at most limit)
 	WaitKeyboard(limit time.Duration) bool
@@ -31,11 +34,13 @@ func (s *Server) handlePointer(w http.ResponseWriter, _ *http.Request) {
 }
 
 // handlePointerSet: {"on": true, "app": id} turns it on for that app's next window (the interface
-// then resumes the app); {"on": false} turns it off (204).
+// then resumes the app), with "windows": "all" for every window of it until it ends; {"on": false}
+// turns it off (204).
 func (s *Server) handlePointerSet(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		On  bool   `json:"on"`
-		App string `json:"app"`
+		On      bool   `json:"on"`
+		App     string `json:"app"`
+		Windows string `json:"windows"`
 	}
 	if !decode(w, r, &body) {
 		return
@@ -49,7 +54,11 @@ func (s *Server) handlePointerSet(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	switch err := s.Pointer.On(body.App); {
+	on := s.Pointer.On
+	if body.Windows == "all" {
+		on = s.Pointer.OnAnyWindow
+	}
+	switch err := on(body.App); {
 	case err == nil:
 		w.WriteHeader(http.StatusNoContent)
 	case errors.Is(err, pointer.ErrUnknownApp):

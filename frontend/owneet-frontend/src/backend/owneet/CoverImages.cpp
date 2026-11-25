@@ -131,7 +131,7 @@ void syncDir(const QString& dir)
 
 // The copy (see CoverImages::use): the new cover is written apart first, so a failed copy keeps
 // the cover the game had
-QString copyCover(const QString& picture, const QString& game_dir)
+QString copyCover(const QString& picture, const QString& game_dir, const QString& base)
 {
     const QFileInfo from(picture);
     const QString ext = from.suffix().toLower();
@@ -145,7 +145,7 @@ QString copyCover(const QString& picture, const QString& game_dir)
     }
     const QDir dir(game_dir);
     const QString part = dir.filePath(QStringLiteral(".cover.owneet-part"));
-    const QString cover = dir.filePath(QStringLiteral("cover.") + ext);
+    const QString cover = dir.filePath(base + QChar('.') + ext);
     QFile::remove(part);
     if (!writeCover(picture, ext, part)) {
         Log::warning(LOGMSG("Cover images: cannot copy `%1` into `%2`").arg(picture, game_dir));
@@ -154,10 +154,11 @@ QString copyCover(const QString& picture, const QString& game_dir)
     }
     // an earlier cover in any of the library's formats (any case of letters), but the one about to
     // be replaced
-    static const QStringList covers { QStringLiteral("cover.jpg"), QStringLiteral("cover.png"), QStringLiteral("cover.jpeg"),
-                                      QStringLiteral("cover.webp") };
+    QStringList covers;
+    for (const char* end : {".jpg", ".png", ".jpeg", ".webp"})
+        covers.append(base.toLower() + QLatin1String(end));
     for (const QString& name : dir.entryList(QDir::Files | QDir::Hidden))
-        if (covers.contains(name.toLower()) && name != QStringLiteral("cover.") + ext)
+        if (covers.contains(name.toLower()) && name != base + QChar('.') + ext)
             QFile::remove(dir.filePath(name));
     if (std::rename(QFile::encodeName(part).constData(), QFile::encodeName(cover).constData()) != 0) {
         Log::warning(LOGMSG("Cover images: cannot write `%1`").arg(cover));
@@ -211,11 +212,16 @@ int CoverImages::find()
     return token;
 }
 
-int CoverImages::use(const QString& picture, const QString& game_dir)
+bool CoverImages::isFolder(const QString& path) const
+{
+    return QFileInfo(path).isDir();
+}
+
+int CoverImages::use(const QString& picture, const QString& game_dir, const QString& name)
 {
     const int token = ++m_next;
-    QThread* thread = QThread::create([this, token, picture, game_dir] {
-        const QString cover = copyCover(QDir::cleanPath(picture), QDir::cleanPath(game_dir));
+    QThread* thread = QThread::create([this, token, picture, game_dir, name] {
+        const QString cover = copyCover(QDir::cleanPath(picture), QDir::cleanPath(game_dir), name);
         QMetaObject::invokeMethod(this, [this, token, cover] { emit used(token, !cover.isEmpty(), cover); }, Qt::QueuedConnection);
     });
     connect(thread, &QThread::finished, thread, &QObject::deleteLater);
