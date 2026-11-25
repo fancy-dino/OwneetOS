@@ -1,0 +1,499 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- OwneetOS - interactive demo for [[step-4.9-the-users-own-emulators]] (owner, 2026-11-25, after the first hardware test), on top of
+     the approved demo 4.9 (nothing else changes):
+     1. the notice before an emulator's first start says where its controller is set, and can open the emulator by itself;
+     2. an emulator made for another kind of processor: the console says so, instead of trying to start it.
+     Consoles, emulators, games and covers are invented. Open in a browser; drive it with a gamepad or the keyboard.
+     Fonts are loaded from Google Fonts for the demo only: the console bundles the font files (SIL Open Font License). -->
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwneetOS - An emulator's first start (demo 4.9c)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Lexend:wght@300..600&display=swap">
+<style>
+:root { --display: "Bricolage Grotesque", system-ui, sans-serif; --text: "Lexend", system-ui, sans-serif; --ts: 1;
+  --bg: #0E1424; --surface: #172036; --raised: #222D4A; --line: #2E3A5C; --fg: #EEF1F8; --muted: #8F9AB5; --accent: #FF8A5B; --on-accent: #1E0E06; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #05070C; }
+body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; font-family: var(--text); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: inherit; cursor: pointer; }
+.frame { position: relative; flex: none; }
+.stage {
+  width: 1280px; height: 720px; position: absolute; top: 0; left: 0; overflow: hidden; transform-origin: top left;
+  background: var(--bg); color: var(--fg); padding: 36px 64px 28px;
+  display: grid; grid-template-rows: auto auto auto 1fr auto; gap: 18px;
+  font-size: calc(16px * var(--ts)); line-height: 1.35; font-weight: 350;
+}
+.t-xs { font-size: calc(12.5px * var(--ts)); } .t-s { font-size: calc(14.5px * var(--ts)); }
+.t-m { font-size: calc(17px * var(--ts)); } .t-l { font-size: calc(24px * var(--ts)); } .t-xl { font-size: calc(40px * var(--ts)); }
+.disp { font-family: var(--display); font-variation-settings: "wdth" 82; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.muted { color: var(--muted); }
+
+.top { display: flex; align-items: center; justify-content: space-between; }
+.top-left { display: flex; align-items: center; gap: 36px; }
+.mark { font-family: var(--display); font-weight: 800; font-variation-settings: "wdth" 78; font-size: 23px; letter-spacing: -0.03em; }
+.mark i { font-style: normal; color: var(--accent); }
+.tabs { display: flex; gap: 6px; align-items: center; }
+.tab { padding: 7px 18px; border-radius: 999px; color: var(--muted); }
+.tab[aria-current="page"] { background: var(--fg); color: var(--bg); font-weight: 500; }
+.status .clock { color: var(--fg); font-weight: 500; font-variant-numeric: tabular-nums; }
+.head { display: flex; align-items: baseline; gap: 14px; }
+.head h1 { margin: 0; }
+.filters { display: flex; gap: 8px; }
+.chip { padding: 4px 14px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.chip[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 500; }
+
+.grid { display: grid; grid-template-columns: repeat(7, 152px); gap: 16px 14px; align-content: start; }
+.cover { position: relative; height: 190px; border-radius: 14px; color: #fff; }
+.cover .art, .cover .shade { position: absolute; inset: 0; border-radius: 14px; }
+.cover.off .art { opacity: .55; }
+.cover.off.focus .art { opacity: .8; }
+.cover .shade { background: linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,.72) 100%); }
+.cover .badge { position: absolute; left: 8px; top: 8px; padding: 2px 9px; border-radius: 999px; background: rgba(0,0,0,.45); }
+.cover .dl { position: absolute; right: 8px; top: 8px; width: 24px; height: 24px; border-radius: 999px; background: rgba(0,0,0,.45); display: grid; place-items: center; }
+.cover .body { position: absolute; left: 10px; right: 10px; bottom: 10px; display: grid; gap: 4px; }
+.cover .title { font-size: calc(17px * var(--ts)); display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cover .state { display: flex; align-items: center; gap: 5px; white-space: nowrap; overflow: hidden; }
+.cover .state svg { flex: none; }
+.cover.focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent), 0 12px 28px -10px rgba(0,0,0,.55); transform: scale(1.02); z-index: 2; }
+.prog { display: block; height: 4px; border-radius: 999px; background: rgba(255,255,255,.25); overflow: hidden; position: relative; }
+.prog i { position: absolute; top: 0; bottom: 0; width: 35%; border-radius: 999px; background: #fff; animation: busy 1.6s ease-in-out infinite alternate; }
+@keyframes busy { from { left: 0; } to { left: 65%; } }
+
+.prompts { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.prompts .set { display: flex; gap: 24px; }
+.prompt { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.g { height: calc(26px * var(--ts)); width: auto; color: var(--fg); flex: none; vertical-align: middle; }
+
+/* windows over the page, as the console's Dialog */
+.dim { position: absolute; inset: 0; z-index: 5; background: rgba(8, 11, 20, .72); display: none; }
+.dim.on { display: block; }
+.sheet { position: absolute; z-index: 6; left: 50%; top: 50%; transform: translate(-50%, -58%); min-width: 520px; max-width: 1060px;
+  padding: 26px 28px 28px; border-radius: 18px; background: var(--bg); border: 1px solid var(--line); display: none; text-align: center; }
+.sheet.on { display: grid; gap: 18px; justify-items: center; }
+.sheet .icon { color: var(--accent); width: 40px; height: 40px; }
+.sheet .list { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px 20px; }
+.sheet .item { padding: 11px 26px; border-radius: 999px; font-weight: 500; background: var(--raised); color: var(--fg); white-space: nowrap; }
+.sheet .item.primary { background: var(--accent); color: var(--on-accent); }
+.sheet .item.focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent); }
+.sheet .text { max-width: 640px; color: var(--muted); }
+.facts { display: grid; grid-template-columns: auto auto; gap: 6px 18px; text-align: left; }
+.facts .k { color: var(--muted); }
+.sheet-prompts { position: absolute; z-index: 6; left: 64px; right: 64px; bottom: 28px; display: none; }
+.sheet-prompts.on { display: flex; }
+
+.game { position: absolute; inset: 0; z-index: 8; display: none; place-items: center; background: var(--bg); text-align: center; }
+.game.on { display: grid; }
+.game .in { display: grid; gap: 18px; justify-items: center; }
+.spinner { width: 44px; height: 44px; border-radius: 50%; border: 3px solid var(--raised); border-top-color: var(--accent); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.sheet.wide { max-width: 1060px; }
+.sheet .col { display: grid; gap: 14px; width: 620px; }
+.sheet .row { display: grid; gap: 2px; text-align: left; padding: 13px 20px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.sheet .row.focus { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6.5px var(--accent); }
+.sheet .row .muted { white-space: normal; }
+.tree { text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 24px; display: grid; gap: 6px; width: 620px; }
+.tree div { display: flex; gap: 10px; align-items: baseline; }
+.tree .i1 { padding-left: 28px; } .tree .i2 { padding-left: 56px; }
+.tree svg { flex: none; align-self: center; color: var(--accent); }
+.field { width: 620px; text-align: left; padding: 12px 18px; border-radius: 12px; background: var(--surface); border: 1px solid var(--accent); min-height: calc(46px * var(--ts)); }
+.field .caret { display: inline-block; width: 2px; height: 1em; background: var(--accent); vertical-align: -2px; margin-left: 2px; }
+.kb { display: grid; gap: 7px; width: 780px; }
+.kr { display: flex; gap: 7px; }
+.key { flex: 1; padding: 6px 0; border-radius: 10px; background: var(--raised); text-align: center; }
+.key.space { flex: 5; } .key.ok { flex: 2; background: var(--accent); color: var(--on-accent); }
+.key.focus { box-shadow: 0 0 0 2px var(--bg), 0 0 0 5px var(--accent); }
+
+.emu { position: absolute; inset: 0; z-index: 8; display: none; background: #2b2b2b; color: #ddd; font: 14px/1.4 system-ui, sans-serif; }
+.emu.on { display: block; }
+.emu .bar { background: #3a3a3a; padding: 8px 14px; display: flex; gap: 24px; }
+.emu .win { position: absolute; left: 340px; top: 150px; width: 600px; background: #393939; border: 1px solid #555; box-shadow: 0 20px 50px rgba(0,0,0,.5); }
+.emu .win h3 { margin: 0; padding: 10px 16px; background: #444; font-weight: 500; font-size: 14px; }
+.emu .win p { margin: 0; padding: 10px 16px; }
+.emu .ptr { position: absolute; width: 26px; height: 26px; }
+.emu .tip { position: absolute; left: 0; right: 0; bottom: 26px; text-align: center; color: #aaa; }
+
+.toast { position: absolute; z-index: 9; right: 64px; top: 88px; padding: 14px 20px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); opacity: 0; transition: opacity .2s; }
+.toast.on { opacity: 1; }
+
+.demo-bar { display: flex; gap: 22px; align-items: center; color: #8a90a0; font: 12px/1.4 system-ui, sans-serif; flex-wrap: wrap; justify-content: center; }
+.demo-bar .grp { display: inline-flex; gap: 6px; align-items: center; }
+.demo-bar button { padding: 3px 10px; border-radius: 999px; border: 1px solid #333a4a; color: #c9cdd8; font: inherit; }
+.demo-bar button[aria-pressed="true"] { background: #c9cdd8; color: #05070C; }
+.help { margin: 0; color: #8a90a0; font: 12px/1.45 system-ui, sans-serif; text-align: center; padding-inline: 12px; max-width: 1200px; }
+.help b { color: #c9cdd8; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="frame" id="frame"><div class="stage" id="stage">
+  <header class="top">
+    <div class="top-left">
+      <span class="mark">Owneet<i>OS</i></span>
+      <nav class="tabs t-s"><span class="tab" data-t="tab.home"></span><span class="tab" aria-current="page" data-t="tab.library"></span><span class="tab" data-t="tab.settings"></span></nav>
+    </div>
+    <div class="status t-s"><span class="clock" id="clock">13:50</span></div>
+  </header>
+  <div class="head"><h1 class="disp t-xl" data-t="tab.library"></h1><span class="muted t-m" id="count"></span></div>
+  <div class="filters t-s"><span class="chip" aria-current="true" data-t="f.all"></span><span class="chip" data-t="f.installed"></span><span class="chip" data-t="f.fav"></span><span class="chip" data-t="f.steam"></span><span class="chip" data-t="f.local"></span></div>
+  <main class="grid" id="grid"></main>
+  <footer class="prompts t-s" id="pagePrompts"><div class="set" id="pl"></div><div class="set" id="pr"></div></footer>
+
+  <div class="dim" id="dim"></div>
+  <div class="sheet" id="sheet"></div>
+  <footer class="prompts sheet-prompts t-s" id="sheetPrompts"><div class="set" id="spl"></div><div class="set" id="spr"></div></footer>
+  <div class="game" id="game"><div class="in"><div class="spinner"></div><span class="disp t-l" id="gameTitle"></span></div></div>
+  <div class="emu" id="emu"><div class="bar"><span>File</span><span>Options</span><span>Controllers</span><span>Help</span></div>
+    <div class="win"><h3 id="emuName"></h3><p>Controller 1: <u>Set up…</u></p><p>System files: <u>Choose a folder…</u></p><p style="text-align:right">OK &nbsp; Cancel</p></div>
+    <svg class="ptr" id="ptr" viewBox="0 0 24 24"><path d="M4 2v18l5-4.6 3.2 6.6 3-1.5L12 14l7-.6z" fill="#fff" stroke="#000" stroke-width="1.2"/></svg><div class="tip" id="emuTip"></div></div>
+  <div class="toast t-s" id="toast"></div>
+</div></div>
+
+<div class="demo-bar" id="demo-bar">
+  <span class="grp"><span>Text size:</span><button data-ts="1" aria-pressed="true">M</button><button data-ts="1.2">L</button><button data-ts="1.4">XL</button></span>
+  <span class="grp"><span>Language:</span><button data-lang="it" aria-pressed="true">Italiano</button><button data-lang="en">English</button></span>
+  <span class="grp"><button data-reset="1">Start again</button></span>
+</div>
+<p class="help"><b>Copper Coast</b>: choose an emulator (one of the three is for another kind of processor), then the notice before its first start.
+<b>Quiet Orbit</b>: its only emulator is for another kind of processor. Everything else as in demo 4.9. <b>Gamepad:</b> D-pad / left stick, A, B, X Details, Menu Options. <b>Keyboard:</b> arrows, Enter = A, Esc = B, X, M = Menu, H = Guide.</p>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const stage = $('#stage');
+
+  const EN = { 'tab.home': 'Home', 'tab.library': 'Library', 'tab.settings': 'Settings', 'f.all': 'All', 'f.installed': 'Installed', 'f.fav': 'Favorites', 'f.steam': 'Steam', 'f.local': 'Local',
+    'games': '{n} games', 'p.play': 'Play', 'p.details': 'Details', 'p.options': 'Options', 'p.sort': 'Sort', 'p.filter': 'Filter', 'p.menu': 'Menu',
+    'p.select': 'Select', 'p.back': 'Back', 'p.sections': 'Sections', 'p.add': 'Add games', 'cancel': 'Cancel', 'close': 'Close', 'done': 'Done', 'space': 'Space', 'p.type': 'Type', 'p.del': 'Delete', 'p.sym': 'Symbols', 'p.caps': 'Capitals',
+    'F.games': 'Games', 'F.emus': 'Emulators', 'F.base': 'Emulation',
+    'add.title': 'Add games', 'add.steam': 'Steam', 'add.steam.d': 'Buy new games in Steam’s store: the games you own are already in your library',
+    'add.disk': 'From a USB stick or disk', 'add.disk.d': 'Games copied into a “Games” folder', 'add.emu': 'With an emulator of yours', 'add.emu.d': 'Your own emulator and the games of one console, in a folder',
+    'n.title': 'What is the console called?', 'n.text': 'Choose the name you like: it is shown on its games.',
+    'k.title': 'Where do you want the folders?', 'k.text': 'You can make the same folders on another disk too, by hand.', 'k.int': 'Internal disk', 'k.usb': 'USB-256GB', 'k.free': '{n} GB free',
+    'r.title': 'The folders are ready', 'r.text': 'Copy your emulator into one and its games into the other. The games show in the library by themselves.',
+    'r.emu': 'your emulator, as you downloaded it', 'r.games': 'your games, one file or one folder each',
+    'w.title': '{emu} is not part of OwneetOS', 'w.text': 'You added it yourself: OwneetOS has not checked it. Use only programs you trust and games you have the right to play.', 'w.go': 'Start', 'w.pad': 'If your controller does nothing in the game, open the emulator by itself first and set the controller there.',
+    'z.title': '{emu} is not made for this PC', 'z.text': 'It is the version for another kind of processor. Download the one with x86_64 or amd64 in its name, and put it in the “{f}” folder in its place.', 'z.row': 'For another kind of processor',
+    'c.title': 'Which emulator starts the {con} games?', 'c.text': 'The console found several. It remembers your choice; Options can change it.', 'c.one': 'Which emulator starts {title}?',
+    'm.title': 'No emulator for {con} yet', 'm.text': 'Copy one into its “{f}” folder, then start the game again.',
+    'x.title': '{emu} closed straight away', 'x.text': 'It may want one or more options before the game, or its own settings first.', 'x.how': 'How it starts', 'x.open': 'Open the emulator',
+    'h.title': 'How does {emu} start a game?', 'h.text': 'It is the same for every {con} game. The emulator’s own help says which one it wants.',
+    'h.alone': 'With the game alone', 'h.alone.d': 'Most emulators', 'h.opt': 'With one or more options before the game', 'h.opt.d': 'You type them, e.g. -g', 'h.opt.now': 'Now: {o}',
+    'o.title': 'The options before the game', 'o.text': 'One or more, with a space between them. A name with spaces in it goes between double quotes.', 'o.saved': '{emu} starts the games this way now', 'o.emu': 'Choose the emulator', 'o.open': 'Open the emulator', 'o.how': 'How it starts', 'o.fav': 'Add to favorites', 'o.cover': 'Add cover image',
+    'c.saved': '{title} starts with {emu}',
+    'd.con': 'Console', 'd.emu': 'Emulator', 'd.none': 'None yet', 'd.how': 'How it starts', 'd.disk': 'Where', 'd.last': 'Last played', 'd.never': 'Never played',
+    'start': 'Starting {title}…', 'other': 'Not in this demo (as today)', 'tip': '(demo) The controller pointer is on: stick = pointer, A = click, Y = type. Guide = Home' };
+  const IT = { 'tab.library': 'Libreria', 'tab.settings': 'Impostazioni', 'f.all': 'Tutti', 'f.installed': 'Installati', 'f.fav': 'Preferiti', 'f.local': 'Locali',
+    'games': '{n} giochi', 'p.play': 'Gioca', 'p.details': 'Dettagli', 'p.options': 'Opzioni', 'p.sort': 'Ordina', 'p.filter': 'Filtro',
+    'p.select': 'Seleziona', 'p.back': 'Indietro', 'p.sections': 'Sezioni', 'p.add': 'Aggiungi giochi', 'cancel': 'Annulla', 'close': 'Chiudi', 'done': 'Fatto', 'space': 'Spazio', 'p.type': 'Scrivi', 'p.del': 'Cancella', 'p.sym': 'Simboli', 'p.caps': 'Maiuscole',
+    'F.games': 'Giochi', 'F.emus': 'Emulatori', 'F.base': 'Emulazione',
+    'add.title': 'Aggiungi giochi', 'add.steam.d': 'Compra nuovi giochi nello store di Steam: quelli che hai sono già nella libreria',
+    'add.disk': 'Da una chiavetta USB o un disco', 'add.disk.d': 'Giochi copiati in una cartella “Giochi”', 'add.emu': 'Con un tuo emulatore', 'add.emu.d': 'Il tuo emulatore e i giochi di una console, in una cartella',
+    'n.title': 'Come si chiama la console?', 'n.text': 'Scegli il nome che vuoi: si vede sui suoi giochi.',
+    'k.title': 'Dove vuoi le cartelle?', 'k.text': 'Puoi creare le stesse cartelle anche su un altro disco, a mano.', 'k.int': 'Disco interno', 'k.free': '{n} GB liberi',
+    'r.title': 'Le cartelle sono pronte', 'r.text': 'Copia il tuo emulatore in una e i suoi giochi nell’altra. I giochi compaiono nella libreria da soli.',
+    'r.emu': 'il tuo emulatore, così come l’hai scaricato', 'r.games': 'i tuoi giochi, un file o una cartella per ognuno',
+    'w.title': '{emu} non fa parte di OwneetOS', 'w.text': 'L’hai aggiunto tu: OwneetOS non l’ha controllato. Usa solo programmi di cui ti fidi e giochi che hai il diritto di usare.', 'w.go': 'Avvia', 'w.pad': 'Se nel gioco il controller non risponde, apri prima l’emulatore da solo e imposta lì il controller.',
+    'z.title': '{emu} non è fatto per questo PC', 'z.text': 'È la versione per un altro tipo di processore. Scarica quella che ha x86_64 o amd64 nel nome e mettila al suo posto nella cartella “{f}”.', 'z.row': 'Per un altro tipo di processore',
+    'c.title': 'Quale emulatore avvia i giochi {con}?', 'c.text': 'La console ne ha trovati più di uno. Ricorda la tua scelta; si cambia dalle Opzioni.', 'c.one': 'Quale emulatore avvia {title}?',
+    'm.title': 'Nessun emulatore per {con}', 'm.text': 'Copiane uno nella sua cartella “{f}”, poi avvia di nuovo il gioco.',
+    'x.title': '{emu} si è chiuso subito', 'x.text': 'Forse vuole una o più opzioni prima del gioco, oppure va prima configurato.', 'x.how': 'Come si avvia', 'x.open': 'Apri l’emulatore',
+    'h.title': 'Come avvia un gioco {emu}?', 'h.text': 'Vale per tutti i giochi {con}. Lo dice la guida dell’emulatore.',
+    'h.alone': 'Solo con il gioco', 'h.alone.d': 'La maggior parte degli emulatori', 'h.opt': 'Con una o più opzioni prima del gioco', 'h.opt.d': 'Le scrivi tu, per esempio -g', 'h.opt.now': 'Ora: {o}',
+    'o.title': 'Le opzioni prima del gioco', 'o.text': 'Una o più, separate da uno spazio. Un nome che contiene spazi va tra virgolette.', 'o.saved': 'Ora {emu} avvia i giochi così', 'o.emu': 'Scegli l’emulatore', 'o.open': 'Apri l’emulatore', 'o.how': 'Come si avvia', 'o.fav': 'Aggiungi ai preferiti', 'o.cover': 'Aggiungi copertina',
+    'c.saved': '{title} si avvia con {emu}',
+    'd.con': 'Console', 'd.emu': 'Emulatore', 'd.none': 'Ancora nessuno', 'd.how': 'Come si avvia', 'd.disk': 'Dove', 'd.last': 'Ultima partita', 'd.never': 'Mai giocato',
+    'start': 'Avvio di {title}…', 'other': 'Non in questa demo (come oggi)', 'tip': '(demo) Il puntatore da controller è attivo: levetta = puntatore, A = clic, Y = scrivi. Guide = Home' };
+  let lang = 'it';
+  const tr = (k, a = {}) => ((lang === 'it' ? IT : EN)[k] || EN[k] || k).replace(/\{(\w+)\}/g, (_, x) => a[x]);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // consoles: emulators found in the folder, the one chosen, how it starts ('' = the game alone); wants: what the demo's emulator needs
+  let CONS, GAMES, focusIndex = 0;
+  function reset() {
+    CONS = { FunContainer: { emus: ['FunPlayer', 'BoxEmu', 'MiniEmu'], wrong: ['MiniEmu'], chosen: '', asked: {}, opt: {}, wants: {} },
+      OldBox: { emus: ['OldBoxEmu'], chosen: 'OldBoxEmu', asked: {}, opt: {}, wants: { OldBoxEmu: '-g' } },
+      TinyPad: { emus: [], chosen: '', asked: {}, opt: {}, wants: {} },
+      OddBox: { emus: ['OddEmu'], wrong: ['OddEmu'], chosen: 'OddEmu', asked: {}, opt: {}, wants: {} } };
+    GAMES = [{ t: 'Copper Coast', con: 'FunContainer', c: ['#8e4ce0', '#2a1240'] }, { t: 'Ember Run', con: 'FunContainer', c: ['#3fd8a0', '#0c3024'] },
+      { t: 'Lumen Drift', con: 'OldBox', c: ['#e08a40', '#3a2010'] }, { t: 'Moss Garden', con: 'TinyPad', c: ['#40d860', '#10301a'] },
+      { t: 'Night Convoy', src: 'Steam', c: ['#e04a5a', '#3a1016'] }, { t: 'Quiet Orbit', con: 'OddBox', c: ['#7a4fd0', '#1c1238'] }, { add: true }];
+    focusIndex = 0;
+  }
+  reset();
+
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const circle = inner => `<svg class="g" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.8"/>${inner}</svg>`;
+  const letter = l => circle(`<text x="13" y="17.6" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="13" fill="currentColor">${l}</text>`);
+  const pill = (t, w) => `<svg class="g" viewBox="0 0 ${w} 26"><rect x="1" y="1" width="${w - 2}" height="24" rx="7" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="${w / 2}" y="17.4" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="600" font-size="11.5" fill="currentColor">${t}</text></svg>`;
+  const G = { a: letter('A'), b: letter('B'), x: letter('X'), y: letter('Y'), menu: circle(`<path d="M8.5 9.5h9M8.5 13h9M8.5 16.5h9" ${S}/>`),
+    lb: pill('LB', 34), rb: pill('RB', 34), lt: pill('LT', 34), rt: pill('RT', 34), guide: circle(`<path d="M8 13.2 13 8.8l5 4.4M9.6 12v5.4h6.8V12" ${S}/>`) };
+  const P = (b, l) => `<span class="prompt">${b.map(x => G[x]).join('')}<span>${tr(l)}</span></span>`;
+
+  const FOLDER = `<svg width="20" height="20" viewBox="0 0 24 24"><path d="M3 6.5h6l2 2.5h10v10H3z" ${S}/></svg>`;
+  const PLUS = `<svg width="40" height="40" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" ${S}/></svg>`;
+  const CHIP = `<svg class="icon" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="11" rx="4" ${S}/><path d="M8 12.5h3M9.5 11v3M15 12.5h.1M17 11.5h.1" ${S}/></svg>`;
+
+  /* ---------- The library ---------- */
+  function drawLibrary() {
+    document.documentElement.lang = lang;
+    $$('[data-t]').forEach(el => { el.textContent = tr(el.dataset.t); });
+    $('#count').textContent = tr('games', { n: GAMES.filter(g => !g.add).length });
+    $('#grid').innerHTML = GAMES.map((g, i) => g.add
+      ? `<div class="cover${i === focusIndex ? ' focus' : ''}" style="border:2px dashed var(--line);display:grid;place-items:center;color:var(--muted)"><div style="display:grid;justify-items:center;gap:8px">${PLUS}<span class="t-s" style="text-align:center">${tr('p.add')}</span></div></div>`
+      : `<div class="cover${i === focusIndex ? ' focus' : ''}">
+        <div class="art" style="background: radial-gradient(120% 90% at 70% 10%, ${g.c[0]}, ${g.c[1]} 80%)"></div><div class="shade"></div>
+        <span class="badge t-xs" style="max-width:136px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(g.src || g.con)}</span>
+        <div class="body"><span class="disp title">${g.t}</span></div></div>`).join('');
+    const g = GAMES[focusIndex];
+    $('#pl').innerHTML = (g.add ? P(['a'], 'p.add') : P(['a'], 'p.play') + P(['x'], 'p.details') + P(['menu'], 'p.options')) + P(['y'], 'p.sort') + P(['lt', 'rt'], 'p.filter') + P(['b'], 'p.menu');
+    $('#pr').innerHTML = P(['lb', 'rb'], 'p.sections');
+  }
+
+  /* ---------- Windows ---------- */
+  let sheet = null;
+  function openSheet(html, onPick, o = {}) {
+    $('#sheet').innerHTML = html;
+    $('#dim').classList.add('on'); $('#sheet').classList.add('on');
+    $('#pagePrompts').style.visibility = 'hidden';
+    $('#sheetPrompts').classList.add('on');
+    $('#spl').innerHTML = P(['a'], 'p.select') + P(['b'], 'p.back');
+    $('#spr').innerHTML = '';
+    sheet = { items: $$('#sheet [data-k]'), index: o.index || 0, onPick, back: o.back, typing: o.typing };
+    focusSheet();
+  }
+  function closeSheet() {
+    sheet = null;
+    $('#dim').classList.remove('on'); $('#sheet').classList.remove('on'); $('#sheetPrompts').classList.remove('on');
+    $('#pagePrompts').style.visibility = '';
+  }
+  function focusSheet() { sheet.items.forEach((el, i) => el.classList.toggle('focus', i === sheet.index)); }
+  const H = (t, x) => `<span class="disp t-l">${esc(t)}</span>${x ? `<span class="text t-m">${esc(x)}</span>` : ''}`;
+  const ROWS = rows => `<div class="col">${rows.map(([k, a, b]) => `<button class="row" data-k="${esc(k)}"><span class="t-m">${esc(a)}</span>${b ? `<span class="muted t-s">${esc(b)}</span>` : ''}</button>`).join('')}</div>`;
+  const BTNS = list => `<div class="list t-m">${list.map(([k, t, p]) => `<button class="item${p ? ' primary' : ''}" data-k="${k}">${esc(t)}</button>`).join('')}</div>`;
+
+  // the console's on-screen keyboard (demo 3.10): its pages and keys, its buttons; drawn smaller here
+  const PAGES = { abc: ['1234567890', 'qwertyuiop', "asdfghjkl'", 'zxcvbnm,.-'], sym: ['1234567890', '@#€$%&*()_', '+=/\\:;"!?\'', '<>[]{}~^|`'], acc: ['àáâäãåæ', 'èéêëìíîï', 'òóôöõøùúûü', 'çñßÿ'] };
+  const NEXT = { abc: 'sym', sym: 'acc', acc: 'abc' }, PNAME = { abc: 'abc', sym: '#+=', acc: 'àèé' };
+  function keyboard(title, text, value, done, back, capital) {
+    let page = 'abc', up = !!capital && !value, row = 1, col = 0, rows = [];
+    const draw = () => {
+      rows = PAGES[page].map(r => Array.from(r).map(c => ({ k: 'c', c: up && page !== 'sym' ? c.toLocaleUpperCase() : c })));
+      rows[0].push({ k: 'del', c: '⌫' });
+      rows[3].unshift({ k: 'up', c: '⇧' });
+      rows.push([{ k: 'page', c: PNAME[NEXT[page]] }, { k: 'space', c: tr('space') }, { k: 'ok', c: tr('done') }]);
+      row = Math.min(row, rows.length - 1); col = Math.min(col, rows[row].length - 1);
+      $('#typed').innerHTML = esc(value).replace(/ /g, '&nbsp;') + '<span class="caret"></span>';
+      $('#keys').innerHTML = rows.map((r, y) => `<div class="kr">${r.map((x, z) => `<span class="key ${x.k}${y === row && z === col ? ' focus' : ''}">${esc(x.c)}</span>`).join('')}</div>`).join('');
+    };
+    const put = c => { value += c; up = false; draw(); };
+    openSheet(`${H(title, text)}<div class="field t-m" id="typed"></div><div class="kb t-s" id="keys"></div>`, () => {}, { back });
+    sheet.kbd = a => {
+      const n = rows[row].length;
+      if (a === 'left') col = (col + n - 1) % n; else if (a === 'right') col = (col + 1) % n;
+      else if (a === 'up' || a === 'down') { const x = (col + .5) / n; row = (row + (a === 'down' ? 1 : rows.length - 1)) % rows.length; col = Math.min(rows[row].length - 1, Math.floor(x * rows[row].length)); }
+      else if (a === 'x') value = value.slice(0, -1); else if (a === 'y') { put(' '); return; }
+      else if (a === 'lb' || a === 'rb') page = a === 'rb' ? NEXT[page] : NEXT[NEXT[page]];
+      else if (a === 'lt') up = !up;
+      else if (a === 'menu') { if (value.trim()) done(value.trim()); return; }
+      else if (a === 'b') { if (back) back(); else closeSheet(); return; }
+      else if (a === 'a') {
+        const x = rows[row][col];
+        if (x.k === 'c') { put(x.c); return; }
+        if (x.k === 'del') value = value.slice(0, -1); else if (x.k === 'up') up = !up; else if (x.k === 'page') page = NEXT[page];
+        else if (x.k === 'space') { put(' '); return; }
+        else if (x.k === 'ok') { if (value.trim()) done(value.trim()); return; }
+      }
+      draw();
+    };
+    sheet.typing = c => { if (c === 'del') { value = value.slice(0, -1); draw(); } else put(c); };
+    $('#spl').innerHTML = P(['a'], 'p.type') + P(['x'], 'p.del') + P(['y'], 'space') + P(['lb', 'rb'], 'p.sym') + P(['lt'], 'p.caps') + P(['menu'], 'done') + P(['b'], 'p.back');
+    draw();
+  }
+
+  function addGames(at = 0) {
+    openSheet(H(tr('add.title')) + ROWS([['steam', tr('add.steam'), tr('add.steam.d')], ['disk', tr('add.disk'), tr('add.disk.d')], ['emu', tr('add.emu'), tr('add.emu.d')]]),
+      k => { if (k === 'emu') newName(); else toast(tr('other')); }, { index: at });
+  }
+  function newName(v = '') {
+    keyboard(tr('n.title'), tr('n.text'), v, name => newDisk(name), () => addGames(2), true);
+  }
+  function newDisk(name) {
+    openSheet(H(tr('k.title'), tr('k.text')) + ROWS([['k.int', tr('k.int'), tr('k.free', { n: 71 })], ['k.usb', tr('k.usb'), tr('k.free', { n: 188 })]]),
+      k => newReady(name, k), { back: () => newName(name) });
+  }
+  function newReady(name, disk) {
+    openSheet(`${H(tr('r.title'), tr('r.text'))}<div class="tree t-m"><div>${FOLDER}<span>${tr(disk)} › ${tr('F.base')} › <b>${esc(name)}</b></span></div>
+      <div class="i1">${FOLDER}<b>${tr('F.emus')}</b><span class="muted t-s">${tr('r.emu')}</span></div><div class="i1">${FOLDER}<b>${tr('F.games')}</b><span class="muted t-s">${tr('r.games')}</span></div></div>${BTNS([['ok', tr('close'), 1]])}`,
+      () => closeSheet(), {});
+  }
+
+  function play(g) {
+    if (g.src) { run(g); return; }
+    const c = CONS[g.con];
+    if (!c.emus.length) {
+      openSheet(CHIP + H(tr('m.title', { con: g.con }), tr('m.text', { f: tr('F.emus') })) + BTNS([['ok', tr('close'), 1]]), closeSheet); return;
+    }
+    if (!c.chosen) { choose(g, true); return; }
+    if (isWrong(g, c.chosen)) return;
+    if (!c.asked[c.chosen]) {
+      openSheet(CHIP + H(tr('w.title', { emu: c.chosen }), tr('w.text')) + `<span class="text t-m">${tr('w.pad')}</span>` + BTNS([['go', tr('w.go')], ['open', tr('x.open')], ['no', tr('cancel'), 1]]),
+        k => { closeSheet(); if (k === 'no') return; c.asked[c.chosen] = true; if (k === 'go') play(g); else openEmu(g); }, { index: 2 }); return;
+    }
+    run(g);
+  }
+  function isWrong(g, e) {
+    if (!(CONS[g.con].wrong || []).includes(e)) return false;
+    openSheet(CHIP + H(tr('z.title', { emu: e }), tr('z.text', { f: tr('F.emus') })) + BTNS([['ok', tr('close'), 1]]), closeSheet);
+    return true;
+  }
+  function run(g) {
+    inGame = true; $('#gameTitle').textContent = tr('start', { title: g.t }); $('#game').classList.add('on');
+    const c = g.con && CONS[g.con];
+    if (c && c.wants[c.chosen] && c.opt[c.chosen] !== c.wants[c.chosen]) setTimeout(() => { if (inGame) { leaveGame(); failed(g); } }, 1100);
+  }
+  function failed(g) {
+    const c = CONS[g.con];
+    openSheet(CHIP + H(tr('x.title', { emu: c.chosen }), tr('x.text')) + BTNS([['how', tr('x.how'), 1], ['open', tr('x.open')], ['no', tr('close')]]),
+      k => { if (k === 'how') how(g, () => failed(g)); else { closeSheet(); if (k === 'open') openEmu(g); } });
+  }
+  function choose(g, thenPlay) {
+    const c = CONS[g.con];
+    openSheet(H(tr('c.title', { con: g.con }), tr('c.text')) + ROWS(c.emus.map(e => [e, e, (c.wrong || []).includes(e) ? tr('z.row') : ''])),
+      k => { if (isWrong(g, k)) return; c.chosen = k; closeSheet(); if (thenPlay) play(g); else toast(tr('c.saved', { title: g.con, emu: k })); }, { index: Math.max(0, c.emus.indexOf(c.chosen)) });
+  }
+  function how(g, back) {
+    const c = CONS[g.con], e = c.chosen || c.emus[0], o = c.opt[e] || '';
+    openSheet(H(tr('h.title', { emu: e }), tr('h.text', { con: g.con })) + ROWS([['alone', tr('h.alone'), tr('h.alone.d')], ['opt', tr('h.opt'), o ? tr('h.opt.now', { o }) : tr('h.opt.d')]]),
+      k => {
+        if (k === 'alone') { c.opt[e] = ''; closeSheet(); toast(tr('o.saved', { emu: e })); }
+        else keyboard(tr('o.title'), tr('o.text'), o, v => { c.opt[e] = v; closeSheet(); toast(tr('o.saved', { emu: e })); }, () => how(g, back));
+      }, { index: o ? 1 : 0, back });
+  }
+  function options(g) {
+    if (g.src) { toast(tr('other')); return; }
+    const c = CONS[g.con], list = [];
+    if (c.emus.length) list.push(['open', tr('o.open')]);
+    if (c.emus.length > 1) list.push(['emu', tr('o.emu')]);
+    if (c.emus.length) list.push(['how', tr('o.how')]);
+    list.push(['fav', tr('o.fav')], ['cover', tr('o.cover')]);
+    openSheet(H(g.t) + ROWS(list), k => {
+      if (k === 'open') { closeSheet(); if (!isWrong(g, c.chosen || c.emus[0])) openEmu(g); } else if (k === 'emu') choose(g, false); else if (k === 'how') how(g, () => options(g)); else toast(tr('other'));
+    });
+  }
+  function details(g) {
+    const c = g.con && CONS[g.con];
+    const rows = c ? [['d.con', g.con], ['d.emu', c.chosen || (c.emus.length ? c.emus.join(', ') : tr('d.none'))], ...(c.emus.length ? [['d.how', c.opt[c.chosen] ? tr('h.opt.now', { o: c.opt[c.chosen] }) : tr('h.alone')]] : []), ['d.disk', tr('k.int')], ['d.last', tr('d.never')]] : [['d.last', tr('d.never')]];
+    openSheet(`${H(g.t)}<div class="facts t-m">${rows.map(([k, v]) => `<span class="k">${tr(k)}</span><span>${esc(v)}</span>`).join('')}</div>${BTNS([['go', tr('p.play'), 1], ['no', tr('close')]])}`,
+      k => { closeSheet(); if (k === 'go') play(g); });
+  }
+  let inGame = false, inEmu = false, px = 640, py = 300;
+  function leaveGame() { inGame = false; $('#game').classList.remove('on'); drawLibrary(); }
+  function openEmu(g) {
+    const c = CONS[g.con];
+    inEmu = true; px = 640; py = 300; $('#emuName').textContent = c.chosen || c.emus[0]; $('#emuTip').textContent = tr('tip'); $('#emu').classList.add('on'); movePtr();
+  }
+  function movePtr() { $('#ptr').style.left = px + 'px'; $('#ptr').style.top = py + 'px'; }
+  let toastTimer = 0;
+  function toast(t) { $('#toast').textContent = t; $('#toast').classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').classList.remove('on'), 2200); }
+
+  /* ---------- Input ---------- */
+  function act(a) {
+    const d = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] }[a];
+    if (inEmu) {
+      if (a === 'guide') { inEmu = false; $('#emu').classList.remove('on'); drawLibrary(); }
+      else if (d) { px = Math.min(1250, Math.max(0, px + d[0] * 24)); py = Math.min(690, Math.max(0, py + d[1] * 24)); movePtr(); }
+      return;
+    }
+    if (inGame) { if (a === 'guide') leaveGame(); return; }
+    if (sheet && sheet.kbd) { sheet.kbd(a); return; }
+    if (sheet) {
+      const n = sheet.items.length;
+      if (d) {
+        let i = sheet.index;
+        i = Math.min(n - 1, Math.max(0, i + d[0] + d[1]));
+        sheet.index = i; focusSheet();
+      } else if (a === 'a') sheet.onPick(sheet.items[sheet.index].dataset.k);
+      else if (a === 'b') { if (sheet.back) sheet.back(); else closeSheet(); }
+      return;
+    }
+    const cols = 7, g = GAMES[focusIndex];
+    if (a === 'left') focusIndex = Math.max(0, focusIndex - 1);
+    else if (a === 'right') focusIndex = Math.min(GAMES.length - 1, focusIndex + 1);
+    else if (a === 'up') focusIndex = Math.max(0, focusIndex - cols);
+    else if (a === 'down') focusIndex = Math.min(GAMES.length - 1, focusIndex + cols);
+    else if (a === 'a') { if (g.add) addGames(); else play(g); return; }
+    else if (a === 'x' && !g.add) { details(g); return; }
+    else if (a === 'menu' && !g.add) { options(g); return; }
+    else { toast(tr('other')); return; }
+    drawLibrary();
+  }
+  window.__act = act;                                      // for the automatic check of the demo
+  document.addEventListener('keydown', e => {
+    if (sheet && sheet.typing && e.key.length === 1 && !e.ctrlKey) { e.preventDefault(); sheet.typing(e.key); return; }
+    if (sheet && sheet.typing && e.key === 'Backspace') { e.preventDefault(); sheet.typing('del'); return; }
+    const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b', m: 'menu', M: 'menu', h: 'guide', H: 'guide', x: 'x', X: 'x' };
+    if (map[e.key]) { e.preventDefault(); act(map[e.key]); }
+  });
+  const BTN = { 0: 'a', 1: 'b', 2: 'x', 3: 'y', 4: 'lb', 5: 'rb', 6: 'lt', 9: 'menu', 16: 'guide' };
+  let prev = {}, repeatAt = 0, lastDir = null;
+  function poll(ts) {
+    const pad = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean)[0] : null;
+    if (pad) {
+      const on = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      for (const [i, a] of Object.entries(BTN)) { if (on(i) && !prev[i]) act(a); prev[i] = on(i); }
+      const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
+      const dir = on(14) || ax < -0.5 ? 'left' : on(15) || ax > 0.5 ? 'right' : on(12) || ay < -0.5 ? 'up' : on(13) || ay > 0.5 ? 'down' : null;
+      if (dir && ts > repeatAt) { act(dir); repeatAt = ts + (lastDir === dir ? 140 : 360); }
+      lastDir = dir; if (!dir) repeatAt = 0;
+    }
+    requestAnimationFrame(poll);
+  }
+  requestAnimationFrame(poll);
+
+
+  $('#demo-bar').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (inEmu) act('guide');
+    if (inGame) leaveGame();
+    if (b.dataset.reset) reset();
+    else {
+      $$('button', b.closest('.grp')).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      if (b.dataset.ts) document.documentElement.style.setProperty('--ts', b.dataset.ts);
+      if (b.dataset.lang) lang = b.dataset.lang;
+    }
+    if (sheet) closeSheet();
+    drawLibrary(); b.blur();
+  });
+
+  function fit() {
+    const s = Math.min(innerWidth / 1280, (innerHeight - 100) / 720);
+    stage.style.transform = `scale(${s})`;
+    $('#frame').style.width = 1280 * s + 'px'; $('#frame').style.height = 720 * s + 'px';
+  }
+  addEventListener('resize', fit); fit();
+  const clock = () => { $('#clock').textContent = new Date().toTimeString().slice(0, 5); };
+  clock(); setInterval(clock, 10000);
+
+
+  /* Optional start state: #lang=en&ts=1.4&at=2&open=play|options|details|add|name|disk|ready|failed|how|emu */
+  const q = new URLSearchParams(location.hash.slice(1));
+  const press = (k, v) => $$(`[data-${k}]`).forEach(x => x.setAttribute('aria-pressed', String(x.dataset[k] === v)));
+  if (q.get('lang') === 'en') { lang = 'en'; press('lang', 'en'); }
+  if (q.get('ts')) { document.documentElement.style.setProperty('--ts', q.get('ts')); press('ts', q.get('ts')); }
+  if (q.get('at')) focusIndex = +q.get('at');
+  drawLibrary();
+  if (q.get('emu')) CONS[GAMES[focusIndex].con].chosen = q.get('emu');
+  const open = { play, options, choose: g => choose(g, true), details, add: () => addGames(2), name: () => newName('FunContainer'), disk: () => newDisk('FunContainer'), ready: () => newReady('FunContainer', 'k.int'),
+    failed, how: g => how(g), emu: openEmu }[q.get('open')];
+  if (open) open(GAMES[focusIndex]);
+})();
+</script>
+</body>
+</html>

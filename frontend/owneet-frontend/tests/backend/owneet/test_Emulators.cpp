@@ -66,6 +66,20 @@ private slots:
         file("EMULAZIONE/FunContainer/giochi/Night Convoy/disc.img");
         file("EMULAZIONE/FunContainer/giochi/Night Convoy/cover.jpg");
         file("EMULAZIONE/FunContainer/giochi/Quiet Orbit/data/a.dat");
+        // a folder in a folder, as an archive leaves it, with a tiny file beside the game's own folders
+        file("EMULAZIONE/FunContainer/giochi/Paper Lantern/notes.txt");
+        file("EMULAZIONE/FunContainer/giochi/Paper Lantern/Paper Lantern (Europe) [en]/info.dat", QByteArray(1500, '\0'));
+        file("EMULAZIONE/FunContainer/giochi/Paper Lantern/Paper Lantern (Europe) [en]/DATA/main.bin", QByteArray(2000000, 'g'));
+        file("EMULAZIONE/FunContainer/giochi/River Post/River Post/disc.img");
+        file("EMULAZIONE/FunContainer/giochi/Stone Kite/CODE0001/disc.img");                // another name: asked
+        file("EMULAZIONE/FunContainer/giochi/Tin Harbour/list.cue", "FILE \"tracks/one.bin\" BINARY\n");
+        file("EMULAZIONE/FunContainer/giochi/Tin Harbour/tracks/one.bin", QByteArray(2000000, 'h'));
+        file("EMULAZIONE/FunContainer/giochi/Umber Gate/small.img", QByteArray(30000, 'i'));
+        file("EMULAZIONE/FunContainer/giochi/Umber Gate/manual/manual.pdf", QByteArray(2000000, 'j'));
+        file("EMULAZIONE/FunContainer/giochi/Velvet Mile/main.exe", QByteArray(500000, 'k'));
+        file("EMULAZIONE/FunContainer/giochi/Velvet Mile/data/big.pak", QByteArray(2000000, 'l'));
+        file("EMULAZIONE/FunContainer/giochi/Willow Run/code/a.one", QByteArray(2000000, 'm'));
+        file("EMULAZIONE/FunContainer/giochi/Willow Run/content/b.two");
         file("EMULAZIONE/TinyPad/Emulateurs/readme.txt");
         file("EMULAZIONE/TinyPad/Jeux/Saltwind.img");
         file("EMULAZIONE/OnlyGames/Games/a.img");
@@ -110,10 +124,13 @@ private slots:
             QStringList files;
             for (const QString& f : t.files)
                 files << QFileInfo(f).fileName();
-            names << t.name + QChar('=') + files.join(QChar('|'));
+            names << t.name + QChar('=') + files.join(QChar('|')) + (t.sure ? QString() : QStringLiteral("?"));
         }
         QCOMPARE(names, QStringList({ "Copper Coast=Copper Coast.img", "Ember Run=Ember Run.cue", "Lumen Drift=Lumen Drift.m3u",
-                                      "Moss Garden=Moss Garden.one|Moss Garden.two", "Night Convoy=disc.img", "Quiet Orbit=Quiet Orbit" }));
+                                      "Moss Garden=Moss Garden.one|Moss Garden.two?", "Night Convoy=disc.img",
+                                      "Paper Lantern=Paper Lantern (Europe) [en]|info.dat|Paper Lantern", "Quiet Orbit=a.dat|Quiet Orbit?",
+                                      "River Post=disc.img|River Post", "Stone Kite=disc.img|Stone Kite?", "Tin Harbour=list.cue",
+                                      "Umber Gate=small.img", "Velvet Mile=main.exe", "Willow Run=Willow Run" }));
     }
 
     void options()
@@ -167,6 +184,12 @@ private slots:
         const QList<QByteArray> words = QByteArray::fromBase64(game.launchCmd().section(QChar(' '), 1).toLatin1()).split('\0');
         QCOMPARE(words.at(2), files.at(1).toUtf8());
         QCOMPARE(words.at(3), QByteArray("-g"));
+        // several, the first without asking; another one can still be chosen
+        extra.insert("emu.path", m_disk.filePath("EMULAZIONE/FunContainer/giochi/River Post"));
+        extra.insert("emu.sure", true);
+        QCOMPARE(e.file(&game), files.at(0));
+        e.chooseFile(&game, files.at(1));
+        QCOMPARE(e.file(&game), files.at(1));
         // the emulator chosen is gone: asked again
         e.choose(&game, "gone.AppImage");
         QCOMPARE(e.chosen(&game), QString());

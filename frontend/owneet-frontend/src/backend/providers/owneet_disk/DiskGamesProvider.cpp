@@ -42,7 +42,8 @@
 //
 // A folder with the user's own emulators and games ([[step-4.9-the-users-own-emulators]],
 // owneet::Emulators), in the folder "Emulation" at the top of a disk: each of its games is listed, with the extras "emu.console" (the folder), "emu.name" (the user's name for it), "emu.root"
-// (as "disk.root"), "emu.path" (the game's file or folder) and "emu.files" (what can be started).
+// (as "disk.root"), "emu.path" (the game's file or folder), "emu.files" (what can be started) and
+// "emu.sure" (the first of them, without asking).
 
 #include "DiskGamesProvider.h"
 
@@ -502,6 +503,7 @@ void add_console(providers::SearchContext& sctx, const QString& log, const ownee
         extra.insert(QStringLiteral("emu.root"), root);
         extra.insert(QStringLiteral("emu.path"), title.path);
         extra.insert(QStringLiteral("emu.files"), title.files);
+        extra.insert(QStringLiteral("emu.sure"), title.sure);
     }
 }
 } // namespace

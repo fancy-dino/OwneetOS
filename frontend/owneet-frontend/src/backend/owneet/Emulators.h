@@ -33,6 +33,7 @@ public:
         QString path;                   // the file, or the game's folder
         QString name;
         QStringList files;              // what the emulator may be given: absolute paths
+        bool sure;                      // the first of them, without asking (Options can still change it)
     };
     struct ConsoleDir {
         QString path;

@@ -7,6 +7,7 @@
 #include "model/gaming/Game.h"
 
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
@@ -25,6 +26,8 @@ constexpr int PROGRAM_DEPTH = 3;             // sub-folders of an emulator's fol
 constexpr int MAX_ENTRIES = 4000;            // entries looked at in one emulator's folder
 constexpr int MAX_FILES = 40;                // files offered for one game
 constexpr qint64 MAX_LIST = 64 * 1024;       // a text file that names the files beside it
+constexpr int GAME_DEPTH = 3;                // folders looked into for the game's own folder
+constexpr qint64 BIG_FILE = 1024 * 1024;     // a file this big below tiny ones: the game is the whole folder
 
 // ---- The user's choices: { "<console folder>": { "emulator": id, "told": [id], "options": { id: line },
 // "files": { "<game path>": "<file>" } } }
@@ -190,6 +193,97 @@ QFileInfoList game_files(const QString& dir)
     return list;
 }
 
+// A name as it is compared between a game's folder and the one in it: letters and digits only, without
+// what is in brackets ("Ember Run (Europe)" is "Ember Run")
+QString title_key(const QString& name)
+{
+    QString out;
+    int brackets = 0;
+    for (const QChar c : name.normalized(QString::NormalizationForm_C).toLower()) {
+        if (c == QChar('(') || c == QChar('['))
+            brackets++;
+        else if (c == QChar(')') || c == QChar(']'))
+            brackets = std::max(0, brackets - 1);
+        else if (brackets == 0 && c.isLetterOrNumber())
+            out.append(c);
+    }
+    return out;
+}
+
+QFileInfoList game_folders(const QString& dir)
+{
+    QFileInfoList list = QDir(dir).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+    list.erase(std::remove_if(list.begin(), list.end(), [](const QFileInfo& i) {
+        return i.fileName().startsWith(QChar('.')) || i.isSymLink();
+    }), list.end());
+    return list;
+}
+
+// The files at the top are tiny and name nothing in the folders beside them, which hold a big one: the
+// files only describe the game, and the game is the whole folder
+bool whole_folder(const QFileInfoList& files, const QFileInfoList& folders)
+{
+    if (files.isEmpty() || folders.isEmpty())
+        return false;
+    for (const QFileInfo& info : files) {
+        if (info.size() > MAX_LIST)
+            return false;
+        QFile file(info.filePath());
+        if (!file.open(QIODevice::ReadOnly))
+            return false;
+        const QString text = QString::fromUtf8(file.readAll());
+        for (const QFileInfo& folder : folders) {           // a list of files in them ("tracks/one.bin")
+            if (text.contains(folder.fileName() + QChar('/'), Qt::CaseInsensitive)
+                || text.contains(folder.fileName() + QChar('\\'), Qt::CaseInsensitive))
+                return false;
+        }
+    }
+    int entries = 0;
+    for (const QFileInfo& folder : folders) {
+        QDirIterator it(folder.filePath(), QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+        while (it.hasNext() && ++entries <= MAX_ENTRIES) {
+            it.next();
+            if (it.fileInfo().size() > BIG_FILE && !beside_game(it.fileName()))
+                return true;
+        }
+    }
+    return false;
+}
+
+// What an emulator may be given for a game's folder. `sure`: the first one, without asking
+struct Start {
+    QStringList files;
+    bool sure;
+};
+
+Start start_of(const QString& dir, int depth)
+{
+    QStringList files;
+    const QFileInfoList top = game_files(dir);
+    for (const QFileInfo& file : top)
+        files.append(file.filePath());
+    const QFileInfoList folders = game_folders(dir);
+    // the files at the top only describe it: the folder, the files still in the user's reach
+    if (files.size() <= MAX_FILES && whole_folder(top, folders))
+        return { QStringList(dir) + files, true };
+    // nothing but one folder: the game's own when it has its name (what an archive leaves), else asked
+    if (files.isEmpty() && folders.size() == 1 && depth < GAME_DEPTH) {
+        const QString inner = folders.first().filePath();
+        const QString key = title_key(QFileInfo(dir).fileName());
+        Start start = start_of(inner, depth + 1);
+        if (!key.isEmpty() && key == title_key(folders.first().fileName())) {
+            start.files.append(dir);
+            return start;
+        }
+        start.files.append(dir);
+        return { start.files, false };
+    }
+    // nothing at its top, or too much to choose from: the folder itself is the game
+    if (files.isEmpty() || files.size() > MAX_FILES)
+        return { QStringList(dir), true };
+    return { files, files.size() == 1 };
+}
+
 // A name as it is compared: lower case, an accent written in one way only (a disk may have it in two)
 QString plain(const QString& name)
 {
@@ -332,21 +426,17 @@ QVector<Emulators::Title> Emulators::titlesOf(const ConsoleDir& console)
         if (byName.contains(name)) {
             Title& title = out[byName.value(name)];
             title.files.append(info.filePath());
+            title.sure = false;
             continue;
         }
         byName.insert(name, out.size());
-        out.append({ info.filePath(), name, QStringList(info.filePath()) });
+        out.append({ info.filePath(), name, QStringList(info.filePath()), true });
     }
     for (const QFileInfo& info : QDir(console.games).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name)) {
         if (info.fileName().startsWith(QChar('.')))
             continue;
-        QStringList files;
-        for (const QFileInfo& file : game_files(info.filePath()))
-            files.append(file.filePath());
-        // nothing at its top, or too much to choose from: the folder itself is the game
-        if (files.isEmpty() || files.size() > MAX_FILES)
-            files = QStringList(info.filePath());
-        out.append({ info.filePath(), info.fileName(), files });
+        const Start start = start_of(info.filePath(), 0);
+        out.append({ info.filePath(), info.fileName(), start.files, start.sure });
     }
     return out;
 }
@@ -467,7 +557,9 @@ QString Emulators::file(QObject* game_obj) const
         return all.first();
     const QString path = game->extraMap().value(QStringLiteral("emu.path")).toString();
     const QString name = choices_of(console_path(game_obj)).value(QStringLiteral("files")).toObject().value(path).toString();
-    return all.contains(name) ? name : QString();
+    if (all.contains(name))
+        return name;
+    return game->extraMap().value(QStringLiteral("emu.sure")).toBool() ? all.first() : QString();
 }
 
 void Emulators::chooseFile(QObject* game_obj, const QString& file)
