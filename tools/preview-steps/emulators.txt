@@ -18,7 +18,7 @@ pad b
 pad right
 pad a
 shot emu-04-notice
-pad left a
+pad left left a
 wait 3
 shot emu-05-closed
 pad a

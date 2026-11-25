@@ -19,7 +19,7 @@ shot emux-02-options
 pad b
 pad right a
 shot emux-03-notice
-pad left a
+pad left left a
 wait 3
 shot emux-04-closed
 pad a

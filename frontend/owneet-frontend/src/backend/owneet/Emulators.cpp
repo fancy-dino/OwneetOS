@@ -7,7 +7,6 @@
 #include "model/gaming/Game.h"
 
 #include <QDir>
-#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
@@ -27,7 +26,6 @@ constexpr int MAX_ENTRIES = 4000;            // entries looked at in one emulato
 constexpr int MAX_FILES = 40;                // files offered for one game
 constexpr qint64 MAX_LIST = 64 * 1024;       // a text file that names the files beside it
 constexpr int GAME_DEPTH = 3;                // folders looked into for the game's own folder
-constexpr qint64 BIG_FILE = 1024 * 1024;     // a file this big below tiny ones: the game is the whole folder
 
 // ---- The user's choices: { "<console folder>": { "emulator": id, "told": [id], "options": { id: line },
 // "files": { "<game path>": "<file>" } } }
@@ -96,20 +94,50 @@ QString bare_name(const QString& name)
     return out;
 }
 
-// An ELF program for this PC (64 bits or 32), not a library
-bool is_program(const QFileInfo& info)
+// The processor an ELF program is made for, 0 when it is none
+int program_machine(const QString& path)
 {
-    if (!info.isExecutable() || info.fileName().contains(QLatin1String(".so")))
-        return false;
-    QFile file(info.filePath());
+    QFile file(path);
     if (!file.open(QIODevice::ReadOnly))
-        return false;
+        return 0;
     const QByteArray head = file.read(20);
     if (head.size() < 20 || !head.startsWith("\x7f" "ELF"))
-        return false;
+        return 0;
     const int type = static_cast<unsigned char>(head.at(16));
-    const int machine = static_cast<unsigned char>(head.at(18));
-    return (type == 2 || type == 3) && (machine == 0x3e || machine == 3);
+    return type == 2 || type == 3 ? static_cast<unsigned char>(head.at(18)) : 0;
+}
+
+// For this PC: 64 bits or 32
+bool fits_machine(int machine) { return machine == 0x3e || machine == 3; }
+
+// An ELF program, not a library
+bool may_be_program(const QFileInfo& info)
+{
+    return info.isExecutable() && !info.fileName().contains(QLatin1String(".so"));
+}
+
+bool is_program(const QFileInfo& info)
+{
+    return may_be_program(info) && fits_machine(program_machine(info.filePath()));
+}
+
+// A program for another kind of PC (ARM, RISC-V)
+bool is_other_program(const QFileInfo& info)
+{
+    if (!may_be_program(info) || info.suffix().toLower() == QLatin1String("elf"))
+        return false;
+    const int machine = program_machine(info.filePath());
+    return machine == 0xb7 || machine == 0x28 || machine == 0xf3;
+}
+
+// Whether what is listed can run here: an AppImage or a program made for another kind of processor cannot
+bool fits(const QString& path)
+{
+    const QString suffix = QFileInfo(path).suffix().toLower();
+    if (is_archive(path) || suffix == QLatin1String("sh"))
+        return true;
+    const int machine = program_machine(path);
+    return machine == 0 || fits_machine(machine);
 }
 
 // 0: nothing to start; higher is better: a program or a script, an archive, an AppImage
@@ -131,7 +159,8 @@ struct Program {
     int depth;
 };
 
-void search_programs(const QString& dir, int depth, int& entries, QVector<Program>& out)
+// `others`: programs for another kind of processor
+void search_programs(const QString& dir, int depth, int& entries, QVector<Program>& out, QVector<Program>& others)
 {
     for (const QFileInfo& info : QDir(dir).entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::DirsLast)) {
         if (++entries > MAX_ENTRIES)
@@ -139,12 +168,14 @@ void search_programs(const QString& dir, int depth, int& entries, QVector<Progra
         if (info.isDir()) {
             // a folder an AppImage made for itself ("<name>.AppImage.home") holds its settings
             if (depth < PROGRAM_DEPTH && !info.isSymLink() && !info.fileName().contains(QLatin1String(".appimage."), Qt::CaseInsensitive))
-                search_programs(info.filePath(), depth + 1, entries, out);
+                search_programs(info.filePath(), depth + 1, entries, out, others);
             continue;
         }
         const int rank = program_rank(info);
         if (rank > 0)
             out.append({ info.filePath(), rank, depth });
+        else if (is_other_program(info))
+            others.append({ info.filePath(), 1, depth });
     }
 }
 
@@ -219,37 +250,6 @@ QFileInfoList game_folders(const QString& dir)
     return list;
 }
 
-// The files at the top are tiny and name nothing in the folders beside them, which hold a big one: the
-// files only describe the game, and the game is the whole folder
-bool whole_folder(const QFileInfoList& files, const QFileInfoList& folders)
-{
-    if (files.isEmpty() || folders.isEmpty())
-        return false;
-    for (const QFileInfo& info : files) {
-        if (info.size() > MAX_LIST)
-            return false;
-        QFile file(info.filePath());
-        if (!file.open(QIODevice::ReadOnly))
-            return false;
-        const QString text = QString::fromUtf8(file.readAll());
-        for (const QFileInfo& folder : folders) {           // a list of files in them ("tracks/one.bin")
-            if (text.contains(folder.fileName() + QChar('/'), Qt::CaseInsensitive)
-                || text.contains(folder.fileName() + QChar('\\'), Qt::CaseInsensitive))
-                return false;
-        }
-    }
-    int entries = 0;
-    for (const QFileInfo& folder : folders) {
-        QDirIterator it(folder.filePath(), QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
-        while (it.hasNext() && ++entries <= MAX_ENTRIES) {
-            it.next();
-            if (it.fileInfo().size() > BIG_FILE && !beside_game(it.fileName()))
-                return true;
-        }
-    }
-    return false;
-}
-
 // What an emulator may be given for a game's folder. `sure`: the first one, without asking
 struct Start {
     QStringList files;
@@ -259,24 +259,25 @@ struct Start {
 Start start_of(const QString& dir, int depth)
 {
     QStringList files;
-    const QFileInfoList top = game_files(dir);
-    for (const QFileInfo& file : top)
+    for (const QFileInfo& file : game_files(dir))
         files.append(file.filePath());
     const QFileInfoList folders = game_folders(dir);
-    // the files at the top only describe it: the folder, the files still in the user's reach
-    if (files.size() <= MAX_FILES && whole_folder(top, folders))
-        return { QStringList(dir) + files, true };
-    // nothing but one folder: the game's own when it has its name (what an archive leaves), else asked
+    // nothing but one folder with the game's own name (what an archive leaves): it is looked into. With
+    // any other name the folder stays the game, as it is: it may be the part of a game that an emulator
+    // looks for in the folder above.
     if (files.isEmpty() && folders.size() == 1 && depth < GAME_DEPTH) {
-        const QString inner = folders.first().filePath();
         const QString key = title_key(QFileInfo(dir).fileName());
-        Start start = start_of(inner, depth + 1);
         if (!key.isEmpty() && key == title_key(folders.first().fileName())) {
+            const QString inner = folders.first().filePath();
+            Start start = start_of(inner, depth + 1);
+            // files beside folders: either may be the game, the user is asked once
+            if (!start.files.contains(inner) && !game_folders(inner).isEmpty()) {
+                start.files.append(inner);
+                start.sure = false;
+            }
             start.files.append(dir);
             return start;
         }
-        start.files.append(dir);
-        return { start.files, false };
     }
     // nothing at its top, or too much to choose from: the folder itself is the game
     if (files.isEmpty() || files.size() > MAX_FILES)
@@ -384,36 +385,43 @@ QVector<Emulators::ConsoleDir> Emulators::consolesOf(const QString& root)
 
 QVector<Emulators::Emulator> Emulators::emulatorsOf(const ConsoleDir& console)
 {
-    QVector<Emulator> out;
+    QVector<Emulator> out, others;          // others: shown only when there is nothing else
     const QDir base(console.emulators);
     for (const QFileInfo& info : base.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name)) {
         if (info.fileName().startsWith(QChar('.')))
             continue;
         if (info.isFile()) {
             if (program_rank(info) > 0)
-                out.append({ info.fileName(), bare_name(info.fileName()) });
+                out.append({ info.fileName(), bare_name(info.fileName()), fits(info.filePath()) });
+            else if (is_other_program(info))
+                others.append({ info.fileName(), bare_name(info.fileName()), false });
             continue;
         }
         if (info.fileName().contains(QLatin1String(".appimage."), Qt::CaseInsensitive))
             continue;
         // a folder: the best kind in it, at the shallowest place
-        QVector<Program> found;
-        int entries = 0;
-        search_programs(info.filePath(), 0, entries, found);
-        int rank = 0, depth = 0;
-        for (const Program& p : qAsConst(found)) {
-            if (p.rank > rank || (p.rank == rank && p.depth < depth)) {
-                rank = p.rank;
-                depth = p.depth;
+        const auto add = [&base, &info](QVector<Program> found, QVector<Emulator>& list) {
+            int rank = 0, depth = 0;
+            for (const Program& p : qAsConst(found)) {
+                if (p.rank > rank || (p.rank == rank && p.depth < depth)) {
+                    rank = p.rank;
+                    depth = p.depth;
+                }
             }
-        }
-        found.erase(std::remove_if(found.begin(), found.end(), [rank, depth](const Program& p) { return p.rank != rank || p.depth != depth; }), found.end());
-        for (const Program& p : qAsConst(found)) {
-            const QString file = bare_name(QFileInfo(p.path).fileName());
-            out.append({ base.relativeFilePath(p.path), found.size() == 1 ? info.fileName() : info.fileName() + QStringLiteral(": ") + file });
-        }
+            found.erase(std::remove_if(found.begin(), found.end(), [rank, depth](const Program& p) { return p.rank != rank || p.depth != depth; }), found.end());
+            for (const Program& p : qAsConst(found)) {
+                const QString file = bare_name(QFileInfo(p.path).fileName());
+                list.append({ base.relativeFilePath(p.path), found.size() == 1 ? info.fileName() : info.fileName() + QStringLiteral(": ") + file, fits(p.path) });
+            }
+        };
+        QVector<Program> found, foundOthers;
+        int entries = 0;
+        search_programs(info.filePath(), 0, entries, found, foundOthers);
+        add(found, out);
+        if (found.isEmpty())
+            add(foundOthers, others);
     }
-    return out;
+    return out.isEmpty() ? others : out;
 }
 
 QVector<Emulators::Title> Emulators::titlesOf(const ConsoleDir& console)
@@ -479,7 +487,7 @@ QVariantList Emulators::list(QObject* game) const
     const ConsoleDir console = consoleDir(console_path(game));
     if (console.valid()) {
         for (const Emulator& e : emulatorsOf(console))
-            out.append(QVariantMap { { QStringLiteral("id"), e.id }, { QStringLiteral("name"), e.name } });
+            out.append(QVariantMap { { QStringLiteral("id"), e.id }, { QStringLiteral("name"), e.name }, { QStringLiteral("fits"), e.fits } });
     }
     return out;
 }
@@ -498,7 +506,12 @@ QString Emulators::chosen(QObject* game) const
     if (all.size() == 1)
         return all.first().id;
     const QString id = choices_of(console.path).value(QStringLiteral("emulator")).toString();
-    return std::any_of(all.cbegin(), all.cend(), [&id](const Emulator& e) { return e.id == id; }) ? id : QString();
+    QStringList able;                       // the ones that can run on this PC
+    for (const Emulator& e : all) {
+        if (e.fits)
+            able.append(e.id);
+    }
+    return able.contains(id) ? id : able.size() == 1 ? able.first() : QString();
 }
 
 void Emulators::choose(QObject* game, const QString& id)

@@ -1,0 +1,30 @@
+@nogames
+@owneetd
+@gamescope
+@emulators
+@wrongemulator
+# An emulator's first start (4.9, approved demo 4.9c): choosing among three, one of them for another
+# kind of processor; the notice, with opening the emulator; the only one of a console that cannot run.
+wait 3
+pad rb
+shot emuw-01-library
+pad a
+wait 0.5
+shot emuw-02-choose
+pad down down a
+wait 0.5
+shot emuw-03-other
+pad a
+pad a
+wait 0.5
+pad a
+wait 0.5
+shot emuw-04-notice
+pad left a
+wait 1
+shot emuw-05-open
+pad a
+wait 2
+shot emuw-06-opened
+wait 3
+shot emuw-07-after

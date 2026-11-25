@@ -28,6 +28,7 @@ public:
     struct Emulator {
         QString id;                     // relative to the folder of the emulators
         QString name;                   // as the user wrote it: the folder's or the file's name
+        bool fits;                      // made for this kind of processor
     };
     struct Title {
         QString path;                   // the file, or the game's folder
@@ -62,11 +63,12 @@ public:
     static QVector<ConsoleDir> consolesOf(const QString& root);
 
     // ---- For the theme. `game`: a game whose extra "emu.console" is its console's folder
-    /// [{ id, name }]: read from the disk now
+    /// [{ id, name, fits }]: read from the disk now; fits: made for this kind of processor
     Q_INVOKABLE QVariantList list(QObject* game) const;
     /// The name of the folder of its console's emulators
     Q_INVOKABLE QString folder(QObject* game) const;
-    /// The id of the emulator chosen for the console, or of the only one; "" when the user must choose
+    /// The id of the emulator chosen for the console, or of the only one (of those that can run here, when
+    /// there are several); "" when the user must choose
     Q_INVOKABLE QString chosen(QObject* game) const;
     Q_INVOKABLE void choose(QObject* game, const QString& id);
     /// The user has been told, once, that this emulator is not part of OwneetOS

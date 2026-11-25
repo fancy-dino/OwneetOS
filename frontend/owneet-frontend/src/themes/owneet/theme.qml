@@ -2122,8 +2122,10 @@ FocusScope {
         }
         const id = emulators.chosen(game);
         if (id === "") { emuChoose(game, true); return false; }
+        if (emuOther(game, id)) return false;
         if (!emulators.told(game, id)) {
-            emuWindow("emuNotice", Tr.tr("emu.notice.title", { emulator: emuName(game, id) }), Tr.tr("emu.notice.text"));
+            emuWindow("emuNotice", Tr.tr("emu.notice.title", { emulator: emuName(game, id) }),
+                      Tr.tr("emu.notice.text") + "\n\n" + Tr.tr("emu.notice.controller"));
             dialog.icon = "controller";
             dialog.buttons = [
                 { text: Tr.tr("emu.notice.go"), action: () => {
@@ -2131,8 +2133,13 @@ FocusScope {
                     dialog.close(true);
                     root.launch(game);
                 } },
+                { text: Tr.tr("emu.open"), action: () => {
+                    emulators.setTold(game, id);
+                    dialog.close(true);
+                    root.emuOpen(game);
+                } },
                 { text: Tr.tr("prompt.cancel"), style: "primary", action: () => dialog.close() }];
-            dialog.defaultIndex = 1;             // Cancel: nothing started by accident
+            dialog.defaultIndex = 2;             // Cancel: nothing started by accident
             dialog.open();
             return false;
         }
@@ -2144,11 +2151,27 @@ FocusScope {
         }
         return emulators.prepare(game);
     }
+    // Made for another kind of processor (demo 4.9c): said, not started. The emulator's id, or nothing
+    function emuFits(e) { return e.fits !== false; }
+    function emuOther(game, id) {
+        const e = emulators.list(game).find(e => e.id === id);
+        if (!e || emuFits(e)) return false;
+        emuWindow("emuNone", Tr.tr("emu.wrong.title", { emulator: e.name }), Tr.tr("emu.wrong.text", { folder: emulators.folder(game) }));
+        dialog.icon = "controller";
+        dialog.buttons = [{ text: Tr.tr("prompt.close"), style: "primary", action: () => dialog.close() }];
+        dialog.defaultIndex = 0;
+        dialog.open(dialog.visible);
+        return true;
+    }
+    function emuRowsOf(game, id) {
+        return emulators.list(game).map(e => ({ key: e.id, title: e.name, detail: emuFits(e) ? "" : Tr.tr("emu.wrong.row"), current: e.id === id }));
+    }
     function emuChoose(game, thenStart) {
         const id = emulators.chosen(game);
         emuRows(Tr.tr("emu.choose.title", { console: GameInfo.source(game) }), Tr.tr("choose.text"),
-                emulators.list(game).map(e => ({ key: e.id, title: e.name, detail: "", current: e.id === id })),
+                emuRowsOf(game, id),
                 key => {
+                    if (root.emuOther(game, key)) return;
                     emulators.choose(game, key);
                     dialog.close(true);
                     if (thenStart) root.launch(game);
@@ -2190,8 +2213,13 @@ FocusScope {
         const id = emulators.chosen(game);
         if (id !== "") { then(id); return; }
         emuRows(Tr.tr("emu.choose.title", { console: GameInfo.source(game) }), Tr.tr("choose.text"),
-                emulators.list(game).map(e => ({ key: e.id, title: e.name, detail: "", current: false })),
-                key => { emulators.choose(game, key); dialog.close(true); then(key); });
+                emuRowsOf(game, ""),
+                key => {
+                    if (root.emuOther(game, key)) return;
+                    emulators.choose(game, key);
+                    dialog.close(true);
+                    then(key);
+                });
     }
     function emuHow(game, back) { emuWith(game, id => root.emuHowFor(game, id, back)); }
     function emuHowFor(game, id, back) {
@@ -2238,6 +2266,7 @@ FocusScope {
     // all its windows until it ends (owner, 2026-11-25)
     function emuOpen(game) {
         emuWith(game, id => {
+            if (emuOther(game, id)) return;
             if (runningGame || runningWebApp || runningPlayer) {
                 toast.show(runningGame ? Tr.tr("error.apps.game_running") : Tr.tr("toast.app.busy", { name: openName() }));
                 Nav.feedback("edge");

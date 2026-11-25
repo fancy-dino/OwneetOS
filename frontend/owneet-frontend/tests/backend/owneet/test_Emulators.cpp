@@ -28,11 +28,11 @@ private:
             f.setPermissions(f.permissions() | QFileDevice::ExeOwner | QFileDevice::ExeUser);
         return path;
     }
-    static QByteArray program()
+    static QByteArray program(char machine = '\x3e')
     {
         QByteArray head("\x7f" "ELF", 4);
         head += QByteArray(12, '\0');
-        head += QByteArray("\x03\x00\x3e\x00", 4);
+        head += QByteArray("\x03\x00", 2) + machine + '\0';
         return head + QByteArray(64, '\0');
     }
     owneet::Emulators::ConsoleDir console(const QString& rel) { return owneet::Emulators::consoleDir(m_disk.filePath(rel)); }
@@ -71,15 +71,16 @@ private slots:
         file("EMULAZIONE/FunContainer/giochi/Paper Lantern/Paper Lantern (Europe) [en]/info.dat", QByteArray(1500, '\0'));
         file("EMULAZIONE/FunContainer/giochi/Paper Lantern/Paper Lantern (Europe) [en]/DATA/main.bin", QByteArray(2000000, 'g'));
         file("EMULAZIONE/FunContainer/giochi/River Post/River Post/disc.img");
-        file("EMULAZIONE/FunContainer/giochi/Stone Kite/CODE0001/disc.img");                // another name: asked
+        file("EMULAZIONE/FunContainer/giochi/Stone Kite/CODE0001/disc.img");                // another name: as before
         file("EMULAZIONE/FunContainer/giochi/Tin Harbour/list.cue", "FILE \"tracks/one.bin\" BINARY\n");
         file("EMULAZIONE/FunContainer/giochi/Tin Harbour/tracks/one.bin", QByteArray(2000000, 'h'));
-        file("EMULAZIONE/FunContainer/giochi/Umber Gate/small.img", QByteArray(30000, 'i'));
-        file("EMULAZIONE/FunContainer/giochi/Umber Gate/manual/manual.pdf", QByteArray(2000000, 'j'));
+        file("EMULAZIONE/FunContainer/giochi/Umber Gate/info.dat", QByteArray(1500, '\0'));     // a file beside a folder: as before
+        file("EMULAZIONE/FunContainer/giochi/Umber Gate/DATA/main.bin", QByteArray(2000000, 'j'));
         file("EMULAZIONE/FunContainer/giochi/Velvet Mile/main.exe", QByteArray(500000, 'k'));
         file("EMULAZIONE/FunContainer/giochi/Velvet Mile/data/big.pak", QByteArray(2000000, 'l'));
         file("EMULAZIONE/FunContainer/giochi/Willow Run/code/a.one", QByteArray(2000000, 'm'));
         file("EMULAZIONE/FunContainer/giochi/Willow Run/content/b.two");
+        file("EMULAZIONE/FunContainer/giochi/Yellow Pier/Yellow Pier (Rev 1)/PART/a.one");   // the named one holds only another
         file("EMULAZIONE/TinyPad/Emulateurs/readme.txt");
         file("EMULAZIONE/TinyPad/Jeux/Saltwind.img");
         file("EMULAZIONE/OnlyGames/Games/a.img");
@@ -128,9 +129,41 @@ private slots:
         }
         QCOMPARE(names, QStringList({ "Copper Coast=Copper Coast.img", "Ember Run=Ember Run.cue", "Lumen Drift=Lumen Drift.m3u",
                                       "Moss Garden=Moss Garden.one|Moss Garden.two?", "Night Convoy=disc.img",
-                                      "Paper Lantern=Paper Lantern (Europe) [en]|info.dat|Paper Lantern", "Quiet Orbit=a.dat|Quiet Orbit?",
-                                      "River Post=disc.img|River Post", "Stone Kite=disc.img|Stone Kite?", "Tin Harbour=list.cue",
-                                      "Umber Gate=small.img", "Velvet Mile=main.exe", "Willow Run=Willow Run" }));
+                                      "Paper Lantern=info.dat|Paper Lantern (Europe) [en]|Paper Lantern?", "Quiet Orbit=Quiet Orbit",
+                                      "River Post=disc.img|River Post", "Stone Kite=Stone Kite", "Tin Harbour=list.cue",
+                                      "Umber Gate=info.dat", "Velvet Mile=main.exe", "Willow Run=Willow Run",
+                                      "Yellow Pier=Yellow Pier (Rev 1)|Yellow Pier" }));
+    }
+
+    // made for another kind of processor: shown, never chosen by the console
+    void otherProcessor()
+    {
+        const auto mark = [this](const QString& rel) {
+            QStringList names;
+            for (const auto& e : owneet::Emulators::emulatorsOf(console(rel)))
+                names << e.id + (e.fits ? QString() : QStringLiteral("!"));
+            return names;
+        };
+        file("EMULAZIONE/OddBox/Emulators/odd.AppImage", program('\xb7'));
+        file("EMULAZIONE/OddBox/Games/a.img");
+        QCOMPARE(mark("EMULAZIONE/OddBox"), QStringList({ "odd.AppImage!" }));
+        model::Game game(QStringLiteral("a"));
+        game.extraMapMut().insert("emu.console", m_disk.filePath("EMULAZIONE/OddBox"));
+        owneet::Emulators e;
+        QCOMPARE(e.chosen(&game), QStringLiteral("odd.AppImage"));          // the only one: said when it starts
+        file("EMULAZIONE/OddBox/Emulators/right.AppImage", program());
+        QCOMPARE(mark("EMULAZIONE/OddBox"), QStringList({ "odd.AppImage!", "right.AppImage" }));
+        QCOMPARE(e.chosen(&game), QStringLiteral("right.AppImage"));        // the only one that can run
+        file("EMULAZIONE/OddBox/Emulators/text.sh", "#!/bin/bash\n");
+        QCOMPARE(e.chosen(&game), QString());                              // two: asked
+        e.choose(&game, "odd.AppImage");
+        QCOMPARE(e.chosen(&game), QString());
+        // plain programs: only when there is nothing else
+        file("EMULAZIONE/OddPad/Emulators/Tool/tool", program('\xb7'), true);
+        file("EMULAZIONE/OddPad/Games/a.img");
+        QCOMPARE(mark("EMULAZIONE/OddPad"), QStringList({ "Tool/tool!" }));
+        file("EMULAZIONE/OddPad/Emulators/good", program(), true);
+        QCOMPARE(mark("EMULAZIONE/OddPad"), QStringList({ "good" }));
     }
 
     void options()
