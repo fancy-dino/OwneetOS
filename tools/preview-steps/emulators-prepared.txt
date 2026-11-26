@@ -1,0 +1,26 @@
+@nogames
+@owneetd
+@gamescope
+@emulators
+@preparedemulator
+# Emulators the console recognises (4.9, approved demo 4.9d), by invented cards: a system file missing,
+# then one there: the emulator is prepared before the game.
+wait 3
+pad rb
+pad right right right right
+shot emup-01-library
+pad a
+wait 0.5
+shot emup-02-notice
+pad left left a
+wait 0.5
+shot emup-03-sysfile
+pad a
+pad right
+wait 0.3
+shot emup-04-library-tallbox
+pad a
+wait 0.5
+pad left left a
+wait 1
+shot emup-05-preparing

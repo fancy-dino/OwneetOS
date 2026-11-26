@@ -7,12 +7,15 @@
 #include "model/gaming/Game.h"
 
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
+#include <QCryptographicHash>
 #include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QSet>
 #include <QStorageInfo>
@@ -289,6 +292,84 @@ Start start_of(const QString& dir, int depth)
 QString plain(const QString& name)
 {
     return name.normalized(QString::NormalizationForm_C).toLower();
+}
+
+// ---- What the console knows of an emulator it recognises: its card (frontend/emulator-cards/README.md).
+// The cards are kept out of git until the legal review (owner, 2026-11-26); without one, nothing changes.
+QStringList card_dirs()
+{
+    const QString env = qEnvironmentVariable("OWNEET_EMULATOR_CARDS");
+    if (!env.isEmpty())
+        return env.split(QChar(':'), Qt::SkipEmptyParts);
+    return { QStringLiteral("/usr/share/owneet-frontend/emulator-cards") };
+}
+
+QVector<QJsonObject> all_cards()
+{
+    QVector<QJsonObject> out;
+    for (const QString& dir : card_dirs()) {
+        for (const QFileInfo& info : QDir(dir).entryInfoList({ QStringLiteral("*.json") }, QDir::Files, QDir::Name)) {
+            QFile file(info.filePath());
+            if (!file.open(QIODevice::ReadOnly))
+                continue;
+            const QJsonObject card = QJsonDocument::fromJson(file.readAll()).object();
+            if (card.isEmpty())
+                Log::warning(LOGMSG("Not a card: `%1`").arg(info.filePath()));
+            else
+                out.append(card);
+        }
+    }
+    return out;
+}
+
+bool matches(const QJsonArray& patterns, const QString& name)
+{
+    for (const QJsonValue& p : patterns) {
+        const QRegularExpression re(QRegularExpression::wildcardToRegularExpression(p.toString()),
+                                    QRegularExpression::CaseInsensitiveOption);
+        if (re.match(name).hasMatch())
+            return true;
+    }
+    return false;
+}
+
+// The card of an emulator (its id, relative to the folder of the emulators): by its program's name, or its folder's
+QJsonObject card_of(const QString& id)
+{
+    if (id.isEmpty())
+        return {};
+    const QString file = QFileInfo(id).fileName();
+    const QString folder = id.section(QChar('/'), 0, 0);
+    for (const QJsonObject& card : all_cards()) {
+        const QJsonArray patterns = card.value(QStringLiteral("match")).toArray();
+        if (matches(patterns, file) || (folder != file && matches(patterns, folder)))
+            return card;
+    }
+    return {};
+}
+
+QString home_path(const QString& path)
+{
+    return path.startsWith(QLatin1String("~/")) ? QDir::homePath() + path.mid(1) : path;
+}
+
+QStringList with(const QJsonArray& words, const QString& key, const QString& value)
+{
+    QStringList out;
+    for (const QJsonValue& w : words)
+        out.append(w.toString().replace(key, value));
+    return out;
+}
+
+// The settings the console wrote: { path: sha1 }, so that only its own are ever written again
+QString written_path()
+{
+    return paths::writableConfigDir() + QStringLiteral("/emulator-settings.json");
+}
+
+QString sha1(const QByteArray& data)
+{
+    return QString::fromLatin1(QCryptographicHash::hash(data, QCryptographicHash::Sha1).toHex());
 }
 
 QString folder_name(const QString& kind, const QString& language)
@@ -572,7 +653,22 @@ QString Emulators::file(QObject* game_obj) const
     const QString name = choices_of(console_path(game_obj)).value(QStringLiteral("files")).toObject().value(path).toString();
     if (all.contains(name))
         return name;
-    return game->extraMap().value(QStringLiteral("emu.sure")).toBool() ? all.first() : QString();
+    if (game->extraMap().value(QStringLiteral("emu.sure")).toBool())
+        return all.first();
+    // what the recognised emulator wants, when it says so
+    const QJsonValue prefer = card_of(chosen(game_obj)).value(QStringLiteral("prefer"));
+    if (prefer.toString() == QLatin1String("folder")) {
+        for (const QString& f : all) {
+            if (QFileInfo(f).isDir())
+                return f;
+        }
+    } else if (prefer.isArray()) {
+        for (const QString& f : all) {
+            if (matches(prefer.toArray(), QFileInfo(f).fileName()))
+                return f;
+        }
+    }
+    return {};
 }
 
 void Emulators::chooseFile(QObject* game_obj, const QString& file)
@@ -588,7 +684,7 @@ void Emulators::chooseFile(QObject* game_obj, const QString& file)
     write_choices(console, choices);
 }
 
-bool Emulators::prepare(QObject* game_obj) const
+bool Emulators::prepare(QObject* game_obj, const QString& pad) const
 {
     auto* game = qobject_cast<model::Game*>(game_obj);
     const ConsoleDir console = consoleDir(console_path(game_obj));
@@ -596,7 +692,13 @@ bool Emulators::prepare(QObject* game_obj) const
     if (!game || !console.valid() || id.isEmpty() || start.isEmpty())
         return false;
     const QString emulator = QDir(console.emulators).filePath(id);
-    const QStringList cmd = command(emulator, splitOptions(options(game_obj, id)), start);
+    const QJsonObject card = card_of(id);
+    writeSettings(card, pad);
+    // how it starts: the user's choice, else the card's, else the game alone
+    const bool own = choices_of(console.path).value(QStringLiteral("options")).toObject().contains(id);
+    const QJsonArray words = card.value(QStringLiteral("start")).toArray();
+    const QStringList cmd = !own && !words.isEmpty() ? command(emulator, with(words, QStringLiteral("{game}"), start), QString())
+                                                     : command(emulator, splitOptions(options(game_obj, id)), start);
     game->setLaunchCmd(cmd.join(QChar(' '))).setLaunchWorkdir(QFileInfo(emulator).absolutePath());
     return true;
 }
@@ -609,6 +711,96 @@ QVariantMap Emulators::openCommand(QObject* game, const QString& id) const
     const QString emulator = QDir(console.emulators).filePath(id);
     return { { QStringLiteral("command"), command(emulator, {}, QString()) },
              { QStringLiteral("workdir"), QFileInfo(emulator).absolutePath() } };
+}
+
+QVariantMap Emulators::systemFile(QObject* game) const
+{
+    const ConsoleDir console = consoleDir(console_path(game));
+    const QJsonObject sys = card_of(chosen(game)).value(QStringLiteral("systemFile")).toObject();
+    const QString name = sys.value(QStringLiteral("name")).toString();
+    if (!console.valid() || name.isEmpty())
+        return { { QStringLiteral("needed"), false } };
+    bool installed = false;
+    for (const QJsonValue& p : sys.value(QStringLiteral("installed")).toArray())
+        installed = installed || QFileInfo::exists(home_path(p.toString()));
+    // copied by the user beside the emulator, or at the top of the console's folder
+    QString found;
+    for (const QString& dir : { console.emulators, console.path }) {
+        const int depth = dir == console.path ? 0 : PROGRAM_DEPTH;
+        QDirIterator it(dir, QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot,
+                        depth > 0 ? QDirIterator::Subdirectories : QDirIterator::NoIteratorFlags);
+        int entries = 0;
+        while (found.isEmpty() && it.hasNext() && ++entries <= MAX_ENTRIES) {
+            it.next();
+            if (it.fileInfo().isFile() && it.fileName().compare(name, Qt::CaseInsensitive) == 0
+                && QDir(dir).relativeFilePath(it.filePath()).count(QChar('/')) <= depth)
+                found = it.filePath();
+        }
+        if (!found.isEmpty())
+            break;
+    }
+    return { { QStringLiteral("needed"), true }, { QStringLiteral("name"), name },
+             { QStringLiteral("installed"), installed }, { QStringLiteral("found"), found } };
+}
+
+QVariantMap Emulators::installCommand(QObject* game) const
+{
+    const ConsoleDir console = consoleDir(console_path(game));
+    const QString id = chosen(game);
+    const QJsonArray words = card_of(id).value(QStringLiteral("systemFile")).toObject().value(QStringLiteral("install")).toArray();
+    const QString found = systemFile(game).value(QStringLiteral("found")).toString();
+    if (!console.valid() || words.isEmpty() || found.isEmpty())
+        return {};
+    const QString emulator = QDir(console.emulators).filePath(id);
+    return { { QStringLiteral("command"), command(emulator, with(words, QStringLiteral("{file}"), found), QString()) },
+             { QStringLiteral("workdir"), QFileInfo(emulator).absolutePath() } };
+}
+
+void Emulators::writeSettings(const QJsonObject& card, const QString& pad)
+{
+    const QJsonArray settings = card.value(QStringLiteral("settings")).toArray();
+    if (settings.isEmpty())
+        return;
+    QFile in(written_path());
+    QJsonObject written = in.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(in.readAll()).object() : QJsonObject();
+    in.close();
+    bool changed = false;
+    for (const QJsonValue& v : settings) {
+        const QJsonObject s = v.toObject();
+        const QString path = home_path(s.value(QStringLiteral("path")).toString());
+        QString text = s.value(QStringLiteral("text")).toString();
+        if (path.isEmpty() || !QDir::isAbsolutePath(path))
+            continue;
+        if (text.contains(QLatin1String("{pad.name}"))) {
+            if (pad.isEmpty())
+                continue;                   // no controller yet: written when there is one
+            text.replace(QLatin1String("{pad.name}"), pad);
+        }
+        const QByteArray data = text.toUtf8();
+        QFile now(path);
+        if (now.exists()) {
+            // the user's own settings, or changed by the user: never touched
+            if (!now.open(QIODevice::ReadOnly) || sha1(now.readAll()) != written.value(path).toString())
+                continue;
+            now.close();
+        }
+        if (written.value(path).toString() == sha1(data) && now.exists())
+            continue;
+        QDir().mkpath(QFileInfo(path).absolutePath());
+        QSaveFile out(path);
+        if (!out.open(QIODevice::WriteOnly) || out.write(data) < 0 || !out.commit()) {
+            Log::warning(LOGMSG("Cannot write `%1`").arg(path));
+            continue;
+        }
+        written.insert(path, sha1(data));
+        changed = true;
+    }
+    if (!changed)
+        return;
+    QDir().mkpath(paths::writableConfigDir());
+    QSaveFile out(written_path());
+    if (!out.open(QIODevice::WriteOnly) || out.write(QJsonDocument(written).toJson()) < 0 || !out.commit())
+        Log::warning(LOGMSG("Cannot save `%1`").arg(written_path()));
 }
 
 bool Emulators::nameTaken(const QString& name, const QString& root) const

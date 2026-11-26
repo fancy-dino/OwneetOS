@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <QJsonObject>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -81,8 +82,15 @@ public:
     Q_INVOKABLE QStringList files(QObject* game) const;
     Q_INVOKABLE QString file(QObject* game) const;
     Q_INVOKABLE void chooseFile(QObject* game, const QString& file);
-    /// Makes the game's launch command, from the choices
-    Q_INVOKABLE bool prepare(QObject* game) const;
+    /// Makes the game's launch command, from the choices; a recognised emulator's settings are written first, when
+    /// it has none of its own (`pad`: the first controller's name)
+    Q_INVOKABLE bool prepare(QObject* game, const QString& pad = QString()) const;
+    /// The system file a recognised emulator needs: { needed, name, installed, found } (found: where the user put it)
+    Q_INVOKABLE QVariantMap systemFile(QObject* game) const;
+    /// The command that installs it: { command, workdir }, empty when there is nothing to install
+    Q_INVOKABLE QVariantMap installCommand(QObject* game) const;
+    /// A card's settings, written where there are none, or the console's own (frontend/emulator-cards/README.md)
+    static void writeSettings(const QJsonObject& card, const QString& pad);
     /// The command and the folder that open an emulator without a game: { command, workdir }
     Q_INVOKABLE QVariantMap openCommand(QObject* game, const QString& id) const;
     /// Whether a disk ("internal", or its folder) has a console of that name (in any case)

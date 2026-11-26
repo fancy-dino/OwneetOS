@@ -741,6 +741,7 @@ FocusScope {
                          icon: wifi ? "wifi" : "ethernet", kind: "info", detailKey: "notices.net.back.detail" });
             }
         } else if (type === "app.exited" && data) {
+            if (data.id === root.emuInstallId) { root.emuInstalled(); return; }    // 4.9d
             const app = apps.find(a => a.id === data.id);
             // "Close …?" open for it: it went by itself, as the user wanted; no notice
             const asked = dialog.visible && dialog.mode === "close" && dialog.appId === data.id;
@@ -2149,7 +2150,25 @@ FocusScope {
                     key => { emulators.chooseFile(game, key); dialog.close(true); root.launch(game); });
             return false;
         }
-        return emulators.prepare(game);
+        // a recognised emulator's system file (demo 4.9d): said where it goes when it is not there, installed
+        // before the first game when it is
+        const sys = emulators.systemFile(game);
+        if (sys.needed && !sys.installed) {
+            if (sys.found === "") {
+                emuWindow("emuNone", Tr.tr("emu.sysfile.title", { emulator: emuName(game, id) }),
+                          Tr.tr("emu.sysfile.text", { file: sys.name, folder: emulators.folder(game) }));
+                dialog.icon = "controller";
+                dialog.buttons = [{ text: Tr.tr("prompt.close"), style: "primary", action: () => dialog.close() }];
+                dialog.defaultIndex = 0;
+                dialog.open();
+                return false;
+            }
+            if (emuInstalling !== game) {
+                emuInstall(game, id);
+                return false;
+            }
+        }
+        return emulators.prepare(game, pads.count > 0 ? pads.get(0).name : "");
     }
     // Made for another kind of processor (demo 4.9c): said, not started. The emulator's id, or nothing
     function emuFits(e) { return e.fits !== false; }
@@ -2165,6 +2184,40 @@ FocusScope {
     }
     function emuRowsOf(game, id) {
         return emulators.list(game).map(e => ({ key: e.id, title: e.name, detail: emuFits(e) ? "" : Tr.tr("emu.wrong.row"), current: e.id === id }));
+    }
+    // The system file installed by the emulator itself, by itself, before the game (demo 4.9d)
+    property var emuInstalling: null
+    readonly property string emuInstallId: "game-emuprep"
+    function emuInstall(game, id) {
+        if (runningGame || runningWebApp || runningPlayer) return;     // the launch says so, as for any game
+        const cmd = emulators.installCommand(game);
+        if (!owneetd.connected || !cmd.command) { Nav.feedback("error"); return; }
+        Nav.feedback("launch");
+        steamPrep.start(false, game.title, false, false);
+        steamPrep.title = Tr.tr("emu.prep", { emulator: emuName(game, id) });
+        emuInstalling = game;
+        owneetd.post("/v1/apps/launch", { id: emuInstallId, name: emuName(game, id), kind: "game", command: cmd.command, workdir: cmd.workdir },
+                     status => {
+            if (status === 201) return;
+            emuInstalling = null;
+            steamPrep.title = "";
+            steamPrep.close(true);
+            toast.show(Tr.tr("error.apps.failed"));
+            Nav.feedback("error");
+        });
+    }
+    function emuInstalled() {
+        const game = emuInstalling;
+        steamPrep.title = "";
+        if (!game) return;
+        if (emulators.systemFile(game).installed) {
+            // once the console knows the installing has ended: "Starting {game}…", the screen still there
+            root.refreshApps(() => { emuInstalling = null; root.launch(game); });
+            return;
+        }
+        emuInstalling = null;
+        steamPrep.close(true);
+        root.emuClosed(game);
     }
     function emuChoose(game, thenStart) {
         const id = emulators.chosen(game);

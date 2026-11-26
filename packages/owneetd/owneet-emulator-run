@@ -9,7 +9,9 @@
 #
 # WORD: base64 of DATA, EMULATOR, GAME, OPTIONS… with a NUL between two, so that no quote or brace of
 # the user's is read by anyone on the way. DATA: the emulator's folder on the console's disk; GAME:
-# empty to open the emulator by itself. Started by the interface through owneetd, in its own service.
+# empty when the options say it all (the emulator by itself; how a recognised emulator starts a game,
+# or installs its system file: frontend/emulator-cards/README.md). Started by the interface through
+# owneetd, in its own service.
 #
 # - An AppImage is unpacked once into DATA (the system has no FUSE, and unpacking it at every start
 #   is slow): also when it has no exec bit, as on a disk where it was copied without.
@@ -143,4 +145,4 @@ say "starting $(basename -- "$program")${game:+ with $(basename -- "$game")}, ${
 if [[ -n "$game" ]]; then
     exec "${command[@]}" "${options[@]}" "$game"
 fi
-exec "${command[@]}"
+exec "${command[@]}" "${options[@]}"

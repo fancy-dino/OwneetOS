@@ -38,6 +38,8 @@
 #                    games on the console's disk, Moss Garden (no cover) and Quiet Orbit (a cover)
 #   @emulators       an invented USB disk "RETRO-STICK" with the user's own emulators (4.9): FunContainer
 #                    (two emulators), OldBox (one that wants the option -g) and TinyPad (none)
+#   @preparedemulator (with @emulators) two consoles whose emulators the console recognises (4.9d): BigBox
+#                    misses its system file, TallBox's is there, not installed
 #   @wrongemulator   (with @emulators) emulators for another kind of processor (4.9c): the only one of
 #                    OddBox, a third one of FunContainer
 #   @media           an invented USB disk "MEDIA-STICK" with Videos and Music folders (5.6), made
@@ -281,6 +283,20 @@ if grep -q '^@emulators' /steps.txt; then
     # a games folder with its German name (open item 27): a game as any other
     mkdir -p "$r/Spiele/Night Convoy"; printf '#!/bin/bash\nexec true\n' > "$r/Spiele/Night Convoy/start.sh"
     export OWNEET_DISKS="${OWNEET_DISKS:+$OWNEET_DISKS:}$r"
+fi
+
+# @preparedemulator (4.9d): emulators the console recognises, by an invented card: one whose system file is
+# missing, one whose system file is there but not installed yet
+if grep -q '^@preparedemulator' /steps.txt; then
+    r=/tmp/disks/RETRO-STICK/Emulazione; c=/tmp/emulator-cards
+    mkdir -p "$r/BigBox/Emulatori" "$r/BigBox/Giochi" "$r/TallBox/Emulatori" "$r/TallBox/Giochi" "$c"
+    echo x > "$r/BigBox/Emulatori/BoxStation.AppImage"; echo x > "$r/TallBox/Emulatori/TallStation.AppImage"
+    head -c 100000 /dev/zero > "$r/BigBox/Giochi/Night Convoy.img"; head -c 100000 /dev/zero > "$r/TallBox/Giochi/Paper Lantern.img"
+    echo x > "$r/TallBox/Emulatori/SYSTEM.BIN"
+    for e in boxstation tallstation; do
+        printf '{ "match": ["%s*"], "start": ["{game}"], "systemFile": { "name": "SYSTEM.BIN", "installed": ["~/.%s/ready"], "install": ["--install", "{file}"] } }\n' "$e" "$e" > "$c/$e.json"
+    done
+    export OWNEET_EMULATOR_CARDS="$c"
 fi
 
 # @wrongemulator (4.9c): emulators for another kind of processor (the head of an ARM program)

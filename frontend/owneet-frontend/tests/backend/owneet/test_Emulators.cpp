@@ -166,6 +166,73 @@ private slots:
         QCOMPARE(mark("EMULAZIONE/OddPad"), QStringList({ "good" }));
     }
 
+    // A recognised emulator (an invented card): how it starts, which file, its system file, its settings
+    void cards()
+    {
+        QTemporaryDir cards;
+        QFile card(cards.filePath("box.json"));
+        QVERIFY(card.open(QIODevice::WriteOnly));
+        card.write(R"({ "match": ["boxstation*"], "start": ["--full", "{game}"], "prefer": "folder",
+            "systemFile": { "name": "SYSTEM.BIN", "installed": ["~/.boxstation/ready"], "install": ["--install", "{file}"] },
+            "settings": [ { "path": "~/.boxstation/pad.ini", "text": "Device = {pad.name}\n" } ] })");
+        card.close();
+        qputenv("OWNEET_EMULATOR_CARDS", cards.path().toUtf8());
+        file("EMULAZIONE/BigBox/Emulators/BoxStation-1.0.AppImage");
+        file("EMULAZIONE/BigBox/Games/Night Convoy/Night Convoy/info.dat", QByteArray(1500, '\0'));
+        file("EMULAZIONE/BigBox/Games/Night Convoy/Night Convoy/DATA/main.bin");
+        const QString inner = m_disk.filePath("EMULAZIONE/BigBox/Games/Night Convoy/Night Convoy");
+        model::Game game(QStringLiteral("Night Convoy"));
+        QVariantMap& extra = game.extraMapMut();
+        extra.insert("emu.console", m_disk.filePath("EMULAZIONE/BigBox"));
+        extra.insert("emu.path", m_disk.filePath("EMULAZIONE/BigBox/Games/Night Convoy"));
+        for (const auto& t : owneet::Emulators::titlesOf(console("EMULAZIONE/BigBox"))) {
+            extra.insert("emu.files", t.files);
+            extra.insert("emu.sure", t.sure);
+        }
+        owneet::Emulators e;
+        QCOMPARE(e.file(&game), inner);                                       // the folder, as the card prefers
+        // its system file: not there, then copied beside it (any case)
+        QVariantMap sys = e.systemFile(&game);
+        QCOMPARE(sys.value("needed").toBool(), true);
+        QCOMPARE(sys.value("found").toString(), QString());
+        QVERIFY(e.installCommand(&game).isEmpty());
+        const QString copied = file("EMULAZIONE/BigBox/Emulators/files/system.bin");
+        sys = e.systemFile(&game);
+        QCOMPARE(sys.value("found").toString(), copied);
+        QCOMPARE(sys.value("installed").toBool(), false);
+        const auto words = [](const QStringList& cmd) { return QByteArray::fromBase64(cmd.at(1).toLatin1()).split('\0'); };
+        QList<QByteArray> w = words(e.installCommand(&game).value("command").toStringList());
+        QCOMPARE(w.mid(2), QList<QByteArray>({ "", "--install", copied.toUtf8() }));
+        QDir().mkpath(m_home.filePath(".boxstation"));
+        QFile(m_home.filePath(".boxstation/ready")).open(QIODevice::WriteOnly);
+        QCOMPARE(e.systemFile(&game).value("installed").toBool(), true);
+        // how it starts: the card's, the game in its place; the settings with the controller's name
+        const QString ini = m_home.filePath(".boxstation/pad.ini");
+        QVERIFY(e.prepare(&game, QString()));
+        QVERIFY(!QFile::exists(ini));                                        // no controller yet: not written
+        QVERIFY(e.prepare(&game, "Pad One"));
+        w = words(game.launchCmd().split(QChar(' ')));
+        QCOMPARE(w.mid(2), QList<QByteArray>({ "", "--full", inner.toUtf8() }));
+        const auto read = [&ini]() { QFile f(ini); f.open(QIODevice::ReadOnly); return f.readAll(); };
+        QCOMPARE(read(), QByteArray("Device = Pad One\n"));
+        QVERIFY(e.prepare(&game, "Pad Two"));                                 // its own file: written again
+        QCOMPARE(read(), QByteArray("Device = Pad Two\n"));
+        {
+            QFile f(ini);
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write("Device = the user's\n");
+        }
+        QVERIFY(e.prepare(&game, "Pad Three"));                               // the user's: never touched
+        QCOMPARE(read(), QByteArray("Device = the user's\n"));
+        // the user's own choice of how it starts wins
+        e.setOptions(&game, "BoxStation-1.0.AppImage", "");
+        QVERIFY(e.prepare(&game, "Pad One"));
+        w = words(game.launchCmd().split(QChar(' ')));
+        QCOMPARE(w.mid(2), QList<QByteArray>({ inner.toUtf8() }));
+        qunsetenv("OWNEET_EMULATOR_CARDS");
+        QVERIFY(!e.systemFile(&game).value("needed").toBool());               // no card: as before
+    }
+
     void options()
     {
         using E = owneet::Emulators;
