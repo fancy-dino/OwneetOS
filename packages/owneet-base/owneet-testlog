@@ -74,6 +74,13 @@ PY
     echo "--- /v1/display"; owneetd_get /v1/display
     echo "--- /v1/status"; owneetd_get /v1/status
     echo "--- /v1/apps"; owneetd_get /v1/apps
+    # What plays sound now and where it goes (4.9, open item 33: the user's emulators were silent, and the log
+    # did not say whether they played any stream): the outputs, the default one, the streams and their programs
+    echo "--- sound: outputs and streams"
+    local uid; uid="$(id -u owneet)"
+    runuser -u owneet -- env XDG_RUNTIME_DIR="/run/user/$uid" wpctl status 2>&1 | sed -n '/^Audio/,/^Video/p' | head -40
+    runuser -u owneet -- env XDG_RUNTIME_DIR="/run/user/$uid" pactl list sink-inputs 2>&1 \
+        | grep -E 'Sink Input #|Sink:|Mute:|Volume: |application\.(name|process\.id|process\.binary)|media\.name' | head -40
     echo "--- /v1/steam"; owneetd_get /v1/steam
     echo "--- disks (games on a USB disk, 4.3)"
     lsblk -o NAME,TRAN,FSTYPE,LABEL,SIZE,RO,MOUNTPOINTS 2>&1
