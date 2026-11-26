@@ -40,3 +40,6 @@ secrets/
 *.swp
 *~
 .DS_Store
+
+# --- Emulators recognised by the console (step 4.9): kept out of git until the legal review (owner, 2026-11-26) ---
+/private/
