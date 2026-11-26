@@ -32,6 +32,12 @@ before. `OWNEET_EMULATOR_CARDS` (folders, separated by `:`) replaces the place, 
 - `prefer`: which of a game's files when it has several and the user has not chosen: `"folder"`, or names (`["*.iso"]`).
 - `systemFile`: the file the user copies beside the emulator (`name`, case left aside); `installed`, any of these paths there
   means it is installed; `install`, the emulator's options that install it (`{file}`), run by themselves before the first game.
-- `settings`: files written only when they are not there, or when they are as the console wrote them (the user's changes are
-  never overwritten). `{pad.name}` is the name of the first controller, as SDL gives it; with no controller they wait.
-  `~/` is the home folder.
+- `settings`: files written only when they are not there, when they are as the console wrote them, or when they are still
+  the emulator's own first settings (`replaceWhen`, a regular expression: e.g. its keyboard); the user's changes are never
+  overwritten. `section`: only that section of an ini file (added when it is not there; the rest is kept). `~/` is the home
+  folder. The first controller, as SDL sees it on the console: `{pad.name}`; the numbers of its own buttons in the standard
+  layout `{pad.a}` `{pad.b}` `{pad.x}` `{pad.y}` `{pad.back}` `{pad.start}` `{pad.lb}` `{pad.rb}` `{pad.ls}` `{pad.rs}`
+  `{pad.up}` `{pad.down}` `{pad.left}` `{pad.right}` (-1 when a direction is a hat's: `{pad.hat}`), of its axes `{pad.lx}`
+  `{pad.ly}` `{pad.rx}` `{pad.ry}`, and `{pad.hidapi}` (1 when SDL drives it itself). With no controller they wait.
+- `env`: the emulator's environment (`{pad.…}` too): e.g. `"SDL_JOYSTICK_HIDAPI": "{pad.hidapi}"`, so that an emulator that
+  reads the controller's own buttons sees them numbered as the console does.

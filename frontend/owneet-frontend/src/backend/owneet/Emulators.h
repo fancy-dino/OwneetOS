@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <QHash>
 #include <QJsonObject>
 #include <QObject>
 #include <QString>
@@ -91,6 +92,10 @@ public:
     Q_INVOKABLE QVariantMap installCommand(QObject* game) const;
     /// A card's settings, written where there are none, or the console's own (frontend/emulator-cards/README.md)
     static void writeSettings(const QJsonObject& card, const QString& pad);
+    /// The first controller's values for the cards ({pad.name}, {pad.a}, …): empty without a controller
+    static QHash<QString, QString> padValues(const QString& name);
+    /// Tests only: the controller's values, instead of SDL's
+    static void setTestPad(const QVariantMap& values);
     /// The command and the folder that open an emulator without a game: { command, workdir }
     Q_INVOKABLE QVariantMap openCommand(QObject* game, const QString& id) const;
     /// Whether a disk ("internal", or its folder) has a console of that name (in any case)
@@ -98,5 +103,8 @@ public:
     /// Makes a console's folders in a disk's "Emulation" folder (made in the console's language when
     /// there is none): { ok, base, name, emulators, titles } (folder names), or { ok: false }
     Q_INVOKABLE QVariantMap create(const QString& name, const QString& root, const QString& language) const;
+
+private:
+    static QVariantMap s_testPad;
 };
 } // namespace owneet

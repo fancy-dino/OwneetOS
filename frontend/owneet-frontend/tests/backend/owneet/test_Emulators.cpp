@@ -233,6 +233,56 @@ private slots:
         QVERIFY(!e.systemFile(&game).value("needed").toBool());               // no card: as before
     }
 
+    // A section of an ini file, the controller's own buttons, the emulator's first settings replaced, its environment
+    void sections()
+    {
+        QTemporaryDir cards;
+        QFile card(cards.filePath("pad.json"));
+        QVERIFY(card.open(QIODevice::WriteOnly));
+        card.write(R"({ "match": ["pademu*"], "env": { "SDL_JOYSTICK_HIDAPI": "{pad.hidapi}" },
+            "settings": [ { "path": "~/.pademu/config.ini", "section": "input.pad", "replaceWhen": "keyA=-1",
+                            "text": "keyA={pad.a}\nkeyUp={pad.up}\nhat{pad.hat}Up=6\n" } ] })");
+        card.close();
+        qputenv("OWNEET_EMULATOR_CARDS", cards.path().toUtf8());
+        owneet::Emulators::setTestPad({ { "pad.a", "0" }, { "pad.up", "-1" }, { "pad.hat", "0" }, { "pad.hidapi", "0" } });
+        file("EMULAZIONE/PadBox/Emulators/pademu.AppImage");
+        file("EMULAZIONE/PadBox/Games/Saltwind.img");
+        model::Game game(QStringLiteral("Saltwind"));
+        QVariantMap& extra = game.extraMapMut();
+        extra.insert("emu.console", m_disk.filePath("EMULAZIONE/PadBox"));
+        extra.insert("emu.path", m_disk.filePath("EMULAZIONE/PadBox/Games/Saltwind.img"));
+        extra.insert("emu.files", QStringList(m_disk.filePath("EMULAZIONE/PadBox/Games/Saltwind.img")));
+        const QString ini = m_home.filePath(".pademu/config.ini");
+        const auto put = [&ini](const QByteArray& text) {
+            QDir().mkpath(QFileInfo(ini).path());
+            QFile f(ini);
+            f.open(QIODevice::WriteOnly);
+            f.write(text);
+        };
+        const auto read = [&ini]() { QFile f(ini); f.open(QIODevice::ReadOnly); return f.readAll(); };
+        owneet::Emulators e;
+        // the emulator's own file, with its own first settings: only the section changes
+        put("[video]\nscale=2\n[input.pad]\nkeyA=-1\n[audio]\nvolume=5\n");
+        QVERIFY(e.prepare(&game, "Pad One"));
+        QCOMPARE(read(), QByteArray("[video]\nscale=2\n[input.pad]\nkeyA=0\nkeyUp=-1\nhat0Up=6\n[audio]\nvolume=5\n"));
+        QVERIFY(game.launchCmd().startsWith("/usr/bin/env SDL_JOYSTICK_HIDAPI=0 /usr/lib/owneet/owneet-emulator-run "));
+        // set by the user: kept
+        put("[input.pad]\nkeyA=3\n");
+        QVERIFY(e.prepare(&game, "Pad One"));
+        QCOMPARE(read(), QByteArray("[input.pad]\nkeyA=3\n"));
+        // no section yet: added at the end
+        put("[video]\nscale=2");
+        QVERIFY(e.prepare(&game, "Pad One"));
+        QCOMPARE(read(), QByteArray("[video]\nscale=2\n[input.pad]\nkeyA=0\nkeyUp=-1\nhat0Up=6\n"));
+        // no controller: nothing written, nothing in the environment
+        put("");
+        QVERIFY(e.prepare(&game, QString()));
+        QCOMPARE(read(), QByteArray());
+        QVERIFY(game.launchCmd().startsWith("/usr/lib/owneet/owneet-emulator-run "));
+        owneet::Emulators::setTestPad({});
+        qunsetenv("OWNEET_EMULATOR_CARDS");
+    }
+
     void options()
     {
         using E = owneet::Emulators;

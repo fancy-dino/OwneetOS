@@ -6,6 +6,10 @@
 #include "Paths.h"
 #include "model/gaming/Game.h"
 
+#ifdef WITH_SDL_GAMEPAD
+#include <SDL.h>
+#endif
+
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -372,6 +376,24 @@ QString sha1(const QByteArray& data)
     return QString::fromLatin1(QCryptographicHash::hash(data, QCryptographicHash::Sha1).toHex());
 }
 
+// Every {pad.…} in a text with its value; false when one has none (no controller yet)
+bool fill_pad(QString& text, const QHash<QString, QString>& pad)
+{
+    static const QRegularExpression placeholder(QStringLiteral("\\{(pad\\.[a-z]+)\\}"));
+    QString out;
+    int last = 0;
+    auto it = placeholder.globalMatch(text);
+    while (it.hasNext()) {
+        const QRegularExpressionMatch m = it.next();
+        if (!pad.contains(m.captured(1)))
+            return false;
+        out += text.mid(last, m.capturedStart() - last) + pad.value(m.captured(1));
+        last = m.capturedEnd();
+    }
+    text = out + text.mid(last);
+    return true;
+}
+
 QString folder_name(const QString& kind, const QString& language)
 {
     if (kind == QLatin1String("base")) {
@@ -699,7 +721,18 @@ bool Emulators::prepare(QObject* game_obj, const QString& pad) const
     const QJsonArray words = card.value(QStringLiteral("start")).toArray();
     const QStringList cmd = !own && !words.isEmpty() ? command(emulator, with(words, QStringLiteral("{game}"), start), QString())
                                                      : command(emulator, splitOptions(options(game_obj, id)), start);
-    game->setLaunchCmd(cmd.join(QChar(' '))).setLaunchWorkdir(QFileInfo(emulator).absolutePath());
+    // what the card asks of the emulator's environment (e.g. the same kind of controller driver as the console's)
+    QStringList env;
+    const QJsonObject vars = card.value(QStringLiteral("env")).toObject();
+    const QHash<QString, QString> values = padValues(pad);
+    for (auto it = vars.constBegin(); it != vars.constEnd(); ++it) {
+        QString value = it.value().toString();
+        if (fill_pad(value, values) && !it.key().contains(QChar('=')) && !it.key().contains(QChar(' ')) && !value.contains(QChar(' ')))
+            env.append(it.key() + QChar('=') + value);
+    }
+    if (!env.isEmpty())
+        env.prepend(QStringLiteral("/usr/bin/env"));
+    game->setLaunchCmd((env + cmd).join(QChar(' '))).setLaunchWorkdir(QFileInfo(emulator).absolutePath());
     return true;
 }
 
@@ -756,11 +789,99 @@ QVariantMap Emulators::installCommand(QObject* game) const
              { QStringLiteral("workdir"), QFileInfo(emulator).absolutePath() } };
 }
 
-void Emulators::writeSettings(const QJsonObject& card, const QString& pad)
+// The first controller as SDL sees it here: its name, and which of its own buttons, axes and hats are the standard
+// layout's (an emulator that reads the controller's raw buttons needs them). Emulators through SDL see the same, with the
+// same kind of driver ({pad.hidapi}).
+QHash<QString, QString> Emulators::padValues(const QString& name)
+{
+    QHash<QString, QString> out;
+    if (name.isEmpty())
+        return out;
+    out.insert(QStringLiteral("pad.name"), name);
+    if (!s_testPad.isEmpty()) {
+        for (auto it = s_testPad.cbegin(); it != s_testPad.cend(); ++it)
+            out.insert(it.key(), it.value().toString());
+        return out;
+    }
+#ifdef WITH_SDL_GAMEPAD
+    for (int i = 0; i < SDL_NumJoysticks(); ++i) {
+        if (!SDL_IsGameController(i))
+            continue;
+        SDL_GameController* pad = SDL_GameControllerOpen(i);         // the same, counted once more
+        if (!pad)
+            continue;
+        char guid[33] = {};
+        SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(i), guid, sizeof(guid));
+        // byte 14 of the GUID is 'h' (0x68) for SDL's own (HIDAPI) drivers
+        out.insert(QStringLiteral("pad.hidapi"), QString::fromLatin1(guid).mid(28, 2) == QLatin1String("68") ? QStringLiteral("1") : QStringLiteral("0"));
+        static const QVector<QPair<const char*, SDL_GameControllerButton>> buttons {
+            { "a", SDL_CONTROLLER_BUTTON_A }, { "b", SDL_CONTROLLER_BUTTON_B }, { "x", SDL_CONTROLLER_BUTTON_X },
+            { "y", SDL_CONTROLLER_BUTTON_Y }, { "back", SDL_CONTROLLER_BUTTON_BACK }, { "start", SDL_CONTROLLER_BUTTON_START },
+            { "lb", SDL_CONTROLLER_BUTTON_LEFTSHOULDER }, { "rb", SDL_CONTROLLER_BUTTON_RIGHTSHOULDER },
+            { "ls", SDL_CONTROLLER_BUTTON_LEFTSTICK }, { "rs", SDL_CONTROLLER_BUTTON_RIGHTSTICK },
+            { "up", SDL_CONTROLLER_BUTTON_DPAD_UP }, { "down", SDL_CONTROLLER_BUTTON_DPAD_DOWN },
+            { "left", SDL_CONTROLLER_BUTTON_DPAD_LEFT }, { "right", SDL_CONTROLLER_BUTTON_DPAD_RIGHT },
+        };
+        for (const auto& b : buttons) {
+            const SDL_GameControllerButtonBind bind = SDL_GameControllerGetBindForButton(pad, b.second);
+            // a button's own number, -1 when it is a hat's direction (then {pad.hat} says which hat)
+            out.insert(QStringLiteral("pad.") + QLatin1String(b.first),
+                       QString::number(bind.bindType == SDL_CONTROLLER_BINDTYPE_BUTTON ? bind.value.button : -1));
+            if (bind.bindType == SDL_CONTROLLER_BINDTYPE_HAT)
+                out.insert(QStringLiteral("pad.hat"), QString::number(bind.value.hat.hat));
+        }
+        static const QVector<QPair<const char*, SDL_GameControllerAxis>> axes {
+            { "lx", SDL_CONTROLLER_AXIS_LEFTX }, { "ly", SDL_CONTROLLER_AXIS_LEFTY },
+            { "rx", SDL_CONTROLLER_AXIS_RIGHTX }, { "ry", SDL_CONTROLLER_AXIS_RIGHTY },
+        };
+        for (const auto& a : axes) {
+            const SDL_GameControllerButtonBind bind = SDL_GameControllerGetBindForAxis(pad, a.second);
+            out.insert(QStringLiteral("pad.") + QLatin1String(a.first),
+                       QString::number(bind.bindType == SDL_CONTROLLER_BINDTYPE_AXIS ? bind.value.axis : -1));
+        }
+        if (!out.contains(QStringLiteral("pad.hat")))
+            out.insert(QStringLiteral("pad.hat"), QStringLiteral("-1"));
+        SDL_GameControllerClose(pad);
+        break;
+    }
+#endif
+    return out;
+}
+
+QVariantMap Emulators::s_testPad;
+
+void Emulators::setTestPad(const QVariantMap& values)
+{
+    s_testPad = values;
+}
+
+// An ini file's section: where its lines start and end ([start, end)), -1 when it has none
+static QPair<int, int> section_span(const QString& file, const QString& name)
+{
+    const QString header = QChar('[') + name + QChar(']');
+    int start = -1;
+    int pos = 0;
+    while (pos <= file.size()) {
+        int eol = file.indexOf(QChar('\n'), pos);
+        if (eol < 0)
+            eol = file.size();
+        const QString line = file.mid(pos, eol - pos).trimmed();
+        if (start < 0 && line == header) {
+            start = eol + 1;
+        } else if (start >= 0 && line.startsWith(QChar('['))) {
+            return { std::min<int>(start, file.size()), pos };
+        }
+        pos = eol + 1;
+    }
+    return start < 0 ? qMakePair(-1, -1) : qMakePair(std::min<int>(start, file.size()), file.size());
+}
+
+void Emulators::writeSettings(const QJsonObject& card, const QString& padName)
 {
     const QJsonArray settings = card.value(QStringLiteral("settings")).toArray();
     if (settings.isEmpty())
         return;
+    const QHash<QString, QString> pad = padValues(padName);
     QFile in(written_path());
     QJsonObject written = in.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(in.readAll()).object() : QJsonObject();
     in.close();
@@ -768,31 +889,50 @@ void Emulators::writeSettings(const QJsonObject& card, const QString& pad)
     for (const QJsonValue& v : settings) {
         const QJsonObject s = v.toObject();
         const QString path = home_path(s.value(QStringLiteral("path")).toString());
+        const QString section = s.value(QStringLiteral("section")).toString();
         QString text = s.value(QStringLiteral("text")).toString();
-        if (path.isEmpty() || !QDir::isAbsolutePath(path))
-            continue;
-        if (text.contains(QLatin1String("{pad.name}"))) {
-            if (pad.isEmpty())
-                continue;                   // no controller yet: written when there is one
-            text.replace(QLatin1String("{pad.name}"), pad);
-        }
-        const QByteArray data = text.toUtf8();
+        if (path.isEmpty() || !QDir::isAbsolutePath(path) || !fill_pad(text, pad))
+            continue;                       // no controller yet: written when there is one
+        if (!section.isEmpty() && !text.endsWith(QChar('\n')))
+            text += QChar('\n');
+        // the emulator's own first settings, which it makes by itself: replaced as if there were none
+        const QRegularExpression untouched(s.value(QStringLiteral("replaceWhen")).toString());
+        const bool hasRule = !s.value(QStringLiteral("replaceWhen")).toString().isEmpty() && untouched.isValid();
+        const QString key = section.isEmpty() ? path : path + QChar('#') + section;
         QFile now(path);
-        if (now.exists()) {
-            // the user's own settings, or changed by the user: never touched
-            if (!now.open(QIODevice::ReadOnly) || sha1(now.readAll()) != written.value(path).toString())
+        QString current;
+        const bool exists = now.exists();
+        if (exists) {
+            if (!now.open(QIODevice::ReadOnly))
                 continue;
+            current = QString::fromUtf8(now.readAll());
             now.close();
         }
-        if (written.value(path).toString() == sha1(data) && now.exists())
-            continue;
+        const QPair<int, int> span = section.isEmpty() ? qMakePair(0, current.size()) : section_span(current, section);
+        const bool there = exists && span.first >= 0;
+        const QString mine = there ? current.mid(span.first, span.second - span.first) : QString();
+        if (there) {
+            const bool own = sha1(mine.toUtf8()) == written.value(key).toString();
+            if (!own && !(hasRule && untouched.match(mine).hasMatch()))
+                continue;                   // the user's own: never touched
+            if (mine == text)
+                continue;
+        }
+        QString result;
+        if (section.isEmpty())
+            result = text;
+        else if (there)
+            result = current.left(span.first) + text + current.mid(span.second);
+        else
+            result = current + (current.isEmpty() || current.endsWith(QChar('\n')) ? QString() : QStringLiteral("\n"))
+                   + QChar('[') + section + QStringLiteral("]\n") + text;
         QDir().mkpath(QFileInfo(path).absolutePath());
         QSaveFile out(path);
-        if (!out.open(QIODevice::WriteOnly) || out.write(data) < 0 || !out.commit()) {
+        if (!out.open(QIODevice::WriteOnly) || out.write(result.toUtf8()) < 0 || !out.commit()) {
             Log::warning(LOGMSG("Cannot write `%1`").arg(path));
             continue;
         }
-        written.insert(path, sha1(data));
+        written.insert(key, sha1(text.toUtf8()));
         changed = true;
     }
     if (!changed)
