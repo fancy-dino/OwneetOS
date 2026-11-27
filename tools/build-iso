@@ -82,9 +82,9 @@ awk -v repo="$repo_dir" -v siglevel="$siglevel" '
 ' "$ROOT/iso/pacman.conf" > "$profile/pacman.conf"
 
 # Optional apps carried by the ISO but not installed ([[step-5.0.0-optional-web-apps]]): the
-# packages below, with the dependencies the ISO lacks, go into a small offline repository
-# /usr/share/owneet/bundled/ that owneet-apps installs from when the user picks a web app.
-BUNDLED=(brave-bin)
+# packages of iso/bundled.txt, with the dependencies the ISO lacks, go into a small offline
+# repository /usr/share/owneet/bundled/ that owneet-apps installs from when the user picks an app.
+mapfile -t BUNDLED < <(grep -vE '^\s*(#|$)' "$ROOT/iso/bundled.txt")
 bundle_dir="$profile/airootfs/usr/share/owneet/bundled"
 echo "==> bundling ${BUNDLED[*]} with the dependencies the ISO lacks"
 dbpath="$(mktemp -d /var/tmp/owneet-bundle-db.XXXXXX)"

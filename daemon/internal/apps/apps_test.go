@@ -6,10 +6,13 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -428,6 +431,59 @@ func TestWebAppWindowOutsideItsUnit(t *testing.T) {
 	}
 	if got := m.tag(4242); got != 0 {
 		t.Fatalf("a process outside the apps got app id %d", got)
+	}
+}
+
+// The emulation program opens its own menu on a short Guide press (read from its pipe); held, Guide
+// comes back to the console, as over Steam (owner, 2026-11-27, [[guide-button]]).
+func TestGuideOpensTheMenuOfAProgram(t *testing.T) {
+	m, _, focus, _ := newManager(t, "gamescope")
+	m.watchSession()
+	focus.openWindow(10)
+	focus.Show([]uint32{HomeAppID})
+	pipe := filepath.Join(t.TempDir(), "menu")
+	if err := syscall.Mkfifo(pipe, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	reader, err := os.OpenFile(pipe, os.O_RDWR, 0) // the program's end, as its wrapper keeps it
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	if _, err := m.Launch(LaunchRequest{ID: "web:emulation", Kind: KindWebApp, Command: []string{"env"}, GuideMenu: pipe}); err != nil {
+		t.Fatal(err)
+	}
+	focus.openWindow(1001)
+	if st := m.Status(); st.Focus != "web:emulation" {
+		t.Fatalf("focus = %q", st.Focus)
+	}
+	m.HomeHold = 100 * time.Millisecond
+	m.Guide(true) // a short press: the program's menu, the program stays on screen
+	m.Guide(false)
+	time.Sleep(150 * time.Millisecond)
+	if st := m.Status(); st.Focus != "web:emulation" {
+		t.Fatalf("short press: focus %q", st.Focus)
+	}
+	buf := make([]byte, 64)
+	_ = reader.SetReadDeadline(time.Now().Add(time.Second))
+	n, err := reader.Read(buf)
+	if err != nil || string(buf[:n]) != "MENU_TOGGLE\n" {
+		t.Fatalf("pipe got %q, %v", buf[:n], err)
+	}
+	m.Guide(true) // held: the console's home screen, nothing asked of the program
+	time.Sleep(200 * time.Millisecond)
+	m.Guide(false)
+	if st := m.Status(); st.Focus != "home" {
+		t.Fatalf("held: focus %q", st.Focus)
+	}
+	_ = reader.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
+	if n, _ := reader.Read(buf); n != 0 {
+		t.Fatalf("held: pipe got %q", buf[:n])
+	}
+	m.Guide(true) // from the home screen, a press goes back to the program
+	m.Guide(false)
+	if st := m.Status(); st.Focus != "web:emulation" {
+		t.Fatalf("back: focus %q", st.Focus)
 	}
 }
 

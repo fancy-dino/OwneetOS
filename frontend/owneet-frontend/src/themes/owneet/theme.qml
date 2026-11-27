@@ -1491,8 +1491,9 @@ FocusScope {
     readonly property string termsAddress: "policies.google.com/terms"     // shown, not translated
     property var termsFor: null           // { app, updated }: the question waiting for Google's page
     function openAfterConsent(app) {
-        // already open (brought back), or another one open ("close it first"): nothing to ask
-        if (runningGame || runningWebApp || runningPlayer) {
+        // already open (brought back), or another one open ("close it first"), or a program (the
+        // emulation program, 5.0.1), which plays no protected video: nothing to ask
+        if (runningGame || runningWebApp || runningPlayer || app.kind === "program") {
             startWebApp(app);
             return;
         }
@@ -1586,6 +1587,10 @@ FocusScope {
     // Until the user has accepted Google's terms for Widevine, the confirmation says they come at
     // the first opening (5.4)
     function confirmInstall(app) {
+        if (app.kind === "program") {         // the emulation program (5.0.1): only its space
+            showInstall(app, false);
+            return;
+        }
         owneetd.get("/v1/webapps/widevine", (status, data) => root.showInstall(app, status !== 200 || data.ask));
     }
     function showInstall(app, widevineLater) {
@@ -1594,9 +1599,11 @@ FocusScope {
         dialog.contentWidth = widevineLater ? Theme.px(640) : 0;      // room for the notice
         dialog.title = Tr.tr("apps.install.title", { app: Tr.tr(app.nameKey) });
         dialog.text = "";
-        dialog.facts = [
-            [Tr.tr("apps.install.space"), app.sizeMiB > 0 ? Tr.tr("apps.install.space.about", { mb: app.sizeMiB })
-                                                          : Tr.tr("apps.install.space.small")],
+        const space = [Tr.tr("apps.install.space"), app.sizeMiB > 0 ? Tr.tr("apps.install.space.about", { mb: app.sizeMiB })
+                                                                    : Tr.tr("apps.install.space.small")];
+        // a program (the emulation program, 5.0.1) needs no internet and plays no protected video
+        dialog.facts = app.kind === "program" ? [space] : [
+            space,
             [Tr.tr("apps.install.requirements"), Tr.tr("apps.install.internet")],
             [Tr.tr("apps.install.widevine"), Tr.tr("apps.install.widevine.value")]
         ];
@@ -1655,7 +1662,8 @@ FocusScope {
         dialog.mode = "appRemove";
         dialog.contentWidth = Theme.px(560);
         dialog.title = Tr.tr("apps.remove.title", { app: Tr.tr(app.nameKey) });
-        dialog.text = Tr.tr("apps.remove.text");
+        // a web app's data goes (its login); a program's stays (the emulation program's saves, 5.0.1)
+        dialog.text = Tr.tr(app.kind === "program" ? "apps.remove.text.program" : "apps.remove.text");
         dialog.buttons = [
             { text: Tr.tr("apps.remove"), action: () => {
                 dialog.close(true);

@@ -191,7 +191,7 @@ func (m *Manager) Open(id string) (preparing bool, err error) {
 		m.mu.Unlock()
 		return false, err
 	}
-	e, ok := find(cat, id, KindWebApp)
+	e, ok := findApp(cat, id)
 	if !ok {
 		m.mu.Unlock()
 		return false, ErrUnknown
@@ -203,6 +203,9 @@ func (m *Manager) Open(id string) (preparing bool, err error) {
 	}
 	if m.running(id) {
 		return false, m.Apps.FocusApp(AppID(id))
+	}
+	if e.Kind == KindProgram {
+		return false, m.launchProgram(id, e)
 	}
 	// Google's terms for Widevine first: the interface asks ([[step-5.4-netflix]])
 	if m.Widevine().Ask {
@@ -234,6 +237,21 @@ func (m *Manager) launch(id string, e Entry, widevine bool) error {
 	return err
 }
 
+// launchProgram starts a program of the catalogue, treated as a web app is (one at a time, like a
+// game). With GuideMenu, the pipe it reads the console's requests from is its last argument.
+func (m *Manager) launchProgram(id string, e Entry) error {
+	if len(e.Program) == 0 || !filepath.IsAbs(e.Program[0]) {
+		return fmt.Errorf("%w: %s has no program", ErrUnknown, id)
+	}
+	req := apps.LaunchRequest{ID: AppID(id), Name: id, Kind: apps.KindWebApp, Command: slices.Clone(e.Program)}
+	if e.GuideMenu {
+		req.GuideMenu = filepath.Join(m.RuntimeDir, "owneet", "menu-"+id)
+		req.Command = append(req.Command, req.GuideMenu)
+	}
+	_, err := m.Apps.Launch(req)
+	return err
+}
+
 // prepareProfile creates the profile `id` the first time and sets Brave's settings in it, with
 // Widevine on or off.
 func (m *Manager) prepareProfile(id string, widevine bool) error {
@@ -250,9 +268,9 @@ func (m *Manager) prepareProfile(id string, widevine bool) error {
 	return nil
 }
 
-// closeAndForget closes the web app if it is open and deletes its profile: removing a web app
-// deletes its data on the console, the login included ([[optional-apps]]).
-func (m *Manager) closeAndForget(id string) {
+// closeAndForget closes the web app if it is open and, with forget, deletes its profile: removing a
+// web app deletes its data on the console, the login included ([[optional-apps]]).
+func (m *Manager) closeAndForget(id string, forget bool) {
 	if m.running(id) {
 		if err := m.Apps.Close(AppID(id)); err != nil {
 			m.Log.Warn("web app not closed before its removal", "id", id, "err", err)
@@ -262,7 +280,7 @@ func (m *Manager) closeAndForget(id string) {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
-	if m.ProfilesDir == "" {
+	if !forget || m.ProfilesDir == "" {
 		return
 	}
 	if err := os.RemoveAll(m.profile(id)); err != nil {

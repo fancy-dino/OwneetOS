@@ -119,6 +119,31 @@ logos; Pegasus's copyright notices are kept in its source code.
 | [Brave](https://github.com/brave/brave-browser) | Brave Software and contributors | MPL-2.0, and others | The engine behind the web apps (Netflix, YouTube, Spotify), installed only when the user picks one; Brave's official Linux build, redistributed unmodified (`brave-bin`) |
 | [Chromium](https://www.chromium.org) | The Chromium authors | BSD-3-Clause and others | The browser engine Brave is built on |
 
+## Emulation
+
+The app "Emulation", installed only when the user picks it: Arch Linux's packages, redistributed
+unmodified. The user brings their own games and system files; none comes with OwneetOS.
+
+| Project | Who | Licence | What it does in OwneetOS |
+|---|---|---|---|
+| [RetroArch](https://github.com/libretro/RetroArch) | The Libretro Team and contributors | GPL-3.0-only | The emulation program, with its own interface |
+| [RetroArch assets](https://github.com/libretro/retroarch-assets) | The Libretro Team and contributors | CC-BY-4.0 | RetroArch's menu images (Ozone, XMB), shown only inside RetroArch |
+| [libretro core info](https://github.com/libretro/libretro-core-info) | The Libretro Team and contributors | GPL-3.0 | What RetroArch knows of each core |
+| [Beetle PSX](https://github.com/libretro/beetle-psx-libretro) | The Mednafen Team, the Libretro Team and contributors | GPL-2.0-only | PlayStation |
+| [Play!](https://github.com/jpd002/Play-) | Jean-Philip Desjardins and contributors | MIT | PlayStation 2 |
+| [PPSSPP](https://github.com/hrydgard/ppsspp) | Henrik Rydgård and contributors | GPL-2.0-only | PlayStation Portable |
+| [Mesen](https://github.com/SourMesen/Mesen) | Sour and contributors | GPL-3.0-only | NES |
+| [bsnes](https://github.com/bsnes-emu/bsnes) | byuu (Near) and contributors | GPL-3.0-only | Super Nintendo |
+| [Mupen64Plus-Next](https://github.com/libretro/mupen64plus-libretro-nx) | The Mupen64Plus team, the Libretro Team and contributors | GPL-2.0-only | Nintendo 64 |
+| [SameBoy](https://github.com/LIJI32/SameBoy) | Lior Halphon and contributors | MIT | Game Boy and Game Boy Color |
+| [mGBA](https://github.com/mgba-emu/mgba) | Vicki Pfau and contributors | MPL-2.0 | Game Boy Advance |
+| [melonDS](https://github.com/melonDS-emu/melonDS) | Arisotura and contributors | GPL-2.0-only (as packaged) | Nintendo DS |
+| [Dolphin](https://github.com/dolphin-emu/dolphin) | The Dolphin Emulator Project | GPL-2.0-only | GameCube and Wii |
+| [BlastEm](https://www.retrodev.com/blastem/) | Michael Pavone and contributors | GPL-3.0-only | Mega Drive |
+| [Kronos](https://github.com/FCare/Kronos) | FCare, the Yabause team and contributors | GPL-2.0-only | Saturn |
+| [Flycast](https://github.com/flyinghead/flycast) | flyinghead and contributors | GPL-2.0-only | Dreamcast |
+| [Beetle PCE Fast](https://github.com/libretro/beetle-pce-fast-libretro) | The Mednafen Team, the Libretro Team and contributors | GPL-2.0-only | PC Engine |
+
 ## Fonts, sounds and design
 
 | Project | Who | Licence | Use |
@@ -155,8 +180,8 @@ machines for building and testing), [fontTools](https://github.com/fonttools/fon
 
 ## Trademarks
 
-Names such as Xbox, PlayStation, Steam, NVIDIA, AMD, Intel, Netflix, YouTube, Spotify and Brave are
-trademarks of their respective owners. They are used only to say what works with OwneetOS.
+Names such as Xbox, PlayStation, Nintendo, Sega, Steam, NVIDIA, AMD, Intel, Netflix, YouTube,
+Spotify, Brave and RetroArch are trademarks of their respective owners. They are used only to say what works with OwneetOS.
 OwneetOS is not affiliated with or endorsed by them, nor by any of the projects listed here.
 "Based on Arch Linux" is said with gratitude; OwneetOS is not an official Arch Linux project.
 

@@ -9,6 +9,10 @@
 // owneet-apps-install@ENGINE / owneet-apps-remove@ENGINE.service (a polkit rule allows only these
 // to the console user), which install from the ISO's bundled repository and write their result to
 // /run/owneet/apps.json. Every change is sent as "apps.catalog.changed".
+//
+// A program ([[optional-apps]], [[step-5.0.1-optional-gaming-apps]]: the emulation program) is
+// shown, installed and removed as a web app is, and opens a program of the system instead of a
+// web address; the interface treats both the same.
 package catalog
 
 import (
@@ -29,8 +33,9 @@ import (
 
 // Kinds of catalogue entries.
 const (
-	KindEngine = "engine" // hidden: installed with the first app that needs it
-	KindWebApp = "webapp" // shown on the home screen's Apps grid
+	KindEngine  = "engine"  // hidden: installed with the first app that needs it
+	KindWebApp  = "webapp"  // shown on the home screen's Apps grid
+	KindProgram = "program" // shown like a web app; opens a program of the system
 )
 
 // Errors returned to the API.
@@ -56,11 +61,18 @@ type Entry struct {
 	// SilentBehindHome: the app goes silent while the home screen is in front of it, as games do
 	// (video apps; music apps play on: owner, 2026-11-09)
 	SilentBehindHome bool `json:"silentBehindHome,omitempty"`
+	// Program: what a program starts (an absolute path and its arguments, kind "program")
+	Program []string `json:"program,omitempty"`
+	// GuideMenu: a short Guide press over the program opens its own menu, held Guide comes back to
+	// the console, as over Steam ([[guide-button]]); the program reads the request from a pipe
+	// whose path is its last argument
+	GuideMenu bool `json:"guideMenu,omitempty"`
 }
 
 // App is a web app as the interface shows it.
 type App struct {
 	ID        string `json:"id"`
+	Kind      string `json:"kind"` // webapp, program
 	NameKey   string `json:"nameKey"`
 	Icon      string `json:"icon"`
 	URL       string `json:"url"`
@@ -120,7 +132,9 @@ type Manager struct {
 	Session      func() (apps.Session, error)
 	ProfilesDir  string // $XDG_DATA_HOME/owneet/webapps: one folder per web app
 	ExtensionDir string // /usr/share/owneet/extension
-	ConsentFile  string // the users' consent to Google's terms for Widevine (widevine.go)
+	// RuntimeDir is $XDG_RUNTIME_DIR: the pipes of the programs that open their menu on Guide
+	RuntimeDir  string
+	ConsentFile string // the users' consent to Google's terms for Widevine (widevine.go)
 	// FetchWidevine gets Widevine into a profile before its first opening (nil: Brave with no
 	// window, widevine.go; tests replace it)
 	FetchWidevine func(profile string) error
@@ -166,6 +180,19 @@ func (m *Manager) load() ([]Entry, error) {
 		return nil, err
 	}
 	return f.Apps, nil
+}
+
+// shown: an entry the user sees (a web app or a program)
+func shown(kind string) bool { return kind == KindWebApp || kind == KindProgram }
+
+// findApp finds a web app or a program.
+func findApp(cat []Entry, id string) (Entry, bool) {
+	for _, e := range cat {
+		if e.ID == id && shown(e.Kind) {
+			return e, true
+		}
+	}
+	return Entry{}, false
 }
 
 func find(cat []Entry, id, kind string) (Entry, bool) {
@@ -254,11 +281,11 @@ func (m *Manager) status() Status {
 	}
 	pkgs, chosen := m.installedPackages(), m.chosen()
 	for _, e := range cat {
-		if e.Kind != KindWebApp {
+		if !shown(e.Kind) {
 			continue
 		}
 		missing := missingEngines(cat, e, pkgs)
-		app := App{ID: e.ID, NameKey: e.NameKey, Icon: e.Icon, URL: e.URL,
+		app := App{ID: e.ID, Kind: e.Kind, NameKey: e.NameKey, Icon: e.Icon, URL: e.URL,
 			Installed: slices.Contains(chosen, e.ID) && len(missing) == 0}
 		for _, eng := range missing {
 			app.SizeMiB += eng.SizeMiB
@@ -291,7 +318,7 @@ func (m *Manager) Install(id string) error {
 		m.mu.Unlock()
 		return err
 	}
-	app, ok := find(cat, id, KindWebApp)
+	app, ok := findApp(cat, id)
 	if !ok {
 		m.mu.Unlock()
 		return ErrUnknown
@@ -342,7 +369,8 @@ func (m *Manager) Remove(id string) error {
 		m.mu.Unlock()
 		return err
 	}
-	if _, ok := find(cat, id, KindWebApp); !ok {
+	entry, ok := findApp(cat, id)
+	if !ok {
 		m.mu.Unlock()
 		return ErrUnknown
 	}
@@ -351,8 +379,9 @@ func (m *Manager) Remove(id string) error {
 		return ErrBusy
 	}
 	m.mu.Unlock()
-	// outside the lock: closing the web app can take a few seconds
-	m.closeAndForget(id)
+	// outside the lock: closing the web app can take a few seconds; a program's data (its saves)
+	// stays in the user's folder
+	m.closeAndForget(id, entry.Kind == KindWebApp)
 	m.mu.Lock()
 	if m.busyID != "" {
 		m.mu.Unlock()
@@ -366,7 +395,7 @@ func (m *Manager) Remove(id string) error {
 	// engines still needed by another chosen web app stay
 	needed := map[string]bool{}
 	for _, c := range chosen {
-		if app, ok := find(cat, c, KindWebApp); ok {
+		if app, ok := findApp(cat, c); ok {
 			for _, r := range app.Requires {
 				needed[r] = true
 			}

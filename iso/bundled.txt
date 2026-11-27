@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The optional apps' packages the ISO carries but does not install ([[optional-apps]]): with the
+# dependencies the ISO lacks, they go into the offline repository /usr/share/owneet/bundled/, which
+# owneet-apps installs from when the user picks an app. Read by tools/build-iso and
+# tools/update-extras; every engine of packages/owneet-base/apps.json takes its packages from here.
+# One package per line. Licences and credits: CREDITS.md.
+
+# The web apps' engine ([[step-5.0.0-optional-web-apps]])
+brave-bin
+
+# The emulation program ([[step-5.0.1-optional-gaming-apps]], owner 2026-11-27): RetroArch, its menu
+# images (Ozone, which needs XMB's), the cores' descriptions, and the cores the owner approved, one
+# per console, each under a licence that allows commercial use and redistribution
+retroarch
+retroarch-assets-ozone
+retroarch-assets-xmb
+libretro-core-info
+libretro-beetle-psx-hw
+libretro-play
+libretro-ppsspp
+libretro-mesen
+libretro-bsnes
+libretro-mupen64plus-next
+libretro-sameboy
+libretro-mgba
+libretro-melonds
+libretro-dolphin
+libretro-blastem
+libretro-kronos
+libretro-flycast
+libretro-beetle-pce-fast

@@ -1,9 +1,11 @@
 {
-  "comment": "OwneetOS optional apps ([[step-5.0.0-optional-web-apps]]). One app per line: owneet-apps (root) reads the engines' packages without a JSON parser. Only the packages of an engine listed here can be installed or removed by the console user. Names are i18n keys; icons are generic letters (no third-party logos). silentBehindHome: the app goes silent while the home screen is in front of it; no web app has it: video and music apps play on behind the home screen and behind a game, so music or a podcast can go on while playing (owner, 2026-11-23).",
+  "comment": "OwneetOS optional apps ([[step-5.0.0-optional-web-apps]]; a program: [[step-5.0.1-optional-gaming-apps]]). An engine's packages are in iso/bundled.txt. One app per line: owneet-apps (root) reads the engines' packages without a JSON parser. Only the packages of an engine listed here can be installed or removed by the console user. Names are i18n keys; icons are generic letters (no third-party logos). silentBehindHome: the app goes silent while the home screen is in front of it; no web app has it: video and music apps play on behind the home screen and behind a game, so music or a podcast can go on while playing (owner, 2026-11-23); the emulation program has it, as games do.",
   "apps": [
     {"id": "brave", "kind": "engine", "packages": ["brave-bin"], "sizeMiB": 500},
     {"id": "netflix", "kind": "webapp", "nameKey": "app.netflix", "icon": "N", "requires": ["brave"], "url": "https://www.netflix.com/"},
     {"id": "youtube", "kind": "webapp", "nameKey": "app.youtube", "icon": "Y", "requires": ["brave"], "url": "https://www.youtube.com/tv", "userAgent": "Mozilla/5.0 (Linux; SMART-TV) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36"},
-    {"id": "spotify", "kind": "webapp", "nameKey": "app.spotify", "icon": "S", "requires": ["brave"], "url": "https://open.spotify.com/"}
+    {"id": "spotify", "kind": "webapp", "nameKey": "app.spotify", "icon": "S", "requires": ["brave"], "url": "https://open.spotify.com/"},
+    {"id": "retroarch", "kind": "engine", "packages": ["retroarch", "retroarch-assets-ozone", "retroarch-assets-xmb", "libretro-core-info", "libretro-beetle-psx-hw", "libretro-play", "libretro-ppsspp", "libretro-mesen", "libretro-bsnes", "libretro-mupen64plus-next", "libretro-sameboy", "libretro-mgba", "libretro-melonds", "libretro-dolphin", "libretro-blastem", "libretro-kronos", "libretro-flycast", "libretro-beetle-pce-fast"], "sizeMiB": 350},
+    {"id": "emulation", "kind": "program", "nameKey": "app.emulation", "icon": "E", "requires": ["retroarch"], "program": ["/usr/lib/owneet/owneet-emulation-run"], "guideMenu": true, "silentBehindHome": true}
   ]
 }

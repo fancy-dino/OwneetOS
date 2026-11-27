@@ -17,7 +17,9 @@ import (
 const testCatalog = `{"apps": [
     {"id": "brave", "kind": "engine", "packages": ["brave-bin"], "sizeMiB": 500},
     {"id": "netflix", "kind": "webapp", "nameKey": "app.netflix", "icon": "N", "requires": ["brave"], "url": "https://www.netflix.com/"},
-    {"id": "youtube", "kind": "webapp", "nameKey": "app.youtube", "icon": "Y", "requires": ["brave"], "url": "https://www.youtube.com/tv", "userAgent": "Mozilla/5.0 (Linux; SMART-TV) Test/1.0"}
+    {"id": "youtube", "kind": "webapp", "nameKey": "app.youtube", "icon": "Y", "requires": ["brave"], "url": "https://www.youtube.com/tv", "userAgent": "Mozilla/5.0 (Linux; SMART-TV) Test/1.0"},
+    {"id": "emu", "kind": "engine", "packages": ["emu-pkg"], "sizeMiB": 200},
+    {"id": "emulation", "kind": "program", "nameKey": "app.emulation", "icon": "E", "requires": ["emu"], "program": ["/usr/lib/owneet/emu-run"], "guideMenu": true}
 ]}`
 
 // fakeHelper plays owneet-apps: it installs or removes the engine's package in a fake pacman
@@ -40,6 +42,9 @@ func (f *fakeHelper) Start(unit string) error {
 		time.Sleep(5 * time.Millisecond)
 		state := "done"
 		pkg := filepath.Join(f.m.PacmanDB, "brave-bin-1.97.57-1")
+		if engine == "emu" {
+			pkg = filepath.Join(f.m.PacmanDB, "emu-pkg-1.0-1")
+		}
 		switch {
 		case f.fail:
 			state = "failed"
@@ -107,8 +112,14 @@ func waitIdle(t *testing.T, m *Manager) {
 func TestStatusListsOnlyWebApps(t *testing.T) {
 	m, _ := newManager(t)
 	st := m.Status()
-	if len(st.Apps) != 2 || !st.Allowed {
-		t.Fatalf("status %+v: want the two web apps, allowed", st)
+	if len(st.Apps) != 3 || !st.Allowed {
+		t.Fatalf("status %+v: want the two web apps and the program, allowed", st)
+	}
+	if a := app(st, "emulation"); a.Kind != KindProgram || a.SizeMiB != 200 || a.Icon != "E" {
+		t.Errorf("emulation %+v: want a program of 200 MiB", a)
+	}
+	if a := app(st, "netflix"); a.Kind != KindWebApp {
+		t.Errorf("netflix %+v: want a web app", a)
 	}
 	if a := app(st, "netflix"); a.Installed || a.SizeMiB != 500 || a.NameKey != "app.netflix" {
 		t.Errorf("netflix %+v: want not installed, 500 MiB", a)
@@ -246,6 +257,27 @@ func TestShippedCatalog(t *testing.T) {
 			}
 		}
 	}
+	// every engine's packages are carried by the ISO (iso/bundled.txt), and a program starts a program of
+	// the system
+	if list, err := os.ReadFile(filepath.Join("..", "..", "..", "iso", "bundled.txt")); err == nil {
+		bundled := map[string]bool{}
+		for _, l := range strings.Split(string(list), "\n") {
+			if l = strings.TrimSpace(l); l != "" && !strings.HasPrefix(l, "#") {
+				bundled[l] = true
+			}
+		}
+		for _, e := range cat {
+			for _, p := range e.Packages {
+				if !bundled[p] {
+					t.Errorf("engine %s: %s is not in iso/bundled.txt", e.ID, p)
+				}
+			}
+		}
+	}
+	if emu, ok := findApp(cat, "emulation"); !ok || emu.Kind != KindProgram || len(emu.Program) == 0 ||
+		!filepath.IsAbs(emu.Program[0]) || !emu.GuideMenu {
+		t.Errorf("emulation %+v: want a program with its menu on Guide", emu)
+	}
 	// YouTube's TV interface, which needs a TV user agent ([[step-5.3-youtube]])
 	if yt, ok := find(cat, "youtube", KindWebApp); !ok || !strings.HasSuffix(yt.URL, "/tv") || yt.UserAgent == "" {
 		t.Errorf("youtube %+v: want the TV interface with a user agent", yt)
@@ -266,7 +298,7 @@ func TestShippedCatalogSilentBehindHome(t *testing.T) {
 	}
 	m := &Manager{CatalogFile: path}
 	for id, want := range map[string]bool{"web:netflix": false, "web:youtube": false, "web:spotify": false,
-		"web:nope": false, "game-x": false} {
+		"web:nope": false, "game-x": false, "web:emulation": true} {
 		if got := m.SilentBehindHome(id); got != want {
 			t.Errorf("%s: %v, want %v", id, got, want)
 		}

@@ -2,7 +2,7 @@
 # Maintainer: OwneetOS project <https://github.com/fancy-dino/OwneetOS>
 
 pkgname=owneetd
-pkgver=0.28.1
+pkgver=0.29.0
 pkgrel=1
 pkgdesc="OwneetOS system daemon (controllers, Guide button, Wi-Fi, Bluetooth, audio, power, apps, display, web apps, the media player) and owneetctl"
 arch=('x86_64')
@@ -26,7 +26,7 @@ source=('owneetd-src.tar.gz' 'owneetd.service' '50-owneetd.preset'
         'owneet-screens-off@.service' '50-owneet-screens.rules' 'owneet-windows-run' 'owneet-dos-run' 'owneet-native-run' 'owneet-emulator-run' 'owneet-runtime-bashenv'
         "gamecontrollerdb-$_sdldb.txt::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/gamecontrollerdb.txt"
         "gamecontrollerdb-LICENSE-$_sdldb::https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/$_sdldb/LICENSE"
-        '50-owneet-time.rules')
+        '50-owneet-time.rules' 'owneet-emulation-run' 'emulation.cfg')
 sha256sums=('SKIP'
             'fb009505ebefa5dea078102c8b53950a8f0ace98b0d91ae5cedf2454d874d858'
             '2a0b34565694c894f522721980ee014d8ada9e5ca6e77be199aaf845e87170fb'
@@ -38,11 +38,13 @@ sha256sums=('SKIP'
             '05bc7440b8d91538fff92f01985f531bea55762a89abca80d719796d9ecd7446'
             '111e5e5f0d2ca335d3f8895f59054ef3b46bacc58dabd474457deb2419286b64'
             '4cb3a7a9f5ab461a5776613185985977c76e6b100c2bbaf05e15e94e383cbe72'
-            '895fa21c903272b8f6eea3d01c2536f1395e3e1a5e001aa2d9d19c103ae65a7e'
+            'af0576ce7762f453832534f04b71a80aaa8843dc2b12eb094d551e916c441c74'
             '323210396ef8775ed8643432be33725136800b33d2c4ff54470521e950a5f49d'
             'e606134678e6b3fdbdec9081289a1f0ba3e25d53b59b2aa3cdfe69bf491ad18f'
             '97f35b302b361680ec1e891e95d2d52097bb95abff361434916d99dc1305f127'
-            '14104a4f1982141dedc6b5ccdd76491f5f1a4c50cf138b68af6fb4177e401f1a')
+            '14104a4f1982141dedc6b5ccdd76491f5f1a4c50cf138b68af6fb4177e401f1a'
+            '1162a5d349f84d531c9c67cfda029938becc98d66a8d45e5634a63958d4792bb'
+            '3a07fd8261730106fed5ee8d8958c15ae48c654c9f9d3797574eaa0e159fdef8')
 
 _ldflags() {
   echo "-s -w -X github.com/fancy-dino/OwneetOS/daemon/internal/version.Version=$pkgver"
@@ -70,6 +72,9 @@ package() {
   install -Dm755 daemon/owneet-screens-off daemon/owneet-bridge -t "$pkgdir/usr/lib/owneet/"
   install -Dm755 owneet-windows-run owneet-dos-run owneet-native-run owneet-emulator-run -t "$pkgdir/usr/lib/owneet/"
   install -Dm644 owneet-runtime-bashenv -t "$pkgdir/usr/lib/owneet/"
+  # The emulation program, an optional app ([[optional-apps]]): how it starts, the console's settings
+  install -Dm755 owneet-emulation-run -t "$pkgdir/usr/lib/owneet/"
+  install -Dm644 emulation.cfg -t "$pkgdir/usr/share/owneet/"
   # Testers: owneet-xprobe (gamescope's windows and focus), recorded by owneet-testlog every 10 s
   # without anything copied onto a stick (2026-10-17)
   install -Dm755 daemon/owneet-xprobe -t "$pkgdir/usr/lib/owneet/"

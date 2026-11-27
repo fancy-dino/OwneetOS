@@ -1,0 +1,35 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Starts the emulation program, an optional app of the console ([[optional-apps]],
+# [[step-5.0.1-optional-gaming-apps]]): RetroArch with its own interface, as Steam opens with its
+# own. Started by owneetd (the app "emulation" of /usr/share/owneet/apps.json), in its own service.
+#
+#   owneet-emulation-run PIPE
+#
+# PIPE: the pipe owneetd writes to when Guide is pressed briefly over the program ([[guide-button]]):
+# made here, read by RetroArch as its input, where it takes commands ("MENU_TOGGLE" opens or closes
+# its menu). RetroArch never sees Guide itself. The console's settings (emulation.cfg) are added to
+# the user's own at every start; everything else is the user's, kept by RetroArch in
+# ~/.config/retroarch.
+
+set -u
+
+if [[ $# -ne 1 || "$1" != /* ]]; then
+    echo "usage: owneet-emulation-run PIPE" >&2
+    exit 2
+fi
+pipe="$1"
+mkdir -p -- "$(dirname -- "$pipe")" || exit 3
+rm -f -- "$pipe"
+mkfifo -m 600 -- "$pipe" || exit 3
+# Opened for reading and writing: the pipe stays open while the program runs, so owneetd's request
+# never waits for a reader nor fails
+exec 3<> "$pipe"
+
+# The controllers the console knows, also for SDL inside RetroArch
+if [[ -f /usr/share/owneet/gamecontrollerdb.txt ]]; then
+    export SDL_GAMECONTROLLERCONFIG_FILE=/usr/share/owneet/gamecontrollerdb.txt
+fi
+cd -- "$HOME" || cd /
+exec retroarch --appendconfig=/usr/share/owneet/emulation.cfg <&3 3<&-

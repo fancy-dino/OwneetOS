@@ -82,8 +82,8 @@ info "out/update-repo/x86_64: $(find "$OUT" -name '*.pkg.tar.zst' | wc -l) packa
 # /usr/share/owneet/bundled/, but a test PC installed from an older ISO has none (FrankenPC,
 # 2026-11-22: no web app could be installed). The same bundle, as the ISO build makes it (BUNDLED
 # with what the test PC lacks and the update does not install), goes into out/update-repo/bundled;
-# owneet-update copies it into place on the test PC.
-BUNDLED=(brave-bin)
+# owneet-update copies it into place on the test PC. The packages: iso/bundled.txt.
+mapfile -t BUNDLED < <(grep -vE '^\s*(#|$)' "$ROOT/iso/bundled.txt")
 BUNDLE_OUT="$ROOT/out/update-repo/bundled"
 sudo rm -rf "$BUNDLE_OUT"
 mkdir -p "$BUNDLE_OUT" "$WORK/bundle-cache"

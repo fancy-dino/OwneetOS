@@ -291,3 +291,46 @@ func TestRemoveClosesTheWebAppAndDeletesItsData(t *testing.T) {
 		t.Errorf("youtube's profile still there (%v)", err)
 	}
 }
+
+// The emulation program (owner, 2026-11-27): opened as a program with the pipe of its menu, no
+// question about Google's terms; removed, its data (saves) stays.
+func TestProgramOpensWithItsMenuPipeAndKeepsItsData(t *testing.T) {
+	m, fa := newOpenManager(t, ":0")
+	m.ConsentFile = filepath.Join(t.TempDir(), "none.json") // Google's terms never accepted
+	m.RuntimeDir = "/run/user/1000"
+	if _, err := m.Open("emulation"); !errors.Is(err, ErrNotInstalled) {
+		t.Fatalf("not installed: %v", err)
+	}
+	if err := m.Install("emulation"); err != nil {
+		t.Fatal(err)
+	}
+	waitIdle(t, m)
+	if !app(m.Status(), "emulation").Installed {
+		t.Fatal("not installed")
+	}
+	if preparing, err := m.Open("emulation"); err != nil || preparing {
+		t.Fatalf("Open: %v, preparing %v", err, preparing)
+	}
+	req := fa.running["web:emulation"]
+	pipe := "/run/user/1000/owneet/menu-emulation"
+	if req.Kind != apps.KindWebApp || req.GuideMenu != pipe || !slices.Equal(req.Command, []string{"/usr/lib/owneet/emu-run", pipe}) {
+		t.Fatalf("launched %+v", req)
+	}
+	data := filepath.Join(m.ProfilesDir, "emulation")
+	if err := os.MkdirAll(data, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Remove("emulation"); err != nil {
+		t.Fatal(err)
+	}
+	waitIdle(t, m)
+	if !slices.Equal(fa.closed, []string{"web:emulation"}) {
+		t.Errorf("closed %v", fa.closed)
+	}
+	if _, err := os.Stat(data); err != nil {
+		t.Errorf("the program's data was deleted: %v", err)
+	}
+	if app(m.Status(), "emulation").Installed {
+		t.Error("still installed")
+	}
+}

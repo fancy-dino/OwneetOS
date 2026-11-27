@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 	"unicode"
 
@@ -81,6 +82,8 @@ type App struct {
 	// has shown a window since (launchers.go)
 	gameEndedAt         time.Time
 	launcherWindowAfter bool
+	// guideMenu: the pipe of a program that opens its menu on a short Guide press (LaunchRequest)
+	guideMenu string
 }
 
 // settleChecks is how many once-a-second checks a settling app's window must stay before it is shown.
@@ -129,6 +132,10 @@ type LaunchRequest struct {
 	// its programs runs, instead of ending with the first one. Only for the games the list of known
 	// games names (owner, 2026-11-12, [[games-on-disk]]).
 	Handover bool `json:"handover,omitempty"`
+	// GuideMenu: a pipe the program reads requests from; a short Guide press over it asks it to
+	// open its own menu, held Guide comes back to the console, as over Steam ([[guide-button]]).
+	// owneetd's own apps only (the emulation program, [[optional-apps]]).
+	GuideMenu string `json:"-"`
 }
 
 // Errors returned to the API.
@@ -247,8 +254,11 @@ type Manager struct {
 	// closing. Steam asked for while it closes starts again after it (Steam)
 	steamGone chan struct{}
 	hold      *time.Timer // cage: Guide held
-	homeHold  *time.Timer // gamescope: Guide held over Steam
-	homePID   int         // of the session being watched
+	homeHold  *time.Timer // gamescope: Guide held over Steam or a program with its own menu
+	// menuPipe: Guide went down over a program with its own menu; released before homeHold fires,
+	// the program is asked to open its menu
+	menuPipe string
+	homePID  int // of the session being watched
 	// closed once no button is held (SetReleased)
 	released func() <-chan struct{}
 	// apps besides games that go silent behind the home screen (SetSilent)
@@ -720,7 +730,7 @@ func (m *Manager) Launch(req LaunchRequest) (App, error) {
 		}
 	}
 	app := &App{ID: req.ID, Name: req.Name, Kind: req.Kind, Started: time.Now(), unit: UnitName(req.ID),
-		appID: m.newAppID(req.ID), settle: req.ID == SteamID, handover: req.Handover}
+		appID: m.newAppID(req.ID), settle: req.ID == SteamID, handover: req.Handover, guideMenu: req.GuideMenu}
 	m.apps[app.ID] = app // reserved while starting
 	m.order = append(m.order, app.ID)
 	m.mu.Unlock()
@@ -1093,12 +1103,27 @@ func (m *Manager) Guide(down bool) {
 	case "gamescope":
 		m.mu.Lock()
 		m.init()
+		short := ""
 		if m.homeHold != nil {
-			m.homeHold.Stop()
+			if m.homeHold.Stop() && !down {
+				short = m.menuPipe // released before the hold: a short press
+			}
 			m.homeHold = nil
 		}
+		m.menuPipe = ""
 		m.mu.Unlock()
+		if short != "" {
+			m.askMenu(short)
+		}
 		if !down {
+			return
+		}
+		if pipe := m.menuOnScreen(sess); pipe != "" {
+			// a short press opens the program's own menu (on release); held, the console
+			m.mu.Lock()
+			m.menuPipe = pipe
+			m.homeHold = time.AfterFunc(m.HomeHold, func() { m.heldToHome(sess) })
+			m.mu.Unlock()
 			return
 		}
 		if m.steamOnScreen(sess) {
@@ -1139,15 +1164,55 @@ func (m *Manager) steamOnScreen(sess Session) bool {
 	return a != nil && (a.ID == SteamID || a.reaper != 0)
 }
 
-// heldToHome: Guide held over Steam: the console's home screen; Steam and its game keep running.
+// menuOnScreen: the pipe of the program on screen that opens its own menu on Guide, or "".
+func (m *Manager) menuOnScreen(sess Session) string {
+	f := m.focus(sess)
+	if f == nil {
+		return ""
+	}
+	focused, err := f.Focused()
+	if err != nil {
+		return ""
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if a := m.appOfID(focused); a != nil {
+		return a.guideMenu
+	}
+	return ""
+}
+
+// menuRequest is what a program with its own menu reads from its pipe: its "open or close the
+// menu" command (the emulation program's standard-input commands).
+const menuRequest = "MENU_TOGGLE\n"
+
+// askMenu asks the program reading the pipe to open its menu. Never blocks: a pipe nobody reads
+// any more (the program has ended) is left alone.
+func (m *Manager) askMenu(pipe string) {
+	f, err := os.OpenFile(pipe, os.O_WRONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		m.Log.Warn("cannot ask the program for its menu", "pipe", pipe, "err", err)
+		return
+	}
+	defer f.Close()
+	if _, err := f.WriteString(menuRequest); err != nil {
+		m.Log.Warn("cannot ask the program for its menu", "pipe", pipe, "err", err)
+		return
+	}
+	m.Log.Info("Guide over a program with its own menu: menu asked")
+}
+
+// heldToHome: Guide held over Steam or a program with its own menu: the console's home screen;
+// Steam, its game or the program keep running.
 func (m *Manager) heldToHome(sess Session) {
 	m.mu.Lock()
 	m.homeHold = nil
+	m.menuPipe = ""
 	m.mu.Unlock()
-	if !m.steamOnScreen(sess) {
+	if !m.steamOnScreen(sess) && m.menuOnScreen(sess) == "" {
 		return
 	}
-	m.Log.Info("Guide held over Steam: home screen")
+	m.Log.Info("Guide held over Steam or a program with its own menu: home screen")
 	m.toggle(sess)
 }
 
