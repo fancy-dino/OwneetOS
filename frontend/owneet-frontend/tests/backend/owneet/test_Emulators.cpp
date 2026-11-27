@@ -224,6 +224,17 @@ private slots:
         }
         QVERIFY(e.prepare(&game, "Pad Three"));                               // the user's: never touched
         QCOMPARE(read(), QByteArray("Device = the user's\n"));
+        {
+            QFile f(ini);
+            QVERIFY(f.open(QIODevice::WriteOnly));                            // empty, made by the emulator
+        }
+        QVERIFY(e.prepare(&game, "Pad Three"));                               // nobody's choice: written
+        QCOMPARE(read(), QByteArray("Device = Pad Three\n"));
+        {
+            QFile f(ini);
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write("Device = the user's\n");
+        }
         // the user's own choice of how it starts wins
         e.setOptions(&game, "BoxStation-1.0.AppImage", "");
         QVERIFY(e.prepare(&game, "Pad One"));
@@ -274,11 +285,66 @@ private slots:
         put("[video]\nscale=2");
         QVERIFY(e.prepare(&game, "Pad One"));
         QCOMPARE(read(), QByteArray("[video]\nscale=2\n[input.pad]\nkeyA=0\nkeyUp=-1\nhat0Up=6\n"));
+        // an empty section: nobody's choice, filled
+        put("[input.pad]\n\n[audio]\nvolume=5\n");
+        QVERIFY(e.prepare(&game, "Pad One"));
+        QCOMPARE(read(), QByteArray("[input.pad]\nkeyA=0\nkeyUp=-1\nhat0Up=6\n[audio]\nvolume=5\n"));
         // no controller: nothing written, nothing in the environment
         put("");
         QVERIFY(e.prepare(&game, QString()));
         QCOMPARE(read(), QByteArray());
         QVERIFY(game.launchCmd().startsWith("/usr/lib/owneet/owneet-emulator-run "));
+        owneet::Emulators::setTestPad({});
+        qunsetenv("OWNEET_EMULATOR_CARDS");
+    }
+
+    // Settings only for a controller like this: its directions a hat's, or buttons
+    void conditions()
+    {
+        QTemporaryDir cards;
+        QFile card(cards.filePath("dir.json"));
+        QVERIFY(card.open(QIODevice::WriteOnly));
+        card.write(R"({ "match": ["diremu*"], "settings": [
+            { "path": "~/.diremu/pad.toml", "section": "Pad", "when": { "pad.up": "-1", "pad.hat": "0" }, "text": "Up = 257\n" },
+            { "path": "~/.diremu/pad.toml", "section": "Pad", "when": { "pad.up": "!-1" }, "text": "Up = {pad.up}\n" } ] })");
+        card.close();
+        qputenv("OWNEET_EMULATOR_CARDS", cards.path().toUtf8());
+        file("EMULAZIONE/DirBox/Emulators/diremu.AppImage");
+        file("EMULAZIONE/DirBox/Games/Copper Reef.img");
+        model::Game game(QStringLiteral("Copper Reef"));
+        QVariantMap& extra = game.extraMapMut();
+        extra.insert("emu.console", m_disk.filePath("EMULAZIONE/DirBox"));
+        extra.insert("emu.path", m_disk.filePath("EMULAZIONE/DirBox/Games/Copper Reef.img"));
+        extra.insert("emu.files", QStringList(m_disk.filePath("EMULAZIONE/DirBox/Games/Copper Reef.img")));
+        const QString toml = m_home.filePath(".diremu/pad.toml");
+        const auto read = [&toml]() { QFile f(toml); f.open(QIODevice::ReadOnly); return f.readAll(); };
+        owneet::Emulators e;
+        owneet::Emulators::setTestPad({ { "pad.up", "-1" }, { "pad.hat", "0" } });
+        QVERIFY(e.prepare(&game, "Pad One"));
+        QCOMPARE(read(), QByteArray("[Pad]\nUp = 257\n"));
+        owneet::Emulators::setTestPad({ { "pad.up", "11" }, { "pad.hat", "-1" } });
+        QVERIFY(e.prepare(&game, "Pad One"));                               // its own: written again
+        QCOMPARE(read(), QByteArray("[Pad]\nUp = 11\n"));
+        QFile::remove(toml);
+        owneet::Emulators::setTestPad({ { "pad.up", "-1" }, { "pad.hat", "1" } });
+        QVERIFY(e.prepare(&game, "Pad One"));                               // like neither: nothing
+        QVERIFY(!QFile::exists(toml));
+        // "add": false: a section filled where it is, or in a new file, never added to a file without it
+        QVERIFY(card.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        card.write(R"({ "match": ["diremu*"], "settings": [
+            { "path": "~/.diremu/pad.toml", "section": "Pad", "add": false, "text": "Up = {pad.up}\n" } ] })");
+        card.close();
+        owneet::Emulators::setTestPad({ { "pad.up", "11" }, { "pad.hat", "-1" } });
+        {
+            QFile f(toml);
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write("Other = 1\n");
+        }
+        QVERIFY(e.prepare(&game, "Pad One"));
+        QCOMPARE(read(), QByteArray("Other = 1\n"));
+        QFile::remove(toml);
+        QVERIFY(e.prepare(&game, "Pad One"));
+        QCOMPARE(read(), QByteArray("[Pad]\nUp = 11\n"));
         owneet::Emulators::setTestPad({});
         qunsetenv("OWNEET_EMULATOR_CARDS");
     }

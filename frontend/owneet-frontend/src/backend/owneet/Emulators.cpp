@@ -893,6 +893,18 @@ void Emulators::writeSettings(const QJsonObject& card, const QString& padName)
         QString text = s.value(QStringLiteral("text")).toString();
         if (path.isEmpty() || !QDir::isAbsolutePath(path) || !fill_pad(text, pad))
             continue;                       // no controller yet: written when there is one
+        // only for a controller like this ("when": {"pad.up": "-1"}; "!" before the value: not that one)
+        bool fits = true;
+        const QJsonObject when = s.value(QStringLiteral("when")).toObject();
+        for (auto it = when.begin(); fits && it != when.end(); ++it) {
+            QString want = it.value().toString();
+            const bool other = want.startsWith(QChar('!'));
+            if (other)
+                want.remove(0, 1);
+            fits = (pad.value(it.key()) == want) != other;
+        }
+        if (!fits)
+            continue;
         if (!section.isEmpty() && !text.endsWith(QChar('\n')))
             text += QChar('\n');
         // the emulator's own first settings, which it makes by itself: replaced as if there were none
@@ -910,10 +922,16 @@ void Emulators::writeSettings(const QJsonObject& card, const QString& padName)
         }
         const QPair<int, int> span = section.isEmpty() ? qMakePair(0, current.size()) : section_span(current, section);
         const bool there = exists && span.first >= 0;
+        // "add": false, a section only filled where it is, or in a new file: an emulator that loses all its settings on a
+        // file it cannot read may keep that part of it in another form
+        if (exists && !there && !section.isEmpty() && !s.value(QStringLiteral("add")).toBool(true))
+            continue;
         const QString mine = there ? current.mid(span.first, span.second - span.first) : QString();
         if (there) {
             const bool own = sha1(mine.toUtf8()) == written.value(key).toString();
-            if (!own && !(hasRule && untouched.match(mine).hasMatch()))
+            // an empty file or section is nobody's choice: an emulator may make one at its first start (open item 34)
+            const bool empty = mine.trimmed().isEmpty();
+            if (!own && !empty && !(hasRule && untouched.match(mine).hasMatch()))
                 continue;                   // the user's own: never touched
             if (mine == text)
                 continue;

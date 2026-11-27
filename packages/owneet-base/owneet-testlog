@@ -78,9 +78,48 @@ PY
     # did not say whether they played any stream): the outputs, the default one, the streams and their programs
     echo "--- sound: outputs and streams"
     local uid; uid="$(id -u owneet)"
-    runuser -u owneet -- env XDG_RUNTIME_DIR="/run/user/$uid" wpctl status 2>&1 | sed -n '/^Audio/,/^Video/p' | head -40
-    runuser -u owneet -- env XDG_RUNTIME_DIR="/run/user/$uid" pactl list sink-inputs 2>&1 \
-        | grep -E 'Sink Input #|Sink:|Mute:|Volume: |application\.(name|process\.id|process\.binary)|media\.name' | head -40
+    # (2026-11-27, open item 34: 40 lines were filled by the interface's own streams) the outputs; then every
+    # program PipeWire knows, with its streams, one line each, the interface's counted only
+    runuser -u owneet -- env XDG_RUNTIME_DIR="/run/user/$uid" wpctl status 2>&1 | sed -n '/^Audio/,/Streams:/p' | head -30
+    runuser -u owneet -- env XDG_RUNTIME_DIR="/run/user/$uid" pw-dump 2>/dev/null | python3 -I -c '
+import json, sys
+try:
+    objs = json.load(sys.stdin)
+except ValueError:
+    sys.exit("pw-dump: nothing")
+props = lambda o: (o.get("info") or {}).get("props") or {}
+mine = 0
+for o in objs:
+    p = props(o)
+    kind = o.get("type", "").rsplit(":", 1)[-1]
+    if kind == "Client":
+        what = "client %s pid=%s %s (%s)" % (o.get("id"), p.get("application.process.id", "?"),
+            p.get("application.process.binary", "?"), p.get("client.api") or p.get("pipewire.protocol", "?"))
+    elif kind == "Node" and str(p.get("media.class", "")).startswith("Stream/"):
+        what = "stream %s client=%s pid=%s %s %s %s state=%s" % (o.get("id"), p.get("client.id", "?"),
+            p.get("application.process.id", "?"), p.get("application.process.binary", "?"), p.get("media.class"),
+            p.get("node.name", "?"), (o.get("info") or {}).get("state", "?"))
+    else:
+        continue
+    if "owneet-frontend" in what:
+        mine += 1
+    else:
+        print(what)
+print("the interface: %d clients and streams" % mine)' 2>&1 | head -40
+    # each other program of the console user that has a sound library loaded or a sound card open: which
+    # libraries (bundled or the system's) and whether it plays to the card directly, past PipeWire
+    local pid exe libs cards
+    for pid in $(pgrep -u owneet); do
+        exe="$(readlink "/proc/$pid/exe" 2>/dev/null)" || continue
+        case "${exe##*/}" in
+            owneet-frontend|owneetd|pipewire*|wireplumber|gamescope*|Xwayland|systemd|dbus-*|bash|sleep|steam*|brave*) continue ;;
+        esac
+        libs="$(grep -o -E '/[^ ]*/lib(pulse|pulsecommon[^/]*|asound|pipewire-[0-9.]+|SDL[23]?[^/]*|openal|jack|cubeb)\.so[^ ]*' \
+            "/proc/$pid/maps" 2>/dev/null | sort -u | paste -sd' ')"
+        cards="$(for fd in "/proc/$pid/fd/"*; do readlink "$fd"; done 2>/dev/null | grep '^/dev/snd/' | sort -u | paste -sd' ')"
+        [[ -n "$libs$cards" ]] || continue
+        echo "program $pid ${exe}: ${libs:-no sound library}${cards:+; cards: $cards}" | cut -c1-600
+    done
     echo "--- /v1/steam"; owneetd_get /v1/steam
     echo "--- disks (games on a USB disk, 4.3)"
     lsblk -o NAME,TRAN,FSTYPE,LABEL,SIZE,RO,MOUNTPOINTS 2>&1

@@ -34,8 +34,11 @@ before. `OWNEET_EMULATOR_CARDS` (folders, separated by `:`) replaces the place, 
   means it is installed; `install`, the emulator's options that install it (`{file}`), run by themselves before the first game.
 - `settings`: files written only when they are not there, when they are as the console wrote them, or when they are still
   the emulator's own first settings (`replaceWhen`, a regular expression: e.g. its keyboard); the user's changes are never
-  overwritten. `section`: only that section of an ini file (added when it is not there; the rest is kept). `~/` is the home
-  folder. The first controller, as SDL sees it on the console: `{pad.name}`; the numbers of its own buttons in the standard
+  overwritten; an empty file or section is nobody's choice (an emulator may make one at its first start). `section`: only
+  that section of an ini or TOML file (added when it is not there; the rest is kept); `"add": false`, never added to a file
+  that has no such section (an emulator that drops all its settings when it cannot read its file). `when`: only for a
+  controller like this, e.g. `{"pad.up": "-1", "pad.hat": "0"}` (its directions on hat 0), `{"pad.up": "!-1"}` (`!`: any
+  value but that one). `~/` is the home folder. The first controller, as SDL sees it on the console: `{pad.name}`; the numbers of its own buttons in the standard
   layout `{pad.a}` `{pad.b}` `{pad.x}` `{pad.y}` `{pad.back}` `{pad.start}` `{pad.lb}` `{pad.rb}` `{pad.ls}` `{pad.rs}`
   `{pad.up}` `{pad.down}` `{pad.left}` `{pad.right}` (-1 when a direction is a hat's: `{pad.hat}`), of its axes `{pad.lx}`
   `{pad.ly}` `{pad.rx}` `{pad.ry}`, and `{pad.hidapi}` (1 when SDL drives it itself). With no controller they wait.
