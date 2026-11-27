@@ -96,9 +96,12 @@ for o in objs:
         what = "client %s pid=%s %s (%s)" % (o.get("id"), p.get("application.process.id", "?"),
             p.get("application.process.binary", "?"), p.get("client.api") or p.get("pipewire.protocol", "?"))
     elif kind == "Node" and str(p.get("media.class", "")).startswith("Stream/"):
-        what = "stream %s client=%s pid=%s %s %s %s state=%s" % (o.get("id"), p.get("client.id", "?"),
+        # (2026-11-27, open item 34: the silent emulators played muted streams) its mute and volume
+        vol = (((o.get("info") or {}).get("params") or {}).get("Props") or [{}])[0]
+        what = "stream %s client=%s pid=%s %s %s %s state=%s mute=%s volumes=%s" % (o.get("id"), p.get("client.id", "?"),
             p.get("application.process.id", "?"), p.get("application.process.binary", "?"), p.get("media.class"),
-            p.get("node.name", "?"), (o.get("info") or {}).get("state", "?"))
+            p.get("node.name", "?"), (o.get("info") or {}).get("state", "?"), vol.get("mute", "?"),
+            vol.get("channelVolumes", "?"))
     else:
         continue
     if "owneet-frontend" in what:
